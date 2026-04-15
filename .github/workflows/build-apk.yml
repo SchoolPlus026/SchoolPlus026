@@ -1,0 +1,54 @@
+name: Build Android APK (Headless)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Allows you to manually click "Run workflow" from GitHub UI
+
+jobs:
+  build-apk:
+    name: Build React + Capacitor APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📥 Install Dependencies
+        run: npm install
+
+      - name: 🏗️ Build React Vite Web Assets
+        run: npm run build
+        
+      - name: 🚀 Add & Sync Capacitor Android Platform
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: ☕ Setup Java JDK 17 (Required for Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: 🔨 Grant Execute Permission to Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: ⚙️ Compile Android Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: 📤 Upload APK Artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: SaaS-School-App-Debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 5
