@@ -31,7 +31,6 @@ import TimetableViewer from './features/timetable/TimetableViewer';
 import LeavesManager from './features/leaves/LeavesManager';
 import GalleryManager from './features/gallery/GalleryManager';
 import DashboardHero from './components/DashboardHero';
-import AdminDashboard from './features/dashboard/AdminDashboard';
 
 export default function App() {
   const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
