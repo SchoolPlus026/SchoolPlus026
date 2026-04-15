@@ -1,96 +1,64 @@
-import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
-import { LayoutDashboard, Calendar, Bell, Clock, User, LogOut, Menu, X, ClipboardList } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
+import GlobalBackButton from '../components/GlobalBackButton';
 
 export default function TeacherLayout() {
   const { user, schoolSettings } = useAppStore();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login', { replace: true });
   };
 
-  const menuItems = [
-    { name: 'Dashboard', path: '/teacher', icon: <LayoutDashboard size={20} />, exact: true },
-    { name: 'Attendance', path: '/teacher/attendance', icon: <ClipboardList size={20} /> },
-    { name: 'Timetable', path: '/teacher/timetable', icon: <Clock size={20} /> },
-    { name: 'Notices', path: '/teacher/notices', icon: <Bell size={20} /> },
-    { name: 'Events', path: '/teacher/events', icon: <Calendar size={20} /> },
-    { name: 'Profile', path: '/teacher/profile', icon: <User size={20} /> },
-  ];
-
   return (
-    <div className="flex h-screen bg-background text-text overflow-hidden">
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setSidebarOpen(false)}></div>
-      )}
-
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-surface border-r border-glass transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out`}>
-        <div className="flex items-center justify-between h-16 px-4 border-b border-glass">
-          <div className="flex items-center gap-3">
-            {schoolSettings?.logo_url ? (
-              <img src={schoolSettings.logo_url} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
-            ) : (
-              <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center font-bold text-white shadow-lg">❖</div>
-            )}
-            <span className="font-semibold text-lg truncate max-w-[140px] text-white tracking-tight">{schoolSettings?.name || 'School App'}</span>
-          </div>
-          <button className="md:hidden text-muted hover:text-white" onClick={() => setSidebarOpen(false)}>
-            <X size={24} />
+    <div className="flex flex-col min-h-screen bg-slate-50 text-text overflow-hidden">
+      {/* Top Header */}
+      <header className="h-16 flex items-center justify-between px-4 sm:px-8 bg-white border-b border-border shadow-sm">
+        <div className="flex items-center gap-3">
+          {schoolSettings?.logo_url ? (
+            <img src={schoolSettings.logo_url} alt="Logo" className="w-10 h-10 rounded-lg object-contain bg-white shadow-sm" />
+          ) : (
+            <div className="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white shadow-sm">
+              T
+            </div>
+          )}
+          <Link to="/teacher" className="font-bold text-xl tracking-tight text-text hover:text-indigo-600 transition-colors">
+            {schoolSettings?.name || 'Teacher Portal'}
+          </Link>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium text-muted hidden sm:block bg-slate-100 px-3 py-1.5 rounded-full border border-border">
+            {user?.email}
+          </span>
+          <Link 
+            to="/teacher/profile"
+            className="p-2 text-muted hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-colors"
+            title="Profile"
+          >
+            <User size={20} />
+          </Link>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-red-500 hover:text-white hover:bg-red-500 rounded-lg transition-all"
+          >
+            <LogOut size={18} />
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
+      </header>
 
-        <nav className="p-4 space-y-1.5 overflow-y-auto h-[calc(100vh-4rem)]">
-          <p className="px-3 text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Teacher Panel</p>
-          {menuItems.map((item) => (
-            <NavLink
-              onClick={() => setSidebarOpen(false)}
-              key={item.name}
-              to={item.path}
-              end={item.exact}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${
-                  isActive ? 'bg-accent/10 text-accent font-semibold shadow-inner' : 'text-slate-400 hover:bg-glass hover:text-slate-100'
-                }`
-              }
-            >
-              {item.icon}
-              {item.name}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 flex items-center justify-between px-4 sm:px-6 bg-surface/40 border-b border-glass backdrop-blur-lg">
-          <div className="flex items-center gap-4">
-            <button className="md:hidden text-slate-300 hover:text-white transition-colors" onClick={() => setSidebarOpen(true)}>
-              <Menu size={24} />
-            </button>
-            <h1 className="text-xl font-semibold hidden sm:block text-white">Teacher Portal</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-slate-400 hidden sm:block bg-glass px-3 py-1 rounded-full">{user?.email}</span>
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 flex-shrink-0 py-1.5 text-sm font-semibold text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-all"
-            >
-              <LogOut size={16} />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto h-full">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto h-full">
+          <GlobalBackButton />
+          <Outlet />
+        </div>
+      </main>
     </div>
   );
 }

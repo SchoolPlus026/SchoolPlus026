@@ -12,6 +12,11 @@ export const useAppStore = create((set) => ({
   setUserAndRole: (user, role) => set({ user, role }),
   setSchoolSettings: (settings) => set({ schoolSettings: settings }),
   
+  // Update classes dynamically in state after an admin edit
+  setClasses: (newClasses) => set((state) => ({
+    schoolSettings: { ...state.schoolSettings, classes: newClasses }
+  })),
+  
   // Logout action resets everything
   clearSession: () => set({ user: null, role: null, schoolSettings: null }),
 }));

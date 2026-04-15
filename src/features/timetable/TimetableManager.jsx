@@ -16,16 +16,8 @@ export default function TimetableManager() {
   const [targetClass, setTargetClass] = useState('');
   const [selectedTeacher, setSelectedTeacher] = useState('');
 
-  // Fetch unique classes organically from user assignment matrix
-  const { data: classes } = useQuery({
-    queryKey: ['classes-timetable', schoolSettings?.school_id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('users').select('class').eq('role', 'student').not('class', 'is', null);
-      if (error) throw error;
-      return [...new Set(data.map(d => d.class))].sort();
-    },
-    enabled: !!schoolSettings?.school_id
-  });
+  // Classes now come from schoolSettings
+  const classes = schoolSettings?.classes || [];
 
   // Fetch verified targeted Teachers list
   const { data: teachers } = useQuery({

@@ -39,7 +39,7 @@ export default function AdminFeeManager() {
     enabled: !!schoolSettings?.school_id
   });
 
-  const uniqueClasses = students ? [...new Set(students.map(s => s.class).filter(Boolean))].sort() : [];
+  const uniqueClasses = schoolSettings?.classes || [];
 
   // 2. Fetch Fees master ledgers
   const { data: feesData, isLoading: feesLoading } = useQuery({

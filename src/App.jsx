@@ -28,6 +28,10 @@ import NoticeBoard from './features/notices/NoticeBoard';
 
 import TimetableManager from './features/timetable/TimetableManager';
 import TimetableViewer from './features/timetable/TimetableViewer';
+import LeavesManager from './features/leaves/LeavesManager';
+import GalleryManager from './features/gallery/GalleryManager';
+import DashboardHero from './components/DashboardHero';
+import AdminDashboard from './features/dashboard/AdminDashboard';
 
 export default function App() {
   const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
@@ -91,8 +95,8 @@ export default function App() {
           <Route path="timetable" element={<TimetableManager />} />
           <Route path="notices" element={<NoticeManager />} />
           <Route path="events" element={<div className="p-6 bg-white border border-border rounded-xl">Calendar Events Coming Soon...</div>} />
-          <Route path="leaves" element={<div className="p-6 bg-white border border-border rounded-xl">Leaves Management Coming Soon...</div>} />
-          <Route path="gallery" element={<div className="p-6 bg-white border border-border rounded-xl">Gallery Coming Soon...</div>} />
+          <Route path="leaves" element={<LeavesManager />} />
+          <Route path="gallery" element={<GalleryManager />} />
           <Route path="reports" element={<div className="p-6 bg-white border border-border rounded-xl">Reports Coming Soon...</div>} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
@@ -102,11 +106,17 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
         <Route path="/teacher" element={<TeacherLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<div className="p-6 bg-white border border-border rounded-xl">Teacher Dashboard Coming Soon...</div>} />
+          <Route path="dashboard" element={
+            <div className="space-y-6">
+              <DashboardHero />
+              <div className="p-6 bg-white border border-border rounded-xl">Teacher Stats Grid Coming Soon...</div>
+            </div>
+          } />
           <Route path="attendance" element={<MarkAttendance />} />
           <Route path="timetable" element={<TimetableViewer />} />
           <Route path="notices" element={<NoticeManager />} />
           <Route path="events" element={<div className="p-6 bg-white border border-border rounded-xl">Events View</div>} />
+          <Route path="leaves" element={<LeavesManager />} />
           <Route path="profile" element={<div className="p-6 bg-white border border-border rounded-xl">My Profile Config</div>} />
         </Route>
       </Route>
@@ -116,16 +126,18 @@ export default function App() {
         <Route path="/student" element={<StudentLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={
-            <>
+            <div className="space-y-6">
+              <DashboardHero />
               <DigitalIdCard />
               <StudentAttendanceChart />
-            </>
+            </div>
           } />
           <Route path="attendance" element={<div className="p-6 bg-white border border-border rounded-xl">My Attendance Record</div>} />
           <Route path="fees" element={<StudentFeeLedger />} />
           <Route path="timetable" element={<TimetableViewer />} />
           <Route path="notices" element={<NoticeBoard />} />
           <Route path="events" element={<div className="p-6 bg-white border border-border rounded-xl">Events View</div>} />
+          <Route path="gallery" element={<GalleryManager />} />
           <Route path="profile" element={<div className="p-6 bg-white border border-border rounded-xl">My Profile Config</div>} />
         </Route>
       </Route>

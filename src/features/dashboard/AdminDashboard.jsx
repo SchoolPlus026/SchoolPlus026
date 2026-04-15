@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Users, ClipboardList, DollarSign, Clock, CalendarHeart, Image, Bell, Calendar, LineChart, Settings } from 'lucide-react';
+import DashboardHero from '../../components/DashboardHero';
 
 export default function AdminDashboard() {
   const modules = [
@@ -18,22 +19,27 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-text">School Dashboard</h2>
-        <p className="text-sm text-muted">Manage your entire school from one place.</p>
-      </div>
+      <DashboardHero />
+
+      <h3 className="text-xl font-bold text-text mb-4 px-2 flex items-center gap-2">
+        <div className="w-1.5 h-6 bg-primary rounded-full"></div>
+        Master Control Panel
+      </h3>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
         {modules.map((mod) => (
           <Link
             key={mod.name}
             to={mod.path}
-            className="flex flex-col items-center justify-center p-6 bg-card rounded-2xl shadow-sm border border-border hover:shadow-md hover:-translate-y-1 transition-all duration-200 group"
+            className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-border hover:shadow-md hover:-translate-y-1 transition-all duration-200 group relative overflow-hidden"
           >
-            <div className={`p-4 rounded-xl ${mod.bg} ${mod.color} mb-4 group-hover:scale-110 transition-transform duration-200`}>
+            <div className={`p-4 rounded-xl ${mod.bg} ${mod.color} mb-4 group-hover:scale-110 transition-transform duration-200 relative z-10`}>
               {mod.icon}
             </div>
-            <span className="font-semibold text-text">{mod.name}</span>
+            <span className="font-bold text-text relative z-10">{mod.name}</span>
+            <div className={`absolute top-0 right-0 p-4 ${mod.color} opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none`}>
+              {mod.icon}
+            </div>
           </Link>
         ))}
       </div>

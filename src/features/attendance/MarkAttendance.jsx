@@ -26,24 +26,8 @@ export default function MarkAttendance() {
     fetchTeacherClass();
   }, [role, user.id]);
 
-  const { data: classes, isLoading: classesLoading } = useQuery({
-    queryKey: ['classes', schoolSettings?.school_id, targetRole],
-    queryFn: async () => {
-      // Teachers don't have classes per se for their own attendance, so if targetRole is teacher, we omit class filtering
-      if (targetRole === 'teacher') return [];
-
-      const { data, error } = await supabase
-        .from('users')
-        .select('class')
-        .eq('role', 'student')
-        .not('class', 'is', null);
-      
-      if (error) throw error;
-      const uniqueClasses = [...new Set(data.map(d => d.class))].sort();
-      return uniqueClasses;
-    },
-    enabled: !!schoolSettings?.school_id && role === 'admin'
-  });
+  // Classes for the dropdown now come directly from schoolSettings
+  const classes = schoolSettings?.classes || [];
 
   const { data: targets, isLoading: targetsLoading } = useQuery({
     queryKey: ['attendance-targets', targetRole, selectedClass, schoolSettings?.school_id],
@@ -174,16 +158,16 @@ export default function MarkAttendance() {
               <Users size={16} /> Select Class
             </label>
             {role === 'admin' ? (
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="w-full bg-white border border-border rounded-lg px-4 py-2.5 text-text focus:outline-none focus:border-primary transition-colors appearance-none shadow-sm"
-              >
-                <option value="">-- Select Class --</option>
-                {classes?.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="w-full bg-white border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary transition-colors appearance-none shadow-sm"
+            >
+              <option value="">-- Select Class --</option>
+              {classes.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
             ) : (
               <div className="w-full bg-slate-100 border border-border rounded-lg px-4 py-2.5 text-text font-semibold shadow-sm">
                 {selectedClass || 'Loading assigned class...'}
@@ -193,7 +177,7 @@ export default function MarkAttendance() {
         )}
       </div>
 
-      {targetsLoading || attendanceLoading || classesLoading ? (
+      {targetsLoading || attendanceLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>

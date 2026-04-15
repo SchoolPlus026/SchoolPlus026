@@ -3,6 +3,7 @@ import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, Settings } from 'lucide-react';
+import GlobalBackButton from '../components/GlobalBackButton';
 
 export default function AdminLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -54,6 +55,7 @@ export default function AdminLayout() {
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto h-full">
+          <GlobalBackButton />
           <Outlet />
         </div>
       </main>
