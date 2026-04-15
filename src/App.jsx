@@ -11,13 +11,20 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './layouts/AdminLayout';
 import TeacherLayout from './layouts/TeacherLayout';
 import StudentLayout from './layouts/StudentLayout';
+import SuperAdminLayout from './layouts/SuperAdminLayout';
+
+// Features Integration
+import SuperAdminDashboard from './features/super_admin/SuperAdminDashboard';
 
 // Features Integration
 import AdminDashboard from './features/dashboard/AdminDashboard';
+import TeacherDashboard from './features/dashboard/TeacherDashboard';
+import StudentDashboard from './features/dashboard/StudentDashboard';
 import DigitalIdCard from './features/dashboard/DigitalIdCard';
 import AdminSettings from './features/settings/AdminSettings';
 
 import MarkAttendance from './features/attendance/MarkAttendance';
+import UserManagement from './features/users/UserManagement';
 import StudentAttendanceChart from './features/attendance/StudentAttendanceChart';
 
 import AdminFeeManager from './features/fees/AdminFeeManager';
@@ -88,7 +95,7 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="users" element={<div className="p-6 bg-white border border-border rounded-xl">Users Management Comming Soon...</div>} />
+          <Route path="users" element={<UserManagement />} />
           <Route path="attendance" element={<MarkAttendance />} />
           <Route path="fees" element={<AdminFeeManager />} />
           <Route path="timetable" element={<TimetableManager />} />
@@ -105,12 +112,7 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
         <Route path="/teacher" element={<TeacherLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={
-            <div className="space-y-6">
-              <DashboardHero />
-              <div className="p-6 bg-white border border-border rounded-xl">Teacher Stats Grid Coming Soon...</div>
-            </div>
-          } />
+          <Route path="dashboard" element={<TeacherDashboard />} />
           <Route path="attendance" element={<MarkAttendance />} />
           <Route path="timetable" element={<TimetableViewer />} />
           <Route path="notices" element={<NoticeManager />} />
@@ -124,13 +126,7 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
         <Route path="/student" element={<StudentLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={
-            <div className="space-y-6">
-              <DashboardHero />
-              <DigitalIdCard />
-              <StudentAttendanceChart />
-            </div>
-          } />
+          <Route path="dashboard" element={<StudentDashboard />} />
           <Route path="attendance" element={<div className="p-6 bg-white border border-border rounded-xl">My Attendance Record</div>} />
           <Route path="fees" element={<StudentFeeLedger />} />
           <Route path="timetable" element={<TimetableViewer />} />
@@ -138,6 +134,14 @@ export default function App() {
           <Route path="events" element={<div className="p-6 bg-white border border-border rounded-xl">Events View</div>} />
           <Route path="gallery" element={<GalleryManager />} />
           <Route path="profile" element={<div className="p-6 bg-white border border-border rounded-xl">My Profile Config</div>} />
+        </Route>
+      </Route>
+
+      {/* ──────────────── SUPER ADMIN ──────────────── */}
+      <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
+        <Route path="/super-admin" element={<SuperAdminLayout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<SuperAdminDashboard />} />
         </Route>
       </Route>
 

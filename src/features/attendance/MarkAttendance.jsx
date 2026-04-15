@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck } from 'lucide-react';
+import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function MarkAttendance() {
   const { user, role, schoolSettings } = useAppStore();
@@ -10,10 +10,11 @@ export default function MarkAttendance() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedClass, setSelectedClass] = useState('');
   const [targetRole, setTargetRole] = useState('student'); // 'student' or 'teacher'
+  const [viewMode, setViewMode] = useState('roster'); // 'roster' or 'self'
   
   const [attendanceEdits, setAttendanceEdits] = useState({});
 
-  // If teacher, fetch their assigned class once
+  // 1. Fetch Teacher's Assigned Class if applicable
   useEffect(() => {
     async function fetchTeacherClass() {
       if (role === 'teacher') {
@@ -21,17 +22,24 @@ export default function MarkAttendance() {
         if (data?.class) {
           setSelectedClass(data.class);
         }
+        // Teachers default to self-attendance view first? 
+        // Actually PDF shows they are separate modules usually, but we'll put them in one component with tabs.
+        setViewMode('self');
       }
     }
     fetchTeacherClass();
   }, [role, user.id]);
 
-  // Classes for the dropdown now come directly from schoolSettings
   const classes = schoolSettings?.classes || [];
 
+  // 2. Fetch Targets (Students in class OR Self)
   const { data: targets, isLoading: targetsLoading } = useQuery({
-    queryKey: ['attendance-targets', targetRole, selectedClass, schoolSettings?.school_id],
+    queryKey: ['attendance-targets', targetRole, selectedClass, viewMode, user.id, schoolSettings?.school_id],
     queryFn: async () => {
+      if (viewMode === 'self') {
+        return [{ id: user.id, name: 'My Self', username: 'self' }];
+      }
+
       let query = supabase
         .from('users')
         .select('id, name, username')
@@ -46,11 +54,12 @@ export default function MarkAttendance() {
       if (error) throw error;
       return data;
     },
-    enabled: !!schoolSettings?.school_id && (targetRole === 'teacher' || !!selectedClass)
+    enabled: !!schoolSettings?.school_id && (viewMode === 'self' || targetRole === 'teacher' || !!selectedClass)
   });
 
+  // 3. Fetch Existing Attendance
   const { data: existingAttendance, isLoading: attendanceLoading } = useQuery({
-    queryKey: ['attendance', targetRole, selectedClass, selectedDate, schoolSettings?.school_id],
+    queryKey: ['attendance', targetRole, selectedClass, viewMode, selectedDate, schoolSettings?.school_id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('attendance')
@@ -80,11 +89,9 @@ export default function MarkAttendance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
       setAttendanceEdits({});
-      alert('Attendance saved successfully!');
+      alert('Attendance recorded successfully!');
     }
   });
-
-  const statuses = ['Present', 'Absent', 'Late', 'Half_day'];
 
   const handleStatusChange = (targetId, status) => {
     setAttendanceEdits(prev => ({
@@ -105,152 +112,170 @@ export default function MarkAttendance() {
       school_id: schoolSettings.school_id,
       user_id: s.id,
       date: selectedDate,
-      role: targetRole,
+      role: viewMode === 'self' ? role : targetRole,
       status: currentStatusFor(s.id),
     }));
     saveMutation.mutate(payload);
   };
 
+  const statuses = ['Present', 'Absent', 'Late', 'Half_day'];
+
   return (
-    <div className="bg-surface rounded-2xl p-6 shadow-sm border border-border">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Role specific header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-text tracking-tight">Mark Attendance</h2>
-          <p className="text-sm text-muted mt-1">Record daily presence for your school.</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-4 mb-8 bg-slate-50 p-4 rounded-xl border border-border">
-        {role === 'admin' && (
-          <div className="flex-1">
-            <label className="flex items-center gap-2 text-sm font-medium text-text mb-2">
-              <UserCheck size={16} /> Target Group
-            </label>
-            <select
-              value={targetRole}
-              onChange={(e) => {
-                setTargetRole(e.target.value);
-                setSelectedClass('');
-              }}
-              className="w-full bg-white border border-border rounded-lg px-4 py-2.5 text-text focus:outline-none focus:border-primary transition-colors appearance-none shadow-sm"
-            >
-              <option value="student">Student Attendance</option>
-              <option value="teacher">Teacher Attendance</option>
-            </select>
-          </div>
-        )}
-
-        <div className="flex-1">
-          <label className="flex items-center gap-2 text-sm font-medium text-text mb-2">
-            <CalendarIcon size={16} /> Date
-          </label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full bg-white border border-border rounded-lg px-4 py-2.5 text-text focus:outline-none focus:border-primary transition-colors shadow-sm"
-          />
+           <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Attendance Protocol</h2>
+           <p className="text-slate-500 font-medium italic">Standard Operating Procedure: Daily Registry</p>
         </div>
         
-        {targetRole === 'student' && (
-          <div className="flex-1">
-            <label className="flex items-center gap-2 text-sm font-medium text-text mb-2">
-              <Users size={16} /> Select Class
-            </label>
-            {role === 'admin' ? (
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full bg-white border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary transition-colors appearance-none shadow-sm"
+        {role === 'teacher' && (
+          <div className="flex bg-slate-200/50 p-1 rounded-xl border border-slate-200">
+            <button 
+              onClick={() => { setViewMode('self'); setTargetRole('teacher'); }}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'self' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              <option value="">-- Select Class --</option>
-              {classes.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            ) : (
-              <div className="w-full bg-slate-100 border border-border rounded-lg px-4 py-2.5 text-text font-semibold shadow-sm">
-                {selectedClass || 'Loading assigned class...'}
+              My Attendance
+            </button>
+            <button 
+              onClick={() => { setViewMode('roster'); setTargetRole('student'); }}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'roster' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Class Roster
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Filters Column */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white border border-border rounded-3xl p-6 shadow-xl shadow-slate-100/50 space-y-4">
+            <div>
+              <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Registry Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner"
+              />
+            </div>
+
+            {role === 'admin' && (
+              <div>
+                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Target Group</label>
+                <select
+                  value={targetRole}
+                  onChange={(e) => {
+                    setTargetRole(e.target.value);
+                    setSelectedClass('');
+                  }}
+                  className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner appearance-none cursor-pointer"
+                >
+                  <option value="student">Students</option>
+                  <option value="teacher">Teachers</option>
+                </select>
+              </div>
+            )}
+
+            {(targetRole === 'student' || (role === 'teacher' && viewMode === 'roster')) && (
+              <div>
+                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Selection Area</label>
+                {role === 'admin' ? (
+                  <select
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                    className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner appearance-none cursor-pointer"
+                  >
+                    <option value="">-- Choose Class --</option>
+                    {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                ) : (
+                  <div className="w-full bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-sm font-black text-primary flex items-center gap-2 shadow-sm">
+                    <Users size={16} /> {selectedClass || 'No Class Assigned'}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
-
-      {targetsLoading || attendanceLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          
+          <button
+            onClick={handleSave}
+            disabled={saveMutation.isPending || !targets || targets.length === 0}
+            className="w-full flex items-center justify-center gap-2 py-4 bg-primary hover:bg-primary-dark text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/30 disabled:opacity-50 active:scale-[0.98]"
+          >
+            {saveMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save size={18} />}
+            Commit to Archive
+          </button>
         </div>
-      ) : (targetRole === 'student' && !selectedClass) ? (
-        <div className="text-center py-12 text-muted border-2 border-dashed border-border rounded-xl hidden sm:block">
-           Please select a class to load the roster.
-        </div>
-      ) : targets?.length === 0 ? (
-        <div className="text-center py-12 text-muted border-2 border-dashed border-border rounded-xl">
-           No records found for this selection.
-        </div>
-      ) : (
-        <>
-          <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
-            <table className="w-full text-left border-collapse min-w-[600px] bg-white">
-              <thead>
-                <tr className="bg-slate-50 border-b border-border text-sm font-semibold text-text">
-                  <th className="p-4 w-1/3">Name</th>
-                  <th className="p-4 text-center">Status Selection</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border text-sm">
-                {targets.map(target => {
-                  const status = currentStatusFor(target.id);
-                  return (
-                    <tr key={target.id} className="hover:bg-slate-50 transition-colors group">
-                      <td className="p-4">
-                        <div className="font-semibold text-text group-hover:text-primary transition-colors">{target.name}</div>
-                        <div className="text-xs text-muted uppercase tracking-widest mt-0.5">{target.username}</div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex flex-wrap justify-center gap-2">
-                          {statuses.map(st => {
-                            const isSelected = status === st;
-                            let colors = '';
-                            if (st === 'Present') colors = isSelected ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'hover:bg-slate-100 text-slate-500 bg-white';
-                            if (st === 'Absent') colors = isSelected ? 'bg-red-100 text-red-700 border-red-300' : 'hover:bg-slate-100 text-slate-500 bg-white';
-                            if (st === 'Late') colors = isSelected ? 'bg-amber-100 text-amber-700 border-amber-300' : 'hover:bg-slate-100 text-slate-500 bg-white';
-                            if (st === 'Half_day') colors = isSelected ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-slate-100 text-slate-500 bg-white';
 
-                            const displayLabel = st === 'Half_day' ? 'Half Day' : st;
+        {/* List Column */}
+        <div className="lg:col-span-2">
+          <div className="bg-white border border-border rounded-[2.5rem] shadow-xl shadow-slate-100/50 overflow-hidden min-h-[400px]">
+             {targetsLoading || attendanceLoading ? (
+               <div className="flex flex-col items-center justify-center h-full py-32 gap-4">
+                  <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                  <span className="font-bold text-xs text-slate-400 uppercase tracking-widest">Hydrating Registry...</span>
+               </div>
+             ) : (targetRole === 'student' && !selectedClass) ? (
+               <div className="flex flex-col items-center justify-center h-full py-32 text-center px-8">
+                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+                    <Filter size={24} className="text-slate-300" />
+                  </div>
+                  <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest">Locked Module</h3>
+                  <p className="text-slate-400 text-sm mt-1 italic">Please select a class deployment to view the roster.</p>
+               </div>
+             ) : targets?.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-32">
+                   <AlertCircle size={40} className="text-slate-200 mb-2" />
+                   <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">No data objects found</p>
+                </div>
+             ) : (
+                <div className="divide-y divide-slate-100">
+                  {targets.map(target => {
+                    const status = currentStatusFor(target.id);
+                    return (
+                      <div key={target.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-slate-50/50 transition-colors">
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center font-black text-slate-700 shadow-sm">
+                             {target.name.charAt(0)}
+                           </div>
+                           <div>
+                              <div className="font-black text-slate-800 uppercase tracking-tight leading-none mb-1">{target.name}</div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID: {target.username}</div>
+                           </div>
+                        </div>
 
-                            return (
-                              <button
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                           {statuses.map(st => {
+                             const isSelected = status === st;
+                             let colors = 'bg-white border-slate-200 text-slate-500';
+                             if (st === 'Present') colors = isSelected ? 'bg-emerald-500 border-emerald-600 text-white shadow-lg shadow-emerald-200 scale-105' : 'hover:border-emerald-200 hover:text-emerald-600';
+                             if (st === 'Absent') colors = isSelected ? 'bg-red-500 border-red-600 text-white shadow-lg shadow-red-200 scale-105' : 'hover:border-red-200 hover:text-red-600';
+                             if (st === 'Late') colors = isSelected ? 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-200 scale-105' : 'hover:border-amber-200 hover:text-amber-600';
+                             if (st === 'Half_day') colors = isSelected ? 'bg-indigo-500 border-indigo-600 text-white shadow-lg shadow-indigo-200 scale-105' : 'hover:border-indigo-200 hover:text-indigo-600';
+
+                             const label = st === 'Half_day' ? 'Half' : st;
+
+                             return (
+                               <button 
                                 key={st}
                                 onClick={() => handleStatusChange(target.id, st)}
-                                className={`px-4 py-1.5 rounded-lg border border-border text-xs font-semibold transition-all ${colors} shadow-sm`}
-                              >
-                                {displayLabel}
-                              </button>
-                            );
-                          })}
+                                className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${colors}`}
+                               >
+                                 {label}
+                               </button>
+                             );
+                           })}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                    );
+                  })}
+                </div>
+             )}
           </div>
-
-          <div className="mt-6 flex justify-end pb-2">
-            <button
-              onClick={handleSave}
-              disabled={saveMutation.isPending || Object.keys(attendanceEdits).length === 0}
-              className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-xl font-semibold transition-all disabled:opacity-50 shadow-md"
-            >
-              {saveMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-              {saveMutation.isPending ? 'Saving...' : 'Save Register'}
-            </button>
-          </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }
