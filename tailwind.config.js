@@ -7,20 +7,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#0b1020',
-        surface: '#061233',
-        card: 'rgba(255, 255, 255, 0.04)',
-        glass: 'rgba(255, 255, 255, 0.02)',
+        background: '#f8fafc', // slate-50
+        surface: '#ffffff',
+        card: '#ffffff',
+        glass: 'rgba(255, 255, 255, 0.8)',
         primary: {
-          DEFAULT: '#7c3aed',
+          DEFAULT: '#6366f1',
           dark: '#4f46e5',
         },
         accent: {
-          DEFAULT: '#60a5fa',
+          DEFAULT: '#818cf8',
         },
-        muted: '#9fb1c7',
-        text: '#e6eef8',
-        border: 'rgba(255, 255, 255, 0.04)',
+        muted: '#64748b',
+        text: '#1e293b',
+        border: '#e2e8f0',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],

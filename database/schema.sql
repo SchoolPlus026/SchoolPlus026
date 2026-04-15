@@ -22,6 +22,8 @@ CREATE TABLE public.users (
     name text NOT NULL,
     class text, -- For students or allocated class for teachers
     contact text,
+    qualification text,
+    aadhar_card text,
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -85,6 +87,41 @@ CREATE TABLE public.notices (
     created_at timestamp with time zone DEFAULT now()
 );
 
+-- Leaves Table
+CREATE TABLE public.leaves (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    user_id uuid REFERENCES public.users(id) ON DELETE CASCADE,
+    role text,
+    from_date date NOT NULL,
+    to_date date NOT NULL,
+    reason text NOT NULL,
+    status text DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Calendar Events Table
+CREATE TABLE public.calendar_events (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    title text NOT NULL,
+    description text,
+    start_date date NOT NULL,
+    end_date date,
+    type text CHECK (type IN ('holiday', 'exam', 'event')),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Gallery Table
+CREATE TABLE public.gallery (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    title text NOT NULL,
+    link text NOT NULL,
+    category text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
 -- ==========================================
 -- 2. ENABLE ROW LEVEL SECURITY
 -- ==========================================
@@ -95,6 +132,9 @@ ALTER TABLE public.fees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fees_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.timetable ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leaves ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.calendar_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.gallery ENABLE ROW LEVEL SECURITY;
 
 -- ==========================================
 -- 3. STRICT MULTI-TENANCY RLS POLICIES
@@ -129,4 +169,13 @@ CREATE POLICY "Tenant isolation for timetable" ON public.timetable FOR ALL
 USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
 
 CREATE POLICY "Tenant isolation for notices" ON public.notices FOR ALL 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for leaves" ON public.leaves FOR ALL 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for calendar_events" ON public.calendar_events FOR ALL 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for gallery" ON public.gallery FOR ALL 
 USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);

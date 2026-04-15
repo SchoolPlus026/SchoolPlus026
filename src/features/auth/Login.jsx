@@ -19,7 +19,6 @@ export default function Login() {
     setError('');
 
     try {
-      // 1. Authenticate user via Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -29,7 +28,6 @@ export default function Login() {
 
       const user = authData.user;
       
-      // 2. Fetch User Profile to derive the specific role and school_id
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('role, school_id')
@@ -41,7 +39,6 @@ export default function Login() {
 
       const { role, school_id } = profile;
 
-      // 3. Fetch Tenant Settings for dynamic gating
       const { data: settings, error: settingsError } = await supabase
         .from('school_settings')
         .select('*')
@@ -51,18 +48,14 @@ export default function Login() {
       if (settingsError) throw new Error('Could not fetch school dynamic workspace settings.');
       if (!settings) throw new Error('School settings unconfigured mapping. Contact support.');
 
-      // 4. Evaluate School Subscription Payment Status
       if (settings.subscription_status === 'Expired') {
-        // Kick them out immediately
         await supabase.auth.signOut();
         throw new Error('Your school subscription has expired. Please contact administration.');
       }
 
-      // 5. Success! Populate Zustand global scope state and redirect
       setSchoolSettings(settings);
       setUserAndRole(user, role);
       
-      // Declarative router push based on role
       navigate(`/${role}`, { replace: true });
 
     } catch (err) {
@@ -73,35 +66,36 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md bg-surface border border-glass rounded-2xl shadow-2xl p-8 relative overflow-hidden">
-        {/* Decorative flair behind login elements */}
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 rounded-full bg-primary/10 blur-2xl"></div>
-        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-32 h-32 rounded-full bg-accent/10 blur-2xl"></div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4 relative overflow-hidden">
+      {/* Decorative flair behind login elements */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-indigo-100 blur-3xl opacity-50 -translate-y-1/2 translate-x-1/3"></div>
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full bg-blue-100 blur-3xl opacity-50 translate-y-1/3 -translate-x-1/2"></div>
 
-        <div className="text-center mb-8 relative z-10">
-          <div className="w-16 h-16 bg-[#1a2b5c] flex items-center justify-center rounded-2xl mx-auto mb-4 border border-glass shadow-md">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-xl p-8 relative z-10 mb-8">
+        
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-indigo-50 flex items-center justify-center rounded-2xl mx-auto mb-4 border border-indigo-100 shadow-sm">
             <Lock className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Welcome Back</h1>
-          <p className="text-muted mt-2 text-sm">Sign in to your digital workspace</p>
+          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Portal Login</h1>
+          <p className="text-slate-500 mt-2 text-sm">Sign in to your educational workspace</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3 relative z-10">
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-200">{error}</p>
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-5 relative z-10">
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5" htmlFor="email">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5" htmlFor="email">
               Email Address / Username
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-slate-500" />
+                <Mail className="h-5 w-5 text-slate-400" />
               </div>
               <input
                 id="email"
@@ -109,19 +103,19 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full pl-11 pr-4 py-3 bg-[#0a1435] border border-glass rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                className="block w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm"
                 placeholder="you@school.com"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5" htmlFor="password">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5" htmlFor="password">
               Password
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-slate-500" />
+                <Lock className="h-5 w-5 text-slate-400" />
               </div>
               <input
                 id="password"
@@ -129,7 +123,7 @@ export default function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full pl-11 pr-4 py-3 bg-[#0a1435] border border-glass rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                className="block w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm"
                 placeholder="••••••••"
               />
             </div>
@@ -138,15 +132,21 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-semibold text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-background transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-2 hover:-translate-y-0.5 active:translate-y-0"
+            className="w-full flex items-center justify-center py-3.5 px-4 rounded-xl shadow-md text-sm font-bold text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-4 hover:-translate-y-0.5 active:translate-y-0"
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              'Sign In'
+              'Sign In to Dashboard'
             )}
           </button>
         </form>
+      </div>
+
+      <div className="relative z-10 text-center">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+          Developed by Shubham Arun Hajare — Contact: 9022761401
+        </p>
       </div>
     </div>
   );

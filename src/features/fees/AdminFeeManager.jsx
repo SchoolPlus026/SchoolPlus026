@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Loader2, Search, DollarSign, PlusCircle, CreditCard, X } from 'lucide-react';
+import { Loader2, Search, DollarSign, PlusCircle, CreditCard, X, Filter } from 'lucide-react';
 
 export default function AdminFeeManager() {
   const { schoolSettings } = useAppStore();
@@ -10,6 +10,7 @@ export default function AdminFeeManager() {
   const currentYear = new Date().getFullYear();
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterClass, setFilterClass] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [feeUpdateModalOpen, setFeeUpdateModalOpen] = useState(false);
@@ -37,6 +38,8 @@ export default function AdminFeeManager() {
     },
     enabled: !!schoolSettings?.school_id
   });
+
+  const uniqueClasses = students ? [...new Set(students.map(s => s.class).filter(Boolean))].sort() : [];
 
   // 2. Fetch Fees master ledgers
   const { data: feesData, isLoading: feesLoading } = useQuery({
@@ -145,10 +148,11 @@ export default function AdminFeeManager() {
     };
   }) || [];
 
-  const filteredLedger = processedLedger.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (s.username && s.username.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredLedger = processedLedger.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || (s.username && s.username.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesClass = filterClass ? s.class === filterClass : true;
+    return matchesSearch && matchesClass;
+  });
 
   const openFeeModal = (student) => {
     setSelectedStudent(student);
@@ -192,21 +196,35 @@ export default function AdminFeeManager() {
   };
 
   return (
-    <div className="bg-surface border border-glass rounded-2xl p-6 shadow-xl relative">
+    <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm relative">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Fee Management Engine</h2>
-          <p className="text-sm text-slate-400 mt-1">Configure ledgers and securely track parent payments dynamically.</p>
+          <h2 className="text-2xl font-bold text-text tracking-tight">Fee Management Engine</h2>
+          <p className="text-sm text-muted mt-1">Configure ledgers and securely track parent payments dynamically.</p>
         </div>
-        <div className="relative w-full sm:w-auto">
-           <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-           <input 
-             type="text" 
-             placeholder="Search student..." 
-             className="pl-10 pr-4 py-2.5 bg-[#0a1128] border border-glass rounded-xl text-white focus:outline-none focus:border-primary transition-all w-full sm:w-72"
-             value={searchTerm}
-             onChange={e => setSearchTerm(e.target.value)}
-           />
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+           <div className="relative border border-border rounded-xl bg-white shadow-sm flex items-center px-3 w-full sm:w-48">
+              <Filter className="w-4 h-4 text-muted" />
+              <select 
+                value={filterClass} 
+                onChange={e => setFilterClass(e.target.value)}
+                className="bg-transparent pl-2 pr-4 py-2 text-sm text-text focus:outline-none appearance-none w-full"
+              >
+                <option value="">All Classes</option>
+                {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+           </div>
+           
+           <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted" />
+              <input 
+                type="text" 
+                placeholder="Search student..." 
+                className="pl-9 pr-4 py-2 bg-white border border-border rounded-xl text-text focus:outline-none focus:border-primary transition-all w-full shadow-sm text-sm"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+           </div>
         </div>
       </div>
 
@@ -215,10 +233,10 @@ export default function AdminFeeManager() {
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-glass">
+        <div className="overflow-x-auto rounded-xl border border-border bg-white shadow-sm">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
-                <tr className="bg-[#0a1128] border-b border-glass text-xs uppercase tracking-wider font-semibold text-slate-400">
+                <tr className="bg-slate-50 border-b border-border text-xs uppercase tracking-wider font-semibold text-muted">
                   <th className="p-4">Student Identity</th>
                   <th className="p-4">Fee Profile</th>
                   <th className="p-4">Total Paid</th>
@@ -226,34 +244,34 @@ export default function AdminFeeManager() {
                   <th className="p-4 text-center">Engine Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-glass text-sm text-slate-300">
+              <tbody className="divide-y divide-border text-sm text-text">
                 {filteredLedger.map(student => (
-                  <tr key={student.id} className="hover:bg-glass/50 transition-colors group">
+                  <tr key={student.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="p-4">
-                      <div className="font-semibold text-white group-hover:text-primary transition-colors">{student.name}</div>
-                      <div className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">{student.class || 'Unassigned'} | {student.username}</div>
+                      <div className="font-semibold text-text group-hover:text-primary transition-colors">{student.name}</div>
+                      <div className="text-xs text-muted uppercase tracking-wider mt-0.5">{student.class || 'Unassigned'} | {student.username}</div>
                     </td>
                     <td className="p-4">
                       <div className="flex flex-col gap-1">
-                        <span className="font-medium">Base: ${student.currentYearFee.toLocaleString()}</span>
-                        {student.lastYearPending > 0 && <span className="text-xs w-max text-red-400 bg-red-400/10 px-2 py-0.5 rounded-md border border-red-400/20">+${student.lastYearPending.toLocaleString()} Arrears</span>}
-                        {student.currentYearFee === 0 && <span className="text-xs text-amber-500/70 italic">Unconfigured</span>}
+                        <span className="font-medium text-slate-700">Base: ${student.currentYearFee.toLocaleString()}</span>
+                        {student.lastYearPending > 0 && <span className="text-xs w-max text-red-600 bg-red-100 px-2 py-0.5 rounded-md border border-red-200">+${student.lastYearPending.toLocaleString()} Arrears</span>}
+                        {student.currentYearFee === 0 && <span className="text-xs text-amber-500 italic">Unconfigured</span>}
                       </div>
                     </td>
-                    <td className="p-4 font-semibold text-emerald-400">
+                    <td className="p-4 font-semibold text-emerald-600">
                       ${student.totalPaid.toLocaleString()}
                     </td>
                     <td className="p-4">
-                       <span className={`font-bold text-lg ${student.dueAmount > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                       <span className={`font-bold text-lg ${student.dueAmount > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
                          ${student.dueAmount.toLocaleString()}
                        </span>
                     </td>
                     <td className="p-4">
                        <div className="flex items-center justify-center gap-3">
-                         <button onClick={() => openFeeModal(student)} className="p-2 bg-glass hover:bg-glass/80 text-slate-300 rounded-lg transition-colors group-hover:text-white" title="Configure Ledger">
+                         <button onClick={() => openFeeModal(student)} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors group-hover:text-primary" title="Configure Ledger">
                             <DollarSign size={16} />
                          </button>
-                         <button onClick={() => openPaymentModal(student)} className="px-3 py-1.5 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors font-medium text-xs flex items-center gap-1 shadow-lg shadow-primary/20" title="Accept Payment">
+                         <button onClick={() => openPaymentModal(student)} className="px-3 py-1.5 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors font-medium text-xs flex items-center gap-1 shadow-sm" title="Accept Payment">
                             <PlusCircle size={14} /> Pay
                          </button>
                        </div>
@@ -263,7 +281,7 @@ export default function AdminFeeManager() {
               </tbody>
            </table>
            {filteredLedger.length === 0 && (
-             <div className="p-8 text-center text-slate-400 border-t border-glass">No students found matching your search.</div>
+             <div className="p-8 text-center text-muted border-t border-border">No students found matching your search.</div>
            )}
         </div>
       )}
@@ -271,25 +289,25 @@ export default function AdminFeeManager() {
       {/* --- modals below --- */}
       {/* Fee Update Modal */}
       {feeUpdateModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface border border-glass rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
-             <div className="p-5 border-b border-glass flex justify-between items-center bg-[#0a1128]">
-                <h3 className="font-bold text-lg text-white">Configure Ledger Data</h3>
-                <button onClick={() => setFeeUpdateModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-border rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
+             <div className="p-5 border-b border-border flex justify-between items-center bg-slate-50">
+                <h3 className="font-bold text-lg text-text">Configure Ledger Data</h3>
+                <button onClick={() => setFeeUpdateModalOpen(false)} className="text-muted hover:text-text"><X size={20} /></button>
              </div>
              <form onSubmit={handleUpdateFee} className="p-6 space-y-5">
-                <div className="bg-black/20 p-3 rounded-lg border border-glass flex justify-between text-sm">
-                   <span className="text-slate-400">Account:</span><span className="text-white font-medium">{selectedStudent?.name}</span>
+                <div className="bg-slate-50 p-3 rounded-lg border border-border flex justify-between text-sm">
+                   <span className="text-muted">Account:</span><span className="text-text font-medium">{selectedStudent?.name}</span>
                 </div>
                 <div>
-                   <label className="block text-sm font-medium text-slate-300 mb-1.5">Current Year Base Fee ($)</label>
-                   <input type="number" required value={feeTotal} onChange={e => setFeeTotal(e.target.value)} className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary font-mono text-lg" />
+                   <label className="block text-sm font-medium text-text mb-1.5">Current Year Base Fee ($)</label>
+                   <input type="number" required value={feeTotal} onChange={e => setFeeTotal(e.target.value)} className="w-full bg-white border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary font-mono text-lg shadow-sm" />
                 </div>
                 <div>
-                   <label className="block text-sm font-medium text-slate-300 mb-1.5">Previous Pending Arrears ($)</label>
-                   <input type="number" required value={feePending} onChange={e => setFeePending(e.target.value)} className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary font-mono text-lg" />
+                   <label className="block text-sm font-medium text-text mb-1.5">Previous Pending Arrears ($)</label>
+                   <input type="number" required value={feePending} onChange={e => setFeePending(e.target.value)} className="w-full bg-white border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary font-mono text-lg shadow-sm" />
                 </div>
-                <button disabled={updateFeeMutation.isPending} className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50 mt-2">
+                <button disabled={updateFeeMutation.isPending} className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50 mt-2 shadow-md">
                    {updateFeeMutation.isPending ? 'Saving...' : 'Lock Initial Parameters'}
                 </button>
              </form>
@@ -299,29 +317,29 @@ export default function AdminFeeManager() {
 
       {/* Record Payment Modal */}
       {paymentModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface border border-glass rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
-             <div className="p-5 border-b border-glass flex justify-between items-center bg-[#0a1128]">
-                <h3 className="font-bold text-lg text-emerald-400 flex items-center gap-2"><CreditCard size={20} /> Record Payment</h3>
-                <button onClick={() => setPaymentModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-border rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
+             <div className="p-5 border-b border-border flex justify-between items-center bg-slate-50">
+                <h3 className="font-bold text-lg text-emerald-600 flex items-center gap-2"><CreditCard size={20} /> Record Payment</h3>
+                <button onClick={() => setPaymentModalOpen(false)} className="text-muted hover:text-text"><X size={20} /></button>
              </div>
              <form onSubmit={handleRecordPayment} className="p-6 space-y-5">
-                <div className="bg-black/20 p-3 rounded-lg border border-glass flex justify-between text-sm">
-                   <span className="text-slate-400">Target Student:</span><span className="text-white font-medium">{selectedStudent?.name}</span>
+                <div className="bg-slate-50 p-3 rounded-lg border border-border flex justify-between text-sm">
+                   <span className="text-muted">Target Student:</span><span className="text-text font-medium">{selectedStudent?.name}</span>
                 </div>
                 <div>
-                   <label className="block text-sm font-medium text-slate-300 mb-1.5">Payment Amount Received ($)</label>
-                   <input type="number" required max={selectedStudent?.dueAmount} value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-bold text-xl text-emerald-400" />
-                   <p className="text-xs text-slate-500 mt-2">Maximum allowed to clear balance: ${selectedStudent?.dueAmount}</p>
+                   <label className="block text-sm font-medium text-text mb-1.5">Payment Amount Received ($)</label>
+                   <input type="number" required max={selectedStudent?.dueAmount} value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} className="w-full bg-white border border-border rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 font-bold text-xl text-emerald-600 shadow-sm" />
+                   <p className="text-xs text-muted mt-2">Maximum allowed to clear balance: ${selectedStudent?.dueAmount}</p>
                 </div>
                 <div className="flex gap-4">
                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-slate-300 mb-1.5">Collection Date</label>
-                      <input type="date" required value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary text-sm" />
+                      <label className="block text-sm font-medium text-text mb-1.5">Collection Date</label>
+                      <input type="date" required value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="w-full bg-white border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary text-sm shadow-sm" />
                    </div>
                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-slate-300 mb-1.5">Method</label>
-                      <select required value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary text-sm appearance-none cursor-pointer">
+                      <label className="block text-sm font-medium text-text mb-1.5">Method</label>
+                      <select required value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full bg-white border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary text-sm appearance-none cursor-pointer shadow-sm">
                          <option value="Cash">Cash</option>
                          <option value="Online">Online</option>
                          <option value="UPI">UPI</option>
@@ -331,11 +349,11 @@ export default function AdminFeeManager() {
                 </div>
                 {(paymentMethod === 'Online' || paymentMethod === 'UPI' || paymentMethod === 'Cheque') && (
                   <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Txn ID / UTR / Cheque No.</label>
-                    <input type="text" value={transactionId} onChange={e => setTransactionId(e.target.value)} required className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary text-sm font-mono" />
+                    <label className="block text-sm font-medium text-text mb-1.5">Txn ID / UTR / Cheque No.</label>
+                    <input type="text" value={transactionId} onChange={e => setTransactionId(e.target.value)} required className="w-full bg-white border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary text-sm font-mono shadow-sm" />
                   </div>
                 )}
-                <button disabled={recordPaymentMutation.isPending} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl disabled:opacity-50 transition-colors shadow-lg shadow-emerald-500/20 mt-2">
+                <button disabled={recordPaymentMutation.isPending} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl disabled:opacity-50 transition-colors shadow-md mt-2">
                    {recordPaymentMutation.isPending ? 'Validating Ledger...' : 'Commit Payment to Ledger'}
                 </button>
              </form>
