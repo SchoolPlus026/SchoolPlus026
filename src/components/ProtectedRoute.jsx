@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore } from '../store/useAppStore';
 
 export default function ProtectedRoute({ allowedRoles }) {
   const { user, role } = useAppStore();
