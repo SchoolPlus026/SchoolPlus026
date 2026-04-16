@@ -17,7 +17,7 @@ CREATE TABLE public.school_settings (
 CREATE TABLE public.users (
     id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
-    role text CHECK (role IN ('admin', 'teacher', 'student')),
+    role text CHECK (role IN ('admin', 'teacher', 'student', 'app_manager')),
     username text UNIQUE NOT NULL,
     name text NOT NULL,
     class text, -- For students or allocated class for teachers

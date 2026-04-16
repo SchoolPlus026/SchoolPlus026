@@ -1,11 +1,16 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Loader2, Megaphone, Calendar, Users, Briefcase } from 'lucide-react';
+import { Loader2, Megaphone, Calendar, Users, Briefcase, Trash2, PenTool } from 'lucide-react';
 
 export default function NoticeBoard() {
   const { role, schoolSettings } = useAppStore();
+  const queryClient = useQueryClient();
+
+  const [editingId, setEditingId] = React.useState(null);
+  const [editTitle, setEditTitle] = React.useState('');
+  const [editContent, setEditContent] = React.useState('');
 
   const { data: notices, isLoading } = useQuery({
     queryKey: ['notices', schoolSettings?.school_id, role],
@@ -29,6 +34,33 @@ export default function NoticeBoard() {
     },
     enabled: !!schoolSettings?.school_id
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('notices').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notices'] });
+    }
+  });
+
+  const saveEditMutation = useMutation({
+    mutationFn: async ({ id, title, content }) => {
+      const { error } = await supabase.from('notices').update({ title, content }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notices'] });
+      setEditingId(null);
+    }
+  });
+
+  const handleEditClick = (notice) => {
+    setEditingId(notice.id);
+    setEditTitle(notice.title);
+    setEditContent(notice.content);
+  };
 
   if (isLoading) {
     return (
@@ -85,11 +117,50 @@ export default function NoticeBoard() {
                           </span>
                         </div>
                       </div>
+                      
+                      {role !== 'student' && (
+                        <div className="flex gap-2">
+                          <button 
+                             onClick={() => handleEditClick(notice)}
+                             className="flex-shrink-0 text-slate-500 hover:text-indigo-400 p-2 rounded-xl hover:bg-indigo-500/10 transition-colors"
+                          >
+                             <PenTool size={16} />
+                          </button>
+                          <button 
+                             onClick={() => deleteMutation.mutate(notice.id)}
+                             disabled={deleteMutation.isPending}
+                             className="flex-shrink-0 text-slate-500 hover:text-red-400 p-2 rounded-xl hover:bg-red-500/10 transition-colors"
+                          >
+                             <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
                    </div>
                    
-                   <div className="text-slate-300 text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
-                     {notice.content}
-                   </div>
+                   {editingId === notice.id ? (
+                     <div className="mt-4 bg-[#0a1128] p-4 rounded-xl border border-glass">
+                        <input 
+                           type="text" 
+                           value={editTitle} 
+                           onChange={e => setEditTitle(e.target.value)} 
+                           className="w-full mb-3 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                        />
+                        <textarea 
+                           rows="4" 
+                           value={editContent} 
+                           onChange={e => setEditContent(e.target.value)} 
+                           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm mb-3 custom-scrollbar"
+                        />
+                        <div className="flex justify-end gap-2">
+                           <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white">Cancel</button>
+                           <button onClick={() => saveEditMutation.mutate({ id: notice.id, title: editTitle, content: editContent })} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Save</button>
+                        </div>
+                     </div>
+                   ) : (
+                     <div className="text-slate-300 text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
+                       {notice.content}
+                     </div>
+                   )}
                    
                    {notice.photo_link && (
                       <div className="mt-5 border border-glass rounded-xl overflow-hidden shadow-lg bg-[#0a1128]">

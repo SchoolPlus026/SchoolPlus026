@@ -53,6 +53,7 @@ export default function Login() {
       if (loginEmail === 'admin') loginEmail = 'admin@demo.com';
       if (loginEmail === 'teacher') loginEmail = 'teacher@demo.com';
       if (loginEmail === 'student') loginEmail = 'student@demo.com';
+      if (loginEmail === 'manager') loginEmail = 'manager@demo.com';
       
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ 
         email: loginEmail, 
@@ -69,13 +70,18 @@ export default function Login() {
       if (profileError) throw new Error('Could not fetch user profile details.');
       if (!profile) throw new Error('User profile missing in public.users table.');
 
-      if (profile.school_id !== schoolSettings.school_id) {
+      if (profile.role !== 'app_manager' && profile.school_id !== schoolSettings?.school_id) {
         await supabase.auth.signOut();
         throw new Error('This account is not authorized for this school workspace.');
       }
 
       setUserAndRole(authData.user, profile.role);
-      navigate(`/${profile.role}`, { replace: true });
+      
+      if (profile.role === 'app_manager') {
+         navigate('/app-manager', { replace: true });
+      } else {
+         navigate(`/${profile.role}`, { replace: true });
+      }
     } catch (err) {
       setError(err.message || 'An unexpected error occurred during login');
     } finally {
@@ -189,12 +195,12 @@ export default function Login() {
                   </div>
                   <input
                     id="email"
-                    type="email"
+                    type="text"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="sp-input pl-11"
-                    placeholder="name@organization.com"
+                    placeholder="name@organization.com or Username"
                   />
                 </div>
               </div>

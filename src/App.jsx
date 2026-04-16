@@ -11,10 +11,10 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './layouts/AdminLayout';
 import TeacherLayout from './layouts/TeacherLayout';
 import StudentLayout from './layouts/StudentLayout';
-import SuperAdminLayout from './layouts/SuperAdminLayout';
+import AppManagerLayout from './layouts/AppManagerLayout';
 
-// Super Admin
-import SuperAdminDashboard from './features/super_admin/SuperAdminDashboard';
+// App Manager
+import AppManagerDashboard from './features/super_admin/AppManagerDashboard';
 
 // Dashboards
 import AdminDashboard from './features/dashboard/AdminDashboard';
@@ -165,11 +165,11 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* ──────────────── SUPER ADMIN ──────────────── */}
-      <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
-        <Route path="/super-admin" element={<SuperAdminLayout />}>
+      {/* ──────────────── APP MANAGER ──────────────── */}
+      <Route element={<ProtectedRoute allowedRoles={['app_manager']} />}>
+        <Route path="/app-manager" element={<AppManagerLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<SuperAdminDashboard />} />
+          <Route path="dashboard" element={<AppManagerDashboard />} />
         </Route>
       </Route>
 

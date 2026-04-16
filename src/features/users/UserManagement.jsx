@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Users, Search, UserPlus, Filter, Loader2, Mail, Phone, BookOpen, CreditCard } from 'lucide-react';
@@ -9,6 +9,42 @@ export default function UserManagement() {
   const [activeTab, setActiveTab] = useState('student'); // 'student' or 'teacher'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
+  
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [contact, setContact] = useState('');
+  const [userClass, setUserClass] = useState('');
+  const queryClient = useQueryClient();
+
+  const createUserMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('admin_create_user', {
+        p_email: email,
+        p_password: password,
+        p_role: activeTab,
+        p_name: name,
+        p_username: username,
+        p_school_id: schoolSettings.school_id,
+        p_class: userClass || null,
+        p_contact: contact || null
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      setIsModalOpen(false);
+      setEmail(''); setUsername(''); setName(''); setPassword(''); setContact(''); setUserClass('');
+      alert('User created successfully!');
+    },
+    onError: (err) => {
+      alert('Error creating user: ' + err.message);
+    }
+  });
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users-list', activeTab, schoolSettings?.school_id],
@@ -83,7 +119,10 @@ export default function UserManagement() {
           </div>
         )}
 
-        <button className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95"
+        >
           <UserPlus size={20} /> Add {activeTab === 'student' ? 'Student' : 'Teacher'}
         </button>
       </div>
@@ -107,10 +146,10 @@ export default function UserManagement() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-border">
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Roster Information</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contact / Identity</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{activeTab === 'student' ? 'Deployment' : 'Allocated Role'}</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Registry Actions</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Student Details</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contact Info</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{activeTab === 'student' ? 'Class' : 'Qualification'}</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -163,6 +202,63 @@ export default function UserManagement() {
           </div>
         )}
       </div>
+      {/* Add User Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-in slide-in-from-bottom-4 relative">
+             <h3 className="text-lg font-black text-slate-800 tracking-tight mb-4">Register New {activeTab === 'student' ? 'Student' : 'Teacher'}</h3>
+             
+             <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                   <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Full Name</label>
+                      <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Jane Doe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm" />
+                   </div>
+                   <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Username</label>
+                      <input type="text" value={username} onChange={e=>setUsername(e.target.value)} placeholder="janedoe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm" />
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                   <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Email</label>
+                      <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="jane@school.com" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm" />
+                   </div>
+                   <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Password</label>
+                      <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm" />
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                   <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Class / Standard</label>
+                      <select value={userClass} onChange={e=>setUserClass(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm">
+                         <option value="">Select...</option>
+                         {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                   </div>
+                   <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Contact (Optional)</label>
+                      <input type="text" value={contact} onChange={e=>setContact(e.target.value)} placeholder="+1 234 567 890" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm" />
+                   </div>
+                </div>
+             </div>
+
+             <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-slate-100">
+                <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                <button 
+                  onClick={() => createUserMutation.mutate()} 
+                  disabled={createUserMutation.isPending || !email || !password || !name || !username} 
+                  className="px-6 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                   {createUserMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />} Save User
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

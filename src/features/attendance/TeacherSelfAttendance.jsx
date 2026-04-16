@@ -11,8 +11,8 @@ export default function TeacherSelfAttendance() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
 
-  // username stored in users.username — need to fetch it since auth uses email
   const [username, setUsername] = useState(null);
+  const { schoolSettings } = useAppStore();
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function TeacherSelfAttendance() {
         supabase
           .from('attendance')
           .select('status')
-          .eq('who', data.username)
+          .eq('user_id', user.id)
           .eq('date', today)
           .single()
           .then(({ data: rec }) => {
@@ -47,9 +47,9 @@ export default function TeacherSelfAttendance() {
   const saveAttendance = async () => {
     if (!username) return;
     setSaving(true);
-    const payload = { who: username, role: 'Teacher', date: today, status };
+    const payload = { user_id: user.id, school_id: schoolSettings.school_id, role: 'Teacher', date: today, status };
     // Delete then insert (upsert pattern from legacy)
-    await supabase.from('attendance').delete().eq('who', username).eq('date', today);
+    await supabase.from('attendance').delete().eq('user_id', user.id).eq('date', today);
     const { error } = await supabase.from('attendance').insert(payload);
     setSaving(false);
     if (error) return showToast('Save failed: ' + error.message);

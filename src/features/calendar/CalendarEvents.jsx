@@ -18,7 +18,7 @@ function typeBadge(type) {
 }
 
 export default function CalendarEvents() {
-  const { role } = useAppStore();
+  const { role, schoolSettings } = useAppStore();
   const userRole = (role || '').toLowerCase();
   const canEdit = userRole === 'admin' || userRole === 'teacher';
 
@@ -43,7 +43,7 @@ export default function CalendarEvents() {
 
   async function fetchEvents() {
     setLoading(true);
-    const { data } = await supabase.from('calendar_events').select('*');
+    const { data } = await supabase.from('calendar_events').select('*').eq('school_id', schoolSettings?.school_id);
     setEvents(data || []);
     setLoading(false);
   }
@@ -69,7 +69,13 @@ export default function CalendarEvents() {
   const saveEvent = async () => {
     if (!eTitle || !eStart) return showToast('Title and Start Date are required');
     setSaving(true);
-    const { error } = await supabase.from('calendar_events').insert([{ title: eTitle, start_date: eStart, end_date: eEnd || eStart, type: eType }]);
+    const { error } = await supabase.from('calendar_events').insert([{ 
+      school_id: schoolSettings.school_id,
+      title: eTitle, 
+      start_date: eStart, 
+      end_date: eEnd || eStart, 
+      type: eType 
+    }]);
     setSaving(false);
     if (error) return showToast('Error saving event: ' + error.message);
     showToast('Event saved!');

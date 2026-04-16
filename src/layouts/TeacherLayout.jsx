@@ -1,13 +1,15 @@
 import React from 'react';
-import { Outlet, useNavigate, Link } from 'react-router-dom';
+import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
-import { LogOut, LayoutDashboard, Settings } from 'lucide-react';
+import { LogOut, LayoutDashboard, Settings, ChevronLeft } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
 
 export default function TeacherLayout() {
   const { user, schoolSettings } = useAppStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isDashboard = location.pathname.endsWith('/dashboard') || location.pathname === '/teacher';
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -55,6 +57,11 @@ export default function TeacherLayout() {
 
       <main className="flex-1 overflow-y-auto scroll-stable">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {!isDashboard && (
+            <Link to="/teacher/dashboard" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white mb-6 bg-slate-800/50 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-glass transition-all">
+               <ChevronLeft size={14} /> Back to Dashboard
+            </Link>
+          )}
           <Outlet />
         </div>
       </main>

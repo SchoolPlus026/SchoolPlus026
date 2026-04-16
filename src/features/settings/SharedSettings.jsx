@@ -31,6 +31,7 @@ export default function SharedSettings() {
   const [pwdLoading, setPwdLoading] = useState(false);
 
   const userRole = (role || '').toLowerCase();
+  const [dangerPwd, setDangerPwd] = useState('');
 
   /* ──── Theme ──── */
   const [theme, setTheme] = useState(() => localStorage.getItem('lfs_theme') || 'dark');
@@ -89,14 +90,25 @@ export default function SharedSettings() {
 
   /* ──── Reset All Data (Admin only) ──── */
   const resetAll = async () => {
+    // Step 1: Verify current password
+    if (!dangerPwd) return toast('Enter your current password first.', setToastMsg);
+    const { error: authErr } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: dangerPwd
+    });
+    if (authErr) { toast('Incorrect password. Reset cancelled.', setToastMsg); return; }
+
+    // Step 2: Typed confirmation
     const confirmText = 'DELETE ALL DATA';
-    const typed = window.prompt(`This will delete everything. To confirm, type: ${confirmText}`);
+    const typed = window.prompt(`Password verified. Type to permanently delete all school data:\n${confirmText}`);
     if (typed !== confirmText) { toast('Reset cancelled.', setToastMsg); return; }
+
     toast('Resetting... Please wait.', setToastMsg);
     for (const t of TABLES_RESET) {
       await supabase.from(t).delete().neq('id', '00000000-0000-0000-0000-000000000000');
     }
     toast('Reset complete. Please re-run the SQL seed script.', setToastMsg);
+    setDangerPwd('');
     await supabase.auth.signOut();
   };
 
@@ -192,13 +204,24 @@ export default function SharedSettings() {
             <p className="text-xs text-slate-500 mb-3">
               This will permanently delete all records from all tables. This cannot be undone.
             </p>
-            <button
-              onClick={resetAll}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-bold rounded-xl transition-all"
-            >
-              <Trash2 size={14} />
-              Reset All Data
-            </button>
+            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3">
+              <label className="text-[10px] font-black text-red-400 uppercase tracking-widest block">Enter Your Current Password to Unlock</label>
+              <input
+                type="password"
+                placeholder="Your current password"
+                value={dangerPwd}
+                onChange={e => setDangerPwd(e.target.value)}
+                className="sp-input w-full border-red-500/30 focus:border-red-500"
+              />
+              <button
+                onClick={resetAll}
+                disabled={!dangerPwd}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-bold rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Trash2 size={14} />
+                Reset All Data
+              </button>
+            </div>
           </Section>
         </>
       )}

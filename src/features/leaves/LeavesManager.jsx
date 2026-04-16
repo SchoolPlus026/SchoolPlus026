@@ -17,22 +17,22 @@ export default function LeavesManager() {
   const { data: leaves, isLoading } = useQuery({
     queryKey: ['leaves', role, user?.id, schoolSettings?.school_id],
     queryFn: async () => {
-      let query = supabase
-        .from('leaves')
-        .select(`
-          *,
-          user:users(name, role)
-        `)
-        .order('created_at', { ascending: false });
-
-      // If not admin, only see your own leaves
       if (role !== 'admin') {
-        query = query.eq('user_id', user.id);
+        const { data, error } = await supabase
+          .from('leaves')
+          .select('*')
+          .eq('user_id', user?.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+      } else {
+        const { data, error } = await supabase
+          .from('leaves')
+          .select('*, users!leaves_user_id_fkey(name, role)')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
     },
     enabled: !!user?.id && !!schoolSettings?.school_id
   });
@@ -168,7 +168,7 @@ export default function LeavesManager() {
                         </span>
                       </div>
                       <p className="font-bold text-slate-800">{leave.reason}</p>
-                      {role === 'admin' && <p className="text-xs text-muted mt-1 font-semibold">Applied by: {leave.user?.name} ({leave.user?.role})</p>}
+                      {role === 'admin' && <p className="text-xs text-muted mt-1 font-semibold">Applied by: {leave.users?.name} ({leave.users?.role})</p>}
                     </div>
 
                     {role === 'admin' && leave.status === 'pending' && (

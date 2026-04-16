@@ -6,19 +6,23 @@ import { Loader2, CalendarClock } from 'lucide-react';
 
 export default function TimetableViewer({ adminPreviewClass }) {
   const { role, user, schoolSettings } = useAppStore();
+  const [viewMode, setViewMode] = React.useState('self'); // 'self', 'class', 'school'
 
   const isTeacher = role === 'teacher';
   const isStudent = role === 'student';
   const isAdmin = role === 'admin';
 
+  // For Class Timetable view
+  const [targetClass, setTargetClass] = React.useState(adminPreviewClass || '');
+
+  React.useEffect(() => {
+     if (adminPreviewClass) setTargetClass(adminPreviewClass);
+  }, [adminPreviewClass]);
+
   const { data: scheduleRaw, isLoading } = useQuery({
-    queryKey: ['timetable', schoolSettings?.school_id, user?.id, adminPreviewClass],
+    queryKey: ['timetable', schoolSettings?.school_id, user?.id, targetClass, viewMode, role],
     queryFn: async () => {
       let query = supabase.from('timetable').select('*'); 
-      
-      if (isTeacher) {
-         query = query.eq('teacher', user.id);
-      }
       
       if (isStudent) {
          const { data: profile } = await supabase.from('users').select('class').eq('id', user.id).single();
@@ -27,10 +31,25 @@ export default function TimetableViewer({ adminPreviewClass }) {
          } else {
             return [];
          }
-      }
-      
-      if (isAdmin && adminPreviewClass) {
-         query = query.eq('class', adminPreviewClass);
+      } else if (isAdmin) {
+         if (viewMode === 'class' && targetClass) {
+            query = query.eq('class', targetClass);
+         }
+         // if viewMode === 'school', no further filters.
+      } else if (isTeacher) {
+         if (viewMode === 'self') {
+            query = query.eq('teacher', user.id);
+         } else if (viewMode === 'class') {
+            const { data: profile } = await supabase.from('users').select('class').eq('id', user.id).single();
+            if (profile?.class) {
+               query = query.eq('class', profile.class);
+            } else if (targetClass) {
+               query = query.eq('class', targetClass);
+            } else {
+               return []; // No class selected and no deployed class
+            }
+         }
+         // if viewMode === 'school', no further filters.
       }
 
       const { data, error } = await query;
@@ -87,8 +106,45 @@ export default function TimetableViewer({ adminPreviewClass }) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-       {activeDaysWithData.map(day => {
+    <div className="space-y-4">
+       {(isTeacher || isAdmin) && (
+         <div className="flex flex-wrap gap-2 mb-6">
+            {isTeacher && (
+               <button 
+                  onClick={() => setViewMode('self')} 
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${viewMode === 'self' ? 'bg-primary text-white shadow-lg' : 'bg-[#0a1128] text-slate-400 hover:text-white border border-glass'}`}
+               >
+                  Self Timetable
+               </button>
+            )}
+            <button 
+               onClick={() => setViewMode('class')} 
+               className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${viewMode === 'class' ? 'bg-primary text-white shadow-lg' : 'bg-[#0a1128] text-slate-400 hover:text-white border border-glass'}`}
+            >
+               Allocated Class
+            </button>
+            <button 
+               onClick={() => setViewMode('school')} 
+               className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${viewMode === 'school' ? 'bg-primary text-white shadow-lg' : 'bg-[#0a1128] text-slate-400 hover:text-white border border-glass'}`}
+            >
+               School Timetable
+            </button>
+
+            {viewMode === 'class' && !adminPreviewClass && (
+               <select 
+                  value={targetClass} 
+                  onChange={e => setTargetClass(e.target.value)}
+                  className="ml-auto bg-[#0a1128] border border-glass rounded-xl px-4 py-2 text-xs font-bold text-white focus:border-primary focus:outline-none"
+               >
+                  <option value="">Select a Class...</option>
+                  {schoolSettings?.classes?.map(c => <option key={c} value={c}>{c}</option>)}
+               </select>
+            )}
+         </div>
+       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+         {activeDaysWithData.map(day => {
           const isToday = day === activeDay;
           
           return (
