@@ -13,31 +13,47 @@ import TeacherLayout from './layouts/TeacherLayout';
 import StudentLayout from './layouts/StudentLayout';
 import SuperAdminLayout from './layouts/SuperAdminLayout';
 
-// Features Integration
+// Super Admin
 import SuperAdminDashboard from './features/super_admin/SuperAdminDashboard';
 
-// Features Integration
+// Dashboards
 import AdminDashboard from './features/dashboard/AdminDashboard';
 import TeacherDashboard from './features/dashboard/TeacherDashboard';
 import StudentDashboard from './features/dashboard/StudentDashboard';
-import DigitalIdCard from './features/dashboard/DigitalIdCard';
-import AdminSettings from './features/settings/AdminSettings';
 
+// Settings (Shared for all roles)
+import SharedSettings from './features/settings/SharedSettings';
+
+// Attendance
 import MarkAttendance from './features/attendance/MarkAttendance';
-import UserManagement from './features/users/UserManagement';
+import TeacherSelfAttendance from './features/attendance/TeacherSelfAttendance';
 import StudentAttendanceChart from './features/attendance/StudentAttendanceChart';
 
+// Users / Profile
+import UserManagement from './features/users/UserManagement';
+import UserProfile from './features/profile/UserProfile';
+
+// Fees
 import AdminFeeManager from './features/fees/AdminFeeManager';
 import StudentFeeLedger from './features/fees/StudentFeeLedger';
 
+// Notices
 import NoticeManager from './features/notices/NoticeManager';
 import NoticeBoard from './features/notices/NoticeBoard';
 
+// Timetable
 import TimetableManager from './features/timetable/TimetableManager';
 import TimetableViewer from './features/timetable/TimetableViewer';
+
+// Other modules
 import LeavesManager from './features/leaves/LeavesManager';
 import GalleryManager from './features/gallery/GalleryManager';
-import DashboardHero from './components/DashboardHero';
+import Reports from './features/reports/Reports';
+import OffClasses from './features/off-classes/OffClasses';
+import Contact from './features/contact/Contact';
+
+// Calendar Events
+import CalendarEvents from './features/calendar/CalendarEvents';
 
 export default function App() {
   const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
@@ -92,22 +108,23 @@ export default function App() {
     <Routes>
       <Route path="/" element={user ? <Navigate to={`/${role}`} replace /> : <Navigate to="/login" replace />} />
       <Route path="/login" element={user ? <Navigate to={`/${role}`} replace /> : <Login />} />
-      
+
       {/* ──────────────── ADMIN ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="users" element={<UserManagement />} />
-          <Route path="attendance" element={<MarkAttendance />} />
-          <Route path="fees" element={<AdminFeeManager />} />
-          <Route path="timetable" element={<TimetableManager />} />
-          <Route path="notices" element={<NoticeManager />} />
-          <Route path="events" element={<div className="p-6 bg-white border border-border rounded-xl">Calendar Events Coming Soon...</div>} />
-          <Route path="leaves" element={<LeavesManager />} />
-          <Route path="gallery" element={<GalleryManager />} />
-          <Route path="reports" element={<div className="p-6 bg-white border border-border rounded-xl">Reports Coming Soon...</div>} />
-          <Route path="settings" element={<AdminSettings />} />
+          <Route path="dashboard"   element={<AdminDashboard />} />
+          <Route path="users"       element={<UserManagement />} />
+          <Route path="attendance"  element={<MarkAttendance />} />
+          <Route path="fees"        element={<AdminFeeManager />} />
+          <Route path="calendar"    element={<CalendarEvents />} />
+          <Route path="notices"     element={<NoticeManager />} />
+          <Route path="gallery"     element={<GalleryManager />} />
+          <Route path="timetable"   element={<TimetableManager />} />
+          <Route path="off-classes" element={<OffClasses />} />
+          <Route path="leaves"      element={<LeavesManager />} />
+          <Route path="reports"     element={<Reports />} />
+          <Route path="settings"    element={<SharedSettings />} />
         </Route>
       </Route>
 
@@ -115,13 +132,17 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
         <Route path="/teacher" element={<TeacherLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<TeacherDashboard />} />
-          <Route path="attendance" element={<MarkAttendance />} />
-          <Route path="timetable" element={<TimetableViewer />} />
-          <Route path="notices" element={<NoticeManager />} />
-          <Route path="events" element={<div className="p-6 bg-white border border-border rounded-xl">Events View</div>} />
-          <Route path="leaves" element={<LeavesManager />} />
-          <Route path="profile" element={<div className="p-6 bg-white border border-border rounded-xl">My Profile Config</div>} />
+          <Route path="dashboard"        element={<TeacherDashboard />} />
+          <Route path="profile"          element={<UserProfile />} />
+          <Route path="self-attendance"  element={<TeacherSelfAttendance />} />
+          <Route path="attendance"       element={<MarkAttendance />} />
+          <Route path="timetable"        element={<TimetableViewer />} />
+          <Route path="off-classes"      element={<OffClasses />} />
+          <Route path="notices"          element={<NoticeManager />} />
+          <Route path="leaves"           element={<LeavesManager />} />
+          <Route path="gallery"          element={<GalleryManager />} />
+          <Route path="reports"          element={<Reports />} />
+          <Route path="settings"         element={<SharedSettings />} />
         </Route>
       </Route>
 
@@ -129,14 +150,16 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
         <Route path="/student" element={<StudentLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<StudentDashboard />} />
-          <Route path="attendance" element={<div className="p-6 bg-white border border-border rounded-xl">My Attendance Record</div>} />
-          <Route path="fees" element={<StudentFeeLedger />} />
-          <Route path="timetable" element={<TimetableViewer />} />
-          <Route path="notices" element={<NoticeBoard />} />
-          <Route path="events" element={<div className="p-6 bg-white border border-border rounded-xl">Events View</div>} />
-          <Route path="gallery" element={<GalleryManager />} />
-          <Route path="profile" element={<div className="p-6 bg-white border border-border rounded-xl">My Profile Config</div>} />
+          <Route path="dashboard"  element={<StudentDashboard />} />
+          <Route path="profile"    element={<UserProfile />} />
+          <Route path="attendance" element={<StudentAttendanceChart />} />
+          <Route path="fees"       element={<StudentFeeLedger />} />
+          <Route path="timetable"  element={<TimetableViewer />} />
+          <Route path="notices"    element={<NoticeBoard />} />
+          <Route path="leaves"     element={<LeavesManager />} />
+          <Route path="gallery"    element={<GalleryManager />} />
+          <Route path="contact"    element={<Contact />} />
+          <Route path="settings"   element={<SharedSettings />} />
         </Route>
       </Route>
 

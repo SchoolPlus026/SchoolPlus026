@@ -3,6 +3,7 @@ import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, Settings, LayoutDashboard } from 'lucide-react';
+import NotificationBell from '../components/NotificationBell';
 
 export default function AdminLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -14,10 +15,9 @@ export default function AdminLayout() {
   };
 
   return (
-    // h-screen + flex-col: bounds the container so main can scroll within it
     <div className="flex flex-col h-screen bg-transparent text-slate-100">
 
-      {/* ── Gradient Header (matches legacy blueprint style) ── */}
+      {/* ── Gradient Header ── */}
       <header className="sp-header h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
         <div className="flex items-center gap-3">
           {schoolSettings?.logo_url ? (
@@ -45,6 +45,7 @@ export default function AdminLayout() {
           <span className="text-xs font-semibold text-indigo-200/70 hidden sm:block bg-white/10 px-3 py-1.5 rounded-full border border-white/10">
             {user?.email}
           </span>
+          <NotificationBell />
           <Link
             to="/admin"
             className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all"
@@ -69,7 +70,7 @@ export default function AdminLayout() {
         </div>
       </header>
 
-      {/* ── Scrollable Main Content ── */}
+      {/* ── Scrollable Content ── */}
       <main className="flex-1 overflow-y-auto scroll-stable">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <Outlet />

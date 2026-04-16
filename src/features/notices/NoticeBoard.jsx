@@ -90,6 +90,17 @@ export default function NoticeBoard() {
                    <div className="text-slate-300 text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
                      {notice.content}
                    </div>
+                   
+                   {notice.photo_link && (
+                      <div className="mt-5 border border-glass rounded-xl overflow-hidden shadow-lg bg-[#0a1128]">
+                        <img 
+                          src={notice.photo_link} 
+                          alt="Notice Attachment" 
+                          className="w-full h-auto max-h-96 object-contain" 
+                          onError={(e) => e.target.style.display = 'none'}
+                        />
+                      </div>
+                   )}
                 </div>
              </div>
           ))}

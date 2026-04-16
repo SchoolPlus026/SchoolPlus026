@@ -13,6 +13,7 @@ export default function NoticeManager() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [scope, setScope] = useState('all');
+  const [photoLink, setPhotoLink] = useState('');
   const [isComposing, setIsComposing] = useState(false);
 
   const broadcastMutation = useMutation({
@@ -25,7 +26,8 @@ export default function NoticeManager() {
            title: payload.title,
            content: payload.content,
            date: new Date().toISOString().split('T')[0],
-           scope: payload.scope
+           scope: payload.scope,
+           photo_link: payload.photoLink || null
         });
         
       if (error) throw error;
@@ -39,6 +41,7 @@ export default function NoticeManager() {
       setTitle('');
       setContent('');
       setScope('all');
+      setPhotoLink('');
       setIsComposing(false);
     }
   });
@@ -47,7 +50,7 @@ export default function NoticeManager() {
     e.preventDefault();
     if (!title.trim() || !content.trim()) return;
     
-    broadcastMutation.mutate({ title, content, scope });
+    broadcastMutation.mutate({ title, content, scope, photoLink });
   };
 
   return (
@@ -103,6 +106,17 @@ export default function NoticeManager() {
                   <option value="teachers">Restricted: Campus Staff Only</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold tracking-widest text-slate-400 mb-2 uppercase">Photo Link (Optional)</label>
+              <input 
+                type="url" 
+                value={photoLink} 
+                onChange={e => setPhotoLink(e.target.value)} 
+                className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors font-medium text-sm placeholder-slate-600 shadow-inner"
+                placeholder="https://example.com/image.jpg"
+              />
             </div>
 
             <div>
