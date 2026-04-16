@@ -46,7 +46,18 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      // ── Simple Demo Credentials Interception ──
+      let loginEmail = email.trim();
+      let loginPassword = password;
+      
+      if (loginEmail === 'admin') loginEmail = 'admin@demo.com';
+      if (loginEmail === 'teacher') loginEmail = 'teacher@demo.com';
+      if (loginEmail === 'student') loginEmail = 'student@demo.com';
+      
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ 
+        email: loginEmail, 
+        password: loginPassword 
+      });
       if (authError) throw authError;
 
       const { data: profile, error: profileError } = await supabase

@@ -124,6 +124,7 @@ export default function App() {
           <Route path="off-classes" element={<OffClasses />} />
           <Route path="leaves"      element={<LeavesManager />} />
           <Route path="reports"     element={<Reports />} />
+          <Route path="contact"     element={<Contact />} />
           <Route path="settings"    element={<SharedSettings />} />
         </Route>
       </Route>
@@ -142,6 +143,7 @@ export default function App() {
           <Route path="leaves"           element={<LeavesManager />} />
           <Route path="gallery"          element={<GalleryManager />} />
           <Route path="reports"          element={<Reports />} />
+          <Route path="contact"          element={<Contact />} />
           <Route path="settings"         element={<SharedSettings />} />
         </Route>
       </Route>

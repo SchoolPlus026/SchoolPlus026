@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, ClipboardList, DollarSign, Clock, CalendarHeart,
-  Image, Bell, Calendar, LineChart, Settings, CalendarX
+  Image, Bell, Calendar, LineChart, Settings, CalendarX, Phone
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 
@@ -19,6 +19,7 @@ const MODULES = [
   { name: 'Off Classes',  path: '/admin/off-classes',  icon: <CalendarX size={28} />,     color: 'text-orange-400',  bg: 'bg-orange-500/10',  glow: 'hover:shadow-orange-500/20' },
   { name: 'Leaves',       path: '/admin/leaves',       icon: <CalendarHeart size={28} />, color: 'text-rose-400',    bg: 'bg-rose-500/10',    glow: 'hover:shadow-rose-500/20' },
   { name: 'Reports',      path: '/admin/reports',      icon: <LineChart size={28} />,     color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    glow: 'hover:shadow-cyan-500/20' },
+  { name: 'Contact',      path: '/admin/contact',      icon: <Phone size={28} />,         color: 'text-zinc-400',    bg: 'bg-zinc-500/10',    glow: 'hover:shadow-zinc-500/20' },
   { name: 'Settings',     path: '/admin/settings',     icon: <Settings size={28} />,      color: 'text-slate-400',   bg: 'bg-slate-500/10',   glow: 'hover:shadow-slate-500/20' },
 ];
 
