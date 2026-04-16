@@ -177,6 +177,7 @@ export default function TimetableViewer({ adminPreviewClass }) {
              </div>
           </div>
        )})}
+      </div>
     </div>
   );
 }
