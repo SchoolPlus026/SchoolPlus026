@@ -1,47 +1,52 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Users, ClipboardList, DollarSign, Clock, CalendarHeart, Image, Bell, Calendar, LineChart, Settings } from 'lucide-react';
+import {
+  Users, ClipboardList, DollarSign, Clock, CalendarHeart,
+  Image, Bell, Calendar, LineChart, Settings
+} from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 
 export default function AdminDashboard() {
   const modules = [
-    { name: 'Users', path: '/admin/users', icon: <Users size={32} />, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { name: 'Attendance', path: '/admin/attendance', icon: <ClipboardList size={32} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-    { name: 'Fees', path: '/admin/fees', icon: <DollarSign size={32} />, color: 'text-green-500', bg: 'bg-green-50' },
-    { name: 'Timetable', path: '/admin/timetable', icon: <Clock size={32} />, color: 'text-purple-500', bg: 'bg-purple-50' },
-    { name: 'Leaves', path: '/admin/leaves', icon: <CalendarHeart size={32} />, color: 'text-rose-500', bg: 'bg-rose-50' },
-    { name: 'Gallery', path: '/admin/gallery', icon: <Image size={32} />, color: 'text-pink-500', bg: 'bg-pink-50' },
-    { name: 'Notices', path: '/admin/notices', icon: <Bell size={32} />, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { name: 'Calendar', path: '/admin/events', icon: <Calendar size={32} />, color: 'text-teal-500', bg: 'bg-teal-50' },
-    { name: 'Reports', path: '/admin/reports', icon: <LineChart size={32} />, color: 'text-cyan-500', bg: 'bg-cyan-50' },
-    { name: 'Settings', path: '/admin/settings', icon: <Settings size={32} />, color: 'text-slate-500', bg: 'bg-slate-50' },
+    { name: 'Users',        path: '/admin/users',       icon: <Users size={28} />,        color: 'text-blue-400',    bg: 'bg-blue-500/10',    glow: 'hover:shadow-blue-500/20' },
+    { name: 'Attendance',   path: '/admin/attendance',  icon: <ClipboardList size={28} />,color: 'text-indigo-400',  bg: 'bg-indigo-500/10',  glow: 'hover:shadow-indigo-500/20' },
+    { name: 'Fees',         path: '/admin/fees',        icon: <DollarSign size={28} />,   color: 'text-emerald-400', bg: 'bg-emerald-500/10', glow: 'hover:shadow-emerald-500/20' },
+    { name: 'Timetable',    path: '/admin/timetable',   icon: <Clock size={28} />,        color: 'text-purple-400',  bg: 'bg-purple-500/10',  glow: 'hover:shadow-purple-500/20' },
+    { name: 'Leaves',       path: '/admin/leaves',      icon: <CalendarHeart size={28} />,color: 'text-rose-400',    bg: 'bg-rose-500/10',    glow: 'hover:shadow-rose-500/20' },
+    { name: 'Gallery',      path: '/admin/gallery',     icon: <Image size={28} />,        color: 'text-pink-400',    bg: 'bg-pink-500/10',    glow: 'hover:shadow-pink-500/20' },
+    { name: 'Notices',      path: '/admin/notices',     icon: <Bell size={28} />,         color: 'text-amber-400',   bg: 'bg-amber-500/10',   glow: 'hover:shadow-amber-500/20' },
+    { name: 'Calendar',     path: '/admin/events',      icon: <Calendar size={28} />,     color: 'text-teal-400',    bg: 'bg-teal-500/10',    glow: 'hover:shadow-teal-500/20' },
+    { name: 'Reports',      path: '/admin/reports',     icon: <LineChart size={28} />,    color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    glow: 'hover:shadow-cyan-500/20' },
+    { name: 'Settings',     path: '/admin/settings',    icon: <Settings size={28} />,     color: 'text-slate-400',   bg: 'bg-slate-500/10',   glow: 'hover:shadow-slate-500/20' },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 fade-in pb-10">
       <DashboardHero />
 
-      <h3 className="text-xl font-bold text-text mb-4 px-2 flex items-center gap-2">
-        <div className="w-1.5 h-6 bg-primary rounded-full"></div>
-        Master Control Panel
-      </h3>
+      {/* Module Grid */}
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg, #4f46e5, #7c3aed)' }} />
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Master Control Panel</h3>
+        </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
-        {modules.map((mod) => (
-          <Link
-            key={mod.name}
-            to={mod.path}
-            className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-border hover:shadow-md hover:-translate-y-1 transition-all duration-200 group relative overflow-hidden"
-          >
-            <div className={`p-4 rounded-xl ${mod.bg} ${mod.color} mb-4 group-hover:scale-110 transition-transform duration-200 relative z-10`}>
-              {mod.icon}
-            </div>
-            <span className="font-bold text-text relative z-10">{mod.name}</span>
-            <div className={`absolute top-0 right-0 p-4 ${mod.color} opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none`}>
-              {mod.icon}
-            </div>
-          </Link>
-        ))}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {modules.map((mod) => (
+            <Link
+              key={mod.name}
+              to={mod.path}
+              className={`module-card flex flex-col items-center justify-center p-6 gap-4 group ${mod.glow} hover:shadow-xl`}
+            >
+              <div className={`p-4 rounded-2xl ${mod.bg} ${mod.color} group-hover:scale-110 transition-transform duration-300`}>
+                {mod.icon}
+              </div>
+              <span className={`font-bold text-xs uppercase tracking-widest ${mod.color}`}>
+                {mod.name}
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );

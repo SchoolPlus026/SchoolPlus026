@@ -14,7 +14,7 @@ export default function SuperAdminLayout() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-900 text-slate-100 overflow-hidden font-sans">
+    <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans">
       {/* Top Header */}
       <header className="h-16 flex items-center justify-between px-8 bg-slate-800 border-b border-slate-700 shadow-2xl z-20">
         <div className="flex items-center gap-3">

@@ -2,8 +2,7 @@ import React from 'react';
 import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
-import { LogOut, Settings } from 'lucide-react';
-import GlobalBackButton from '../components/GlobalBackButton';
+import { LogOut, Settings, LayoutDashboard } from 'lucide-react';
 
 export default function AdminLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -15,47 +14,64 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-text">
-      {/* Top Header */}
-      <header className="h-16 flex items-center justify-between px-4 sm:px-8 bg-surface border-b border-border shadow-sm">
+    // h-screen + flex-col: bounds the container so main can scroll within it
+    <div className="flex flex-col h-screen bg-transparent text-slate-100">
+
+      {/* ── Gradient Header (matches legacy blueprint style) ── */}
+      <header className="sp-header h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
         <div className="flex items-center gap-3">
           {schoolSettings?.logo_url ? (
-            <img src={schoolSettings.logo_url} alt="Logo" className="w-10 h-10 rounded-lg object-contain bg-white shadow-sm" />
+            <img
+              src={schoolSettings.logo_url}
+              alt="Logo"
+              className="w-10 h-10 rounded-xl object-contain bg-white/10 p-1 shadow-lg"
+            />
           ) : (
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center font-bold text-white shadow-sm">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center font-black text-white text-lg shadow-lg border border-white/10">
               S
             </div>
           )}
-          <Link to="/admin" className="font-bold text-xl tracking-tight text-text hover:text-primary transition-colors">
-            {schoolSettings?.name || 'School Master Portal'}
-          </Link>
+          <div>
+            <Link to="/admin" className="font-bold text-base tracking-tight text-white hover:text-indigo-200 transition-colors leading-none block">
+              {schoolSettings?.name || 'School Master'}
+            </Link>
+            <div className="text-[10px] text-indigo-200/80 font-semibold uppercase tracking-widest">
+              Admin Portal
+            </div>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-muted hidden sm:block bg-slate-100 px-3 py-1.5 rounded-full border border-border">
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="text-xs font-semibold text-indigo-200/70 hidden sm:block bg-white/10 px-3 py-1.5 rounded-full border border-white/10">
             {user?.email}
           </span>
-          <Link 
+          <Link
+            to="/admin"
+            className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+            title="Dashboard"
+          >
+            <LayoutDashboard size={18} />
+          </Link>
+          <Link
             to="/admin/settings"
-            className="p-2 text-muted hover:text-primary hover:bg-slate-100 rounded-full transition-colors"
+            className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all"
             title="Settings"
           >
-            <Settings size={20} />
+            <Settings size={18} />
           </Link>
-          <button 
+          <button
             onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-red-500 hover:text-white hover:bg-red-500 rounded-lg transition-all"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-red-300 hover:text-white hover:bg-red-500/70 rounded-xl transition-all border border-red-400/20"
           >
-            <LogOut size={18} />
+            <LogOut size={16} />
             <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto h-full">
-          <GlobalBackButton />
+      {/* ── Scrollable Main Content ── */}
+      <main className="flex-1 overflow-y-auto scroll-stable">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <Outlet />
         </div>
       </main>

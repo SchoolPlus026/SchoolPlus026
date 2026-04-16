@@ -1,0 +1,2252 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Little Flower School — Supabase Online App</title>
+    <meta name="theme-color" content="#6b46c1" />
+    <style>
+        /* ========== THEME ========== */
+        :root {
+            --bg-1: #0b1020;
+            --bg-2: #061233;
+            --card: rgba(255, 255, 255, 0.04);
+            --text: #e6eef8;
+            --muted: #9fb1c7;
+            --primary: linear-gradient(135deg, #4f46e5, #7c3aed);
+            --accent: #60a5fa;
+            --glass: rgba(255, 255, 255, 0.02);
+            --border-color: rgba(255, 255, 255, 0.04);
+        }
+
+        [data-theme="light"] {
+            --bg-1: #f4f7fb;
+            --bg-2: #eaf0ff;
+            --card: #fff;
+            --text: #0f1724;
+            --muted: #6b7280;
+            --primary: linear-gradient(135deg, #2563eb, #7c3aed);
+            --accent: #2563eb;
+            --glass: rgba(0, 0, 0, 0.03);
+            --border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            color: var(--text);
+            background: radial-gradient(1200px 600px at 10% 10%, rgba(124, 58, 237, 0.12), transparent),
+                linear-gradient(180deg, var(--bg-1), var(--bg-2));
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            transition: background .25s, color .25s;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 18px;
+            background: var(--primary);
+            color: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: 0 8px 30px rgba(2, 6, 23, 0.25);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            background: #fff;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 18px;
+            letter-spacing: 0.2px
+        }
+
+        .brand .sub {
+            font-size: 12px;
+            opacity: .9
+        }
+
+        .top-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+            align-items: center
+        }
+
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .notification-count {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 10px;
+            padding: 2px 5px;
+            border-radius: 50%;
+        }
+
+        .notification-panel {
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            background: var(--card);
+            border-radius: 8px;
+            width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            z-index: 100;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 0;
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer
+        }
+
+        .btn.primary {
+            background: transparent;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .btn.accent {
+            background: linear-gradient(90deg, #60a5fa, #7c3aed);
+            color: #fff;
+            border: 0
+        }
+
+        .btn.ghost {
+            background: transparent;
+            border: 0;
+            color: inherit
+        }
+
+        .btn.outline {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.06)
+        }
+
+        .btn.danger {
+            background: #ef4444;
+            color: #fff
+        }
+
+        .small {
+            font-size: 13px
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 18px auto;
+            padding: 12px
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 6px 18px rgba(2, 6, 23, 0.18)
+        }
+
+        .flex {
+            display: flex;
+            gap: 12px;
+            align-items: center
+        }
+
+        .right {
+            margin-left: auto
+        }
+
+        input,
+        select,
+        textarea {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text);
+            width: 100%
+        }
+
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e6eef8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-13%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2013l128%20127.9c3.6%203.6%207.8%205.4%2013%205.4s9.4-1.8%2013-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-13%200-4.9-1.8-9.2-5.4-13z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 10px top 50%;
+            background-size: .65em auto;
+            padding-right: 30px;
+        }
+
+        [data-theme="light"] select {
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230f1724%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-13%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2013l128%20127.9c3.6%203.6%207.8%205.4%2013%205.4s9.4-1.8%2013-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-13%200-4.9-1.8-9.2-5.4-13z%22%2F%3E%3C%2Fsvg%3E');
+        }
+
+        textarea {
+            min-height: 80px
+        }
+
+        .modules {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px
+        }
+
+        .module {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+            padding: 18px;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform .14s, box-shadow .14s
+        }
+
+        .module:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 30px rgba(2, 6, 23, 0.25)
+        }
+
+        .module h4 {
+            margin: 8px 0 0;
+            font-size: 15px
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px
+        }
+
+        .day {
+            min-height: 90px;
+            padding: 8px;
+            border-radius: 10px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+            border: 1px solid rgba(255, 255, 255, 0.03)
+        }
+
+        .date-num {
+            font-weight: 700;
+            margin-bottom: 8px
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            background: #0d9488
+        }
+
+        .badge.holiday {
+            background: #ef4444
+        }
+
+        .badge.exam {
+            background: #c084fc
+        }
+
+        .badge.activity {
+            background: #f97316
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            white-space: nowrap;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
+        }
+
+        .hidden {
+            display: none !important
+        }
+
+        .modal-back {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: grid;
+            place-items: center;
+            z-index: 9999
+        }
+
+        .modal {
+            background: var(--card);
+            padding: 18px;
+            border-radius: 12px;
+            width: 94%;
+            max-width: 900px
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 20px;
+            background: #111;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: #fff;
+            z-index: 9999
+        }
+
+        .chip {
+            background: var(--glass);
+            padding: 6px 8px;
+            border-radius: 999px
+        }
+
+        .muted.small {
+            font-size: 12px
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 12px
+        }
+
+        .section-title h3 {
+            margin: 0
+        }
+
+        .fade-in {
+            animation: fadeIn .28s ease both
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px)
+            }
+
+            to {
+                opacity: 1;
+                transform: none
+            }
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: var(--muted);
+            z-index: 10;
+        }
+
+        .unpaid-highlight {
+            color: #f87171;
+            font-weight: bold;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--glass);
+            margin-bottom: 12px;
+        }
+
+        .tab {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--accent);
+            color: var(--accent);
+        }
+
+        @media (max-width: 768px) {
+            .flex {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+
+            .flex input,
+            .flex select,
+            .flex button {
+                width: 100%;
+            }
+
+            .top-actions {
+                gap: 4px;
+            }
+
+            .container {
+                padding: 8px;
+            }
+
+            .calendar-grid {
+                font-size: 12px;
+            }
+
+            .day {
+                min-height: 70px;
+                padding: 4px;
+            }
+
+            .badge {
+                padding: 2px 4px;
+                font-size: 10px;
+            }
+
+            .brand h1 {
+                font-size: 16px;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.44.2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <!-- Reports Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function (OneSignal) {
+            await OneSignal.init({
+                appId: "e6350574-cc82-4175-9d7e-b76ddefdb164",
+            });
+        });
+    </script>
+    <script type="module" crossorigin src="/assets/index-3qvUEDFc.js"></script>
+</head>
+
+<body data-theme="dark">
+
+    <header>
+        <div class="logo" id="logoBox" title="Editable by Admin">
+            <img src="/assets/logo-BzekIxvC.png" alt="School Logo" width="40">
+        </div>
+        <h1 id="appTitle">Little Flower School</h1>
+        <div class="sub muted small" data-translate-key="appSubtitle">Digital School — Portal for Students, Teachers &
+            Admin</div>
+        </div>
+        </div>
+
+        <div class="top-actions">
+            <button class="btn ghost" id="btnMenu">☰</button>
+            <button class="btn outline" id="btnHome" data-translate-key="home">Home</button>
+            <button class="btn accent" id="btnLoginNav" data-translate-key="login">Login</button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <section id="homeScreen" class="fade-in">
+            <div class="card">
+                <div class="flex">
+                    <div style="flex:1">
+                        <div class="muted small" data-translate-key="welcome">Welcome</div>
+                        <h2 id="welcomeHeadline" data-translate-key="welcomeHeadline">Welcome to Little Flower School —
+                            Digital Portal</h2>
+                        <div class="muted small" style="margin-top:6px" data-translate-key="welcomeSub">Login to access
+                            your dashboard. Admins manage everything from one place.</div>
+                        <div style="margin-top:12px" class="flex" id="homeActions">
+                        </div>
+                    </div>
+
+                    <div style="width:400px">
+                        <div class="card small">
+                            <div class="muted small" data-translate-key="upcoming">Upcoming</div>
+                            <div id="homeNextEvent" style="margin-top:8px">No upcoming events</div>
+                        </div>
+                        <div class="card small" style="margin-top:10px">
+                            <div class="muted small" data-translate-key="latestNotice">Latest Notice</div>
+                            <div id="homeNoticePreview" style="margin-top:8px">No notices</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-title">
+                    <h3 data-translate-key="quickModules">Quick Modules</h3>
+                    <div class="right muted small" data-translate-key="tapAnyModule">Tap any module</div>
+                </div>
+                <div style="height:12px"></div>
+                <div class="modules" id="modulesGrid"></div>
+            </div>
+        </section>
+
+        <section id="loginScreen" class="hidden">
+            <div class="card" style="max-width: 600px; margin: 40px auto;">
+                <div class="section-title">
+                    <h3 data-translate-key="login">Login</h3>
+                    <div class="muted small right" data-translate-key="loginSub">Use your username & password</div>
+                </div>
+                <div style="height:20px;"></div>
+                <div class="flex" style="flex-direction: row; align-items: flex-end;">
+                    <div style="flex:1">
+                        <label class="muted small" style="font-size: 1rem;"
+                            data-translate-key="username">Username</label>
+                        <input id="inputUsername" data-translate-key="usernamePlaceholder"
+                            data-translate-attr="placeholder" placeholder="e.g. admin or stu_rija"
+                            style="font-size: 1.2rem; padding: 12px;" />
+                    </div>
+                    <div style="flex:1;" class="password-wrapper">
+                        <label class="muted small" style="font-size: 1rem;"
+                            data-translate-key="password">Password</label>
+                        <input id="inputPwd" type="password" data-translate-key="password"
+                            data-translate-attr="placeholder" placeholder="Password"
+                            style="font-size: 1.2rem; padding: 12px;" />
+                        <span class="password-toggle" id="togglePwd">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-eye">
+                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+                <div style="margin-top:20px" class="flex" style="flex-direction: row; align-items: flex-end;">
+                    <button class="btn accent" id="btnLogin" style="font-size: 1.2rem; padding: 12px 20px;"
+                        data-translate-key="login">Login</button>
+                    <button class="btn outline" id="btnCancelLogin" data-translate-key="back">Back</button>
+                    <button class="btn ghost right" id="btnForgot" data-translate-key="forgotPassword">Forgot Admin
+                        Password</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="dashScreen" class="hidden">
+            <div class="card">
+                <div class="flex">
+                    <div style="flex:1">
+                        <div class="muted small" data-translate-key="dashboard">Dashboard</div>
+                        <h2 id="dashTitle">—</h2>
+                        <div id="dashRole" class="muted small">—</div>
+                    </div>
+                    <div class="right">
+                        <div class="muted small" data-translate-key="signedInAs">Signed in as</div>
+                        <div id="signedUser" style="font-weight:700">—</div>
+                        <div style="margin-top:8px" class="flex">
+                            <button class="btn outline" id="btnDashHome" data-translate-key="home">Home</button>
+                            <button class="btn" id="btnLogout" data-translate-key="logout">Logout</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="dashModules"></div>
+        </section>
+
+        <section id="moduleScreen" class="hidden">
+            <div class="card">
+                <div class="flex">
+                    <button class="btn ghost" id="btnBackModule">← <span data-translate-key="back">Back</span></button>
+                    <h3 id="moduleTitle" style="margin-left:auto;text-align:right;"></h3>
+                </div>
+            </div>
+            <div id="moduleContent"></div>
+        </section>
+    </div>
+
+    <div id="modalRoot" class="hidden"></div>
+    <div id="toastRoot" style="position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:9999"></div>
+
+    <script>
+        // --- Supabase Client Init ---
+        (function () {
+            const SUPABASE_URL = "https://oamaqgrmdhqrzeqsweul.supabase.co";
+            const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hbWFxZ3JtZGhxcnplcXN3ZXVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3ODcwMTgsImV4cCI6MjA3MzM2MzAxOH0.BtPVfXiuJ6q6Ywqk22LU7fbDdjKuTCZgRxH8SG2PKY8";
+            try { window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { console.error('Supabase init error', e); }
+        })();
+    </script>
+
+    <script>
+        // --- Global Utilities & Hashing ---
+        const $ = (sel) => document.querySelector(sel);
+        const $$ = (sel) => document.querySelectorAll(sel);
+        const show = (el) => el.classList.remove('hidden');
+        const hide = (el) => el.classList.add('hidden');
+        const el = (html) => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild || d; };
+        const escapeHtml = (s) => (s ? String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])) : '');
+
+        async function hashPassword(pwd) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(pwd);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return btoa(String.fromCharCode.apply(null, hashArray));
+        }
+        async function checkPassword(input, hashed) {
+            const inputHash = await hashPassword(input);
+            return inputHash === hashed;
+        }
+
+        // --- App State ---
+        let SESSION = null;
+        let lastScreen = 'home';
+        let notifications = [];
+        let currentOpenModule = null;
+
+        // --- i18n & Language ---
+        const translations = {
+            en: {
+                appSubtitle: "Digital School — Portal for Students, Teachers & Admin", home: "Home", login: "Login", welcome: "Welcome",
+                welcomeHeadline: "Welcome to Little Flower School — Digital Portal", welcomeSub: "Login to access your dashboard. Admins manage everything from one place.",
+                upcoming: "Upcoming", latestNotice: "Latest Notice", quickModules: "Quick Modules", tapAnyModule: "Tap any module",
+                loginSub: "Use your username & password", username: "Username", password: "Password", back: "Back", forgotPassword: "Forgot Admin Password",
+                usernamePlaceholder: "e.g. admin or stu_rija", dashboard: "Dashboard", signedInAs: "Signed in as", logout: "Logout",
+                goToDashboard: "Go to Dashboard", openCalendar: "Calendar",
+                module_login: "Login", module_notices: "Notification Board", module_calendar: "Calendar & Events", module_gallery: "Gallery",
+                module_attendance: "Attendance", module_fees: "Fees", module_leaves: "Leaves", module_timetable: "Timetable",
+                module_contact: "Contact", module_settings: "Settings",
+                settings: "Settings", theme: "Theme", language: "Language", changePassword: "Change Password", dataManagement: "Data Management",
+                dangerZone: "Danger Zone", dark: "🌙 Dark", light: "☀ Light",
+                save: "Save", cancel: "Cancel", close: "Close"
+            },
+            hi: {
+                appSubtitle: "डिजिटल स्कूल — छात्रों, शिक्षकों और व्यवस्थापक के लिए पोर्टल", home: "होम", login: "लॉगिन", welcome: "स्वागत है",
+                welcomeHeadline: "लिटिल फ्लावर स्कूल में आपका स्वागत है — डिजिटल पोर्टल", welcomeSub: "अपने डैशबोर्ड तक पहुंचने के लिए लॉगिन करें। व्यवस्थापक सब कुछ एक ही स्थान से प्रबंधित करते हैं।",
+                upcoming: "आगामी", latestNotice: "नवीनतम सूचना", quickModules: "त्वरित मॉड्यूल", tapAnyModule: "किसी भी मॉड्यूल पर टैप करें",
+                loginSub: "अपने उपयोगकर्ता नाम और पासवर्ड का उपयोग करें", username: "उपयोगकर्ता नाम", password: "पासवर्ड", back: "वापस", forgotPassword: "एडमिन पासवर्ड भूल गए",
+                usernamePlaceholder: "उदा. admin या stu_rija", dashboard: "डैशबोर्ड", signedInAs: "इस रूप में साइन इन हैं", logout: "लॉगआउट",
+                goToDashboard: "डैशबोर्ड पर जाएं", openCalendar: "कैलेंडर",
+                module_login: "लॉगिन", module_notices: "सूचना बोर्ड", module_calendar: "कैलेंडर और कार्यक्रम", module_gallery: "गैलरी",
+                module_attendance: "उपस्थिति", module_fees: "फीस", module_leaves: "छुट्टियाँ", module_timetable: "समय सारणी",
+                module_contact: "संपर्क", module_settings: "सेटिंग्स",
+                settings: "सेटिंग्स", theme: "थीम", language: "भाषा", changePassword: "पासवर्ड बदलें", dataManagement: "डेटा प्रबंधन",
+                dangerZone: "खतरनाक क्षेत्र", dark: "🌙 डार्क", light: "☀ लाइट",
+                save: "सहेजें", cancel: "रद्द करें", close: "बंद करें"
+            },
+            mr: {
+                appSubtitle: "डिजिटल शाळा — विद्यार्थी, शिक्षक आणि प्रशासकांसाठी पोर्टल", home: "होम", login: "लॉगिन", welcome: "स्वागत आहे",
+                welcomeHeadline: "लिटल फ्लॉवर स्कूलमध्ये आपले स्वागत आहे — डिजिटल पोर्टल", welcomeSub: "तुमच्या डॅशबोर्डवर प्रवेश करण्यासाठी लॉगिन करा. प्रशासक एकाच ठिकाणाहून सर्व काही व्यवस्थापित करतात.",
+                upcoming: "आगामी", latestNotice: "नवीनतम सूचना", quickModules: "द्रुत मॉड्यूल", tapAnyModule: "कोणत्याही मॉड्यूलवर टॅप करा",
+                loginSub: "तुमचे युझरनेम आणि पासवर्ड वापरा", username: "युझरनेम", password: "पासवर्ड", back: "मागे", forgotPassword: "प्रशासक पासवर्ड विसरला",
+                usernamePlaceholder: "उदा. admin किंवा stu_rija", dashboard: "डॅशबोर्ड", signedInAs: "म्हणून साइन इन केले आहे", logout: "लॉगआउट",
+                goToDashboard: "डॅशबोर्डवर जा", openCalendar: "कॅलेंडर",
+                module_login: "लॉगिन", module_notices: "सूचना फलक", module_calendar: "कॅलेंडर आणि कार्यक्रम", module_gallery: "गॅलरी",
+                module_attendance: "उपस्थिती", module_fees: "फी", module_leaves: "रजा", module_timetable: "वेळापत्रक",
+                module_contact: "संपर्क", module_settings: "सेटिंग्ज",
+                settings: "सेटिंग्ज", theme: "थीम", language: "भाषा", changePassword: "पासवर्ड बदला", dataManagement: "डेटा व्यवस्थापन",
+                dangerZone: "धोकादायक क्षेत्र", dark: "🌙 गडद", light: "☀ प्रकाश",
+                save: "जतन करा", cancel: "रद्द करा", close: "बंद करा"
+            }
+        };
+        let currentLang = localStorage.getItem('lfs_lang') || 'en';
+
+        function t(key) { return translations[currentLang][key] || key; }
+
+        function setLanguage(lang) {
+            if (!translations[lang]) return;
+            currentLang = lang;
+            localStorage.setItem('lfs_lang', lang);
+            document.documentElement.lang = lang;
+
+            document.querySelectorAll('[data-translate-key]').forEach(el => {
+                const key = el.dataset.translateKey;
+                const attr = el.dataset.translateAttr || 'textContent';
+                if (key) { el[attr] = t(key); }
+            });
+            // Re-render current view if a module is open
+            if (currentOpenModule) {
+                openModule(currentOpenModule);
+            } else if (lastScreen === 'dashboard') {
+                renderDashboardModules();
+            } else if (lastScreen === 'home') {
+                buildModulesGrid();
+                renderHomeActions();
+            }
+        }
+
+
+        // --- UI Components ---
+        function toast(msg, ms = 2200) {
+            const root = $('#toastRoot');
+            root.innerHTML = `<div class="toast">${msg}</div>`;
+            setTimeout(() => root.innerHTML = '', ms);
+        }
+        function showModal(title, contentHtml, buttons = []) {
+            const root = $('#modalRoot');
+            root.classList.remove('hidden');
+            root.innerHTML = `<div class="modal-back"><div class="modal"><h3>${title}</h3><div style="margin-top:10px">${contentHtml}</div><div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px" id="modalActions"></div></div></div>`;
+            const act = $('#modalActions');
+            buttons.forEach(b => {
+                const btn = document.createElement('button');
+                btn.className = 'btn';
+                if (b.class) btn.className += ` ${b.class}`;
+                btn.textContent = b.label;
+                btn.onclick = () => { if (b.cb) b.cb(); };
+                act.appendChild(btn);
+            });
+        }
+        function closeModal() {
+            $('#modalRoot').classList.add('hidden');
+            $('#modalRoot').innerHTML = '';
+        }
+
+        // --- Internal Notification System (The Bell Icon) ---
+        async function notify(to_user, message, link) {
+            const { error } = await supabase.from('notifications').insert([{ to_user, message, link }]);
+            if (error) console.error('Notification failed:', error);
+            refreshNotifications();
+        }
+
+        async function refreshNotifications() {
+            if (!SESSION) return;
+            const { data } = await supabase.from('notifications').select('*').eq('to_user', SESSION.username).eq('is_read', false);
+            notifications = data || [];
+            const countEl = $('#notificationCount');
+            if (!countEl) return;
+            countEl.textContent = notifications.length;
+            if (notifications.length > 0) { show(countEl); } else { hide(countEl); }
+        }
+
+        function showNotificationPanel() {
+            showModal('Notifications', `
+    <div id="notificationList">
+      ${notifications.length ? notifications.map(n => `
+        <div style="padding: 8px; border-bottom: 1px solid var(--muted); cursor: pointer;" data-id="${n.id}" data-link="${n.link}">
+          <div style="font-weight: bold;">${n.message}</div>
+          <div class="muted small">${new Date(n.created_at).toLocaleString()}</div>
+        </div>
+      `).join('') : '<div class="muted">No new notifications.</div>'}
+    </div>
+  `, [{ label: 'Mark All as Read', cb: markAllNotificationsAsRead }, { label: t('close'), cb: closeModal }]);
+
+            $('#notificationList').addEventListener('click', async (e) => {
+                const item = e.target.closest('div');
+                if (item) {
+                    const id = item.dataset.id;
+                    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+                    refreshNotifications();
+                }
+            });
+        }
+
+        async function markAllNotificationsAsRead() {
+            if (notifications.length > 0) {
+                await supabase.from('notifications').update({ is_read: true }).eq('to_user', SESSION.username);
+                refreshNotifications();
+            }
+        }
+
+        // --- App Flow & Navigation ---
+        async function init() {
+            const theme = localStorage.getItem('lfs_theme') || 'dark';
+            document.body.setAttribute('data-theme', theme);
+
+            setLanguage(currentLang); // Apply language on init
+
+            $('#btnLoginNav').addEventListener('click', () => navigateTo('login'));
+            $('#btnCancelLogin').addEventListener('click', () => navigateTo('home'));
+            $('#btnHome').addEventListener('click', () => navigateTo('home'));
+            $('#btnMenu').addEventListener('click', () => openMenu());
+            $('#btnDashHome').addEventListener('click', () => navigateTo('home'));
+            $('#btnBackModule').addEventListener('click', () => navigateTo(lastScreen));
+
+            const notifBell = document.createElement('div');
+            notifBell.className = 'notification-bell';
+            notifBell.id = 'notificationBell';
+            notifBell.style.display = 'none';
+            notifBell.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell"><path d="M6 8a6 6 0 0 1 12 0c0 7-3 9-3 9H9s-3-2-3-9"/><path d="M10.375 22.046c.92.518 2.02.518 2.94 0M12 2v2"/></svg>
+      <span class="notification-count hidden" id="notificationCount">0</span>`;
+            $('.top-actions').prepend(notifBell);
+            notifBell.addEventListener('click', showNotificationPanel);
+
+            $('#btnLogin').addEventListener('click', attemptLogin);
+            $('#btnForgot').addEventListener('click', forgotAdminPassword);
+            $('#btnLogout').addEventListener('click', logout);
+
+            $('#togglePwd').addEventListener('click', () => {
+                const pwdInput = $('#inputPwd');
+                const type = pwdInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                pwdInput.setAttribute('type', type);
+            });
+
+            buildModulesGrid();
+
+            try {
+                const { data } = await supabase.from('users').select('username,password').limit(1);
+                if (!data || data.length === 0) {
+                    showModal('Supabase setup required', `<div class="muted">It seems the database tables are not set up. Please copy the SQL code from the separate file and run it in your Supabase SQL Editor.</div>`, [{ label: 'I understand', cb: closeModal }]);
+                    return;
+                }
+            } catch (err) { console.error("DB check failed", err); }
+
+            const stored = JSON.parse(localStorage.getItem('lfs_session') || 'null');
+            if (stored && stored.username) {
+                const { data } = await supabase.from('users').select('*').eq('username', stored.username).limit(1);
+                if (data && data.length) { SESSION = stored; renderAfterLogin(); }
+            } else {
+                $('#btnLoginNav').textContent = t('login');
+                hide($('#notificationBell'));
+                renderHomeActions();
+            }
+            refreshHomeHighlights();
+            setInterval(refreshNotifications, 15000);
+        }
+
+        function renderHomeActions() {
+            $('#homeActions').innerHTML = `<button class="btn accent" id="btnPrimaryLogin">${t('login')}</button> <button class="btn outline" id="btnOpenCalendarHome">${t('openCalendar')}</button>`;
+            $('#btnPrimaryLogin').addEventListener('click', () => navigateTo('login'));
+            $('#btnOpenCalendarHome').addEventListener('click', () => openModule('calendar'));
+        }
+
+        function navigateTo(screen) {
+            hide($('#loginScreen')); hide($('#dashScreen')); hide($('#moduleScreen')); hide($('#homeScreen'));
+            currentOpenModule = null;
+            if (screen === 'login') { show($('#loginScreen')); }
+            else if (screen === 'dashboard') { show($('#dashScreen')); lastScreen = 'dashboard'; }
+            else if (screen === 'module') { show($('#moduleScreen')); }
+            else { show($('#homeScreen')); lastScreen = 'home'; }
+        }
+
+        function openMenu() {
+            const menuItems = [
+                { id: 'calendar', label: t('module_calendar') }, { id: 'notices', label: t('module_notices') },
+                { id: 'gallery', label: t('module_gallery') }, { id: 'contact', label: t('module_contact') },
+                { id: 'about', label: 'About App' }
+            ];
+            if (SESSION) {
+                menuItems.push({ id: 'settings', label: t('module_settings') });
+            }
+            const menuHtml = menuItems.map(m => `<button class="btn" onclick="openModule('${m.id}')">${m.label}</button>`).join('');
+            showModal('Menu', `<div style="display:flex;gap:8px;flex-wrap:wrap">${menuHtml}</div>`, [{ label: t('close'), cb: closeModal }]);
+        }
+
+        function buildModulesGrid() {
+            const modules = [
+                { id: 'login', label: t('module_login') }, { id: 'notices', label: t('module_notices') },
+                { id: 'calendar', label: t('module_calendar') }, { id: 'gallery', label: t('module_gallery') },
+                { id: 'attendance', label: t('module_attendance') }, { id: 'fees', label: t('module_fees') },
+                { id: 'leaves', label: t('module_leaves') }, { id: 'timetable', label: t('module_timetable') },
+                { id: 'off-classes', label: 'Off Classes' },
+                { id: 'contact', label: t('module_contact') }, { id: 'settings', label: t('module_settings') }
+            ];
+            const grid = $('#modulesGrid');
+            grid.innerHTML = '';
+            modules.forEach(m => {
+                const node = el(`<div class="module fade-in"><div>🔹<h4>${m.label}</h4></div></div>`);
+                node.addEventListener('click', () => { if (m.id === 'login') navigateTo('login'); else openModule(m.id); });
+                grid.appendChild(node);
+            });
+        }
+
+        async function attemptLogin() {
+            const username = $('#inputUsername').value.trim();
+            const pwd = $('#inputPwd').value;
+            if (!username || !pwd) return toast('Enter username & password');
+            try {
+                const { data } = await supabase.from('users').select('id, username, password, role, name').eq('username', username).limit(1);
+                if (!data || data.length === 0) { toast('User not found'); return; }
+                const user = data[0];
+                const passwordMatch = await checkPassword(pwd, user.password);
+                if (!passwordMatch) { toast('Incorrect password'); return; }
+                SESSION = { id: user.id, username: user.username, role: user.role, name: user.name };
+                localStorage.setItem('lfs_session', JSON.stringify(SESSION));
+                renderAfterLogin();
+                toast('Welcome ' + (user.name || user.username));
+                refreshNotifications();
+            } catch (err) { console.error(err); toast('Login failed'); }
+        }
+
+        async function forgotAdminPassword() {
+            const username = prompt('Enter admin username to reset (e.g. admin):', 'admin');
+            if (!username) return;
+            const { data } = await supabase.from('users').select('id').eq('username', username).limit(1);
+            if (!data || data.length === 0) { alert('Admin not found'); return; }
+
+            const confirmCode = prompt('Enter the UUID of the admin user to confirm password reset:');
+            if (!confirmCode || confirmCode !== data[0].id) {
+                alert('UUID does not match. Password reset cancelled.');
+                return;
+            }
+
+            const newPwd = prompt('Enter new password:');
+            if (!newPwd) return;
+            const hashedPassword = await hashPassword(newPwd);
+            const { error } = await supabase.from('users').update({ password: hashedPassword }).eq('username', username);
+            if (error) { alert('Error: ' + error.message); } else { alert('Password updated'); }
+        }
+
+        function logout() {
+            if (window.OneSignal) { OneSignal.logout(); }
+            SESSION = null;
+            localStorage.removeItem('lfs_session');
+            navigateTo('home');
+            toast('Logged out');
+            init();
+        }
+        async function renderAfterLogin() {
+            if (!SESSION) return;
+            $('#dashTitle').textContent = SESSION.name || SESSION.username;
+            $('#dashRole').textContent = (SESSION.role || 'user').toUpperCase();
+            $('#signedUser').textContent = SESSION.username;
+
+            if (window.OneSignal) { OneSignal.login(SESSION.username); }
+
+            navigateTo('dashboard');
+            show($('#notificationBell')); refreshNotifications();
+            $('#btnLoginNav').textContent = t('dashboard');
+            $('#homeActions').innerHTML = `<button class="btn accent" id="btnGoToDash">${t('goToDashboard')}</button>`;
+            $('#btnGoToDash').addEventListener('click', () => navigateTo('dashboard'));
+            renderDashboardModules();
+        }
+
+        function renderDashboardModules() {
+            const container = $('#dashModules');
+            container.innerHTML = '';
+            const role = SESSION.role.toLowerCase();
+            const allModules = {
+                admin: [
+                    { id: 'users', label: 'Users' }, { id: 'attendance', label: 'Attendance' }, { id: 'fees', label: 'Fees' },
+                    { id: 'calendar', label: 'Calendar' }, { id: 'notices', label: 'Notices' }, { id: 'gallery', label: 'Gallery' },
+                    { id: 'timetable', label: 'Timetable' }, { id: 'off-classes', label: 'Off Classes' }, { id: 'leaves', label: 'Leaves' }, { id: 'reports', label: 'Reports' },
+                    { id: 'settings', label: 'Settings' }
+                ],
+                teacher: [
+                    { id: 'profile', label: 'My Profile' }, { id: 'self-attendance', label: 'Mark My Attendance' }, { id: 'students-attendance', label: 'Class Attendance' },
+                    { id: 'timetable', label: 'Timetable' }, { id: 'off-classes', label: 'Off Classes' }, { id: 'notices', label: 'Notices' }, { id: 'leaves', label: 'Leaves' },
+                    { id: 'gallery', label: 'Gallery' }, { id: 'reports', label: 'Reports' }, { id: 'settings', label: 'Settings' }
+                ],
+                student: [
+                    { id: 'profile', label: 'My Profile' }, { id: 'attendance', label: 'Attendance' }, { id: 'fees', label: 'Fees' },
+                    { id: 'timetable', label: 'Timetable' }, { id: 'notices', label: 'Notices' }, { id: 'leaves', label: 'Leaves' },
+                    { id: 'gallery', label: 'Gallery' }, { id: 'contact', label: 'Contact' }, { id: 'settings', label: 'Settings' }
+                ]
+            };
+
+            const titles = { admin: 'Admin — Master Control', teacher: 'Teacher — Class Tools', student: 'Student Panel' };
+            const moduleList = allModules[role] || allModules.student;
+
+            const moduleHtml = moduleList.map(m => `<div class="module" data-open="${m.id}"><h4>${m.label}</h4></div>`).join('');
+            container.innerHTML = `<div class="card"><div class="section-title"><h3>${titles[role]}</h3></div><div style="height:10px"></div><div class="modules">${moduleHtml}</div></div>`;
+            container.querySelectorAll('[data-open]').forEach(b => { b.addEventListener('click', () => openModule(b.getAttribute('data-open'))); });
+        }
+
+        function openModule(name) {
+            lastScreen = SESSION ? 'dashboard' : 'home';
+            currentOpenModule = name;
+            navigateTo('module');
+            $('#moduleTitle').textContent = name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
+            $('#moduleContent').innerHTML = '<div class="muted">Loading...</div>';
+            const moduleMap = {
+                users: renderUsersModule, students: renderUsersModule, teachers: renderUsersModule,
+                calendar: renderEventsModule, events: renderEventsModule, notices: renderNoticesModule,
+                attendance: renderAttendanceModule, 'self-attendance': renderAttendanceModule, 'students-attendance': renderAttendanceModule, fees: renderFeesModule, gallery: renderGalleryModule,
+                leaves: renderLeavesModule, timetable: renderTimetableModule, reports: renderReportsModule, 'off-classes': renderOffClassesModule,
+                settings: renderSettingsModule, profile: renderProfileModule, contact: renderContactModule,
+                about: renderAboutModule
+            };
+            const moduleFunc = moduleMap[name];
+            if (moduleFunc) { moduleFunc(name); } else { showModal('Not ready', 'Module not implemented', [{ label: t('close'), cb: closeModal }]); }
+        }
+
+        // --- Modules ---
+        async function renderUsersModule() {
+            const root = $('#moduleContent');
+            if (!SESSION || SESSION.role.toLowerCase() !== 'admin') { root.innerHTML = `<div class="card muted">Access Denied</div>`; return; }
+
+            root.innerHTML = `<div class="card"><div class="section-title"><h3>Manage Users</h3></div></div>
+    <div class="card"><div class="flex">
+      <select id="userTypeSelect" style="width:150px"><option value="Student">Students</option><option value="Teacher">Teachers</option></select>
+      <input id="userSearch" placeholder="Search by name or username" style="flex:1"/>
+      <button class="btn accent" id="addUserBtn">Add User</button>
+    </div></div>
+    <div class="card hidden" id="classFilter"><div class="flex"><div class="muted small" style="width:100px;">Filter Class</div><select id="classSelectFilter" style="flex:1;"></select></div></div>
+    <div class="card"><div id="usersList" class="table-responsive"></div></div>`;
+
+            const userTypeSelect = $('#userTypeSelect'), classSelectFilter = $('#classSelectFilter'), classFilter = $('#classFilter');
+
+            userTypeSelect.addEventListener('change', () => {
+                if (userTypeSelect.value === 'Student') { show(classFilter); fetchClassesAndRenderUsers(); }
+                else { hide(classFilter); fetchUsers(); }
+            });
+            classSelectFilter.addEventListener('change', fetchUsers);
+            $('#userSearch').addEventListener('input', renderFilteredUsers);
+            $('#addUserBtn').addEventListener('click', () => showAddEditUserModal());
+
+            let allUsers = [];
+
+            async function fetchClassesAndRenderUsers() {
+                const { data: classes } = await supabase.from('users').select('class').eq('role', 'Student').not('class', 'is', null);
+                const uniqueClasses = [...new Set(classes.map(c => c.class))].sort();
+                classSelectFilter.innerHTML = '<option value="">All Classes</option>' + uniqueClasses.map(c => `<option value="${c}">${c}</option>`).join('');
+                fetchUsers();
+            }
+
+            async function fetchUsers() {
+                const userRole = userTypeSelect.value;
+                let query = supabase.from('users').select('*').eq('role', userRole).order('name');
+                if (userRole === 'Student' && classSelectFilter.value) {
+                    query = query.eq('class', classSelectFilter.value);
+                }
+                const { data } = await query;
+                allUsers = data || [];
+                renderFilteredUsers();
+            }
+
+            function renderFilteredUsers() {
+                const query = $('#userSearch').value.toLowerCase();
+                const filtered = allUsers.filter(u => u.name?.toLowerCase().includes(query) || u.username.toLowerCase().includes(query));
+
+                if (filtered.length === 0) { $('#usersList').innerHTML = `<div class="muted">No users found.</div>`; return; }
+
+                $('#usersList').innerHTML = `<table><thead><tr><th>Name</th><th>Username</th><th>Class</th><th>Actions</th></tr></thead><tbody>
+      ${filtered.map(u => `
+        <tr>
+          <td>${escapeHtml(u.name || '—')}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.class || '—')}</td>
+          <td><button class="btn small" onclick="showAddEditUserModal('${u.id}')">Edit</button> <button class="btn danger small" onclick="deleteUser('${u.id}')">Del</button></td>
+        </tr>`).join('')}
+    </tbody></table>`;
+            }
+
+            window.showAddEditUserModal = async (userId = null) => {
+                const user = userId ? allUsers.find(u => u.id === userId) : null;
+                const userRole = user ? user.role : userTypeSelect.value;
+
+                let extraFields = '';
+                if (userRole === 'Student') {
+                    extraFields = `<input id="modalClass" placeholder="Class (e.g., 5th)" value="${user?.class || ''}"/><br><br><input id="modalContact" placeholder="Parent's Contact" value="${user?.contact || ''}"/><br><br><input id="modalAadhaar" placeholder="Aadhaar (optional)" value="${user?.aadhar_card || ''}"/>`;
+                } else if (userRole === 'Teacher') {
+                    extraFields = `<input id="modalQual" placeholder="Qualification" value="${user?.qualification || ''}"/><br><br><input id="modalClass" placeholder="Allocated Class" value="${user?.class || ''}"/><br><br><input id="modalContact" placeholder="Contact Number" value="${user?.contact || ''}"/>`;
+                }
+
+                showModal(`${userId ? 'Edit' : 'Add'} ${userRole}`, `
+      <input id="modalUsername" placeholder="Username" value="${user?.username || ''}"/><br><br>
+      <input id="modalName" placeholder="Full Name" value="${user?.name || ''}"/><br><br>
+      ${extraFields}<br><br>
+      <input id="modalPwd" type="password" placeholder="${userId ? 'New Password (optional)' : 'Password'}"/>`,
+                    [{ label: t('save'), class: 'accent', cb: () => saveUser(userId, userRole) }, { label: t('cancel'), cb: closeModal }]);
+            }
+
+            async function saveUser(userId, role) {
+                const username = $('#modalUsername').value.trim();
+                if (!username) return toast('Username is required');
+
+                const payload = {
+                    username,
+                    name: $('#modalName').value.trim(),
+                    role: role,
+                    class: $('#modalClass')?.value.trim() || null,
+                    contact: $('#modalContact')?.value.trim() || null,
+                    qualification: $('#modalQual')?.value.trim() || null,
+                    aadhar_card: $('#modalAadhaar')?.value.trim() || null
+                };
+
+                const pwd = $('#modalPwd').value;
+                if (pwd) payload.password = await hashPassword(pwd);
+
+                const { error } = userId
+                    ? await supabase.from('users').update(payload).eq('id', userId)
+                    : await supabase.from('users').insert(payload);
+
+                if (error) return toast('Error: ' + error.message);
+                toast('User saved');
+                fetchUsers();
+                closeModal();
+            }
+
+            window.deleteUser = async (id) => {
+                if (!confirm('Are you sure you want to delete this user?')) return;
+                const { error } = await supabase.from('users').delete().eq('id', id);
+                if (error) return toast('Error: ' + error.message);
+                toast('User deleted'); fetchUsers();
+            };
+
+            if (userTypeSelect.value === 'Student') { fetchClassesAndRenderUsers(); show(classFilter); } else { fetchUsers(); }
+        }
+
+        async function renderAttendanceModule(moduleName) {
+            const root = $('#moduleContent');
+            if (!SESSION) { root.innerHTML = `<div class="card muted">Access Denied</div>`; return; }
+
+            const role = SESSION.role.toLowerCase();
+
+            if (role === 'student') {
+                await renderStudentAttendanceView();
+            } else if (role === 'teacher') {
+                if (moduleName === 'self-attendance') {
+                    await renderTeacherSelfAttendanceView();
+                } else { // students-attendance
+                    await renderTeacherClassAttendanceView();
+                }
+            } else if (role === 'admin') {
+                await renderAdminAttendanceView();
+            }
+        }
+
+        async function renderAdminAttendanceView() {
+            const root = $('#moduleContent');
+            root.innerHTML = `<div class="card">
+        <div class="tabs">
+            <div class="tab active" data-type="Student">Student Attendance</div>
+            <div class="tab" data-type="Teacher">Teacher Attendance</div>
+        </div>
+        <div id="attendanceContent"></div>
+    </div>`;
+
+            const tabs = root.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                loadAttendanceForRole(tab.dataset.type);
+            }));
+
+            async function loadAttendanceForRole(role) {
+                const content = $('#attendanceContent');
+                content.innerHTML = `<div class="card"><div class="flex">
+            <select id="attClassSelect" style="width:150px;" class="${role === 'Teacher' ? 'hidden' : ''}"></select>
+            <input type="date" id="attDate" style="width:140px"/>
+            <button class="btn accent" id="attLoad">Load List</button>
+          </div></div>
+          <div class="card hidden" id="attMarkerPanel">
+            <h4>Marking for: <span id="markingDetails"></span></h4>
+            <div id="attList" style="margin-top:10px"></div>
+            <div style="margin-top:10px; text-align:right"><button class="btn accent" id="attSave">Save Attendance</button></div>
+          </div>`;
+
+                if (role === 'Student') {
+                    const { data: classes } = await supabase.from('users').select('class').eq('role', 'Student').not('class', 'is', null);
+                    const uniqueClasses = [...new Set(classes.map(c => c.class))].sort();
+                    $('#attClassSelect').innerHTML = uniqueClasses.map(c => `<option value="${c}">${c}</option>`).join('');
+                }
+
+                $('#attLoad').addEventListener('click', () => loadAttendanceList(role));
+                $('#attSave').addEventListener('click', () => saveAttendance(role));
+                $('#attDate').valueAsDate = new Date();
+            }
+
+            async function loadAttendanceList(role) {
+                const selectedClass = $('#attClassSelect').value;
+                const date = $('#attDate').value;
+                if (!date || (role === 'Student' && !selectedClass)) return toast('Select all fields');
+
+                $('#markingDetails').textContent = `${role}s on ${date}`;
+
+                let userQuery = supabase.from('users').select('id,name,username').eq('role', role).order('name');
+                if (role === 'Student') userQuery = userQuery.eq('class', selectedClass);
+
+                const { data: users } = await userQuery;
+                const { data: existing } = await supabase.from('attendance').select('*').eq('role', role).eq('date', date).in('who', users.map(u => u.username));
+
+                const listEl = $('#attList');
+                listEl.innerHTML = users.map(user => {
+                    const record = (existing || []).find(e => e.who === user.username);
+                    const status = record?.status || 'Present';
+                    return `<div style="display:flex;align-items:center;gap:12px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);">
+                <div style="flex:1;"><strong>${escapeHtml(user.name)}</strong><br><span class="muted small">${escapeHtml(user.username)}</span></div>
+                <label><input type="radio" name="status_${user.username}" value="Present" ${status === 'Present' ? 'checked' : ''}/> Present</label>
+                <label><input type="radio" name="status_${user.username}" value="Absent" ${status === 'Absent' ? 'checked' : ''}/> Absent</label>
+                <label><input type="radio" name="status_${user.username}" value="Leave" ${status === 'Leave' ? 'checked' : ''}/> Leave</label>
+                <button class="btn small outline" onclick="editSingleAttendance('${record?.id}', '${user.username}', '${role}', '${date}', '${status}')">Edit</button>
+              </div>`;
+                }).join('');
+                show($('#attMarkerPanel'));
+            }
+
+            async function saveAttendance(role) {
+                const date = $('#attDate').value;
+                const updates = Array.from($$('#attList > div')).map(item => {
+                    const who = item.querySelector('input').name.replace('status_', '');
+                    const status = item.querySelector(`input[name="status_${who}"]:checked`).value;
+                    return { who, role, date, status };
+                });
+
+                await supabase.from('attendance').delete().eq('role', role).eq('date', date).in('who', updates.map(u => u.who));
+                const { error } = await supabase.from('attendance').insert(updates);
+
+                if (error) return toast('Save failed: ' + error.message);
+                toast('Attendance saved!');
+
+                updates.filter(u => u.status === 'Absent').forEach(u => notify(u.who, `You were marked absent on ${u.date}.`, 'attendance'));
+            }
+
+            window.editSingleAttendance = async (id, who, role, date, currentStatus) => {
+                const newStatus = prompt(`Editing attendance for ${who} on ${date}. Current is ${currentStatus}. New status (Present, Absent, Leave):`, currentStatus);
+                if (newStatus && ['Present', 'Absent', 'Leave'].includes(newStatus)) {
+                    const payload = { who, role, date, status: newStatus };
+                    if (id && id !== 'undefined') { // Check for undefined string from template literal
+                        const { error } = await supabase.from('attendance').update(payload).eq('id', id);
+                        if (error) return toast('Update failed: ' + error.message);
+                    } else {
+                        const { error } = await supabase.from('attendance').insert(payload);
+                        if (error) return toast('Insert failed: ' + error.message);
+                    }
+                    toast('Attendance updated.');
+                    loadAttendanceList(role);
+                }
+            };
+
+            loadAttendanceForRole('Student'); // Load student tab by default
+        }
+
+        async function renderTeacherClassAttendanceView() {
+            const root = $('#moduleContent');
+            root.innerHTML = `<div class="card"><div class="section-title"><h3>Mark Class Attendance</h3></div></div>
+      <div class="card"><div class="flex">
+        <select id="attClassSelect" style="width:150px;"></select>
+        <input type="date" id="attDate" style="width:140px"/>
+        <button class="btn accent" id="attLoad">Load List</button>
+      </div></div>
+      <div class="card hidden" id="attMarkerPanel">
+        <h4>Marking for: <span id="markingDetails"></span></h4>
+        <div id="attList" style="margin-top:10px"></div>
+        <div style="margin-top:10px; text-align:right"><button class="btn accent" id="attSave">Save Attendance</button></div>
+      </div>`;
+
+            // Teacher Permission: Only show their allocated class
+            const { data: teacherData } = await supabase.from('users').select('class').eq('username', SESSION.username).single();
+            if (!teacherData || !teacherData.class) {
+                root.innerHTML = `<div class="card muted">You are not assigned to a class. Cannot take attendance.</div>`;
+                return;
+            }
+            const teacherClass = teacherData.class;
+            $('#attClassSelect').innerHTML = `<option value="${teacherClass}">${teacherClass}</option>`;
+            $('#attClassSelect').disabled = true;
+
+            $('#attLoad').addEventListener('click', loadAttendanceList);
+            $('#attSave').addEventListener('click', saveAttendance);
+            $('#attDate').valueAsDate = new Date();
+
+            async function loadAttendanceList() {
+                const selectedClass = $('#attClassSelect').value;
+                const date = $('#attDate').value;
+                if (!date || !selectedClass) return toast('Select a class and date');
+
+                $('#markingDetails').textContent = `Class ${selectedClass} on ${date}`;
+
+                const { data: users } = await supabase.from('users').select('id,name,username').eq('role', 'Student').eq('class', selectedClass).order('name');
+                const { data: existing } = await supabase.from('attendance').select('*').eq('role', 'Student').eq('date', date).in('who', users.map(u => u.username));
+
+                const listEl = $('#attList');
+                listEl.innerHTML = users.map(user => {
+                    const status = (existing || []).find(e => e.who === user.username)?.status || 'Present';
+                    return `<div style="display:flex;align-items:center;gap:12px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);">
+            <div style="flex:1;"><strong>${escapeHtml(user.name)}</strong><br><span class="muted small">${escapeHtml(user.username)}</span></div>
+            <label><input type="radio" name="status_${user.username}" value="Present" ${status === 'Present' ? 'checked' : ''}/> Present</label>
+            <label><input type="radio" name="status_${user.username}" value="Absent" ${status === 'Absent' ? 'checked' : ''}/> Absent</label>
+            <label><input type="radio" name="status_${user.username}" value="Leave" ${status === 'Leave' ? 'checked' : ''}/> Leave</label>
+          </div>`;
+                }).join('');
+                show($('#attMarkerPanel'));
+            }
+
+            async function saveAttendance() {
+                const date = $('#attDate').value;
+                const updates = Array.from($$('#attList > div')).map(item => {
+                    const who = item.querySelector('input').name.replace('status_', '');
+                    const status = item.querySelector(`input[name="status_${who}"]:checked`).value;
+                    return { who, role: 'Student', date, status };
+                });
+
+                await supabase.from('attendance').delete().eq('role', 'Student').eq('date', date).in('who', updates.map(u => u.who));
+                const { error } = await supabase.from('attendance').insert(updates);
+
+                if (error) return toast('Save failed: ' + error.message);
+                toast('Attendance saved!');
+
+                updates.filter(u => u.status === 'Absent').forEach(u => notify(u.who, `You were marked absent on ${u.date}.`, 'attendance'));
+            }
+        }
+
+        async function renderTeacherSelfAttendanceView() {
+            const root = $('#moduleContent');
+            const today = new Date().toISOString().split('T')[0];
+            root.innerHTML = `<div class="card"><div class="section-title"><h3>Mark My Attendance for ${today}</h3></div></div>
+    <div class="card" id="selfAttMarker">
+        <p class="muted">Select your status for today and click Save.</p>
+        <div id="selfAttStatus" style="display:flex; gap: 20px; margin: 20px 0;">
+            <label><input type="radio" name="self_status" value="Present" checked/> Present</label>
+            <label><input type="radio" name="self_status" value="Absent"/> Absent</label>
+        </div>
+        <button class="btn accent" id="selfAttSave">Save My Attendance</button>
+    </div>`;
+
+            // Check for existing record
+            const { data: existing } = await supabase.from('attendance').select('status').eq('who', SESSION.username).eq('date', today).single();
+            if (existing) {
+                $(`input[name="self_status"][value="${existing.status}"]`).checked = true;
+            }
+
+            $('#selfAttSave').addEventListener('click', async () => {
+                const status = $('input[name="self_status"]:checked').value;
+                const payload = { who: SESSION.username, role: 'Teacher', date: today, status: status };
+
+                await supabase.from('attendance').delete().eq('who', SESSION.username).eq('date', today);
+                const { error } = await supabase.from('attendance').insert(payload);
+
+                if (error) return toast('Save failed: ' + error.message);
+                toast('Your attendance has been marked!');
+            });
+        }
+
+        async function renderStudentAttendanceView() {
+            const root = $('#moduleContent');
+            root.innerHTML = `<div class="card"><div class="section-title"><h3>My Attendance</h3></div></div>
+      <div class="card"><div class="flex" style="align-items: flex-start;">
+        <div style="flex:1;">
+          <h4>Attendance Summary</h4>
+          <div class="chart-container">
+            <canvas id="attendanceChart"></canvas>
+          </div>
+        </div>
+        <div id="monthlySummary" style="flex:1;"><h4>Monthly Stats</h4></div>
+      </div></div>
+      <div class="card"><div class="table-responsive"><h4>Attendance History</h4><div id="attHistory"></div></div></div>`;
+
+            const { data: attendance } = await supabase.from('attendance').select('*').eq('who', SESSION.username).order('date', { ascending: false });
+            if (!attendance || attendance.length === 0) {
+                root.querySelector('#attHistory').innerHTML = '<div class="card muted">No attendance data found.</div>';
+                return;
+            }
+
+            const statusCounts = attendance.reduce((acc, curr) => {
+                acc[curr.status] = (acc[curr.status] || 0) + 1;
+                return acc;
+            }, {});
+
+            const ctx = $('#attendanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [`Present (${statusCounts.Present || 0})`, `Absent (${statusCounts.Absent || 0})`, `Leave (${statusCounts.Leave || 0})`],
+                    datasets: [{
+                        data: [statusCounts.Present || 0, statusCounts.Absent || 0, statusCounts.Leave || 0],
+                        backgroundColor: ['#4f46e5', '#ef4444', '#f59e0b']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }
+            });
+
+            const monthlyData = attendance.reduce((acc, curr) => {
+                const month = new Date(curr.date).toLocaleString('default', { month: 'long', year: 'numeric' });
+                if (!acc[month]) acc[month] = { Present: 0, Absent: 0, Leave: 0 };
+                acc[month][curr.status]++;
+                return acc;
+            }, {});
+
+            $('#monthlySummary').innerHTML += Object.entries(monthlyData).map(([month, counts]) => `
+        <div class="muted small"><strong>${month}:</strong> Present: ${counts.Present}, Absent: ${counts.Absent}, Leave: ${counts.Leave}</div>
+    `).join('');
+
+            $('#attHistory').innerHTML = `<table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody>
+      ${attendance.map(a => `<tr><td>${a.date}</td><td>${escapeHtml(a.status)}</td></tr>`).join('')}
+    </tbody></table>`;
+        }
+
+        async function renderFeesModule() {
+            const root = $('#moduleContent');
+            const role = SESSION.role.toLowerCase();
+
+            if (role === 'admin') {
+                root.innerHTML = `<div class="card"><div class="section-title"><h3>Manage Student Fees</h3></div></div>
+      <div class="card"><div class="flex">
+        <label class="muted small">Select Class</label>
+        <select id="feeClassSelect" style="flex:1"></select>
+      </div></div>
+      <div id="feesList" class="card"></div>`;
+
+                const { data: classes } = await supabase.from('users').select('class').eq('role', 'Student').not('class', 'is', null);
+                const uniqueClasses = [...new Set(classes.map(c => c.class))].sort();
+                $('#feeClassSelect').innerHTML = '<option value="">-- Select a Class --</option>' + uniqueClasses.map(c => `<option value="${c}">${c}</option>`).join('');
+
+                $('#feeClassSelect').addEventListener('change', (e) => renderStudentFees(e.target.value));
+                renderStudentFees(''); // Initial state
+
+                async function renderStudentFees(className) {
+                    if (!className) { $('#feesList').innerHTML = '<div class="muted">Please select a class to see student fees.</div>'; return; }
+                    $('#feesList').innerHTML = '<div class="muted">Loading students...</div>';
+
+                    const { data: students } = await supabase.from('users').select('id, username, name').eq('class', className).eq('role', 'Student').order('name');
+                    if (!students || students.length === 0) { $('#feesList').innerHTML = '<div class="muted">No students in this class.</div>'; return; }
+
+                    const studentIds = students.map(s => s.id);
+                    const { data: feesData } = await supabase.from('fees').select('*, fees_payments(*)').in('student_id', studentIds);
+
+                    let html = '';
+                    for (const student of students) {
+                        const fee = (feesData || []).find(f => f.student_id === student.id) || { total: 0, last_year_pending: 0, fees_payments: [] };
+                        const paid = (fee.fees_payments || []).reduce((sum, p) => sum + p.amount, 0);
+                        const due = (fee.last_year_pending || 0) + fee.total - paid;
+
+                        html += `<div class="card" style="margin-bottom:12px;">
+              <div class="flex">
+                <div style="flex:1;"><strong>${escapeHtml(student.name)}</strong> (${escapeHtml(student.username)})</div>
+                <button class="btn small" onclick="manageStudentFee('${student.id}', '${escapeHtml(student.name)}')">Manage</button>
+              </div>
+              <div>
+                <span class="muted small">Pending(Last Yr): ${fee.last_year_pending || 0}</span> | 
+                <span class="muted small">Current Yr: ${fee.total || 0}</span> | 
+                <span class="muted small">Paid: ${paid}</span> | 
+                <span class="unpaid-highlight">Due: ${due}</span>
+              </div>
+            </div>`;
+                    }
+                    $('#feesList').innerHTML = html;
+                }
+
+                window.manageStudentFee = async (studentId, studentName) => {
+                    const { data: fee } = await supabase.from('fees').select('*, fees_payments(*)').eq('student_id', studentId).single();
+                    const paid = (fee?.fees_payments || []).reduce((sum, p) => sum + p.amount, 0);
+                    const due = (fee?.last_year_pending || 0) + (fee?.total || 0) - paid;
+
+                    const paymentHistory = (fee?.fees_payments || []).map(p => `
+            <div class="flex">
+                <div class="muted small">${p.payment_date} - ${p.amount} (${p.method})</div>
+                <button class="btn danger small" onclick="deletePayment('${p.id}', '${studentId}', '${escapeHtml(studentName)}')">X</button>
+            </div>`).join('') || '<div class="muted small">No payments yet.</div>';
+
+                    showModal(`Manage Fees for ${studentName}`, `
+          <h4>Set Fees</h4>
+          <div class="flex">
+            <input type="number" id="lastYearPending" placeholder="Last Year Pending" value="${fee?.last_year_pending || 0}" />
+            <input type="number" id="currentYearFee" placeholder="Current Year Fee" value="${fee?.total || 0}" />
+            <button class="btn" onclick="saveFeeAmounts('${studentId}', '${fee?.id || ''}')">Save Fees</button>
+          </div>
+          <hr style="margin: 15px 0; border-color: var(--glass);">
+          <h4>Add Payment</h4>
+          <div class="flex">
+            <input type="number" id="payAmount" placeholder="Amount"/>
+            <select id="payMethod"><option>Cash</option><option>Online</option><option>Cheque</option></select>
+            <input type="date" id="payDate"/>
+            <button class="btn accent" onclick="addPayment('${fee?.id || ''}', '${studentId}')">Add Payment</button>
+          </div>
+          <hr style="margin: 15px 0; border-color: var(--glass);">
+          <h4>Payment History (Due: ${due})</h4>
+          ${paymentHistory}
+        `, [{ label: t('close'), cb: () => { renderStudentFees($('#feeClassSelect').value); closeModal(); } }]);
+                    $('#payDate').valueAsDate = new Date();
+                };
+
+                window.saveFeeAmounts = async (studentId, feeId) => {
+                    const last_year_pending = parseFloat($('#lastYearPending').value) || 0;
+                    const total = parseFloat($('#currentYearFee').value) || 0;
+
+                    if (feeId) {
+                        const { error } = await supabase.from('fees').update({ last_year_pending, total }).eq('id', feeId);
+                        if (error) return toast('Error: ' + error.message);
+                    } else {
+                        const { error } = await supabase.from('fees').insert({ student_id: studentId, year: new Date().getFullYear(), last_year_pending, total });
+                        if (error) return toast('Error: ' + error.message);
+                    }
+                    toast('Fee amounts saved!');
+                    closeModal();
+                    renderStudentFees($('#feeClassSelect').value);
+                };
+
+                window.addPayment = async (feeId, studentId) => {
+                    if (!feeId) return toast('Please set and save fee amounts first.');
+                    const amount = parseFloat($('#payAmount').value);
+                    const method = $('#payMethod').value;
+                    const payment_date = $('#payDate').value;
+                    if (!amount || !payment_date) return toast('Enter amount and date');
+
+                    const { error } = await supabase.from('fees_payments').insert({ fee_id: feeId, amount, method, payment_date });
+                    if (error) return toast('Error: ' + error.message);
+                    toast('Payment added');
+                    closeModal();
+                    renderStudentFees($('#feeClassSelect').value);
+                };
+
+                window.deletePayment = async (paymentId, studentId, studentName) => {
+                    if (!confirm('Delete this payment? This cannot be undone.')) return;
+                    const { error } = await supabase.from('fees_payments').delete().eq('id', paymentId);
+                    if (error) return toast('Error: ' + error.message);
+                    toast('Payment deleted');
+                    manageStudentFee(studentId, studentName);
+                }
+            } else if (role === 'student') {
+                root.innerHTML = `<div class="card"><div class="section-title"><h3>My Fees</h3></div></div><div id="studentFeeDetails"></div>`;
+                const { data: fee } = await supabase.from('fees').select('*, fees_payments(*)').eq('student_id', SESSION.id).single();
+
+                if (!fee) { $('#studentFeeDetails').innerHTML = '<div class="card muted">No fee records found for you.</div>'; return; }
+
+                const paid = (fee.fees_payments || []).reduce((sum, p) => sum + p.amount, 0);
+                const due = (fee.last_year_pending || 0) + fee.total - paid;
+                const paymentHistory = (fee.fees_payments || []).sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date)).map(p =>
+                    `<tr><td>${p.payment_date}</td><td>${p.amount}</td><td>${p.method}</td></tr>`).join('');
+
+                $('#studentFeeDetails').innerHTML = `
+      <div class="card">
+        <h4>Fee Summary</h4>
+        <p><strong>Last Year Pending:</strong> ${fee.last_year_pending || 0}</p>
+        <p><strong>Current Year Total:</strong> ${fee.total}</p>
+        <p><strong>Total Paid:</strong> ${paid}</p>
+        <p class="unpaid-highlight"><strong>Total Unpaid: ${due}</strong></p>
+      </div>
+      <div class="card"><div class="table-responsive">
+        <h4>Payment History</h4>
+        <table><thead><tr><th>Date</th><th>Amount</th><th>Method</th></tr></thead><tbody>${paymentHistory}</tbody></table>
+      </div></div>`;
+            }
+        }
+
+        async function renderLeavesModule() {
+            const root = $('#moduleContent');
+            root.innerHTML = `<div class="card"><div class="section-title"><h3>Leave Applications</h3></div></div>
+    <div class="card"><h4>Apply for Leave</h4><div class="flex">
+      <input type="date" id="lvFrom" title="From Date"/>
+      <input type="date" id="lvTo" title="To Date"/>
+      <input type="text" id="lvReason" placeholder="Reason for leave" />
+      <button class="btn accent" id="lvApply">Apply</button>
+    </div></div>
+    <div class="card"><div id="leavesList"></div></div>`;
+
+            $('#lvApply').addEventListener('click', applyLeave);
+
+            async function applyLeave() {
+                if (!SESSION) return toast('Login first');
+                const from_date = $('#lvFrom').value, to_date = $('#lvTo').value, reason = $('#lvReason').value;
+                if (!from_date || !to_date || !reason) return toast('Please fill all fields');
+
+                const { error } = await supabase.from('leaves').insert([{ who: SESSION.username, role: SESSION.role, from_date, to_date, reason, status: 'pending' }]);
+                if (error) return toast('Error: ' + error.message);
+                toast('Leave applied successfully');
+                renderLeavesList();
+                notify('admin', `${SESSION.name} has applied for leave.`, 'leaves');
+            }
+
+            async function renderLeavesList() {
+                const wrap = $('#leavesList');
+                let query = supabase.from('leaves').select('*').order('created_at', { ascending: false });
+                if (SESSION.role.toLowerCase() !== 'admin') {
+                    query = query.eq('who', SESSION.username);
+                }
+                const { data } = await query;
+                if (!data || data.length === 0) { wrap.innerHTML = '<div class="muted">No leave records found.</div>'; return; }
+
+                wrap.innerHTML = data.map(l => {
+                    let actions = '';
+                    if (SESSION.role.toLowerCase() === 'admin' && l.status.toLowerCase() === 'pending') {
+                        actions = `<button class="btn small" onclick="updateLeaveStatus('${l.id}', 'Approved')">Approve</button>
+                   <button class="btn danger small" onclick="updateLeaveStatus('${l.id}', 'Rejected')">Reject</button>`;
+                    }
+                    return `<div class="card" style="margin-bottom:8px">
+        <div class="flex">
+          <div><strong>${escapeHtml(l.who)}</strong> <span class="muted small">(${l.role})</span></div>
+          <div class="right muted small">Status: <strong>${escapeHtml(l.status)}</strong></div>
+        </div>
+        <div class="muted small">${l.from_date} to ${l.to_date}</div>
+        <div style="margin-top:6px">${escapeHtml(l.reason)}</div>
+        <div style="margin-top:6px;text-align:right">${actions}</div>
+      </div>`;
+                }).join('');
+            }
+
+            window.updateLeaveStatus = async (id, status) => {
+                const { error } = await supabase.from('leaves').update({ status }).eq('id', id);
+                if (error) return toast('Error updating leave: ' + error.message);
+                toast(`Leave ${status}!`);
+                const { data: leave } = await supabase.from('leaves').select('who').eq('id', id).single();
+                if (leave) notify(leave.who, `Your leave request has been ${status}.`, 'leaves');
+                renderLeavesList();
+            };
+
+            renderLeavesList();
+        }
+
+        async function renderEventsModule() {
+            const root = $('#moduleContent');
+            const now = new Date();
+            let currentMonth = now.getMonth();
+            let currentYear = now.getFullYear();
+
+            root.innerHTML = `<div class="card"><div class="flex" style="justify-content:space-between">
+    <h3>Calendar & Events</h3>
+    <div class="flex">
+      <button class="btn outline" id="prevMonth">◀</button>
+      <div id="monthLabel" style="min-width:120px; text-align:center;"></div>
+      <button class="btn outline" id="nextMonth">▶</button>
+    </div>
+    ${(SESSION && (SESSION.role.toLowerCase() === 'admin' || SESSION.role.toLowerCase() === 'teacher')) ? `<button class="btn accent" id="addEventBtn">Add Event</button>` : ''}
+  </div></div>
+  <div class="card"><div id="calendarGrid" class="calendar-grid"></div></div>`;
+
+            const renderCalendar = async () => {
+                const month = new Date(currentYear, currentMonth, 1);
+                $('#monthLabel').textContent = month.toLocaleString('default', { month: 'long', year: 'numeric' });
+                const firstDay = month.getDay();
+                const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+                const grid = $('#calendarGrid');
+                grid.innerHTML = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => `<div style="text-align:center;font-weight:bold;">${d}</div>`).join('');
+                for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
+
+                const { data: events } = await supabase.from('calendar_events').select('*');
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dayEvents = (events || []).filter(e => e.start_date <= dateStr && e.end_date >= dateStr);
+                    let dayHtml = `<div class="day"><div class="date-num">${day}</div>`;
+                    dayEvents.forEach(e => {
+                        dayHtml += `<div class="badge ${e.type || 'activity'}">${escapeHtml(e.title)}</div>`;
+                    });
+                    dayHtml += `</div>`;
+                    grid.innerHTML += dayHtml;
+                }
+            };
+
+            $('#prevMonth').addEventListener('click', () => { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderCalendar(); });
+            $('#nextMonth').addEventListener('click', () => { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderCalendar(); });
+            if ($('#addEventBtn')) {
+                $('#addEventBtn').addEventListener('click', () => showAddEventModal());
+            }
+
+            const showAddEventModal = () => {
+                showModal('Add Event', `
+      <label>Title</label><input id="eventTitle" placeholder="e.g. Annual Day"/><br><br>
+      <label>Start Date</label><input type="date" id="eventStartDate"/><br><br>
+      <label>End Date</label><input type="date" id="eventEndDate"/><br><br>
+      <label>Type</label><select id="eventType"><option value="activity">Activity</option><option value="exam">Exam</option><option value="holiday">Holiday</option></select>
+    `, [{ label: t('save'), class: 'accent', cb: saveEvent }, { label: t('cancel'), cb: closeModal }]);
+            };
+
+            const saveEvent = async () => {
+                const title = $('#eventTitle').value, start_date = $('#eventStartDate').value, end_date = $('#eventEndDate').value, type = $('#eventType').value;
+                if (!title || !start_date) return toast('Title and Start Date are required');
+                const { error } = await supabase.from('calendar_events').insert([{ title, start_date, end_date, type }]);
+                if (error) return toast('Error saving event: ' + error.message);
+                toast('Event saved'); renderCalendar(); closeModal();
+            };
+            renderCalendar();
+        }
+
+        async function renderNoticesModule() {
+            const root = $('#moduleContent'); root.innerHTML = '';
+            root.innerHTML = `<div class="card"><div class="section-title"><h3>Notice Board</h3></div></div>
+    <div id="noticeControls" class="card hidden">
+      <h4>Create Notice</h4>
+      <input id="nTitle" placeholder="Title" style="margin-bottom:10px"/>
+      <textarea id="nContent" placeholder="Content" style="margin-bottom:10px"></textarea>
+      <input id="nPhotoLink" placeholder="Google Drive Photo URL (optional)" style="margin-bottom:10px"/>
+      <div class="flex">
+        <input type="date" id="nDate" />
+        <select id="nScope">
+          <option value="all">All</option><option value="students">Students</option><option value="teachers">Teachers</option>
+        </select>
+        <button class="btn accent" id="nPost">Post</button>
+      </div>
+    </div>
+    <div class="card"><div id="noticesList"></div></div>`;
+
+            $('#nDate').valueAsDate = new Date();
+
+            if (SESSION && (SESSION.role.toLowerCase() === 'admin' || SESSION.role.toLowerCase() === 'teacher')) {
+                show($('#noticeControls'));
+                $('#nPost').addEventListener('click', async () => {
+                    const title = $('#nTitle').value, content = $('#nContent').value, scope = $('#nScope').value;
+                    const date = $('#nDate').value; const photo_link = $('#nPhotoLink').value;
+                    if (!title || !content || !date) return toast('Title, content, and date are required.');
+                    const { error } = await supabase.from('notices').insert([{ title, content, date, scope, photo_link }]);
+                    if (error) return toast('Error posting notice: '.concat(error.message));
+                    toast('Notice posted');
+                    $('#nTitle').value = ''; $('#nContent').value = ''; $('#nPhotoLink').value = '';
+                    renderNoticesList();
+                    notify('all', `New notice: ${title}`, 'notices');
+                });
+            }
+
+            async function renderNoticesList() {
+                const wrap = $('#noticesList');
+                const userRole = SESSION ? SESSION.role.toLowerCase() : 'public';
+
+                let query = supabase.from('notices').select('*').order('date', { ascending: false });
+
+                if (userRole !== 'admin') {
+                    query = query.or(`scope.eq.all,scope.eq.${userRole}s`);
+                }
+
+                const { data } = await query;
+
+                if (!data || data.length === 0) {
+                    wrap.innerHTML = '<div class="muted">No notices found for you.</div>';
+                    return;
+                }
+
+                wrap.innerHTML = data.map(n => `
+      <div class="card" style="margin-bottom:8px">
+        <div class="flex">
+          <div style="font-weight:700">${escapeHtml(n.title)}</div>
+          <div class="muted small right">${n.date} • ${n.scope}</div>
+        </div>
+        <div style="margin-top:8px">${escapeHtml(n.content)}</div>
+        ${n.photo_link ? `<div style="margin-top:8px"><a href="${escapeHtml(n.photo_link)}" target="_blank" class="muted small">View Attached Photo</a></div>` : ''}
+      </div>
+    `).join('');
+            }
+            renderNoticesList();
+        }
+
+
+        async function renderGalleryModule() {
+            const root = $('#moduleContent');
+            root.innerHTML = `<div class="card"><div class="section-title"><h3>Photo & Video Gallery</h3></div></div>
+    <div id="galleryControls" class="card hidden">
+      <div class="flex"><input id="galTitle" placeholder="Title"/><input id="galLink" placeholder="URL (Google Drive, YouTube, etc.)"/><input id="galCat" placeholder="Category"/><button class="btn accent" id="galAdd">Add</button></div>
+    </div>
+    <div class="card"><div id="galleryList"></div></div>`;
+
+            if (SESSION && SESSION.role.toLowerCase() === 'admin') {
+                show($('#galleryControls'));
+                $('#galAdd').addEventListener('click', async () => {
+                    const title = $('#galTitle').value.trim(), link = $('#galLink').value.trim(), category = $('#galCat').value.trim();
+                    if (!title || !link) return toast('Title & link required');
+                    const { error } = await supabase.from('gallery').insert([{ title, link, category }]);
+                    if (error) return toast('Error: ' + error.message);
+                    toast('Gallery item added');
+                    $('#galTitle').value = ''; $('#galLink').value = ''; $('#galCat').value = '';
+                    renderGalleryList();
+                });
+            }
+
+            async function renderGalleryList() {
+                const wrap = $('#galleryList');
+                const { data } = await supabase.from('gallery').select('*').order('created_at', { ascending: false });
+                if (!data || data.length === 0) { wrap.innerHTML = '<div class="muted">No items in gallery.</div>'; return; }
+                wrap.innerHTML = data.map(g => `
+      <div class="card" style="margin-bottom:8px">
+        <div class="flex">
+            <div><strong>${escapeHtml(g.title)}</strong><br><span class="muted small">${escapeHtml(g.category)}</span></div>
+            <a href="${escapeHtml(g.link)}" target="_blank" class="btn small right">Open Link</a>
+        </div>
+      </div>
+    `).join('');
+            }
+            renderGalleryList();
+        }
+
+        async function renderTimetableModule() {
+            const root = $('#moduleContent');
+            const role = SESSION ? SESSION.role.toLowerCase() : 'public';
+
+            root.innerHTML = `
+    <div class="card"><div class="section-title"><h3>Timetable</h3></div></div>
+    <div id="timetableQuickActions" class="card hidden"><h4>Quick Actions</h4><div class="flex" id="quickActionsContainer"></div></div>
+    <div id="timetableControls" class="card"><h4>Full School Timetable</h4>
+      <div class="flex">
+        <select id="filterType" style="width: 200px;"><option value="">-- Filter By --</option><option value="class">Class</option><option value="teacher">Teacher</option></select>
+        <select id="filterValue" class="hidden" style="flex:1;"></select>
+        ${role === 'admin' ? `<button class="btn accent" id="addPeriodBtn">Add Period</button>` : ''}
+      </div>
+    </div>
+    <div class="card"><div id="timetableGrid" class="table-responsive"><div class="muted">Please select a filter to view the timetable.</div></div></div>`;
+
+            const filterTypeSelect = $('#filterType');
+            const filterValueSelect = $('#filterValue');
+            const quickActionsContainer = $('#quickActionsContainer');
+            const timetableQuickActions = $('#timetableQuickActions');
+            const grid = $('#timetableGrid');
+
+            async function renderTimetableGrid(filterType, filterValue) {
+                grid.innerHTML = '<div class="muted">Loading timetable...</div>';
+                if (!filterType || !filterValue) return;
+
+                const { data } = await supabase.from('timetable').select('*').eq(filterType, filterValue).order('period_order');
+                const { data: allTimetable } = await supabase.from('timetable').select('period_order');
+
+                const maxPeriod = Math.max(...(allTimetable || []).map(d => d.period_order), 8);
+                const periods = Array.from({ length: maxPeriod }, (_, i) => i + 1);
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+                if (!data || data.length === 0) {
+                    grid.innerHTML = `<div class="muted">No timetable found for ${filterValue}.</div>`;
+                    return;
+                }
+
+                let tableHtml = `<h4>Timetable for <strong>${escapeHtml(filterValue)}</strong> <span class="muted small">(${filterType})</span></h4>
+      <table><thead><tr><th>Day</th>${periods.map(p => `<th>Period ${p}</th>`).join('')}</tr></thead><tbody>`;
+                days.forEach(day => {
+                    tableHtml += `<tr><td>${day}</td>`;
+                    periods.forEach(p => {
+                        const item = (data || []).find(d => d.day === day && d.period_order === p);
+                        let cellContent = '—';
+                        if (item) {
+                            const subContent = `<strong>${escapeHtml(item.subject)}</strong><br><span class="muted small">${filterType === 'class' ? escapeHtml(item.teacher) : escapeHtml(item.class)}<br>${item.period_label || ''}</span>`;
+                            if (role === 'admin') {
+                                cellContent = `<div class="editable-cell" data-period-id="${item.id}" style="cursor:pointer; padding: 4px; border-radius: 4px;">${subContent}</div>`;
+                            } else {
+                                cellContent = `<div>${subContent}</div>`;
+                            }
+                        } else if (role === 'admin') {
+                            // Allow admin to add a class in empty slot
+                            cellContent = `<div class="editable-cell empty-slot" data-day="${day}" data-period="${p}" style="cursor:pointer; padding: 4px; border-radius: 4px; opacity:0.5;">+ Add</div>`;
+                        }
+                        tableHtml += `<td>${cellContent}</td>`;
+                    });
+                    tableHtml += `</tr>`;
+                });
+                tableHtml += `</tbody></table>`;
+                grid.innerHTML = tableHtml;
+            }
+
+            window.showAddEditPeriodModal = async (periodId = null, defaultDay = null, defaultPeriod = null) => {
+                const [{ data: teachers }, { data: period }] = await Promise.all([
+                    supabase.from('users').select('name').eq('role', 'Teacher'),
+                    periodId ? supabase.from('timetable').select('*').eq('id', periodId).single() : Promise.resolve({ data: null })
+                ]);
+
+                const teacherOptions = (teachers || []).map(t => `<option value="${t.name}" ${period?.teacher === t.name ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('');
+
+                const { data: classes } = await supabase.from('users').select('class').eq('role', 'Student').not('class', 'is', null);
+                const uniqueClasses = [...new Set(classes.map(c => c.class))].sort();
+                const classOptions = uniqueClasses.map(c => `<option value="${escapeHtml(c)}" ${period?.class === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
+
+                const pDay = period?.day || defaultDay || 'Monday';
+                const pNum = period?.period_order || defaultPeriod || '';
+
+                showModal(periodId ? 'Edit Period' : 'Add Period', `
+          <div class="flex">
+              <select id="modalClass">${classOptions}</select>
+              <select id="modalDay">${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(d => `<option value="${d}" ${pDay === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
+              <input type="number" id="modalNum" placeholder="Period No." value="${pNum}"/>
+          </div><br>
+          <div class="flex">
+              <input id="modalSubject" placeholder="Subject" value="${period?.subject || ''}"/>
+              <select id="modalTeacher">${teacherOptions}</select>
+          </div><br>
+          <input id="modalTime" placeholder="Time (e.g., 09:00 - 09:40)" value="${period?.period_label || ''}"/>`,
+                    [
+                        { label: t('save'), class: 'accent', cb: () => savePeriod(periodId) },
+                        ...(periodId ? [{ label: 'Delete', class: 'danger', cb: () => deletePeriod(periodId) }] : []),
+                        { label: t('cancel'), cb: closeModal }
+                    ]
+                );
+            };
+
+            async function savePeriod(periodId) {
+                const payload = {
+                    class: $('#modalClass').value,
+                    day: $('#modalDay').value,
+                    period_order: parseInt($('#modalNum').value),
+                    subject: $('#modalSubject').value.trim(),
+                    teacher: $('#modalTeacher').value,
+                    period_label: $('#modalTime').value.trim()
+                };
+                if (!payload.class || !payload.day || !payload.period_order || !payload.subject) return toast('Fill all fields');
+
+                const { error } = periodId
+                    ? await supabase.from('timetable').update(payload).eq('id', periodId)
+                    : await supabase.from('timetable').insert(payload);
+
+                if (error) return toast('Error: ' + error.message);
+                toast('Timetable saved');
+                closeModal();
+                if (filterTypeSelect.value && filterValueSelect.value) renderTimetableGrid(filterTypeSelect.value, filterValueSelect.value);
+            }
+
+            async function deletePeriod(periodId) {
+                if (!confirm('Delete this period?')) return;
+                const { error } = await supabase.from('timetable').delete().eq('id', periodId);
+                if (error) return toast('Error: ' + error.message);
+                toast('Period deleted');
+                closeModal();
+                if (filterTypeSelect.value && filterValueSelect.value) renderTimetableGrid(filterTypeSelect.value, filterValueSelect.value);
+            }
+
+            if (SESSION) {
+                const { data: userData } = await supabase.from('users').select('class, name, role').eq('username', SESSION.username).single();
+                if (userData) {
+                    show(timetableQuickActions);
+                    if (userData.role === 'Student' && userData.class) {
+                        quickActionsContainer.innerHTML = `<button class="btn" id="myClassBtn">View My Class Timetable</button>`;
+                        $('#myClassBtn').addEventListener('click', () => renderTimetableGrid('class', userData.class));
+                    }
+                    if (userData.role === 'Teacher') {
+                        let buttons = '';
+                        if (userData.class) buttons += `<button class="btn" id="myClassBtn">View My Assigned Class Timetable</button>`;
+                        buttons += `<button class="btn" id="myScheduleBtn">View My Personal Schedule</button>`;
+                        quickActionsContainer.innerHTML = buttons;
+                        if ($('#myClassBtn')) $('#myClassBtn').addEventListener('click', () => renderTimetableGrid('class', userData.class));
+                        $('#myScheduleBtn').addEventListener('click', () => renderTimetableGrid('teacher', userData.name));
+                    }
+                }
+            }
+
+            if (role === 'admin' && $('#addPeriodBtn')) {
+                $('#addPeriodBtn').addEventListener('click', () => showAddEditPeriodModal());
+            }
+
+            filterTypeSelect.addEventListener('change', async (e) => {
+                const type = e.target.value;
+                filterValueSelect.innerHTML = '';
+                hide(filterValueSelect);
+                grid.innerHTML = '<div class="muted">Please make a selection to view the timetable.</div>';
+                if (!type) return;
+
+                if (type === 'class') {
+                    filterValueSelect.innerHTML = '<option value="">Loading classes...</option>';
+                    const { data: classes } = await supabase.from('users').select('class').eq('role', 'Student').not('class', 'is', null);
+                    const uniqueClasses = [...new Set((classes || []).map(c => c.class).filter(Boolean))].sort();
+                    filterValueSelect.innerHTML = '<option value="">-- Select a Class --</option>' + uniqueClasses.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+                    show(filterValueSelect);
+                } else if (type === 'teacher') {
+                    filterValueSelect.innerHTML = '<option value="">Loading teachers...</option>';
+                    const { data: teachers } = await supabase.from('users').select('name').eq('role', 'Teacher').order('name');
+                    filterValueSelect.innerHTML = '<option value="">-- Select a Teacher --</option>' + (teachers || []).map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
+                    show(filterValueSelect);
+                }
+            });
+
+            filterValueSelect.addEventListener('change', (e) => {
+                const value = e.target.value;
+                if (value) { renderTimetableGrid(filterTypeSelect.value, value); }
+                else { grid.innerHTML = '<div class="muted">Please make a selection to view the timetable.</div>'; }
+            });
+
+            grid.addEventListener('click', (e) => {
+                const cell = e.target.closest('.editable-cell');
+                if (cell) {
+                    const pid = cell.dataset.periodId;
+                    if (pid) showAddEditPeriodModal(pid);
+                    else {
+                        const day = cell.dataset.day;
+                        const p = cell.dataset.period;
+                        showAddEditPeriodModal(null, day, p);
+                    }
+                }
+            });
+        }
+
+        async function renderReportsModule() {
+            const root = $('#moduleContent');
+            if (SESSION.role.toLowerCase() !== 'admin') { root.innerHTML = `<div class="card muted">Access Denied</div>`; return; }
+            root.innerHTML = `<div class="card"><div class="section-title"><h3>Reports</h3></div></div>
+    <div class="card"><div class="flex">
+      <select id="reportType" style="flex:1"><option value="attendance">Attendance</option><option value="fees">Fees Outstanding</option></select>
+      <button class="btn accent" id="genPdf">Export PDF</button>
+      <button class="btn accent" id="genExcel">Export Excel</button>
+    </div></div>`;
+
+            $('#genPdf').addEventListener('click', () => generateReport('pdf'));
+            $('#genExcel').addEventListener('click', () => generateReport('excel'));
+
+            async function generateReport(format) {
+                const type = $('#reportType').value;
+                let data, headers, fileName = `${type}_report_${new Date().toISOString().split('T')[0]}`;
+
+                if (type === 'attendance') {
+                    const { data: records } = await supabase.from('attendance').select('date, who, role, status').order('date', { ascending: false });
+                    data = records.map(r => [r.date, r.who, r.role, r.status]);
+                    headers = [['Date', 'Who', 'Role', 'Status']];
+                } else if (type === 'fees') {
+                    const { data: records } = await supabase.from('fees').select('*, student:users(username, name, class), fees_payments(amount)');
+                    data = (records || []).map(f => {
+                        const paid = (f.fees_payments || []).reduce((sum, p) => sum + p.amount, 0);
+                        return [f.student.name, f.student.username, f.student.class, f.year, f.last_year_pending || 0, f.total, paid, (f.last_year_pending || 0) + f.total - paid];
+                    });
+                    headers = [['Student Name', 'Username', 'Class', 'Year', 'Last Year Due', 'Total Fee', 'Total Paid', 'Due Amount']];
+                }
+
+                if (!data || data.length === 0) return toast('No data found to export.');
+
+                if (format === 'pdf') {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    doc.text(`Little Flower School - ${type.toUpperCase()} Report`, 14, 15);
+                    doc.setFontSize(10);
+                    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
+
+                    doc.autoTable({
+                        head: headers,
+                        body: data,
+                        startY: 25,
+                    });
+                    doc.save(`${fileName}.pdf`);
+                } else if (format === 'excel') {
+                    const wb = XLSX.utils.book_new();
+                    const wsData = [...headers, ...data];
+                    const ws = XLSX.utils.aoa_to_sheet(wsData);
+                    XLSX.utils.book_append_sheet(wb, ws, "Report");
+                    XLSX.writeFile(wb, `${fileName}.xlsx`);
+                }
+                toast('Report exported!');
+            }
+        }
+
+        async function renderOffClassesModule() {
+            const root = $('#moduleContent');
+            const role = SESSION.role.toLowerCase();
+
+            if (role !== 'admin' && role !== 'teacher') {
+                root.innerHTML = `<div class="card muted">Access Denied. Only for Admins & Teachers.</div>`;
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+            root.innerHTML = `<div class="card"><div class="section-title"><h3>Off Classes (Teachers Absent)</h3></div>
+    <div class="muted small">Showing off-periods for teachers marked absent today (${today}).</div></div>
+    <div class="card"><div id="offClassesList">Loading...</div></div>`;
+
+            // 1. Get absent teachers today
+            const { data: attendance } = await supabase.from('attendance')
+                .select('who')
+                .eq('role', 'Teacher')
+                .eq('date', today)
+                .eq('status', 'Absent');
+
+            if (!attendance || attendance.length === 0) {
+                $('#offClassesList').innerHTML = `<div class="muted">No teachers are marked absent today.</div>`;
+                return;
+            }
+
+            const absentUsernames = attendance.map(a => a.who);
+
+            // 2. Fetch profile to get Names (match username)
+            const { data: users } = await supabase.from('users').select('username, name').in('username', absentUsernames);
+
+            // 3. Get timetable for these teachers
+            // We need to match 'teacher' column in timetable with 'name' from users table.
+            // The timetable table stores Teacher NAME, not username. This is a bit fragile but based on existing schema.
+
+            const absentTeacherNames = users.map(u => u.name);
+            const { data: periods } = await supabase.from('timetable')
+                .select('*')
+                .in('teacher', absentTeacherNames)
+                .eq('day', new Date().toLocaleString('en-us', { weekday: 'long' }))
+                .order('period_order');
+
+            if (!periods || periods.length === 0) {
+                $('#offClassesList').innerHTML = `<div class="muted">Absent teachers have no classes scheduled for today.</div>`;
+                return;
+            }
+
+            let html = `<table><thead><tr><th>Period</th><th>Class</th><th>Subject</th><th>Teacher (Absent)</th></tr></thead><tbody>`;
+            html += periods.map(p => `
+    <tr>
+        <td><span class="badge" style="background:#555">${p.period_order}</span> <small>${p.period_label || ''}</small></td>
+        <td><strong>${escapeHtml(p.class)}</strong></td>
+        <td>${escapeHtml(p.subject)}</td>
+        <td class="unpaid-highlight">${escapeHtml(p.teacher)}</td>
+    </tr>
+  `).join('');
+            html += `</tbody></table>`;
+
+            $('#offClassesList').innerHTML = html;
+        }
+
+        async function renderSettingsModule() {
+            const root = $('#moduleContent');
+            if (!SESSION) { root.innerHTML = `<div class="card muted">Access Denied. Please log in.</div>`; return; }
+
+            const currentTheme = localStorage.getItem('lfs_theme') || 'dark';
+
+            root.innerHTML = `<div class="card"><div class="section-title"><h3 data-translate-key="settings">Settings</h3></div></div>
+    <div class="card">
+        <h4 data-translate-key="theme">Theme</h4>
+        <select id="themeSelect">
+            <option value="dark" ${currentTheme === 'dark' ? 'selected' : ''} data-translate-key="dark">🌙 Dark</option>
+            <option value="light" ${currentTheme === 'light' ? 'selected' : ''} data-translate-key="light">☀ Light</option>
+        </select>
+    </div>
+    <div class="card">
+        <h4 data-translate-key="language">Language</h4>
+        <select id="langSelect">
+            <option value="en" ${currentLang === 'en' ? 'selected' : ''}>English</option>
+            <option value="hi" ${currentLang === 'hi' ? 'selected' : ''}>हिन्दी (Hindi)</option>
+            <option value="mr" ${currentLang === 'mr' ? 'selected' : ''}>मराठी (Marathi)</option>
+        </select>
+    </div>
+    <div class="card">
+      <h4 data-translate-key="changePassword">Change Password</h4>
+      <input type="password" id="oldPwd" placeholder="Old Password" style="margin-bottom:10px" />
+      <input type="password" id="newPwd" placeholder="New Password" style="margin-bottom:10px" />
+      <button class="btn accent" id="changePwdBtn">Save New Password</button>
+    </div>
+    <div id="adminSettings" class="hidden">
+      <div class="card">
+        <h4 data-translate-key="dataManagement">Data Management</h4>
+        <div style="margin-top:8px" class="flex"><button class="btn" id="exportAll">Export All Data (JSON)</button></div>
+      </div>
+      <div class="card">
+        <h4 data-translate-key="dangerZone">Danger Zone</h4>
+        <div class="muted small">This will permanently delete all records from all tables. This cannot be undone.</div>
+        <div style="margin-top:8px"><button class="btn danger" id="btnReset">Reset All Data</button></div>
+      </div>
+    </div>`;
+
+            $('#themeSelect').addEventListener('change', e => {
+                document.body.setAttribute('data-theme', e.target.value);
+                localStorage.setItem('lfs_theme', e.target.value);
+            });
+
+            $('#langSelect').addEventListener('change', e => setLanguage(e.target.value));
+
+            $('#changePwdBtn').addEventListener('click', async () => {
+                const oldPwd = $('#oldPwd').value;
+                const newPwd = $('#newPwd').value;
+                if (!oldPwd || !newPwd) return toast('Please enter old and new passwords.');
+
+                const { data: user } = await supabase.from('users').select('password').eq('username', SESSION.username).single();
+                if (!user) return toast('User not found.');
+
+                const passwordMatch = await checkPassword(oldPwd, user.password);
+                if (!passwordMatch) return toast('Old password does not match.');
+
+                const newHashedPassword = await hashPassword(newPwd);
+                const { error } = await supabase.from('users').update({ password: newHashedPassword }).eq('username', SESSION.username);
+
+                if (error) return toast('Error updating password: ' + error.message);
+                toast('Password updated successfully.');
+                $('#oldPwd').value = '';
+                $('#newPwd').value = '';
+            });
+
+            if (SESSION.role.toLowerCase() === 'admin') {
+                show($('#adminSettings'));
+                $('#exportAll').addEventListener('click', async () => {
+                    const tables = ['users', 'notices', 'attendance', 'fees', 'fees_payments', 'leaves', 'gallery', 'timetable', 'calendar_events', 'notifications'];
+                    const out = {};
+                    for (let t of tables) {
+                        const { data } = await supabase.from(t).select('*');
+                        out[t] = data || [];
+                    }
+                    const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lfs-export.json'; a.click(); URL.revokeObjectURL(url);
+                    toast('Data exported');
+                });
+
+                $('#btnReset').addEventListener('click', async () => {
+                    const confirmText = 'DELETE ALL DATA';
+                    const confirmation = prompt(`This will delete everything. To confirm, type: ${confirmText}`);
+                    if (confirmation !== confirmText) return toast('Reset cancelled.');
+
+                    toast('Resetting... Please wait.');
+                    const tables = ['notifications', 'fees_payments', 'leaves', 'attendance', 'fees', 'timetable', 'calendar_events', 'gallery', 'notices', 'users'];
+                    for (let t of tables) {
+                        await supabase.from(t).delete().neq('id', '00000000-0000-0000-0000-000000000000'); // A safe delete condition
+                    }
+                    toast('Reset complete. Please re-run the SQL seed script.');
+                    logout();
+                });
+            }
+        }
+
+
+        async function renderProfileModule() {
+            const root = $('#moduleContent');
+            if (!SESSION) return;
+            const { data: u } = await supabase.from('users').select('*').eq('username', SESSION.username).single();
+            if (!u) return toast('Profile not found');
+
+            let detailsHtml = ``;
+            if (u.role === 'Student') {
+                detailsHtml = `<p><strong>Class:</strong> ${escapeHtml(u.class || '—')}</p><p><strong>Parent's Contact:</strong> ${escapeHtml(u.contact || '—')}</p>`;
+            } else if (u.role === 'Teacher') {
+                detailsHtml = `<p><strong>Qualification:</strong> ${escapeHtml(u.qualification || '—')}</p><p><strong>Allocated Class:</strong> ${escapeHtml(u.class || '—')}</p><p><strong>Contact Number:</strong> ${escapeHtml(u.contact || '—')}</p>`;
+            }
+
+            root.innerHTML = `<div class="card"><h3>My Profile</h3>
+    <p><strong>Full Name:</strong> ${escapeHtml(u.name || '—')}</p>
+    <p><strong>Username:</strong> ${escapeHtml(u.username || '—')}</p>
+    <p><strong>Role:</strong> ${escapeHtml(u.role || '—')}</p>
+    ${detailsHtml}
+  </div>`;
+        }
+
+        function renderContactModule() {
+            $('#moduleContent').innerHTML = `<div class="card"><h3>Contact Us</h3><p>Little Flower School<br>Parli Vaijnath, Maharashtra</p><p><strong>Phone:</strong> 9022761401<br><strong>Email:</strong> info@littleflower.example</p></div>`;
+        }
+
+        function renderAboutModule() {
+            const root = $('#moduleContent');
+            root.innerHTML = `<div class="card">
+  <big><b>About This Application</b></big>
+          <p>The Little Flower School Web Application has been designed to modernize and simplify school management through a fully digital platform. This system ensures that the administration, teachers, students, and parents can collaborate effectively and stay informed at all times.</p>
+    <h4>Purpose</h4>
+    <p>The purpose of this application is to provide a centralized and reliable platform where all essential school functions are managed digitally. It reduces paperwork, improves communication, and creates transparency between school authorities, teachers, and students.</p>
+    <h4>Key Functions</h4>
+    <ul>
+        <li><strong>Role-Based Dashboards:</strong> Admin, Teacher, and Student dashboards with customized access.</li>
+        <li><strong>Core Modules:</strong> Secure login, dynamic calendar, attendance, fees, leave management, timetable, notices, gallery, and reports.</li>
+    </ul>
+    <h4>How the App Works</h4>
+    <p>The application connects with Supabase (a secure backend service) for managing the database, authentication, and real-time updates. It is deployed on Netlify, making it fast, lightweight, and easily accessible on any device. The system ensures that each role has access only to the data and features relevant to them, maintaining strict separation of permissions.</p>
+    <h4>Security and Privacy</h4>
+    <p>Authentication is role-based, Row Level Security (RLS) policies are enabled, and password-protected advanced settings are in place. Data encryption is applied at both transmission and storage levels.</p>
+    <h4>Credit</h4>
+    <p>This application has been conceptualized, developed, and customized for <b>Little Flower School (Parli V.)</b> by  <b>Mr. Shubham Arun Hajare</b>, who has overseen its development, structure, and deployment.</p>
+      <p class="muted small"><strong>Backend & Database:</strong> Supabase<br><strong>Frontend:</strong> JavaScript, HTML, CSS<br><strong>hosting:</strong>Netlify<br><strong>Engagement:</strong> OneSignal</p>
+    </div>`;
+        }
+
+        async function refreshHomeHighlights() {
+            try {
+                const { data: events } = await supabase.from('calendar_events').select('*').order('start_date', { ascending: true }).limit(50);
+                const { data: notices } = await supabase.from('notices').select('*').order('date', { ascending: false }).limit(5);
+                const nowDate = new Date().toISOString().split('T')[0];
+                const nextEvent = (events || []).find(e => e.start_date >= nowDate);
+                $('#homeNextEvent').textContent = nextEvent ? `${nextEvent.start_date} — ${nextEvent.title}` : 'No upcoming events';
+                $('#homeNoticePreview').innerHTML = (notices && notices.length) ? `<strong>${escapeHtml(notices[0].title)}</strong><div class="muted small">${notices[0].date}</div>` : '<div class="muted">No notices</div>';
+            } catch (err) { console.error(err); }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+        setInterval(refreshHomeHighlights, 60000); // Refresh every minute
+    </script>
+
+</body>
+
+</html>

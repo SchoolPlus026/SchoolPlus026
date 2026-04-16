@@ -76,10 +76,13 @@ export default function App() {
 
   if (isInitializing) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50 text-slate-800">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="h-12 w-12 rounded-full border-t-[3px] border-primary animate-spin mb-4"></div>
-          <p className="text-muted tracking-wide text-sm font-medium">Authenticating Workspace Session...</p>
+      <div className="flex items-center justify-center h-screen text-slate-300"
+        style={{ background: 'linear-gradient(180deg, #0b1020 0%, #061233 100%)' }}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl border-2 border-indigo-500/50 border-t-indigo-400 animate-spin" />
+          <p className="text-xs text-slate-500 tracking-[0.3em] uppercase font-bold">
+            Authenticating Workspace...
+          </p>
         </div>
       </div>
     );

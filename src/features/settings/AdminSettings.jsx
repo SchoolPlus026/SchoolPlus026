@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Save, Loader2, Info, LayoutGrid, Plus, X, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import {
+  Save, Loader2, Info, LayoutGrid, Plus, X,
+  Trash2, AlertTriangle, ShieldCheck, Palette, Globe, KeyRound
+} from 'lucide-react';
 
 export default function AdminSettings() {
   const { user, schoolSettings, setSchoolSettings, setClasses } = useAppStore();
@@ -13,16 +16,30 @@ export default function AdminSettings() {
   const [classList, setClassList] = useState(schoolSettings?.classes || []);
   const [newClass, setNewClass] = useState('');
 
-  // Danger Zone states
+  // Danger Zone
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-  
-  // App Preference states
-  const [theme, setTheme] = useState('Light');
-  const [language, setLanguage] = useState('English');
+
+  // App Preferences
+  const [theme, setTheme] = useState(localStorage.getItem('sp_theme') || 'dark');
+  const [language, setLanguage] = useState(localStorage.getItem('sp_lang') || 'en');
   const [newPassword, setNewPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // ── Theme switcher (matches legacy data-theme behavior) ──
+  const handleThemeChange = (val) => {
+    setTheme(val);
+    localStorage.setItem('sp_theme', val);
+    document.documentElement.setAttribute('data-theme', val);
+    document.body.setAttribute('data-theme', val);
+  };
+
+  // ── Language switcher (stored to localStorage, matching legacy) ──
+  const handleLanguageChange = (val) => {
+    setLanguage(val);
+    localStorage.setItem('sp_lang', val);
+  };
 
   const brandingMutation = useMutation({
     mutationFn: async () => {
@@ -37,8 +54,9 @@ export default function AdminSettings() {
     },
     onSuccess: (updatedSettings) => {
       setSchoolSettings(updatedSettings);
-      alert('Branding updated successfully!');
-    }
+      alert('Branding synchronized successfully!');
+    },
+    onError: (e) => alert('Error: ' + e.message)
   });
 
   const classesMutation = useMutation({
@@ -51,8 +69,8 @@ export default function AdminSettings() {
     },
     onSuccess: (_, updatedList) => {
       setClasses(updatedList);
-      alert('Class structure updated successfully!');
-    }
+    },
+    onError: (e) => alert('Error: ' + e.message)
   });
 
   const handleAddClass = () => {
@@ -74,23 +92,17 @@ export default function AdminSettings() {
     e.preventDefault();
     setResetLoading(true);
     try {
-      // 1. Re-authenticate to prove identity
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: confirmPassword
       });
-
       if (authError) throw new Error('Identity verification failed. Incorrect password.');
-
-      // 2. Perform cascade delete/reset
-      // Note: In a real multi-tenant app, we only delete data for THIS school_id
       const tables = ['attendance', 'fees', 'notices', 'calendar_events', 'leaves', 'gallery'];
       for (const table of tables) {
         const { error } = await supabase.from(table).delete().eq('school_id', schoolSettings.school_id);
         if (error) throw error;
       }
-
-      alert('Workspace data has been purged successfully.');
+      alert('Workspace data purged successfully.');
       setIsResetModalOpen(false);
       setConfirmPassword('');
       queryClient.invalidateQueries();
@@ -117,158 +129,251 @@ export default function AdminSettings() {
     }
   };
 
+  // ── Reusable section card wrapper ──
+  const SectionCard = ({ children, className = '' }) => (
+    <div className={`sp-card ${className}`}>{children}</div>
+  );
+
+  const SectionHead = ({ title, subtitle }) => (
+    <div className="mb-6">
+      <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">{title}</h3>
+      {subtitle && <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{subtitle}</p>}
+    </div>
+  );
+
+  const inputClass = "sp-input";
+  const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2";
+
   return (
-    <div className="space-y-10 animate-in fade-in duration-500 pb-12">
+    <div className="space-y-8 fade-in pb-12">
+      {/* Page Title */}
       <div className="flex items-center gap-3">
-         <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-100"><ShieldCheck size={24} /></div>
-         <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Portal Configuration</h2>
+        <div className="p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+          <ShieldCheck size={22} className="text-white" />
+        </div>
+        <div>
+          <h2 className="text-xl font-black text-slate-100 uppercase tracking-tight">Portal Configuration</h2>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">System Settings &amp; Preferences</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column: Core Branding */}
-        <div className="space-y-8">
-           <div className="bg-white border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-100/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">School Identity</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Public Facing Metadata</p>
-              
-              <form onSubmit={(e) => { e.preventDefault(); brandingMutation.mutate(); }} className="space-y-6">
-                <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Legal Entity Name</label>
-                   <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" />
-                </div>
-                <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Institutional Emblem URL</label>
-                   <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" />
-                </div>
-                <button type="submit" disabled={brandingMutation.isPending} className="w-full py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-200 hover:bg-primary-dark transition-all">
-                   {brandingMutation.isPending ? 'Propagating...' : 'Synchronize Identity'}
-                </button>
-              </form>
-           </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-           <div className="bg-white border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-100/50">
-             <div className="flex items-center gap-2 text-indigo-500 mb-4 px-2">
-                <Info size={18} />
-                <span className="text-[10px] font-black uppercase tracking-widest">Architectural Credits</span>
-             </div>
-             <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] text-center">
-                Built by Shubham Arun Hajare — 9022761401
-             </div>
-           </div>
+        {/* ────── LEFT COLUMN ────── */}
+        <div className="space-y-6">
+
+          {/* School Identity */}
+          <SectionCard>
+            <SectionHead title="School Identity" subtitle="Public facing metadata" />
+            <form onSubmit={(e) => { e.preventDefault(); brandingMutation.mutate(); }} className="space-y-5">
+              <div>
+                <label className={labelClass}>Legal Entity Name</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Institutional Emblem URL</label>
+                <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className={inputClass} placeholder="https://..." />
+              </div>
+              <button
+                type="submit"
+                disabled={brandingMutation.isPending}
+                className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest disabled:opacity-50"
+              >
+                {brandingMutation.isPending
+                  ? <><Loader2 size={16} className="animate-spin" /> Propagating...</>
+                  : <><Save size={16} /> Synchronize Identity</>
+                }
+              </button>
+            </form>
+          </SectionCard>
+
+          {/* Credits */}
+          <SectionCard>
+            <div className="flex items-center gap-2 text-indigo-400 mb-4">
+              <Info size={16} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Architectural Credits</span>
+            </div>
+            <div className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] text-center">
+              Built by Shubham Arun Hajare — 9022761401
+            </div>
+          </SectionCard>
         </div>
 
-        {/* Right Column: Class Architecture & Security */}
-        <div className="space-y-8">
-           {/* App Preferences */}
-           <div className="bg-white border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-100/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">App Preferences</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Personalize Workspace Experience</p>
-              
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Visual Theme</label>
-                    <select value={theme} onChange={e => setTheme(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer">
-                      <option>Light</option>
-                      <option>Dark</option>
-                      <option>System</option>
-                    </select>
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Language</label>
-                    <select value={language} onChange={e => setLanguage(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer">
-                      <option>English</option>
-                      <option>Hindi</option>
-                      <option>Marathi</option>
-                    </select>
-                  </div>
-                </div>
+        {/* ────── RIGHT COLUMN ────── */}
+        <div className="space-y-6">
 
-                <form onSubmit={handleChangePassword} className="pt-4 border-t border-slate-100">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Change Account Password</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="password" 
-                      value={newPassword} 
-                      onChange={e => setNewPassword(e.target.value)} 
-                      placeholder="New authentication key..." 
-                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" 
-                    />
-                    <button type="submit" disabled={passwordLoading} className="px-6 py-3 bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">
-                      {passwordLoading ? 'Updating...' : 'Update'}
+          {/* App Preferences — Theme & Language (THIS is what was "missing") */}
+          <SectionCard>
+            <SectionHead title="App Preferences" subtitle="Personalize workspace experience" />
+            <div className="space-y-6">
+
+              {/* Theme */}
+              <div>
+                <label className={labelClass}>
+                  <Palette size={10} className="inline mr-1" />
+                  Visual Theme
+                </label>
+                <select
+                  value={theme}
+                  onChange={e => handleThemeChange(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="dark">🌙 Dark (Default)</option>
+                  <option value="light">☀ Light</option>
+                  <option value="system">⚙ System</option>
+                </select>
+              </div>
+
+              {/* Language */}
+              <div>
+                <label className={labelClass}>
+                  <Globe size={10} className="inline mr-1" />
+                  Language
+                </label>
+                <select
+                  value={language}
+                  onChange={e => handleLanguageChange(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="en">English</option>
+                  <option value="hi">हिन्दी (Hindi)</option>
+                  <option value="mr">मराठी (Marathi)</option>
+                </select>
+              </div>
+
+              {/* Change Password */}
+              <form onSubmit={handleChangePassword} className="pt-4 border-t border-white/5">
+                <label className={labelClass}>
+                  <KeyRound size={10} className="inline mr-1" />
+                  Change Account Password
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="New authentication key..."
+                    className={`${inputClass} flex-1`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest bg-slate-700 hover:bg-slate-600 text-slate-200 transition-all disabled:opacity-50 border border-white/5"
+                  >
+                    {passwordLoading ? '...' : 'Update'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </SectionCard>
+
+          {/* Class Registry */}
+          <SectionCard>
+            <SectionHead title="Class Registry" subtitle="Structural unit configuration" />
+            <div className="space-y-5">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newClass}
+                  onChange={e => setNewClass(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddClass()}
+                  placeholder="New standard label (e.g. Class 5th)..."
+                  className={`${inputClass} flex-1`}
+                />
+                <button
+                  onClick={handleAddClass}
+                  className="p-3 rounded-xl bg-indigo-600/50 hover:bg-indigo-600 text-white border border-indigo-500/30 transition-all"
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 min-h-[32px]">
+                {classList.map(cls => (
+                  <div
+                    key={cls}
+                    className="group flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 px-4 py-1.5 rounded-full text-xs font-black text-indigo-300 transition-all hover:bg-indigo-500/20"
+                  >
+                    {cls}
+                    <button
+                      onClick={() => handleRemoveClass(cls)}
+                      className="text-indigo-500 hover:text-red-400 transition-colors"
+                    >
+                      <X size={12} />
                     </button>
                   </div>
-                </form>
+                ))}
+                {classList.length === 0 && (
+                  <p className="text-[11px] text-slate-600 italic">No classes added yet.</p>
+                )}
               </div>
-           </div>
-           <div className="bg-white border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-100/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2 flex items-center gap-2"><LayoutGrid size={20} /> Class Registry</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Structural Unit Configuration</p>
-              
-              <div className="space-y-6">
-                 <div className="flex gap-2">
-                    <input type="text" value={newClass} onChange={e => setNewClass(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAddClass()} placeholder="New standard label..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" />
-                    <button onClick={handleAddClass} className="p-4 bg-slate-800 text-white rounded-xl hover:bg-black transition-colors"><Plus size={20} /></button>
-                 </div>
-                 <div className="flex flex-wrap gap-2">
-                    {classList.map(cls => (
-                      <div key={cls} className="group flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-xl text-xs font-black text-primary transition-all hover:bg-primary hover:text-white">
-                         {cls}
-                         <button onClick={() => handleRemoveClass(cls)} className="text-indigo-400 group-hover:text-white"><X size={14} /></button>
-                      </div>
-                    ))}
-                 </div>
-              </div>
-           </div>
+            </div>
+          </SectionCard>
 
-           <div className="bg-red-50 border-2 border-red-100 rounded-[2.5rem] p-8 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform text-red-500"><Trash2 size={100} /></div>
-              <h3 className="text-xl font-black text-red-600 uppercase tracking-tight mb-2 flex items-center gap-2"><AlertTriangle size={20} /> Danger Zone</h3>
-              <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-8 leading-relaxed">Structural Purge: Irreversible data deletion for all operational modules.</p>
-              
-              <button 
-                onClick={() => setIsResetModalOpen(true)}
-                className="w-full py-4 bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-red-200 hover:bg-red-700 transition-all active:scale-95"
-              >
-                 Reset All Institutional Data
-              </button>
-           </div>
+          {/* Danger Zone */}
+          <div className="sp-card border border-red-500/20 bg-red-500/5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-6 opacity-5 text-red-400">
+              <Trash2 size={80} />
+            </div>
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle size={18} className="text-red-400" />
+              <h3 className="text-sm font-black text-red-400 uppercase tracking-widest">Danger Zone</h3>
+            </div>
+            <p className="text-[10px] font-bold text-red-500/70 uppercase tracking-widest mb-6 leading-relaxed">
+              Structural Purge: Irreversible data deletion for all operational modules.
+            </p>
+            <button
+              onClick={() => setIsResetModalOpen(true)}
+              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-red-900/30"
+            >
+              Reset All Institutional Data
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Security Modal */}
+      {/* ── Reset Confirmation Modal ── */}
       {isResetModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
-           <div className="bg-white border border-border rounded-[3rem] w-full max-w-md shadow-2xl p-10 animate-in zoom-in-95 duration-200">
-              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mb-6 border border-red-100 mx-auto shadow-sm">
-                 <ShieldCheck size={32} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+          <div className="sp-card w-full max-w-md shadow-2xl p-8 border border-red-500/20">
+            <div className="w-14 h-14 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center mb-6 border border-red-500/20 mx-auto">
+              <ShieldCheck size={28} />
+            </div>
+            <h3 className="text-lg font-black text-slate-100 uppercase tracking-tight text-center mb-2">
+              Protocol Authorization
+            </h3>
+            <p className="text-xs text-slate-500 font-medium text-center mb-8 px-4 leading-relaxed">
+              Enter your administrative credentials to authorize the purge sequence. This cannot be undone.
+            </p>
+            <form onSubmit={handleResetData} className="space-y-5">
+              <div>
+                <label className={labelClass}>Confirmation Password</label>
+                <input
+                  type="password"
+                  required
+                  autoFocus
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={inputClass}
+                />
               </div>
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight text-center mb-2">Protocol Authorization</h3>
-              <p className="text-xs text-slate-500 font-medium text-center mb-8 px-4 leading-relaxed">
-                You are requesting a system-wide reset. Enter your administrative credentials to authorize the purge sequence.
-              </p>
-              
-              <form onSubmit={handleResetData} className="space-y-6">
-                <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Confirmation Password</label>
-                   <input 
-                    type="password" 
-                    required 
-                    autoFocus
-                    value={confirmPassword} 
-                    onChange={e => setConfirmPassword(e.target.value)} 
-                    placeholder="••••••••"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black tracking-[0.2em] text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-inner" 
-                   />
-                </div>
-                <div className="flex gap-4 pt-2">
-                   <button type="button" onClick={() => { setIsResetModalOpen(false); setConfirmPassword(''); }} className="flex-1 py-4 text-xs font-black uppercase text-slate-400 hover:text-slate-600 transition-colors">Abort</button>
-                   <button disabled={resetLoading} className="flex-[2] py-4 bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-red-200 hover:bg-red-700 transition-all disabled:opacity-50">
-                      {resetLoading ? 'Purging Archive...' : 'Confirm Purge'}
-                   </button>
-                </div>
-              </form>
-           </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsResetModalOpen(false); setConfirmPassword(''); }}
+                  className="flex-1 py-3 text-xs font-black uppercase text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  Abort
+                </button>
+                <button
+                  disabled={resetLoading}
+                  className="flex-[2] py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+                >
+                  {resetLoading ? 'Purging...' : 'Confirm Purge'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
