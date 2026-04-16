@@ -4,7 +4,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { ClipboardList, DollarSign, Clock, Bell, CalendarHeart, Image, User, LayoutGrid } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
-import StudentAttendanceChart from '../attendance/StudentAttendanceChart';
+import StudentAttendanceChart from './StudentAttendanceChart';
 
 export default function StudentDashboard() {
   const { user } = useAppStore();

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck, CheckCircle2, XCircle, AlertCircle, Filter } from 'lucide-react';
 
 export default function MarkAttendance() {
   const { user, role, schoolSettings } = useAppStore();

@@ -17,6 +17,12 @@ export default function AdminSettings() {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  
+  // App Preference states
+  const [theme, setTheme] = useState('Light');
+  const [language, setLanguage] = useState('English');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const brandingMutation = useMutation({
     mutationFn: async () => {
@@ -95,6 +101,22 @@ export default function AdminSettings() {
     }
   };
 
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 6) return alert('Password must be at least 6 characters');
+    setPasswordLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      alert('Password updated successfully!');
+      setNewPassword('');
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in duration-500 pb-12">
       <div className="flex items-center gap-3">
@@ -137,6 +159,48 @@ export default function AdminSettings() {
 
         {/* Right Column: Class Architecture & Security */}
         <div className="space-y-8">
+           {/* App Preferences */}
+           <div className="bg-white border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-100/50">
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">App Preferences</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Personalize Workspace Experience</p>
+              
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Visual Theme</label>
+                    <select value={theme} onChange={e => setTheme(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer">
+                      <option>Light</option>
+                      <option>Dark</option>
+                      <option>System</option>
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Language</label>
+                    <select value={language} onChange={e => setLanguage(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer">
+                      <option>English</option>
+                      <option>Hindi</option>
+                      <option>Marathi</option>
+                    </select>
+                  </div>
+                </div>
+
+                <form onSubmit={handleChangePassword} className="pt-4 border-t border-slate-100">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Change Account Password</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="password" 
+                      value={newPassword} 
+                      onChange={e => setNewPassword(e.target.value)} 
+                      placeholder="New authentication key..." 
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" 
+                    />
+                    <button type="submit" disabled={passwordLoading} className="px-6 py-3 bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">
+                      {passwordLoading ? 'Updating...' : 'Update'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+           </div>
            <div className="bg-white border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-100/50">
               <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2 flex items-center gap-2"><LayoutGrid size={20} /> Class Registry</h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Structural Unit Configuration</p>

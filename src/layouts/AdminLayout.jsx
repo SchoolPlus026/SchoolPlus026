@@ -15,7 +15,7 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-text overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-background text-text">
       {/* Top Header */}
       <header className="h-16 flex items-center justify-between px-4 sm:px-8 bg-surface border-b border-border shadow-sm">
         <div className="flex items-center gap-3">
