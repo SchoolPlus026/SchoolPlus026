@@ -64,9 +64,30 @@ export default function App() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          const { data: profile } = await supabase.from('users').select('role, school_id').eq('id', session.user.id).single();
-          if (profile) {
-            const { data: settings } = await supabase.from('school_settings').select('*').eq('school_id', profile.school_id).single();
+          const { data: profile, error: profileError } = await supabase
+            .from('users')
+            .select('role, school_id')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileError || !profile) {
+            // Can't read profile — sign out cleanly
+            await supabase.auth.signOut();
+            setIsInitializing(false);
+            return;
+          }
+
+          // App Manager has no school — skip school settings lookup
+          if (profile.role === 'app_manager') {
+            setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'MANAGER' });
+            setUserAndRole(session.user, profile.role);
+          } else {
+            const { data: settings } = await supabase
+              .from('school_settings')
+              .select('*')
+              .eq('school_id', profile.school_id)
+              .single();
+
             if (settings && settings.subscription_status !== 'Expired') {
               setSchoolSettings(settings);
               setUserAndRole(session.user, profile.role);
@@ -81,6 +102,7 @@ export default function App() {
         setIsInitializing(false);
       }
     }
+
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') useAppStore.getState().clearSession();
@@ -97,7 +119,7 @@ export default function App() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-2xl border-2 border-indigo-500/50 border-t-indigo-400 animate-spin" />
           <p className="text-xs text-slate-500 tracking-[0.3em] uppercase font-bold">
-            Authenticating Workspace...
+            Loading...
           </p>
         </div>
       </div>

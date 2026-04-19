@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Mail, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
@@ -7,8 +7,9 @@ import { useNavigate } from 'react-router-dom';
 export default function Login() {
   const [step, setStep] = useState(1); // 1: School Code, 2: Auth
   const [schoolCode, setSchoolCode] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -32,6 +33,7 @@ export default function Login() {
         .eq('school_code', schoolCode.toUpperCase())
         .single();
       if (fetchError || !data) throw new Error('Invalid School Code. Please check and try again.');
+      if (data.subscription_status === 'Expired') throw new Error('This school subscription has expired. Please contact support.');
       setSchoolSettings(data);
       setStep(2);
     } catch (err) {
@@ -46,44 +48,73 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      // ── Simple Demo Credentials Interception ──
-      let loginEmail = email.trim();
-      let loginPassword = password;
-      
-      if (loginEmail === 'admin') loginEmail = 'admin@demo.com';
-      if (loginEmail === 'teacher') loginEmail = 'teacher@demo.com';
-      if (loginEmail === 'student') loginEmail = 'student@demo.com';
-      if (loginEmail === 'manager') loginEmail = 'manager@demo.com';
-      
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ 
-        email: loginEmail, 
-        password: loginPassword 
-      });
-      if (authError) throw authError;
+      const rawInput = username.trim();
 
+      // ── Step 1: Resolve email from username ──
+      // If the input already looks like an email, use it directly.
+      // Otherwise, look up the email from the public.users table by username.
+      let loginEmail = '';
+
+      if (rawInput.includes('@')) {
+        // It's already an email
+        loginEmail = rawInput;
+      } else {
+        // Username lookup — we query public.users to find the linked auth email.
+        // We use a public-readable RPC or the anon key select.
+        // Since users table has RLS, we call a helper or use auth metadata.
+        // Strategy: query auth.users via a known email pattern first (demo), 
+        // then fall back to a username→email lookup via the resolve_email_by_username function.
+        const { data: lookupData, error: lookupError } = await supabase
+          .rpc('get_email_by_username', { p_username: rawInput });
+
+        if (lookupError || !lookupData) {
+          throw new Error(`No account found for username "${rawInput}". Please use your email instead.`);
+        }
+        loginEmail = lookupData;
+      }
+
+      // ── Step 2: Sign in with Supabase Auth ──
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: password,
+      });
+      if (authError) throw new Error('Incorrect password or account not found.');
+
+      // ── Step 3: Fetch user profile ──
       const { data: profile, error: profileError } = await supabase
         .from('users')
-        .select('role, school_id')
+        .select('role, school_id, name')
         .eq('id', authData.user.id)
         .single();
 
-      if (profileError) throw new Error('Could not fetch user profile details.');
-      if (!profile) throw new Error('User profile missing in public.users table.');
-
-      if (profile.role !== 'app_manager' && profile.school_id !== schoolSettings?.school_id) {
+      if (profileError || !profile) {
         await supabase.auth.signOut();
-        throw new Error('This account is not authorized for this school workspace.');
+        throw new Error('Could not load your profile. Please contact your administrator.');
+      }
+
+      // ── Step 4: School validation (skip for app_manager) ──
+      if (profile.role !== 'app_manager') {
+        if (profile.school_id !== schoolSettings?.school_id) {
+          await supabase.auth.signOut();
+          throw new Error('This account does not belong to the selected school workspace.');
+        }
+      }
+
+      // ── Step 5: For app_manager, load school settings from their own record ──
+      if (profile.role === 'app_manager' && !schoolSettings) {
+        // App manager has no school; just set a placeholder so the store isn't null
+        setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'MANAGER' });
       }
 
       setUserAndRole(authData.user, profile.role);
-      
+
       if (profile.role === 'app_manager') {
-         navigate('/app-manager', { replace: true });
+        navigate('/app-manager', { replace: true });
       } else {
-         navigate(`/${profile.role}`, { replace: true });
+        navigate(`/${profile.role}`, { replace: true });
       }
     } catch (err) {
-      setError(err.message || 'An unexpected error occurred during login');
+      setError(err.message || 'An unexpected error occurred during login.');
     } finally {
       setLoading(false);
     }
@@ -119,8 +150,8 @@ export default function Login() {
         {step === 1 ? (
           <div className="fade-in">
             <div className="mb-8">
-              <h2 className="text-lg font-black text-slate-100 uppercase tracking-tight">Workspace Gate</h2>
-              <p className="text-slate-500 text-xs mt-1 font-semibold uppercase tracking-widest">Verify your School Code to proceed</p>
+              <h2 className="text-lg font-black text-slate-100 uppercase tracking-tight">Enter School Code</h2>
+              <p className="text-slate-500 text-xs mt-1 font-semibold uppercase tracking-widest">Use the code provided by your administrator</p>
             </div>
 
             {error && (
@@ -132,7 +163,7 @@ export default function Login() {
 
             <form onSubmit={handleIdentifySchool} className="space-y-5">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Organization Code</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">School Code</label>
                 <input
                   type="text"
                   required
@@ -140,6 +171,7 @@ export default function Login() {
                   onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
                   className="sp-input text-center text-2xl font-black tracking-[0.3em]"
                   placeholder="DEMO01"
+                  autoFocus
                 />
               </div>
               <button
@@ -149,7 +181,7 @@ export default function Login() {
               >
                 {loading
                   ? <Loader2 className="w-5 h-5 animate-spin" />
-                  : <>Continue to Login <ArrowRight size={16} /></>
+                  : <>Continue <ArrowRight size={16} /></>
                 }
               </button>
             </form>
@@ -157,10 +189,10 @@ export default function Login() {
         ) : (
           <div className="fade-in">
             <button
-              onClick={() => setStep(1)}
+              onClick={() => { setStep(1); setError(''); }}
               className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 transition-colors mb-7 uppercase tracking-widest"
             >
-              <ArrowLeft size={12} /> Back to Gate
+              <ArrowLeft size={12} /> Change School
             </button>
 
             {/* School identity display */}
@@ -188,21 +220,24 @@ export default function Login() {
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Email / Username</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Username</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">
-                    <Mail size={16} />
+                    <User size={16} />
                   </div>
                   <input
-                    id="email"
+                    id="username"
                     type="text"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     className="sp-input pl-11"
-                    placeholder="name@organization.com or Username"
+                    placeholder="e.g. admin or teacher"
+                    autoComplete="username"
+                    autoFocus
                   />
                 </div>
+                <p className="text-[10px] text-slate-600 mt-1 ml-1">Enter your username or full email address</p>
               </div>
 
               <div>
@@ -213,13 +248,22 @@ export default function Login() {
                   </div>
                   <input
                     id="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="sp-input pl-11"
+                    className="sp-input pl-11 pr-11"
                     placeholder="••••••••"
+                    autoComplete="current-password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
               </div>
 
@@ -228,7 +272,7 @@ export default function Login() {
                 disabled={loading}
                 className="btn-primary w-full py-3.5 flex items-center justify-center text-sm font-bold mt-2"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enter Portal'}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
               </button>
             </form>
           </div>
