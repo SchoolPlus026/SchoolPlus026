@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, LayoutDashboard, Settings, ChevronLeft } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function StudentLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -42,6 +43,7 @@ export default function StudentLayout() {
           <Link to="/student" className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all" title="Dashboard">
             <LayoutDashboard size={18} />
           </Link>
+          <ThemeToggle />
           <Link to="/student/settings" className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all" title="Settings">
             <Settings size={18} />
           </Link>

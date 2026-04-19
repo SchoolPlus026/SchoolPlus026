@@ -126,10 +126,17 @@ export default function App() {
     );
   }
 
+  // Helper function for root redirects
+  const getRoleRoute = (role) => {
+    if (!role) return '/login';
+    if (role === 'app_manager') return '/app-manager';
+    return `/${role}`;
+  };
+
   return (
     <Routes>
-      <Route path="/" element={user ? <Navigate to={`/${role}`} replace /> : <Navigate to="/login" replace />} />
-      <Route path="/login" element={user ? <Navigate to={`/${role}`} replace /> : <Login />} />
+      <Route path="/" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />
+      <Route path="/login" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Login />} />
 
       {/* ──────────────── ADMIN ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
@@ -195,7 +202,7 @@ export default function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={user ? <Navigate to={`/${role}`} replace /> : <Navigate to="/login" replace />} />
+      <Route path="*" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />
     </Routes>
   );
 }

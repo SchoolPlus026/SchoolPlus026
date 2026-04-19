@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, Settings, LayoutDashboard, ChevronLeft } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function AdminLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -55,6 +56,7 @@ export default function AdminLayout() {
           >
             <LayoutDashboard size={18} />
           </Link>
+          <ThemeToggle />
           <Link
             to="/admin/settings"
             className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all"

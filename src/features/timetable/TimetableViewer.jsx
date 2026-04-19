@@ -143,10 +143,72 @@ export default function TimetableViewer({ adminPreviewClass }) {
          </div>
        )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="bg-surface border border-glass rounded-2xl shadow-xl overflow-hidden overflow-x-auto relative hidden md:block">
+         <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+               <tr className="bg-black/20 border-b border-glass">
+                  <th className="px-5 py-4 text-xs font-black text-slate-400 uppercase tracking-widest w-32 border-r border-glass">Day</th>
+                  {Array.from({ length: Math.max(...(scheduleRaw?.map(s => s.period_order) || [8]), 8) }).map((_, i) => (
+                     <th key={i} className="px-5 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center min-w-[140px] border-r border-glass last:border-0">
+                        Period {i + 1}
+                     </th>
+                  ))}
+               </tr>
+            </thead>
+            <tbody className="divide-y divide-glass text-slate-300">
+               {activeDaysWithData.map(day => {
+                  const daySlots = timeline[day];
+                  const maxP = Math.max(...(scheduleRaw?.map(s => s.period_order) || [8]), 8);
+                  const isToday = day === activeDay;
+
+                  return (
+                     <tr key={day} className={`group hover:bg-white/5 transition-colors ${isToday ? 'bg-primary/5' : ''}`}>
+                        <td className={`px-5 py-6 border-r border-glass font-bold text-sm tracking-widest uppercase ${isToday ? 'text-primary' : 'text-slate-300'}`}>
+                           {isToday && <span className="block mb-1 text-[10px] text-primary">● TODAY</span>}
+                           {day}
+                        </td>
+                        {Array.from({ length: maxP }).map((_, i) => {
+                           const order = i + 1;
+                           const slot = daySlots.find(s => s.period_order === order);
+                           return (
+                              <td key={order} className="px-3 py-3 border-r border-glass last:border-0 text-center align-top relative">
+                                 {slot ? (
+                                    <div className={`h-full flex flex-col justify-center items-center bg-[#0a1128] rounded-xl p-3 border shadow-sm transition-all ${isToday ? 'border-primary/30' : 'border-glass hover:border-glass/80'} `}>
+                                       <div className={`text-[13px] font-black tracking-tight mb-1 ${isToday ? 'text-white' : 'text-slate-200'}`}>
+                                          {slot.subject}
+                                       </div>
+                                       <div className="text-[10px] font-mono font-bold text-slate-500 tracking-tighter mb-2">
+                                          {slot.period_label || '--:-- to --:--'}
+                                       </div>
+                                       {isTeacher ? (
+                                          <div className="text-[10px] uppercase font-bold text-accent tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
+                                            {slot.class}
+                                          </div>
+                                       ) : (
+                                          <div className="text-[10px] uppercase font-bold text-emerald-400 tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 truncate max-w-full">
+                                            {slot.teacher_name}
+                                          </div>
+                                       )}
+                                    </div>
+                                 ) : (
+                                    <div className="h-full flex items-center justify-center p-4">
+                                       <span className="text-slate-600 font-black text-xl opacity-20">-</span>
+                                    </div>
+                                 )}
+                              </td>
+                           );
+                        })}
+                     </tr>
+                  );
+               })}
+            </tbody>
+         </table>
+      </div>
+
+      {/* Mobile view fallback: Stacked cards */}
+      <div className="md:hidden space-y-6">
          {activeDaysWithData.map(day => {
           const isToday = day === activeDay;
-          
           return (
           <div key={day} className={`bg-surface border rounded-2xl p-6 shadow-xl transition-all ${isToday ? 'border-primary ring-1 ring-primary/20 shadow-primary/10 relative overflow-hidden' : 'border-glass'}`}>
              {isToday && <div className="absolute top-0 right-0 bg-primary min-w-[70px] text-center text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-bl-xl shadow-lg">Current</div>}
@@ -154,29 +216,28 @@ export default function TimetableViewer({ adminPreviewClass }) {
              
              <div className="space-y-3">
                {timeline[day].map((slot, idx) => (
-                  <div key={slot.id || idx} className="bg-[#0a1128] border border-glass hover:border-glass/80 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center shadow-sm hover:shadow-md transition-all gap-3 sm:gap-0">
-                     <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-black/40 rounded-lg text-slate-400 font-extrabold border border-glass shadow-inner shrink-0 text-sm">
+                  <div key={slot.id || idx} className="bg-[#0a1128] border border-glass rounded-xl p-4 flex flex-row items-center gap-4">
+                     <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-lg text-slate-400 font-extrabold border border-glass shadow-inner shrink-0 text-sm">
                         #{slot.period_order}
                      </div>
-                     <div className="sm:ml-4 flex-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between sm:mb-1">
+                     <div className="flex-1">
+                        <div className="flex flex-col mb-1">
                            <div className="text-white font-bold tracking-tight text-[15px]">{slot.subject}</div>
-                           <div className="text-[10px] sm:mt-0 font-mono font-bold tracking-tight text-slate-400 bg-glass px-2 py-0.5 rounded shadow-inner w-max mt-1">{slot.period_label}</div>
+                           <div className="text-[10px] font-mono font-bold tracking-tight text-slate-400 mt-1">{slot.period_label || '--:--'}</div>
                         </div>
-                        <div className="flex items-center text-[11px] font-bold uppercase tracking-wider mt-2 sm:mt-0">
+                        <div className="flex items-center text-[11px] font-bold uppercase tracking-wider mt-2">
                            {isTeacher ? (
-                              <span className="text-accent bg-accent/10 px-2 py-0.5 rounded border border-accent/20">Deployed: Class {slot.class}</span>
+                              <span className="text-accent bg-accent/10 px-2 py-0.5 rounded border border-accent/20">Class {slot.class}</span>
                            ) : (
-                              <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Instructor: {slot.teacher_name}</span>
+                              <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">{slot.teacher_name}</span>
                            )}
-                           {isAdmin && <span className="text-slate-500 ml-auto">[{slot.class} | {slot.teacher_name}]</span>}
                         </div>
                      </div>
                   </div>
                ))}
              </div>
           </div>
-       )})}
+         )})}
       </div>
     </div>
   );

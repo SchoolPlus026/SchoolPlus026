@@ -27,7 +27,7 @@ export default function NoticeManager() {
            content: payload.content,
            date: new Date().toISOString().split('T')[0],
            scope: payload.scope,
-           photo_link: payload.photoLink || null
+           photo_url: payload.photoLink || null
         });
         
       if (error) throw error;

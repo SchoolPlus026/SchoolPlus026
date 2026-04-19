@@ -30,12 +30,14 @@ export default function CalendarEvents() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState('');
 
-  // Add event form
+  // Add/Edit event form
+  const [eId, setEId] = useState(null);
   const [eTitle, setETitle] = useState('');
   const [eStart, setEStart] = useState('');
   const [eEnd, setEEnd] = useState('');
   const [eType, setEType] = useState('activity');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
@@ -66,22 +68,58 @@ export default function CalendarEvents() {
     return events.filter(e => e.start_date <= ds && (e.end_date || e.start_date) >= ds);
   }
 
+  const handleEventClick = (e) => {
+    if (!canEdit) return;
+    setEId(e.id);
+    setETitle(e.title);
+    setEStart(e.start_date);
+    setEEnd(e.end_date || e.start_date);
+    setEType(e.type || 'activity');
+    setShowAddModal(true);
+  };
+
   const saveEvent = async () => {
     if (!eTitle || !eStart) return showToast('Title and Start Date are required');
     setSaving(true);
-    const { error } = await supabase.from('calendar_events').insert([{ 
-      school_id: schoolSettings.school_id,
-      title: eTitle, 
-      start_date: eStart, 
-      end_date: eEnd || eStart, 
-      type: eType 
-    }]);
+    let error;
+    if (eId) {
+      const { error: updErr } = await supabase.from('calendar_events').update({ 
+        title: eTitle, start_date: eStart, end_date: eEnd || eStart, type: eType 
+      }).eq('id', eId);
+      error = updErr;
+    } else {
+      const { error: insErr } = await supabase.from('calendar_events').insert([{ 
+        school_id: schoolSettings.school_id, title: eTitle, start_date: eStart, end_date: eEnd || eStart, type: eType 
+      }]);
+      error = insErr;
+    }
     setSaving(false);
     if (error) return showToast('Error saving event: ' + error.message);
-    showToast('Event saved!');
-    setShowAddModal(false);
-    setETitle(''); setEStart(''); setEEnd(''); setEType('activity');
+    showToast(eId ? 'Event updated!' : 'Event saved!');
+    closeModal();
     fetchEvents();
+  };
+
+  const deleteEvent = async () => {
+    if (!eId) return;
+    if (!window.confirm('Delete this event?')) return;
+    setDeleting(true);
+    const { error } = await supabase.from('calendar_events').delete().eq('id', eId);
+    setDeleting(false);
+    if (error) return showToast('Error deleting: ' + error.message);
+    showToast('Event deleted');
+    closeModal();
+    fetchEvents();
+  };
+
+  const openAddModal = () => {
+    setEId(null); setETitle(''); setEStart(''); setEEnd(''); setEType('activity');
+    setShowAddModal(true);
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    setEId(null); setETitle(''); setEStart(''); setEEnd(''); setEType('activity');
   };
 
   return (
@@ -103,7 +141,7 @@ export default function CalendarEvents() {
             <span className="text-sm font-bold text-slate-200 min-w-[140px] text-center">{monthLabel}</span>
             <button onClick={nextMonth} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"><ChevronRight size={16} /></button>
             {canEdit && (
-              <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 text-xs ml-2">
+              <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-xs ml-2">
                 <Plus size={14} /> Add Event
               </button>
             )}
@@ -129,7 +167,11 @@ export default function CalendarEvents() {
                 <div key={day} className={`min-h-[70px] p-1.5 rounded-lg border transition-all ${isToday ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-white/5 bg-white/2'}`}>
                   <div className={`text-xs font-black mb-1 ${isToday ? 'text-indigo-400' : 'text-slate-400'}`}>{day}</div>
                   {evs.map((e, ei) => (
-                    <div key={ei} className={`text-[9px] font-bold px-1 py-0.5 rounded border mb-0.5 leading-tight truncate ${typeBadge(e.type)}`}>
+                    <div 
+                      key={ei} 
+                      onClick={() => handleEventClick(e)}
+                      className={`text-[9px] font-bold px-1 py-0.5 rounded border mb-0.5 leading-tight truncate ${typeBadge(e.type)} ${canEdit ? 'cursor-pointer hover:opacity-80' : ''}`}
+                    >
                       {e.title}
                     </div>
                   ))}
@@ -140,11 +182,13 @@ export default function CalendarEvents() {
         )}
       </div>
 
-      {/* Add Event Modal */}
+      {/* Add/Edit Event Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="sp-card w-full max-w-md">
-            <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-4">Add Event</h3>
+            <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-4">
+               {eId ? 'Edit Event' : 'Add Event'}
+            </h3>
             <div className="space-y-3">
               <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Title</label>
@@ -171,11 +215,18 @@ export default function CalendarEvents() {
                 </select>
               </div>
             </div>
-            <div className="flex justify-end gap-3 mt-5">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm font-bold text-slate-400 hover:text-slate-200 transition-colors">Cancel</button>
-              <button onClick={saveEvent} disabled={saving} className="btn-primary flex items-center gap-2 text-sm">
-                {saving ? <Loader2 size={14} className="animate-spin" /> : null} Save
-              </button>
+            <div className="flex justify-between items-center mt-5">
+              {eId ? (
+                 <button onClick={deleteEvent} disabled={deleting} className="text-red-400 hover:text-red-300 text-sm font-bold bg-red-400/10 px-3 py-1.5 rounded-lg">
+                    {deleting ? 'Deleting...' : 'Delete'}
+                 </button>
+              ) : <div></div>}
+              <div className="flex gap-3">
+                 <button onClick={closeModal} className="px-4 py-2 text-sm font-bold text-slate-400 hover:text-slate-200 transition-colors">Cancel</button>
+                 <button onClick={saveEvent} disabled={saving} className="btn-primary flex items-center gap-2 text-sm">
+                   {saving ? <Loader2 size={14} className="animate-spin" /> : null} Save
+                 </button>
+              </div>
             </div>
           </div>
         </div>

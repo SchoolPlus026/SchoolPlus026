@@ -39,8 +39,12 @@ export default function NoticeBoard() {
     mutationFn: async (id) => {
       const { error } = await supabase.from('notices').delete().eq('id', id);
       if (error) throw error;
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
+      queryClient.setQueryData(['notices', schoolSettings?.school_id, role], (old) => {
+        return old ? old.filter(n => n.id !== id) : [];
+      });
       queryClient.invalidateQueries({ queryKey: ['notices'] });
     }
   });
@@ -162,10 +166,10 @@ export default function NoticeBoard() {
                      </div>
                    )}
                    
-                   {notice.photo_link && (
+                   {notice.photo_url && (
                       <div className="mt-5 border border-glass rounded-xl overflow-hidden shadow-lg bg-[#0a1128]">
                         <img 
-                          src={notice.photo_link} 
+                          src={notice.photo_url} 
                           alt="Notice Attachment" 
                           className="w-full h-auto max-h-96 object-contain" 
                           onError={(e) => e.target.style.display = 'none'}

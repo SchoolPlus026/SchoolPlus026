@@ -33,6 +33,31 @@ export default function SharedSettings() {
   const userRole = (role || '').toLowerCase();
   const [dangerPwd, setDangerPwd] = useState('');
 
+  // app_config state
+  const [aboutText, setAboutText] = useState('Loading...');
+  const [isEditingAbout, setIsEditingAbout] = useState(false);
+  const [newAbout, setNewAbout] = useState('');
+
+  React.useEffect(() => {
+    supabase.from('app_config').select('value_content').eq('key_name', 'about_text').single()
+      .then(({ data }) => {
+         if (data) {
+           setAboutText(data.value_content);
+           setNewAbout(data.value_content);
+         }
+      });
+  }, []);
+
+  const saveAboutText = async () => {
+    setLoading(true);
+    const { error } = await supabase.from('app_config').update({ value_content: newAbout }).eq('key_name', 'about_text');
+    setLoading(false);
+    if (error) return toast('Error: ' + error.message, setToastMsg);
+    setAboutText(newAbout);
+    setIsEditingAbout(false);
+    toast('About text updated successfully', setToastMsg);
+  };
+
   /* ──── Theme ──── */
   const [theme, setTheme] = useState(() => localStorage.getItem('lfs_theme') || 'dark');
   const applyTheme = (val) => {
@@ -228,43 +253,40 @@ export default function SharedSettings() {
 
       {/* About This Application */}
       <div className="sp-card mt-8">
-        <h4 className="text-xl font-bold text-slate-100 mb-2">About This Application</h4>
-        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          The Little Flower School Web Application has been designed to modernize and simplify school management through a fully digital platform. This system ensures that the administration, teachers, students, and parents can collaborate effectively and stay informed at all times.
-        </p>
+        <div className="flex items-center justify-between mb-4">
+           <h4 className="text-xl font-bold text-slate-100">About This Application</h4>
+           {(userRole === 'admin' || userRole === 'app_manager') && (
+              !isEditingAbout ? (
+                 <button onClick={() => setIsEditingAbout(true)} className="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-lg hover:bg-indigo-500/20">Edit Text</button>
+              ) : (
+                 <div className="flex gap-2">
+                    <button onClick={() => { setIsEditingAbout(false); setNewAbout(aboutText); }} className="text-xs font-bold text-slate-400 hover:text-white px-3 py-1.5 rounded-lg">Cancel</button>
+                    <button onClick={saveAboutText} disabled={loading} className="text-xs font-bold text-white bg-emerald-600 px-3 py-1.5 rounded-lg hover:bg-emerald-500">Save</button>
+                 </div>
+              )
+           )}
+        </div>
+        
+        {isEditingAbout ? (
+           <textarea 
+             rows="8"
+             value={newAbout}
+             onChange={e => setNewAbout(e.target.value)}
+             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-300 text-sm focus:outline-none focus:border-indigo-500 custom-scrollbar"
+           />
+        ) : (
+           <div className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">
+             {aboutText === 'Loading...' ? (
+               <div className="flex items-center justify-center p-6"><Loader2 size={24} className="animate-spin text-slate-500" /></div>
+             ) : aboutText}
+           </div>
+        )}
 
-        <h5 className="font-bold text-slate-200 mt-4 mb-1 text-sm">Purpose</h5>
-        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          The purpose of this application is to provide a centralized and reliable platform where all essential school functions are managed digitally. It reduces paperwork, improves communication, and creates transparency between school authorities, teachers, and students.
-        </p>
-
-        <h5 className="font-bold text-slate-200 mt-4 mb-2 text-sm">Key Functions</h5>
-        <ul className="list-disc list-inside text-sm text-slate-400 mb-4 space-y-1 ml-1">
-          <li><strong>Role-Based Dashboards:</strong> Admin, Teacher, and Student dashboards with customized access.</li>
-          <li><strong>Core Modules:</strong> Secure login, dynamic calendar, attendance, fees, leave management, timetable, notices, gallery, and reports.</li>
-        </ul>
-
-        <h5 className="font-bold text-slate-200 mt-4 mb-1 text-sm">How the App Works</h5>
-        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          The application connects with Supabase (a secure backend service) for managing the database, authentication, and real-time updates. It is deployed on Netlify, making it fast, lightweight, and easily accessible on any device. The system ensures that each role has access only to the data and features relevant to them, maintaining strict separation of permissions.
-        </p>
-
-        <h5 className="font-bold text-slate-200 mt-4 mb-1 text-sm">Security and Privacy</h5>
-        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          Authentication is role-based, Row Level Security (RLS) policies are enabled, and password-protected advanced settings are in place. Data encryption is applied at both transmission and storage levels.
-        </p>
-
-        <h5 className="font-bold text-slate-200 mt-4 mb-1 text-sm">Credit</h5>
-        <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          This application has been conceptualized, developed, and customized for <strong className="text-indigo-400">Little Flower School (Parli V.)</strong> by <strong className="text-slate-200">Mr. Shubham Arun Hajare</strong>, who has overseen its development, structure, and deployment.
-        </p>
-
-        <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700 mt-4">
-          <p className="text-xs text-slate-500 flex flex-col gap-1.5">
+        <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700 mt-6">
+          <p className="text-xs text-slate-500 flex flex-wrap gap-x-6 gap-y-2">
             <span><strong>Backend & Database:</strong> Supabase</span>
             <span><strong>Frontend:</strong> React, JavaScript, Tailwind CSS</span>
             <span><strong>Hosting:</strong> Netlify</span>
-            <span><strong>Engagement:</strong> OneSignal (Planned)</span>
           </p>
         </div>
       </div>

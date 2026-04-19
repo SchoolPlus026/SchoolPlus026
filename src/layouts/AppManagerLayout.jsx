@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, Settings, Key, Globe, ShieldCheck } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function AppManagerLayout() {
   const { user } = useAppStore();
@@ -35,6 +36,7 @@ export default function AppManagerLayout() {
           <span className="text-xs font-bold text-slate-400 hidden sm:block bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
             {user?.email}
           </span>
+          <ThemeToggle />
           <NotificationBell />
           <button
             onClick={handleLogout}

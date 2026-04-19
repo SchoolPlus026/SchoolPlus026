@@ -1,0 +1,871 @@
+-- MULTI-TENANT SAAS SCHEMA - MASTER SCRIPT
+
+-- ==========================================
+-- 1. TABLES SETUP
+-- ==========================================
+
+-- School Settings Table (Tenant Master)
+CREATE TABLE public.school_settings (
+    school_id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    name text NOT NULL,
+    logo_url text,
+    subscription_status text DEFAULT 'Trial' CHECK (subscription_status IN ('Trial', 'Paid', 'Expired')),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Users Table (Extends Supabase Auth)
+CREATE TABLE public.users (
+    id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    role text CHECK (role IN ('admin', 'teacher', 'student')),
+    username text UNIQUE NOT NULL,
+    name text NOT NULL,
+    class text, -- For students or allocated class for teachers
+    contact text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Attendance Table
+CREATE TABLE public.attendance (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    date date NOT NULL,
+    user_id uuid REFERENCES public.users(id) ON DELETE CASCADE,
+    role text, -- Denormalized for quick querying efficiency
+    status text CHECK (status IN ('Present', 'Absent', 'Late', 'Half_day', 'Leave')),
+    marked_by uuid REFERENCES auth.users(id),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Fees Table
+CREATE TABLE public.fees (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    student_id uuid REFERENCES public.users(id) ON DELETE CASCADE,
+    year integer NOT NULL,
+    total numeric DEFAULT 0,
+    last_year_pending numeric DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Fees Payments Table
+CREATE TABLE public.fees_payments (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    fee_id uuid REFERENCES public.fees(id) ON DELETE CASCADE,
+    amount numeric NOT NULL,
+    method text CHECK (method IN ('Cash', 'Online', 'Cheque', 'UPI')),
+    transaction_id text,
+    payment_date date NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Timetable Table
+CREATE TABLE public.timetable (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    day text NOT NULL,
+    period_order integer NOT NULL,
+    period_label text,
+    subject text,
+    class text,
+    teacher text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Notices/Events Table
+CREATE TABLE public.notices (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    title text NOT NULL,
+    content text NOT NULL,
+    date date NOT NULL,
+    scope text CHECK (scope IN ('all', 'students', 'teachers')),
+    photo_url text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- ==========================================
+-- 2. ENABLE ROW LEVEL SECURITY
+-- ==========================================
+ALTER TABLE public.school_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fees_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.timetable ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notices ENABLE ROW LEVEL SECURITY;
+
+-- ==========================================
+-- 3. STRICT MULTI-TENANCY RLS POLICIES
+-- ==========================================
+-- Requirement: Your JWT claims MUST contain app_metadata or user_metadata with the school_id!
+
+-- School Settings: You can only SELECT your own school settings
+CREATE POLICY "Tenant isolation for school_settings (Select)" ON public.school_settings FOR SELECT 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+-- Users: Admins can do all across their tenant, others can only Select across their tenant
+CREATE POLICY "Tenant isolation for users (Select)" ON public.users FOR SELECT 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for users (Modify)" ON public.users FOR ALL 
+USING (
+  school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid AND 
+  ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' OR id = auth.uid())
+);
+
+-- Helper to quickly apply the same generic policy to standard operations tables
+CREATE POLICY "Tenant isolation for attendance" ON public.attendance FOR ALL 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for fees" ON public.fees FOR ALL 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for fees_payments" ON public.fees_payments FOR ALL 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for timetable" ON public.timetable FOR ALL 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for notices" ON public.notices FOR ALL 
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+.........
+DO $$ 
+DECLARE
+  v_user_id uuid;
+  v_school_id uuid;
+BEGIN
+  -- 1. Grab the generated UUID of the newly created admin user
+  SELECT id INTO v_user_id
+  FROM auth.users
+  WHERE email = 'admin@school.com'
+  LIMIT 1;
+
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Error: User "admin@school.com" not found. Please create them first in the Supabase Auth Dashboard.';
+  END IF;
+
+  -- 2. Create the mock Tenant (School) record
+  INSERT INTO public.school_settings (name, subscription_status)
+  VALUES ('My First SaaS School', 'Paid')
+  RETURNING school_id INTO v_school_id;
+
+  -- 3. Insert the user into public.users with the admin role and required fields
+  INSERT INTO public.users (id, school_id, role, username, name)
+  VALUES (v_user_id, v_school_id, 'admin', 'admin', 'System Admin')
+  ON CONFLICT (id) DO UPDATE
+  SET 
+    role = 'admin', 
+    school_id = v_school_id;
+
+  -- 4. Embed the critical role and school_id metadata into auth.users 
+  -- so JWTs will contain this data for Row Level Security (RLS)
+  UPDATE auth.users
+  SET raw_user_meta_data = jsonb_build_object(
+    'role', 'admin',
+    'school_id', v_school_id
+  ) || COALESCE(raw_user_meta_data, '{}'::jsonb)
+  WHERE id = v_user_id;
+
+END $$;
+..........
+-- 1. Naye columns users table mein jodne ke liye
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS qualification text;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS aadhar_card text;
+
+-- 2. Nayi Tables banane ke liye (Leaves, Calendar, Gallery)
+CREATE TABLE IF NOT EXISTS public.leaves (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    role text NOT NULL,
+    from_date date NOT NULL,
+    to_date date NOT NULL,
+    reason text,
+    status text DEFAULT 'pending',
+    created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.calendar_events (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    title text NOT NULL,
+    description text,
+    start_date date NOT NULL,
+    end_date date,
+    type text,
+    created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.gallery (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    title text,
+    link text,
+    category text,
+    created_at timestamptz DEFAULT now()
+);
+
+-- 3. Security (RLS) chalu karne ke liye
+ALTER TABLE public.leaves ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.calendar_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.gallery ENABLE ROW LEVEL SECURITY;
+
+-- 4. Multi-tenant Policies (Taki ek school ka data dusra na dekh sake)
+CREATE POLICY "Tenant isolation for leaves" ON public.leaves FOR ALL
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for calendar_events" ON public.calendar_events FOR ALL
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+CREATE POLICY "Tenant isolation for gallery" ON public.gallery FOR ALL
+USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid);
+
+......
+
+
+-- Phase 3: SaaS Architecture & Dynamic Classes array
+-- Run this in your Supabase SQL Editor
+
+-- 1. Add new columns to school_settings
+ALTER TABLE public.school_settings 
+ADD COLUMN IF NOT EXISTS school_code text UNIQUE,
+ADD COLUMN IF NOT EXISTS classes text[] DEFAULT ARRAY['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+
+-- 2. Assign the temporary code to your current school (Replace the UUID if it's different in your system)
+-- This logic finds the first school and sets it to LFS01
+UPDATE public.school_settings 
+SET school_code = 'LFS01' 
+WHERE school_code IS NULL;
+
+-- 3. Update RLS for school_settings to allow public identification during login
+-- We allow SELECTing name, logo_url, and school_code for anyone searching by school_code
+DROP POLICY IF EXISTS "Public school identification" ON public.school_settings;
+CREATE POLICY "Public school identification" ON public.school_settings 
+FOR SELECT 
+USING (true); 
+-- Note: While "USING (true)" allows public select, standard RLS on other tables still blocks unauthorized data access.
+
+-- 4. Re-confirm isolation on notices and events for public view (if needed)
+-- Optional: If you ever want public landing page events, you'd add similar policies here.
+
+
+.....
+
+
+-- Phase 4: Ultimate SaaS Architecture & Demo Data Seed
+
+-- 1. MODIFY SCHEMA FOR SAAS
+ALTER TABLE public.school_settings ADD COLUMN IF NOT EXISTS school_code text UNIQUE;
+-- Extend roles to include super_admin
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE public.users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'teacher', 'student', 'super_admin'));
+
+-- 2. CREATE DEMO TENANT
+INSERT INTO public.school_settings (name, school_code, subscription_status)
+VALUES ('Demo High School', 'DEMO01', 'Paid');
+
+-- 3. LINK USERS TO TENANT
+DO $$ 
+DECLARE
+    v_school_id uuid;
+    v_admin_id uuid;
+    v_teacher_id uuid;
+    v_student_id uuid;
+BEGIN
+    SELECT school_id INTO v_school_id FROM public.school_settings WHERE school_code = 'DEMO01';
+    
+    -- Map Auth Users (Jo abhi aapne create kiye)
+    SELECT id INTO v_admin_id FROM auth.users WHERE email = 'demo_admin@school.com';
+    SELECT id INTO v_teacher_id FROM auth.users WHERE email = 'demo_teacher@school.com';
+    SELECT id INTO v_student_id FROM auth.users WHERE email = 'demo_student@school.com';
+
+    -- Insert into public.users
+    INSERT INTO public.users (id, school_id, role, username, name)
+    VALUES (v_admin_id, v_school_id, 'admin', 'demoadmin', 'Demo Administrator');
+    
+    INSERT INTO public.users (id, school_id, role, username, name, class)
+    VALUES (v_teacher_id, v_school_id, 'teacher', 'demoteacher', 'Mr. Robert Wilson', '10th A');
+
+    INSERT INTO public.users (id, school_id, role, username, name, class)
+    VALUES (v_student_id, v_school_id, 'student', 'demostudent', 'Alice Johnson', '10th A');
+
+    -- Update Auth Metadata
+    UPDATE auth.users SET raw_user_meta_data = jsonb_build_object('role', 'admin', 'school_id', v_school_id) WHERE id = v_admin_id;
+    UPDATE auth.users SET raw_user_meta_data = jsonb_build_object('role', 'teacher', 'school_id', v_school_id) WHERE id = v_teacher_id;
+    UPDATE auth.users SET raw_user_meta_data = jsonb_build_object('role', 'student', 'school_id', v_school_id) WHERE id = v_student_id;
+
+    -- 4. SEED OPERATIONAL DATA
+    INSERT INTO public.fees (school_id, student_id, year, total, last_year_pending)
+    VALUES (v_school_id, v_student_id, 2026, 15000, 2500);
+
+    INSERT INTO public.attendance (school_id, date, user_id, role, status)
+    VALUES 
+        (v_school_id, CURRENT_DATE, v_student_id, 'student', 'Present'),
+        (v_school_id, CURRENT_DATE - 1, v_student_id, 'student', 'Present');
+
+    INSERT INTO public.notices (school_id, title, content, date, scope)
+    VALUES (v_school_id, 'Welcome to Demo Portal', 'This is a sample notice for all users.', CURRENT_DATE, 'all');
+
+END $$;
+
+
+......
+
+-- ==========================================
+-- V6: NOTIFICATIONS MODULE & DEMO USER SEED (SUPABASE COMPATIBLE)
+-- ==========================================
+
+-- 1. Create Notifications Table (Restored from Legacy)
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    to_user text NOT NULL, -- We will use email here
+    message text NOT NULL,
+    link text,
+    is_read boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Safely add RLS and Policies
+DO $$ 
+BEGIN
+    ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+EXCEPTION
+    WHEN others THEN NULL;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view their own notifications') THEN
+        CREATE POLICY "Users can view their own notifications" ON public.notifications FOR SELECT 
+        USING (to_user = (auth.jwt() ->> 'email'));
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update their own notifications') THEN
+        CREATE POLICY "Users can update their own notifications" ON public.notifications FOR UPDATE 
+        USING (to_user = (auth.jwt() ->> 'email'));
+    END IF;
+END $$;
+
+-- 2. Seed Demo Database Configuration (Idempotent)
+DO $$
+DECLARE
+    target_school_id uuid;
+    admin_uuid uuid;
+    teacher_uuid uuid;
+    student_uuid uuid;
+BEGIN
+    -- Ensure the DEMO01 school exists and capture its ID
+    INSERT INTO public.school_settings (name, school_code, subscription_status)
+    VALUES ('Demo High School', 'DEMO01', 'Paid')
+    ON CONFLICT (school_code) DO UPDATE 
+    SET name = EXCLUDED.name, subscription_status = EXCLUDED.subscription_status
+    RETURNING school_id INTO target_school_id;
+
+    -- 3. DEMO ADMIN SETUP
+    -- First try to find existing user by username in public.users
+    SELECT id INTO admin_uuid FROM public.users WHERE username = 'admin';
+    -- Fallback to auth.users if not found
+    IF admin_uuid IS NULL THEN
+        SELECT id INTO admin_uuid FROM auth.users WHERE email = 'admin@demo.com';
+    END IF;
+    IF admin_uuid IS NULL THEN
+        admin_uuid := gen_random_uuid();
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = admin_uuid) THEN
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000000', admin_uuid, 'authenticated', 'authenticated', 
+            'admin@demo.com', crypt('123456', gen_salt('bf')), timezone('utc'::text, now()), 
+            '{"provider": "email", "providers": ["email"]}', 
+            jsonb_build_object('school_id', target_school_id, 'role', 'admin'),
+            timezone('utc'::text, now()), timezone('utc'::text, now()), '', '', '', ''
+        );
+    ELSE
+        UPDATE auth.users 
+        SET encrypted_password = crypt('123456', gen_salt('bf')),
+            raw_user_meta_data = jsonb_build_object('school_id', target_school_id, 'role', 'admin'),
+            updated_at = timezone('utc'::text, now())
+        WHERE id = admin_uuid;
+    END IF;
+
+    -- We now know admin_uuid is correctly aligned with the existing username if it existed
+    INSERT INTO public.users (id, school_id, role, username, name)
+    VALUES (admin_uuid, target_school_id, 'admin', 'admin', 'System Admin')
+    ON CONFLICT (id) DO UPDATE 
+    SET school_id = EXCLUDED.school_id, role = EXCLUDED.role, name = EXCLUDED.name;
+
+
+    -- 4. DEMO TEACHER SETUP
+    SELECT id INTO teacher_uuid FROM public.users WHERE username = 'teacher';
+    IF teacher_uuid IS NULL THEN
+        SELECT id INTO teacher_uuid FROM auth.users WHERE email = 'teacher@demo.com';
+    END IF;
+    IF teacher_uuid IS NULL THEN
+        teacher_uuid := gen_random_uuid();
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = teacher_uuid) THEN
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000000', teacher_uuid, 'authenticated', 'authenticated', 
+            'teacher@demo.com', crypt('123456', gen_salt('bf')), timezone('utc'::text, now()), 
+            '{"provider": "email", "providers": ["email"]}', 
+            jsonb_build_object('school_id', target_school_id, 'role', 'teacher'),
+            timezone('utc'::text, now()), timezone('utc'::text, now()), '', '', '', ''
+        );
+    ELSE
+        UPDATE auth.users 
+        SET encrypted_password = crypt('123456', gen_salt('bf')),
+            raw_user_meta_data = jsonb_build_object('school_id', target_school_id, 'role', 'teacher'),
+            updated_at = timezone('utc'::text, now())
+        WHERE id = teacher_uuid;
+    END IF;
+
+    INSERT INTO public.users (id, school_id, role, username, name, class)
+    VALUES (teacher_uuid, target_school_id, 'teacher', 'teacher', 'Demo Teacher', '10th A')
+    ON CONFLICT (id) DO UPDATE 
+    SET school_id = EXCLUDED.school_id, role = EXCLUDED.role, name = EXCLUDED.name, class = EXCLUDED.class;
+
+
+    -- 5. DEMO STUDENT SETUP
+    SELECT id INTO student_uuid FROM public.users WHERE username = 'student';
+    IF student_uuid IS NULL THEN
+        SELECT id INTO student_uuid FROM auth.users WHERE email = 'student@demo.com';
+    END IF;
+    IF student_uuid IS NULL THEN
+        student_uuid := gen_random_uuid();
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = student_uuid) THEN
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000000', student_uuid, 'authenticated', 'authenticated', 
+            'student@demo.com', crypt('123456', gen_salt('bf')), timezone('utc'::text, now()), 
+            '{"provider": "email", "providers": ["email"]}', 
+            jsonb_build_object('school_id', target_school_id, 'role', 'student'),
+            timezone('utc'::text, now()), timezone('utc'::text, now()), '', '', '', ''
+        );
+    ELSE
+        UPDATE auth.users 
+        SET encrypted_password = crypt('123456', gen_salt('bf')),
+            raw_user_meta_data = jsonb_build_object('school_id', target_school_id, 'role', 'student'),
+            updated_at = timezone('utc'::text, now())
+        WHERE id = student_uuid;
+    END IF;
+
+    INSERT INTO public.users (id, school_id, role, username, name, class)
+    VALUES (student_uuid, target_school_id, 'student', 'student', 'Demo Student', '10th A')
+    ON CONFLICT (id) DO UPDATE 
+    SET school_id = EXCLUDED.school_id, role = EXCLUDED.role, name = EXCLUDED.name, class = EXCLUDED.class;
+    
+END $$;
+
+
+.....
+
+
+-- ==========================================
+-- V7: SUPER ADMIN (APP MANAGER), TICKETING & RPC
+-- ==========================================
+
+-- 0. Update User Role Constraint to allow 'app_manager'
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE public.users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'teacher', 'student', 'app_manager'));
+
+-- 1. App Configuration Table (Global Platform Level)
+CREATE TABLE IF NOT EXISTS public.app_config (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    key_name text UNIQUE NOT NULL,
+    value_content text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+-- Seed Initial "About This Application" text
+INSERT INTO public.app_config (key_name, value_content)
+VALUES (
+  'about_text', 
+  'The Little Flower School Web Application has been designed to modernize and simplify school management through a fully digital platform. This system ensures that the administration, teachers, students, and parents can collaborate effectively and stay informed at all times.'
+) ON CONFLICT (key_name) DO NOTHING;
+
+-- 2. Upgrading School Settings
+-- Add modules tracking for App Manager toggling features
+ALTER TABLE public.school_settings 
+ADD COLUMN IF NOT EXISTS modules_active jsonb DEFAULT '["timetable", "attendance", "fees", "leaves", "notices", "gallery", "calendar", "reports", "contact", "settings"]'::jsonb;
+
+-- 3. Support Tickets System
+CREATE TABLE IF NOT EXISTS public.support_tickets (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    school_id uuid REFERENCES public.school_settings(school_id) ON DELETE CASCADE,
+    admin_id uuid REFERENCES public.users(id) ON DELETE CASCADE,
+    subject text NOT NULL,
+    message text NOT NULL,
+    status text DEFAULT 'Open' CHECK (status IN ('Open', 'In Progress', 'Resolved')),
+    manager_reply text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- RLS for Support Tickets
+ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
+
+-- App Manager can read/write everything. Admins see their own tickets.
+DO $$ 
+BEGIN
+    CREATE POLICY "Ticket Isolation" ON public.support_tickets FOR ALL 
+    USING (
+       (auth.jwt() -> 'user_metadata' ->> 'role') = 'app_manager' OR 
+       school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Everyone can read config, only app_manager can write config
+DO $$ 
+BEGIN
+    CREATE POLICY "Global Read Config" ON public.app_config FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ 
+BEGIN
+    CREATE POLICY "Manager Write Config" ON public.app_config FOR ALL 
+    USING ((auth.jwt() -> 'user_metadata' ->> 'role') = 'app_manager');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 4. SECURE USER CREATION RPC (Solves the Admin Logout Limitation)
+CREATE OR REPLACE FUNCTION admin_create_user(
+  p_email text,
+  p_password text,
+  p_role text,
+  p_name text,
+  p_username text,
+  p_school_id uuid,
+  p_class text DEFAULT NULL,
+  p_contact text DEFAULT NULL
+) RETURNS uuid AS $$
+DECLARE
+  new_uid uuid;
+  caller_role text;
+  caller_school uuid;
+BEGIN
+  -- Verify caller is an admin OR an app_manager
+  caller_role := (auth.jwt() -> 'user_metadata' ->> 'role');
+  caller_school := (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid;
+
+  IF caller_role NOT IN ('admin', 'app_manager') THEN
+    RAISE EXCEPTION 'Unauthorized: Only admins or managers can create authentic accounts.';
+  END IF;
+
+  -- Ensure admins can only create accounts for their own school
+  IF caller_role = 'admin' AND caller_school != p_school_id THEN
+    RAISE EXCEPTION 'Unauthorized: Admins can only create users for their own organization.';
+  END IF;
+
+  -- Avoid duplicate usernames
+  IF EXISTS (SELECT 1 FROM public.users WHERE username = p_username) THEN
+    RAISE EXCEPTION 'Username "%" is already taken.', p_username;
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM auth.users WHERE email = p_email) THEN
+    RAISE EXCEPTION 'Email "%" is already registered.', p_email;
+  END IF;
+
+  -- Validate Role
+  IF p_role NOT IN ('admin', 'teacher', 'student') THEN
+    RAISE EXCEPTION 'Invalid role selection.';
+  END IF;
+
+  -- Generate new user UUID
+  new_uid := gen_random_uuid();
+
+  -- Insert into Supabase auth.users explicitly securely via Database trigger
+  INSERT INTO auth.users (
+      instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
+      raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
+  ) VALUES (
+      '00000000-0000-0000-0000-000000000000', new_uid, 'authenticated', 'authenticated', 
+      p_email, crypt(p_password, gen_salt('bf')), timezone('utc'::text, now()), 
+      '{"provider": "email", "providers": ["email"]}', 
+      jsonb_build_object('school_id', p_school_id, 'role', p_role),
+      timezone('utc'::text, now()), timezone('utc'::text, now()), '', '', '', ''
+  );
+
+  -- Log profile in public schema safely bypassing client restrictions
+  INSERT INTO public.users (id, school_id, role, username, name, class, contact)
+  VALUES (new_uid, p_school_id, p_role, p_username, p_name, p_class, p_contact);
+
+  RETURN new_uid;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 5. Seed App Manager Demo Account
+DO $$
+DECLARE
+    manager_uuid uuid;
+BEGIN
+    SELECT id INTO manager_uuid FROM auth.users WHERE email = 'manager@demo.com';
+    IF manager_uuid IS NULL THEN
+        manager_uuid := gen_random_uuid();
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000000', manager_uuid, 'authenticated', 'authenticated', 
+            'manager@demo.com', crypt('123456', gen_salt('bf')), timezone('utc'::text, now()), 
+            '{"provider": "email", "providers": ["email"]}', 
+            '{"role": "app_manager"}',
+            timezone('utc'::text, now()), timezone('utc'::text, now()), '', '', '', ''
+        );
+
+        INSERT INTO public.users (id, role, username, name)
+        VALUES (manager_uuid, 'app_manager', 'manager', 'Platform Manager');
+    END IF;
+END $$;
+
+
+.....
+
+
+-- Step 1: Ensure 'app_manager' role is allowed (Safety check)
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE public.users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'teacher', 'student', 'app_manager'));
+
+-- Step 2: Rename any old broken profiles so we don't get "Duplicate Username" errors
+UPDATE public.users SET username = username || '_broken' WHERE username = 'manager' AND id NOT IN (SELECT id FROM auth.users WHERE email = 'manager@demo.com');
+UPDATE public.users SET username = username || '_broken' WHERE username = 'admin' AND id NOT IN (SELECT id FROM auth.users WHERE email IN ('admin@school.com', 'admin@demo.com'));
+UPDATE public.users SET username = username || '_broken' WHERE username = 'teacher' AND id NOT IN (SELECT id FROM auth.users WHERE email = 'teacher@demo.com');
+UPDATE public.users SET username = username || '_broken' WHERE username = 'student' AND id NOT IN (SELECT id FROM auth.users WHERE email = 'student@demo.com');
+
+-- Step 3: Create/Link the App Manager profile
+INSERT INTO public.users (id, role, username, name)
+SELECT id, 'app_manager', 'manager', 'Platform Manager'
+FROM auth.users WHERE email = 'manager@demo.com'
+ON CONFLICT (id) DO UPDATE
+SET role = EXCLUDED.role, username = EXCLUDED.username, name = EXCLUDED.name;
+
+-- Step 4: Create/Link the Admin profile (Picking a random active school_id for them)
+INSERT INTO public.users (id, role, username, name, school_id)
+SELECT id, 'admin', 'admin', 'System Admin', (SELECT id FROM public.school_settings LIMIT 1)
+FROM auth.users WHERE email = 'admin@school.com' OR email = 'admin@demo.com'
+ON CONFLICT (id) DO UPDATE
+SET role = EXCLUDED.role, username = EXCLUDED.username, name = EXCLUDED.name;
+
+-- Step 5: Create/Link the Teacher profile
+INSERT INTO public.users (id, role, username, name, school_id)
+SELECT id, 'teacher', 'teacher', 'Demo Teacher', (SELECT id FROM public.school_settings LIMIT 1)
+FROM auth.users WHERE email = 'teacher@demo.com'
+ON CONFLICT (id) DO UPDATE
+SET role = EXCLUDED.role, username = EXCLUDED.username, name = EXCLUDED.name;
+
+-- Step 6: Create/Link the Student profile
+INSERT INTO public.users (id, role, username, name, school_id)
+SELECT id, 'student', 'student', 'Demo Student', (SELECT id FROM public.school_settings LIMIT 1)
+FROM auth.users WHERE email = 'student@demo.com'
+ON CONFLICT (id) DO UPDATE
+SET role = EXCLUDED.role, username = EXCLUDED.username, name = EXCLUDED.name;
+
+
+
+
+.....
+
+
+
+-- Sabse pehle purane manager ko saaf karo agar koi galat entry hai
+DELETE FROM public.users WHERE username = 'manager';
+
+-- Ab naye manager ko Auth ID ke saath link karke insert karo
+INSERT INTO public.users (id, role, username, name)
+SELECT id, 'app_manager', 'manager', 'Platform Manager'
+FROM auth.users 
+WHERE email = 'manager@demo.com'
+ON CONFLICT (id) DO UPDATE 
+SET username = 'manager', role = 'app_manager';
+
+-- Baki users ke liye bhi sync (Admin, Teacher, Student)
+UPDATE public.users SET username = 'admin' WHERE id IN (SELECT id FROM auth.users WHERE email = 'admin@demo.com');
+UPDATE public.users SET username = 'teacher' WHERE id IN (SELECT id FROM auth.users WHERE email = 'teacher@demo.com');
+UPDATE public.users SET username = 'student' WHERE id IN (SELECT id FROM auth.users WHERE email = 'student@demo.com');
+
+
+......
+-- ==========================================
+-- V8: LOGIN FIX — RLS POLICY & USERNAME LOOKUP RPC
+-- Run this ONCE in your Supabase SQL Editor.
+-- ==========================================
+
+-- ─────────────────────────────────────────────
+-- PART 1: Fix RLS on public.users
+-- Problem: After signInWithPassword(), the app tries to SELECT
+--   from public.users. If RLS is too strict, this fails.
+-- Solution: Ensure users can always read their OWN row.
+--   Also allow the service/anon role to read email+username
+--   for the username→email lookup (needed pre-login).
+-- ─────────────────────────────────────────────
+
+-- Enable RLS (safe to run if already enabled)
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+-- Drop and recreate clean policies to avoid duplicates
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.users;
+DROP POLICY IF EXISTS "Allow own profile read" ON public.users;
+DROP POLICY IF EXISTS "Authenticated users can read own profile" ON public.users;
+
+-- Policy 1: Any logged-in user can read their own row
+CREATE POLICY "Users can view their own profile"
+  ON public.users
+  FOR SELECT
+  USING (auth.uid() = id);
+
+-- Policy 2: Admins can read all users in their school
+DROP POLICY IF EXISTS "Admins can read all users in school" ON public.users;
+CREATE POLICY "Admins can read all users in school"
+  ON public.users
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.users AS me
+      WHERE me.id = auth.uid()
+        AND me.role IN ('admin', 'app_manager')
+        AND (me.school_id = users.school_id OR me.role = 'app_manager')
+    )
+  );
+
+-- Policy 3: Teachers can read students/teachers in their school
+DROP POLICY IF EXISTS "Teachers can read their school users" ON public.users;
+CREATE POLICY "Teachers can read their school users"
+  ON public.users
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.users AS me
+      WHERE me.id = auth.uid()
+        AND me.role = 'teacher'
+        AND me.school_id = users.school_id
+    )
+  );
+
+-- Policy 4: Admins can insert users in their school
+DROP POLICY IF EXISTS "Admins can insert users" ON public.users;
+CREATE POLICY "Admins can insert users"
+  ON public.users
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.users AS me
+      WHERE me.id = auth.uid()
+        AND me.role IN ('admin', 'app_manager')
+        AND (me.school_id = users.school_id OR me.role = 'app_manager')
+    )
+  );
+
+-- Policy 5: Admins can update users in their school
+DROP POLICY IF EXISTS "Admins can update users" ON public.users;
+CREATE POLICY "Admins can update users"
+  ON public.users
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.users AS me
+      WHERE me.id = auth.uid()
+        AND me.role IN ('admin', 'app_manager')
+        AND (me.school_id = users.school_id OR me.role = 'app_manager')
+    )
+  );
+
+-- Policy 6: Admins can delete users in their school
+DROP POLICY IF EXISTS "Admins can delete users" ON public.users;
+CREATE POLICY "Admins can delete users"
+  ON public.users
+  FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.users AS me
+      WHERE me.id = auth.uid()
+        AND me.role IN ('admin', 'app_manager')
+        AND (me.school_id = users.school_id OR me.role = 'app_manager')
+    )
+  );
+
+
+-- ─────────────────────────────────────────────
+-- PART 2: Username → Email lookup RPC
+-- This is called by Login.jsx BEFORE the user is logged in.
+-- It must be a SECURITY DEFINER function so it can bypass RLS
+-- and look up the email in auth.users by matching username in public.users.
+-- ─────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.get_email_by_username(p_username text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id uuid;
+  v_email   text;
+BEGIN
+  -- Find the user's UUID from public.users by username
+  SELECT id INTO v_user_id
+  FROM public.users
+  WHERE LOWER(username) = LOWER(p_username)
+  LIMIT 1;
+
+  IF v_user_id IS NULL THEN
+    RETURN NULL; -- No user with that username
+  END IF;
+
+  -- Get the email from the auth.users table
+  SELECT email INTO v_email
+  FROM auth.users
+  WHERE id = v_user_id
+  LIMIT 1;
+
+  RETURN v_email;
+END;
+$$;
+
+-- ─────────────────────────────────────────────
+-- PART 3: Allow anon role to EXECUTE the RPC
+-- (This is safe because it only returns an email given a username,
+--  which is not a security sensitive operation for a school portal)
+-- ─────────────────────────────────────────────
+GRANT EXECUTE ON FUNCTION public.get_email_by_username(text) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_email_by_username(text) TO authenticated;
+
+
+-- ─────────────────────────────────────────────
+-- PART 4: Fix school_settings RLS
+-- The login page reads school_settings using ANON key (before login).
+-- Make sure this is publicly readable.
+-- ─────────────────────────────────────────────
+ALTER TABLE public.school_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can read school settings" ON public.school_settings;
+CREATE POLICY "Anyone can read school settings"
+  ON public.school_settings
+  FOR SELECT
+  USING (true);  -- Public read is safe; it only stores name, logo, subscription status etc.
+
+-- ─────────────────────────────────────────────
+-- DONE. Verify with:
+-- SELECT get_email_by_username('admin');
+-- SELECT get_email_by_username('teacher');
+-- ─────────────────────────────────────────────
+
+
+
+
+

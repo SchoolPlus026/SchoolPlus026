@@ -158,7 +158,7 @@ export default function LeavesManager() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           leave.status === 'pending' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                          leave.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                          leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
                           'bg-red-100 text-red-700 border border-red-200'
                         }`}>
                           {leave.status}
@@ -174,13 +174,13 @@ export default function LeavesManager() {
                     {role === 'admin' && leave.status === 'pending' && (
                       <div className="flex items-center gap-2">
                         <button 
-                          onClick={() => statusMutation.mutate({ id: leave.id, status: 'approved' })}
+                          onClick={() => statusMutation.mutate({ id: leave.id, status: 'Approved' })}
                           className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 shadow-sm"
                         >
                           <CheckCircle2 size={14} /> Approve
                         </button>
                         <button 
-                          onClick={() => statusMutation.mutate({ id: leave.id, status: 'rejected' })}
+                          onClick={() => statusMutation.mutate({ id: leave.id, status: 'Rejected' })}
                           className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 shadow-sm"
                         >
                           <XCircle size={14} /> Reject
