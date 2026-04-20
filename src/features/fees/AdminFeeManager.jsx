@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Loader2, DollarSign, Calendar, ChevronLeft, CreditCard, History, CheckCircle } from 'lucide-react';
+import { Loader2, IndianRupee, Calendar, ChevronLeft, CreditCard, History, CheckCircle } from 'lucide-react';
 
 export default function AdminFeeManager() {
   const { schoolSettings } = useAppStore();
@@ -193,7 +193,7 @@ export default function AdminFeeManager() {
               {/* Set Fees Box */}
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl">
                  <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-5 flex items-center gap-2">
-                    <DollarSign size={16} /> Set Dues
+                    <IndianRupee size={16} /> Set Dues
                  </h3>
                  <div className="space-y-4">
                     <div>

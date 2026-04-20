@@ -210,8 +210,11 @@
     width: 100%;
     font-family: inherit;
     font-size: 0.875rem;
+    line-height: 1.5;
+    min-height: 2.75rem;
     transition: border-color 0.15s, box-shadow 0.15s;
     outline: none;
+    vertical-align: middle;
   }
   .sp-input:focus {
     border-color: var(--primary-from);

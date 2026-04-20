@@ -194,7 +194,7 @@ export default function Login() {
         ) : (
           <div className="fade-in">
             <button
-              onClick={() => { setStep(1); setError(''); }}
+              onClick={() => { setStep(1); setError(''); setSchoolCode(''); setSchoolSettings(null); }}
               className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 transition-colors mb-7 uppercase tracking-widest"
             >
               <ArrowLeft size={12} /> Change School

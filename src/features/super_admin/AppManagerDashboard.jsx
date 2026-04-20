@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
-import { Building2, Settings2, LifeBuoy, CreditCard, ChevronRight, CheckCircle2, XCircle } from 'lucide-react';
+import { Building2, Settings2, LifeBuoy, CreditCard, ChevronRight, CheckCircle2, XCircle, X, Save, Loader2 } from 'lucide-react';
 
 export default function AppManagerDashboard() {
   const [activeTab, setActiveTab] = useState('tenants');
+  const queryClient = useQueryClient();
+  const [managingSchool, setManagingSchool] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editStatus, setEditStatus] = useState('');
 
   // Fetch all schools
   const { data: schools, isLoading: schoolsLoading, refetch: refetchSchools } = useQuery({
@@ -50,6 +54,27 @@ export default function AppManagerDashboard() {
     refetchConfig();
   };
 
+  const saveSchoolMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('school_settings')
+        .update({ name: editName, subscription_status: editStatus })
+        .eq('school_id', managingSchool.school_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchSchools();
+      setManagingSchool(null);
+    },
+    onError: (e) => alert('Error: ' + e.message),
+  });
+
+  const openManageSchool = (school) => {
+    setManagingSchool(school);
+    setEditName(school.name);
+    setEditStatus(school.subscription_status || 'Trial');
+  };
+
   const TABS = [
     { id: 'tenants', label: 'Tenants & Schools', icon: Building2 },
     { id: 'support', label: 'Support Tickets', icon: LifeBuoy },
@@ -85,8 +110,8 @@ export default function AppManagerDashboard() {
                             <span className={`text-[10px] uppercase tracking-widest font-bold px-2.5 py-1 rounded-md border ${school.subscription_status === 'Paid' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'}`}>{school.subscription_status || 'Trial'}</span>
                          </div>
                       </div>
-                      <button className="flex items-center gap-2 text-xs font-bold text-slate-300 bg-slate-800 border border-slate-600 hover:bg-slate-700 px-4 py-2 rounded-xl transition-colors">
-                        Manage Modules <ChevronRight size={14} />
+                      <button onClick={() => openManageSchool(school)} className="flex items-center gap-2 text-xs font-bold text-slate-300 bg-slate-800 border border-slate-600 hover:bg-indigo-700 hover:border-indigo-500 hover:text-white px-4 py-2 rounded-xl transition-colors">
+                        Manage School <ChevronRight size={14} />
                       </button>
                    </div>
                 ))}
@@ -154,6 +179,63 @@ export default function AppManagerDashboard() {
            <CreditCard size={48} className="mx-auto text-slate-600 mb-4" />
            <h2 className="text-lg font-black text-white mb-2">SaaS Billing Engine</h2>
            <p className="text-slate-400 text-sm max-w-sm mx-auto">This module will provide Stripe integration for automated subscription tracking and invoicing across all tenant schools.</p>
+        </div>
+      )}
+
+      {/* ── Manage School Modal ── */}
+      {managingSchool && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-3xl p-8 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-black text-white">Manage School</h3>
+              <button onClick={() => setManagingSchool(null)} className="p-2 rounded-xl hover:bg-slate-700 text-slate-400">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">School Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm font-bold focus:outline-none focus:border-indigo-500 leading-normal"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Subscription Status</label>
+                <select
+                  value={editStatus}
+                  onChange={e => setEditStatus(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm font-bold focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="Trial">Trial</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Expired">Expired</option>
+                </select>
+              </div>
+              <div className="bg-slate-900 rounded-xl p-4 border border-slate-700">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">School Code</div>
+                <div className="font-black text-indigo-300 text-lg tracking-widest">{managingSchool.school_code}</div>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setManagingSchool(null)}
+                className="flex-1 py-3 text-sm font-bold text-slate-400 hover:text-white transition-colors rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => saveSchoolMutation.mutate()}
+                disabled={saveSchoolMutation.isPending}
+                className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+              >
+                {saveSchoolMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
