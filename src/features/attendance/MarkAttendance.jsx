@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck, CheckCircle2, XCircle, AlertCircle, Filter } from 'lucide-react';
+import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck, CheckCircle2, XCircle, AlertCircle, Filter, Download } from 'lucide-react';
 
 export default function MarkAttendance() {
   const { user, role, schoolSettings } = useAppStore();
@@ -118,6 +118,23 @@ export default function MarkAttendance() {
     saveMutation.mutate(payload);
   };
 
+  const handleExportCSV = () => {
+    if (!targets || targets.length === 0) return;
+    const headers = ['Name', 'Username', 'Role', 'Status', 'Date'];
+    const rows = targets.map(t => {
+      const status = currentStatusFor(t.id);
+      return `"${t.name}","${t.username}","${targetRole}","${status}","${selectedDate}"`;
+    });
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Attendance_${selectedClass || 'Self'}_${selectedDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const statuses = ['Present', 'Absent', 'Late', 'Half_day'];
 
   return (
@@ -206,6 +223,15 @@ export default function MarkAttendance() {
           >
             {saveMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save size={18} />}
             Commit to Archive
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            disabled={!targets || targets.length === 0}
+            className="w-full mt-4 flex items-center justify-center gap-2 py-4 bg-slate-800 hover:bg-slate-900 text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-slate-900/30 disabled:opacity-50 active:scale-[0.98]"
+          >
+            <Download size={18} />
+            Export CSV
           </button>
         </div>
 

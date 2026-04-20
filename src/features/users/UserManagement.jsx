@@ -6,7 +6,7 @@ import { Users, Search, UserPlus, Filter, Loader2, Mail, Phone, BookOpen, Credit
 
 export default function UserManagement() {
   const { schoolSettings } = useAppStore();
-  const [activeTab, setActiveTab] = useState('student'); // 'student' or 'teacher'
+  const [activeTab, setActiveTab] = useState('student'); // 'student', 'teacher', 'staff'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   
@@ -18,27 +18,43 @@ export default function UserManagement() {
   const [password, setPassword] = useState('');
   const [contact, setContact] = useState('');
   const [userClass, setUserClass] = useState('');
+  
+  // New Fields
+  const [dob, setDob] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [address, setAddress] = useState('');
+  const [designation, setDesignation] = useState('');
+  const [qualification, setQualification] = useState('');
+  const [aadharCard, setAadharCard] = useState('');
+
   const queryClient = useQueryClient();
 
   const createUserMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc('admin_create_user', {
+      const { data: newId, error } = await supabase.rpc('admin_create_user', {
         p_email: email,
         p_password: password,
-        p_role: activeTab,
+        p_role: activeTab === 'staff' ? 'staff' : activeTab,
         p_name: name,
         p_username: username,
         p_school_id: schoolSettings.school_id,
-        p_class: userClass || null,
-        p_contact: contact || null
+        p_class: activeTab === 'student' ? userClass : (activeTab === 'teacher' ? userClass : null),
+        p_contact: contact || null,
+        p_dob: dob || null,
+        p_address: address || null,
+        p_blood_group: bloodGroup || null,
+        p_designation: activeTab === 'staff' ? designation : null,
+        p_qualification: (activeTab === 'teacher' || activeTab === 'staff') ? qualification : null,
+        p_aadhar_card: aadharCard || null
       });
       if (error) throw error;
-      return data;
+      return newId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-list'] });
       setIsModalOpen(false);
       setEmail(''); setUsername(''); setName(''); setPassword(''); setContact(''); setUserClass('');
+      setDob(''); setBloodGroup(''); setAddress(''); setDesignation(''); setQualification(''); setAadharCard('');
       alert('User created successfully!');
     },
     onError: (err) => {
@@ -86,6 +102,12 @@ export default function UserManagement() {
         >
           <BookOpen size={18} /> Teachers
         </button>
+        <button
+          onClick={() => { setActiveTab('staff'); setSelectedClass(''); }}
+          className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'staff' ? 'bg-white text-primary shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          <Users size={18} /> Staff
+        </button>
       </div>
 
       {/* Control Bar */}
@@ -123,7 +145,7 @@ export default function UserManagement() {
           onClick={() => setIsModalOpen(true)}
           className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95"
         >
-          <UserPlus size={20} /> Add {activeTab === 'student' ? 'Student' : 'Teacher'}
+          <UserPlus size={20} /> Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
         </button>
       </div>
 
@@ -146,9 +168,9 @@ export default function UserManagement() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-border">
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Student Details</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{activeTab} Details</th>
                   <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contact Info</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{activeTab === 'student' ? 'Class' : 'Qualification'}</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{activeTab === 'student' ? 'Class' : activeTab === 'teacher' ? 'Qualification' : 'Designation'}</th>
                   <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
                 </tr>
               </thead>
@@ -182,17 +204,22 @@ export default function UserManagement() {
                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Standard</span>
                            <span className="font-black text-slate-800 tracking-tight text-lg">{user.class || 'Unassigned'}</span>
                         </div>
-                      ) : (
+                      ) : activeTab === 'teacher' ? (
                         <div className="inline-flex flex-col">
                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Education</span>
-                           <span className="font-bold text-slate-800 text-sm leading-tight">{user.qualification || 'Master Grade'}</span>
-                           <span className="text-[9px] font-bold text-primary uppercase mt-1">Class: {user.class || 'Gen 1'}</span>
+                           <span className="font-bold text-slate-800 text-sm leading-tight">{user.qualification || 'N/A'}</span>
+                           <span className="text-[9px] font-bold text-primary uppercase mt-1">Class: {user.class || 'Unassigned'}</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex flex-col">
+                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Position</span>
+                           <span className="font-bold text-slate-800 text-sm leading-tight">{user.designation || 'Staff'}</span>
                         </div>
                       )}
                     </td>
                     <td className="px-6 py-5 text-right">
                       <button className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-primary hover:text-white hover:border-primary transition-all uppercase tracking-widest shadow-sm">
-                        Manage Ledger
+                        Manage {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                       </button>
                     </td>
                   </tr>
@@ -205,45 +232,97 @@ export default function UserManagement() {
       {/* Add User Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-in slide-in-from-bottom-4 relative">
-             <h3 className="text-lg font-black text-slate-800 tracking-tight mb-4">Register New {activeTab === 'student' ? 'Student' : 'Teacher'}</h3>
+           <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-2xl shadow-2xl animate-in slide-in-from-bottom-4 relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+             <h3 className="text-lg font-black text-slate-800 tracking-tight mb-4 flex items-center justify-between">
+               Register New {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+             </h3>
              
              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                    <div>
                       <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Full Name</label>
-                      <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Jane Doe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800" />
+                      <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Jane Doe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
                    </div>
                    <div>
                       <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Username</label>
-                      <input type="text" value={username} onChange={e=>setUsername(e.target.value)} placeholder="janedoe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800" />
+                      <input type="text" value={username} onChange={e=>setUsername(e.target.value)} placeholder="janedoe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                    <div>
                       <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Email</label>
-                      <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="jane@school.com" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800" />
+                      <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="jane@school.com" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
                    </div>
                    <div>
                       <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Password</label>
-                      <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800" />
+                      <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                    <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Class / Standard</label>
-                      <select value={userClass} onChange={e=>setUserClass(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800">
-                         <option value="">Select...</option>
-                         {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Date of Birth</label>
+                      <input type="date" value={dob} onChange={e=>setDob(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
+                   </div>
+                   <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Blood Group</label>
+                      <select value={bloodGroup} onChange={e=>setBloodGroup(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900">
+                        <option value="">Select...</option>
+                        <option value="A+">A+</option><option value="A-">A-</option>
+                        <option value="B+">B+</option><option value="B-">B-</option>
+                        <option value="O+">O+</option><option value="O-">O-</option>
+                        <option value="AB+">AB+</option><option value="AB-">AB-</option>
                       </select>
                    </div>
-                   <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Contact (Optional)</label>
-                      <input type="text" value={contact} onChange={e=>setContact(e.target.value)} placeholder="+1 234 567 890" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800" />
-                   </div>
                 </div>
+
+                <div>
+                   <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Address</label>
+                   <textarea value={address} onChange={e=>setAddress(e.target.value)} rows="2" placeholder="Full residential address" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-900 custom-scrollbar"></textarea>
+                </div>
+
+                {(activeTab === 'student' || activeTab === 'teacher') && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">{activeTab === 'student' ? 'Class / Standard' : 'Allocated Class'}</label>
+                        <select value={userClass} onChange={e=>setUserClass(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900">
+                           <option value="">Select...</option>
+                           {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                     </div>
+                     <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Contact Phone</label>
+                        <input type="text" value={contact} onChange={e=>setContact(e.target.value)} placeholder="+91..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
+                     </div>
+                  </div>
+                )}
+
+                {activeTab === 'staff' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Designation</label>
+                      <input type="text" value={designation} onChange={e=>setDesignation(e.target.value)} placeholder="e.g. Cleark, Janitor" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Contact Phone</label>
+                      <input type="text" value={contact} onChange={e=>setContact(e.target.value)} placeholder="+91..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
+                    </div>
+                  </div>
+                )}
+
+                {(activeTab === 'teacher' || activeTab === 'staff') && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Qualification</label>
+                        <input type="text" value={qualification} onChange={e=>setQualification(e.target.value)} placeholder="e.g. M.Sc, B.Ed" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
+                     </div>
+                     <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Aadhar Card</label>
+                        <input type="text" value={aadharCard} onChange={e=>setAadharCard(e.target.value)} placeholder="12-digit number" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900" />
+                     </div>
+                  </div>
+                )}
              </div>
 
              <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-slate-100">

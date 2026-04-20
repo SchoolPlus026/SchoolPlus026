@@ -15,6 +15,25 @@ export default function AdminSettings() {
   const [logoUrl, setLogoUrl] = useState(schoolSettings?.logo_url || '');
   const [classList, setClassList] = useState(schoolSettings?.classes || []);
   const [newClass, setNewClass] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+       const fileExt = file.name.split('.').pop();
+       const fileName = `${schoolSettings.school_id}_${Date.now()}.${fileExt}`;
+       const { error: uploadError } = await supabase.storage.from('school_assets').upload(fileName, file);
+       if (uploadError) throw uploadError;
+       const { data: { publicUrl } } = supabase.storage.from('school_assets').getPublicUrl(fileName);
+       setLogoUrl(publicUrl);
+    } catch (err) {
+       alert('Upload failed: ' + err.message);
+    } finally {
+       setUploadingLogo(false);
+    }
+  };
 
   // Danger Zone
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -171,8 +190,16 @@ export default function AdminSettings() {
                 <input type="text" value={name} onChange={e => setName(e.target.value)} className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Institutional Emblem URL</label>
-                <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className={inputClass} placeholder="https://..." />
+                <label className={labelClass}>Institutional Emblem / Logo</label>
+                <div className="flex flex-col gap-2">
+                  <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className={inputClass} placeholder="https://... (Or upload below)" />
+                  <div className="relative">
+                    <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
+                    <div className={`sp-input text-center text-sm ${uploadingLogo ? 'text-slate-400 bg-slate-100' : 'text-primary bg-indigo-50 hover:bg-indigo-100'} transition-colors font-bold`}>
+                       {uploadingLogo ? 'Uploading to Server...' : 'Click to Upload Custom Logo'}
+                    </div>
+                  </div>
+                </div>
               </div>
               <button
                 type="submit"

@@ -46,7 +46,7 @@ export default function StudentAttendanceChart() {
         <div className="bg-primary/20 p-2 rounded-xl text-primary border border-primary/20">
           <CalendarHeart size={24} />
         </div>
-        <h2 className="text-xl font-bold text-white tracking-tight">My Attendance Analytics</h2>
+        <h2 className="text-xl font-bold text-text tracking-tight">My Attendance Analytics</h2>
       </div>
 
       <div className="flex flex-col md:flex-row items-center gap-8">
@@ -77,8 +77,8 @@ export default function StudentAttendanceChart() {
             />
           </svg>
           <div className="absolute flex flex-col items-center justify-center text-center">
-             <span className="text-3xl font-bold text-white">{presentPercentage}%</span>
-             <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest mt-1">Present</span>
+             <span className="text-3xl font-bold text-text">{presentPercentage}%</span>
+             <span className="text-[10px] text-muted font-semibold uppercase tracking-widest mt-1">Present</span>
           </div>
         </div>
 
@@ -92,9 +92,9 @@ export default function StudentAttendanceChart() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
-            <div className="bg-[#0a1128] border border-glass rounded-xl p-4 text-center">
-               <div className="text-2xl font-bold text-white">{total}</div>
-               <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Total Days</div>
+            <div className="bg-surface border border-glass rounded-xl p-4 text-center">
+               <div className="text-2xl font-bold text-text">{total}</div>
+               <div className="text-[10px] text-muted font-bold uppercase tracking-wider mt-1">Total Days</div>
             </div>
             <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
                <div className="text-2xl font-bold text-emerald-400">{present}</div>

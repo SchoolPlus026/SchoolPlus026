@@ -59,10 +59,16 @@ export default function StudentFeeLedger() {
         <div className="p-4 bg-indigo-600 rounded-3xl text-white shadow-xl shadow-indigo-200">
            <Wallet size={28} />
         </div>
-        <div>
+        <div className="flex-1">
            <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Financial Profile</h2>
            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Institutional Ledger Transcript</p>
         </div>
+        {!feeLoading && feeEntry && (
+           <div className="text-right">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Outstanding Balance</span>
+              <span className={`text-2xl font-black ${netDue > 0 ? 'text-red-500' : 'text-emerald-500'}`}>₹{netDue.toLocaleString()}</span>
+           </div>
+        )}
       </div>
 
       {!feeEntry ? (
@@ -94,21 +100,21 @@ export default function StudentFeeLedger() {
                    </div>
 
                    <div className="grid grid-cols-2 md:grid-cols-2 gap-y-12 gap-x-8">
-                      <div>
+                       <div>
                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Institutional Fees</span>
-                         <span className="text-3xl font-black text-slate-800">${currentYearTotal.toLocaleString()}</span>
+                         <span className="text-3xl font-black text-slate-800">₹{currentYearTotal.toLocaleString()}</span>
                       </div>
                       <div>
                          <span className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 block">Previous Arrears</span>
-                         <span className="text-3xl font-black text-red-500">${lastYearPending.toLocaleString()}</span>
+                         <span className="text-3xl font-black text-red-500">₹{lastYearPending.toLocaleString()}</span>
                       </div>
                       <div>
                          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 block">Credits Applied</span>
-                         <span className="text-3xl font-black text-emerald-600">${totalPaid.toLocaleString()}</span>
+                         <span className="text-3xl font-black text-emerald-600">₹{totalPaid.toLocaleString()}</span>
                       </div>
                       <div className="bg-slate-900 rounded-[2rem] p-6 -m-2 shadow-2xl relative">
                          <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-1 block">Net Balance Due</span>
-                         <span className="text-4xl font-black text-white">${netDue.toLocaleString()}</span>
+                         <span className="text-4xl font-black text-white">₹{netDue.toLocaleString()}</span>
                          <div className="absolute right-6 bottom-6 text-indigo-500/20"><CreditCard size={40} /></div>
                       </div>
                    </div>
@@ -134,7 +140,7 @@ export default function StudentFeeLedger() {
                              #{payments.length - idx}
                           </div>
                           <div>
-                            <div className="text-sm font-black text-slate-800 uppercase tracking-tight">${Number(p.amount).toLocaleString()}</div>
+                            <div className="text-sm font-black text-slate-800 uppercase tracking-tight">₹{Number(p.amount).toLocaleString()}</div>
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{new Date(p.payment_date).toLocaleDateString(undefined, { dateStyle: 'long' })} • {p.method}</div>
                           </div>
                         </div>
@@ -157,12 +163,7 @@ export default function StudentFeeLedger() {
                 <p className="text-xs text-indigo-200 leading-loose italic">
                   Institutional fees are non-refundable. Please ensure all outstanding balances are cleared before examination cycles to avoid automated portal lockdown.
                 </p>
-                <div className="mt-8 pt-8 border-t border-indigo-800">
-                   <button className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-lg shadow-indigo-950/20 active:scale-95">
-                      Request Extension
-                   </button>
-                </div>
-             </div>
+              </div>
 
              <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-6 flex items-start gap-4">
                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400"><User size={20} /></div>

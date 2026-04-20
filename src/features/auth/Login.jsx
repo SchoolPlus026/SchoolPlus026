@@ -24,6 +24,11 @@ export default function Login() {
 
   const handleIdentifySchool = async (e) => {
     e.preventDefault();
+    if (schoolCode.toUpperCase() === 'MANAGER') {
+       setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'MANAGER' });
+       setStep(2);
+       return;
+    }
     setLoading(true);
     setError('');
     try {

@@ -225,7 +225,7 @@ export default function AdminFeeManager() {
                     <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center">
                        <span className="text-xs font-bold text-slate-500 uppercase">Outstanding Balance</span>
                        <span className={`text-xl font-black ${activeStudentData.dueAmount > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                          ${activeStudentData.dueAmount.toLocaleString()}
+                          ₹{activeStudentData.dueAmount.toLocaleString()}
                        </span>
                     </div>
                  </div>
@@ -317,7 +317,7 @@ export default function AdminFeeManager() {
                                    </span>
                                 </td>
                                 <td className="px-4 py-3 text-right text-sm font-black text-emerald-600">
-                                   + ${Number(p.amount).toLocaleString()}
+                                   + ₹{Number(p.amount).toLocaleString()}
                                 </td>
                              </tr>
                           ))}

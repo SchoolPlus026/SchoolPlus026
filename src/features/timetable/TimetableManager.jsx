@@ -11,7 +11,8 @@ export default function TimetableManager() {
 
   const [day, setDay] = useState('Monday');
   const [periodOrder, setPeriodOrder] = useState(1);
-  const [periodLabel, setPeriodLabel] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [subject, setSubject] = useState('');
   const [targetClass, setTargetClass] = useState('');
   const [selectedTeacher, setSelectedTeacher] = useState('');
@@ -56,7 +57,8 @@ export default function TimetableManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timetable'] });
       // Clear modular inputs but preserve batch inputs smartly
-      setPeriodLabel('');
+      setStartTime('');
+      setEndTime('');
       setSubject('');
       setSelectedTeacher('');
       setPeriodOrder(prev => Number(prev) + 1);
@@ -66,22 +68,48 @@ export default function TimetableManager() {
     }
   });
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!targetClass || !selectedTeacher || !subject || !periodLabel) return;
+    if (!targetClass || !selectedTeacher || !subject || !startTime || !endTime) return;
     
-    saveMutation.mutate({
-      school_id: schoolSettings.school_id,
-      day,
-      period_order: Number(periodOrder),
-      period_label: periodLabel,
-      subject,
-      class: targetClass,
-      teacher: selectedTeacher
-    });
+    // Formatting time (e.g. 09:00 -> 09:00 AM)
+    const formatTime = (time24) => {
+       const [h, m] = time24.split(':');
+       let hours = parseInt(h, 10);
+       const ampm = hours >= 12 ? 'PM' : 'AM';
+       hours = hours % 12 || 12;
+       return `${hours.toString().padStart(2, '0')}:${m} ${ampm}`;
+    };
+    const formattedLabel = `${formatTime(startTime)} - ${formatTime(endTime)}`;
+
+    const applyPayload = async (d) => {
+      await saveMutation.mutateAsync({
+        school_id: schoolSettings.school_id,
+        day: d,
+        period_order: Number(periodOrder),
+        period_label: formattedLabel,
+        subject,
+        class: targetClass,
+        teacher: selectedTeacher
+      });
+    };
+
+    try {
+      if (day === 'All Days') {
+        const standardDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        for (let d of standardDays) {
+          await applyPayload(d);
+        }
+      } else {
+        await applyPayload(day);
+      }
+    } catch (err) {
+       // Single errors will be handled gracefully by the mutation's onError alert
+    }
   };
 
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  const daysOfWeek = ['All Days', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   return (
     <div className="space-y-8">
@@ -130,9 +158,15 @@ export default function TimetableManager() {
                 <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Period #</label>
                 <input required type="number" min="1" value={periodOrder} onChange={e => setPeriodOrder(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-primary focus:outline-none focus:border-primary text-center font-bold shadow-sm" />
               </div>
-              <div className="flex-1">
-                <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Timing</label>
-                <input required type="text" value={periodLabel} onChange={e => setPeriodLabel(e.target.value)} placeholder="09:00 AM - 09:45 AM" className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-text focus:outline-none focus:border-primary shadow-sm" />
+              <div className="flex-1 grid grid-cols-2 gap-2">
+                <div>
+                   <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Start Time</label>
+                   <input required type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-primary shadow-sm" />
+                </div>
+                <div>
+                   <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">End Time</label>
+                   <input required type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-primary shadow-sm" />
+                </div>
               </div>
            </div>
            

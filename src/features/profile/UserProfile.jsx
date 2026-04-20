@@ -36,14 +36,24 @@ export default function UserProfile() {
     { label: 'Role', value: profile.role || r.toUpperCase() || '—' },
   ];
 
+  if (profile.dob) rows.push({ label: 'Date of Birth', value: new Date(profile.dob).toLocaleDateString() });
+  if (profile.blood_group) rows.push({ label: 'Blood Group', value: profile.blood_group });
+  if (profile.address) rows.push({ label: 'Address', value: profile.address });
+
   if (r === 'student') {
     rows.push({ label: 'Class', value: profile.class || '—' });
-    rows.push({ label: "Parent's Contact", value: profile.contact || '—' });
-  }
-  if (r === 'teacher') {
+    rows.push({ label: "Contact Number", value: profile.contact || '—' });
+    if (profile.aadhar_card) rows.push({ label: "Aadhar Card", value: profile.aadhar_card });
+  } else if (r === 'teacher') {
     rows.push({ label: 'Qualification', value: profile.qualification || '—' });
     rows.push({ label: 'Allocated Class', value: profile.class || '—' });
     rows.push({ label: 'Contact Number', value: profile.contact || '—' });
+    if (profile.aadhar_card) rows.push({ label: "Aadhar Card", value: profile.aadhar_card });
+  } else if (r === 'staff') {
+    rows.push({ label: 'Designation', value: profile.designation || '—' });
+    rows.push({ label: 'Qualification', value: profile.qualification || '—' });
+    rows.push({ label: 'Contact Number', value: profile.contact || '—' });
+    if (profile.aadhar_card) rows.push({ label: "Aadhar Card", value: profile.aadhar_card });
   }
 
   return (
