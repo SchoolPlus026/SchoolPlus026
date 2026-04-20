@@ -21,7 +21,8 @@ import AdminDashboard from './features/dashboard/AdminDashboard';
 import TeacherDashboard from './features/dashboard/TeacherDashboard';
 import StudentDashboard from './features/dashboard/StudentDashboard';
 
-// Settings (Shared for all roles)
+// Settings
+import AdminSettings from './features/settings/AdminSettings';
 import SharedSettings from './features/settings/SharedSettings';
 
 // Attendance
@@ -154,7 +155,7 @@ export default function App() {
           <Route path="leaves"      element={<LeavesManager />} />
           <Route path="reports"     element={<Reports />} />
           <Route path="contact"     element={<Contact />} />
-          <Route path="settings"    element={<SharedSettings />} />
+          <Route path="settings"    element={<AdminSettings />} />
         </Route>
       </Route>
 

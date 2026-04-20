@@ -56,7 +56,7 @@ export default function NoticeManager() {
   return (
     <div className="space-y-8">
       {/* Action Header Container */}
-      <div className="flex justify-between items-center bg-[#0a1128] p-5 rounded-2xl border border-glass shadow-xl relative overflow-hidden">
+      <div className="flex justify-between items-center bg-slate-900 p-5 rounded-2xl border border-glass shadow-xl relative overflow-hidden">
          {/* Deep flare aesthetic */}
          <div className="absolute left-0 bottom-0 w-32 h-32 bg-primary/20 blur-3xl rounded-full -ml-16 -mb-16 pointer-events-none"></div>
 
@@ -90,7 +90,7 @@ export default function NoticeManager() {
                   maxLength={100}
                   value={title} 
                   onChange={e => setTitle(e.target.value)} 
-                  className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors font-medium text-lg placeholder-slate-600 shadow-inner"
+                  className="w-full bg-slate-900 border border-glass rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors font-medium text-lg placeholder-slate-600 shadow-inner"
                   placeholder="e.g. Critical Update: Emergency Closure Today"
                 />
               </div>
@@ -99,7 +99,7 @@ export default function NoticeManager() {
                 <select 
                   value={scope} 
                   onChange={e => setScope(e.target.value)} 
-                  className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer shadow-inner"
+                  className="w-full bg-slate-900 border border-glass rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer shadow-inner"
                 >
                   {role !== 'teacher' && <option value="all">Global (All Users)</option>}
                   <option value="students">My Students Only</option>
@@ -114,7 +114,7 @@ export default function NoticeManager() {
                 type="url" 
                 value={photoLink} 
                 onChange={e => setPhotoLink(e.target.value)} 
-                className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors font-medium text-sm placeholder-slate-600 shadow-inner"
+                className="w-full bg-slate-900 border border-glass rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors font-medium text-sm placeholder-slate-600 shadow-inner"
                 placeholder="https://example.com/image.jpg"
               />
             </div>
@@ -126,7 +126,7 @@ export default function NoticeManager() {
                 value={content} 
                 onChange={e => setContent(e.target.value)} 
                 rows="6"
-                className="w-full bg-[#0a1128] border border-glass rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors text-sm leading-relaxed placeholder-slate-600 custom-scrollbar resize-y shadow-inner"
+                className="w-full bg-slate-900 border border-glass rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors text-sm leading-relaxed placeholder-slate-600 custom-scrollbar resize-y shadow-inner"
                 placeholder="Write the details of this notice here..."
               ></textarea>
             </div>

@@ -20,14 +20,35 @@ export default function AdminSettings() {
   const handleLogoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    // Basic validation
+    if (file.size > 2 * 1024 * 1024) { alert('Logo file must be under 2MB'); return; }
     setUploadingLogo(true);
     try {
        const fileExt = file.name.split('.').pop();
-       const fileName = `${schoolSettings.school_id}_${Date.now()}.${fileExt}`;
-       const { error: uploadError } = await supabase.storage.from('school_assets').upload(fileName, file);
+       const fileName = `logos/${schoolSettings.school_id}_logo.${fileExt}`;
+       // upsert: true replaces any existing logo file
+       const { error: uploadError } = await supabase.storage
+         .from('school_assets')
+         .upload(fileName, file, { upsert: true, cacheControl: '3600' });
        if (uploadError) throw uploadError;
+
+       // Get the public URL
        const { data: { publicUrl } } = supabase.storage.from('school_assets').getPublicUrl(fileName);
-       setLogoUrl(publicUrl);
+       // Append cache-buster so browser shows fresh image
+       const finalUrl = `${publicUrl}?t=${Date.now()}`;
+       setLogoUrl(finalUrl);
+
+       // Auto-save to school_settings immediately
+       const { data: updatedSettings, error: dbErr } = await supabase
+         .from('school_settings')
+         .update({ logo_url: finalUrl })
+         .eq('school_id', schoolSettings.school_id)
+         .select().single();
+       if (dbErr) throw dbErr;
+
+       // Sync to global store so header reflects it instantly
+       setSchoolSettings(updatedSettings);
+       alert('Logo uploaded and saved successfully! The header will now show your logo.');
     } catch (err) {
        alert('Upload failed: ' + err.message);
     } finally {
@@ -191,12 +212,19 @@ export default function AdminSettings() {
               </div>
               <div>
                 <label className={labelClass}>Institutional Emblem / Logo</label>
-                <div className="flex flex-col gap-2">
-                  <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className={inputClass} placeholder="https://... (Or upload below)" />
+                <div className="flex flex-col gap-3">
+                  {/* Live preview */}
+                  {logoUrl && (
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <img src={logoUrl} alt="School Logo" className="w-14 h-14 object-contain rounded-lg bg-white border border-slate-200 p-1 shadow-sm" />
+                      <div className="text-xs text-slate-500 font-medium">Current logo preview</div>
+                    </div>
+                  )}
+                  <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className={inputClass} placeholder="https://... (or upload below)" />
                   <div className="relative">
                     <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
-                    <div className={`sp-input text-center text-sm ${uploadingLogo ? 'text-slate-400 bg-slate-100' : 'text-primary bg-indigo-50 hover:bg-indigo-100'} transition-colors font-bold`}>
-                       {uploadingLogo ? 'Uploading to Server...' : 'Click to Upload Custom Logo'}
+                    <div className={`sp-input text-center text-sm py-3 ${uploadingLogo ? 'text-slate-400 bg-slate-100' : 'text-primary bg-indigo-50 hover:bg-indigo-100 cursor-pointer'} transition-colors font-bold rounded-xl border-2 border-dashed border-indigo-200`}>
+                       {uploadingLogo ? '⏫ Uploading to Cloud...' : '📁 Click to Upload School Logo (max 2MB)'}
                     </div>
                   </div>
                 </div>

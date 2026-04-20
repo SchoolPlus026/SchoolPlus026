@@ -55,17 +55,22 @@ export default function TimetableViewer({ adminPreviewClass }) {
       const { data, error } = await query;
       if (error) throw error;
       
-      // Safely perform secondary map-reduce lookup linking custom text UUID back to Names
-      const allTeachersIds = [...new Set(data.map(d => d.teacher))].filter(Boolean);
+      // Resolve teacher display names — handles both UUID refs (new) and plain name strings (legacy)
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const teacherUUIDs = [...new Set(data.map(d => d.teacher))].filter(v => v && uuidPattern.test(v));
+      
       let teacherMap = {};
-      if (allTeachersIds.length > 0) {
-         const { data: teacherProfiles } = await supabase.from('users').select('id, name').in('id', allTeachersIds);
+      if (teacherUUIDs.length > 0) {
+         const { data: teacherProfiles } = await supabase.from('users').select('id, name').in('id', teacherUUIDs);
          teacherProfiles?.forEach(t => { teacherMap[t.id] = t.name; });
       }
 
       return data.map(slot => ({
          ...slot,
-         teacher_name: teacherMap[slot.teacher] || 'Unknown Assignee'
+         // If teacher field is a UUID, look up name; otherwise it's already a name string (legacy rows)
+         teacher_name: uuidPattern.test(slot.teacher || '')
+           ? (teacherMap[slot.teacher] || 'Staff')
+           : (slot.teacher || 'Unassigned')
       }));
     },
     enabled: !!schoolSettings?.school_id
@@ -112,20 +117,20 @@ export default function TimetableViewer({ adminPreviewClass }) {
             {isTeacher && (
                <button 
                   onClick={() => setViewMode('self')} 
-                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${viewMode === 'self' ? 'bg-primary text-white shadow-lg' : 'bg-[#0a1128] text-slate-400 hover:text-white border border-glass'}`}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${viewMode === 'self' ? 'bg-primary text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:text-white border border-glass'}`}
                >
                   Self Timetable
                </button>
             )}
             <button 
                onClick={() => setViewMode('class')} 
-               className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${viewMode === 'class' ? 'bg-primary text-white shadow-lg' : 'bg-[#0a1128] text-slate-400 hover:text-white border border-glass'}`}
+               className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${viewMode === 'class' ? 'bg-primary text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:text-white border border-glass'}`}
             >
                Allocated Class
             </button>
             <button 
                onClick={() => setViewMode('school')} 
-               className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${viewMode === 'school' ? 'bg-primary text-white shadow-lg' : 'bg-[#0a1128] text-slate-400 hover:text-white border border-glass'}`}
+               className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${viewMode === 'school' ? 'bg-primary text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:text-white border border-glass'}`}
             >
                School Timetable
             </button>
@@ -134,7 +139,7 @@ export default function TimetableViewer({ adminPreviewClass }) {
                <select 
                   value={targetClass} 
                   onChange={e => setTargetClass(e.target.value)}
-                  className="ml-auto bg-[#0a1128] border border-glass rounded-xl px-4 py-2 text-xs font-bold text-white focus:border-primary focus:outline-none"
+                  className="ml-auto bg-slate-900 border border-glass rounded-xl px-4 py-2 text-xs font-bold text-white focus:border-primary focus:outline-none"
                >
                   <option value="">Select a Class...</option>
                   {schoolSettings?.classes?.map(c => <option key={c} value={c}>{c}</option>)}
@@ -146,7 +151,7 @@ export default function TimetableViewer({ adminPreviewClass }) {
       <div className="bg-surface border border-glass rounded-2xl shadow-xl overflow-hidden overflow-x-auto relative hidden md:block">
          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
-               <tr className="bg-black/20 border-b border-glass">
+               <tr className="bg-slate-900/20 border-b border-glass">
                   <th className="px-5 py-4 text-xs font-black text-slate-400 uppercase tracking-widest w-32 border-r border-glass">Day</th>
                   {Array.from({ length: Math.max(...(scheduleRaw?.map(s => s.period_order) || [8]), 8) }).map((_, i) => (
                      <th key={i} className="px-5 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center min-w-[140px] border-r border-glass last:border-0">
@@ -173,7 +178,7 @@ export default function TimetableViewer({ adminPreviewClass }) {
                            return (
                               <td key={order} className="px-3 py-3 border-r border-glass last:border-0 text-center align-top relative">
                                  {slot ? (
-                                    <div className={`h-full flex flex-col justify-center items-center bg-[#0a1128] rounded-xl p-3 border shadow-sm transition-all ${isToday ? 'border-primary/30' : 'border-glass hover:border-glass/80'} `}>
+                                    <div className={`h-full flex flex-col justify-center items-center bg-slate-900 rounded-xl p-3 border shadow-sm transition-all ${isToday ? 'border-primary/30' : 'border-glass hover:border-glass/80'} `}>
                                        <div className={`text-[13px] font-black tracking-tight mb-1 ${isToday ? 'text-white' : 'text-slate-200'}`}>
                                           {slot.subject}
                                        </div>
@@ -216,8 +221,8 @@ export default function TimetableViewer({ adminPreviewClass }) {
              
              <div className="space-y-3">
                {timeline[day].map((slot, idx) => (
-                  <div key={slot.id || idx} className="bg-[#0a1128] border border-glass rounded-xl p-4 flex flex-row items-center gap-4">
-                     <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-lg text-slate-400 font-extrabold border border-glass shadow-inner shrink-0 text-sm">
+                  <div key={slot.id || idx} className="bg-slate-900 border border-glass rounded-xl p-4 flex flex-row items-center gap-4">
+                     <div className="w-12 h-12 flex items-center justify-center bg-slate-800/40 rounded-lg text-slate-400 font-extrabold border border-glass shadow-inner shrink-0 text-sm">
                         #{slot.period_order}
                      </div>
                      <div className="flex-1">

@@ -106,8 +106,17 @@ export default function MarkAttendance() {
     return record?.status || 'Present';
   };
 
+  // True if attendance has already been submitted for this date/class
+  const isAlreadyMarked = existingAttendance && existingAttendance.length > 0;
+  const hasEdits = Object.keys(attendanceEdits).length > 0;
+
   const handleSave = () => {
     if (!targets || targets.length === 0) return;
+    // If already marked and no edits were made, warn before re-saving
+    if (isAlreadyMarked && !hasEdits) {
+      const ok = window.confirm('Attendance for this date is already recorded. Do you want to re-save with the same statuses?');
+      if (!ok) return;
+    }
     const payload = targets.map(s => ({
       school_id: schoolSettings.school_id,
       user_id: s.id,
@@ -222,13 +231,26 @@ export default function MarkAttendance() {
             className="w-full flex items-center justify-center gap-2 py-4 bg-primary hover:bg-primary-dark text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/30 disabled:opacity-50 active:scale-[0.98]"
           >
             {saveMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save size={18} />}
-            Commit to Archive
+            {isAlreadyMarked ? 'Update Attendance' : 'Commit to Archive'}
           </button>
+
+          {/* Already-marked status badge */}
+          {isAlreadyMarked && (
+            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+              <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
+              <div>
+                <div className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Already Recorded</div>
+                <div className="text-[10px] text-emerald-600 font-semibold">
+                  {existingAttendance.length} of {targets?.length || 0} entries saved for this date. Changes above will overwrite.
+                </div>
+              </div>
+            </div>
+          )}
 
           <button
             onClick={handleExportCSV}
             disabled={!targets || targets.length === 0}
-            className="w-full mt-4 flex items-center justify-center gap-2 py-4 bg-slate-800 hover:bg-slate-900 text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-slate-900/30 disabled:opacity-50 active:scale-[0.98]"
+            className="w-full mt-2 flex items-center justify-center gap-2 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-slate-900/30 disabled:opacity-50 active:scale-[0.98]"
           >
             <Download size={18} />
             Export CSV

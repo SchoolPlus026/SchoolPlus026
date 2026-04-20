@@ -113,7 +113,7 @@ export default function NoticeBoard() {
                       <div>
                         <h3 className="text-xl font-bold text-white tracking-tight leading-snug">{notice.title}</h3>
                         <div className="flex flex-wrap items-center gap-2 mt-3">
-                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-black/40 text-slate-300 border border-glass shadow-inner">
+                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-800/40 text-slate-300 border border-glass shadow-inner">
                              <Calendar size={12}/> {new Date(notice.date).toLocaleDateString('en-US', { 'month': 'short', 'day': 'numeric', 'year': 'numeric' })}
                           </span>
                           <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-inner ${notice.scope === 'all' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
@@ -142,7 +142,7 @@ export default function NoticeBoard() {
                    </div>
                    
                    {editingId === notice.id ? (
-                     <div className="mt-4 bg-[#0a1128] p-4 rounded-xl border border-glass">
+                     <div className="mt-4 bg-slate-900 p-4 rounded-xl border border-glass">
                         <input 
                            type="text" 
                            value={editTitle} 
@@ -167,7 +167,7 @@ export default function NoticeBoard() {
                    )}
                    
                    {notice.photo_url && (
-                      <div className="mt-5 border border-glass rounded-xl overflow-hidden shadow-lg bg-[#0a1128]">
+                      <div className="mt-5 border border-glass rounded-xl overflow-hidden shadow-lg bg-slate-900">
                         <img 
                           src={notice.photo_url} 
                           alt="Notice Attachment" 

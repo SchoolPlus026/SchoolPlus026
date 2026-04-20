@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, UserX } from 'lucide-react';
 
 export default function OffClasses() {
-  const { role } = useAppStore();
+  const { role, schoolSettings } = useAppStore();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -12,49 +12,63 @@ export default function OffClasses() {
 
   useEffect(() => {
     if (userRole !== 'admin' && userRole !== 'teacher') { setLoading(false); return; }
-    loadOffClasses();
-  }, []);
+    if (schoolSettings?.school_id) loadOffClasses();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolSettings?.school_id]);
 
   async function loadOffClasses() {
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
     const todayDay = new Date().toLocaleString('en-us', { weekday: 'long' });
 
-    // 1. Get absent teachers today (attendance.who stores username, role='Teacher')
-    const { data: absentRecs } = await supabase
+    // Step 1: Get user_ids of teachers marked Absent today
+    const { data: absentRecs, error: attErr } = await supabase
       .from('attendance')
-      .select('who')
-      .eq('role', 'Teacher')
+      .select('user_id')
+      .eq('school_id', schoolSettings.school_id)
+      .eq('role', 'teacher')          // ← lowercase, matches v10 schema
       .eq('date', today)
       .eq('status', 'Absent');
 
+    if (attErr) { console.error('OffClasses attendance error:', attErr); setData([]); setLoading(false); return; }
     if (!absentRecs || absentRecs.length === 0) { setData([]); setLoading(false); return; }
 
-    const absentUsernames = absentRecs.map(a => a.who);
+    const absentUserIds = absentRecs.map(a => a.user_id).filter(Boolean);
 
-    // 2. Get their full names (timetable stores teacher NAME, not username)
-    const { data: users } = await supabase
+    // Step 2: Fetch teacher names for display
+    const { data: teacherProfiles } = await supabase
       .from('users')
-      .select('username, name')
-      .in('username', absentUsernames);
+      .select('id, name')
+      .in('id', absentUserIds);
 
-    const absentNames = (users || []).map(u => u.name).filter(Boolean);
+    // Build a name map: { uuid → name }
+    const nameMap = {};
+    (teacherProfiles || []).forEach(t => { nameMap[t.id] = t.name; });
 
-    // 3. Get timetable periods for those teacher names today
-    const { data: periods } = await supabase
+    // Step 3: Get timetable periods assigned to these teacher UUIDs today
+    // timetable.teacher stores the UUID (set by TimetableManager)
+    const { data: periods, error: ttErr } = await supabase
       .from('timetable')
       .select('*')
-      .in('teacher', absentNames)
+      .in('teacher', absentUserIds)
       .eq('day', todayDay)
       .order('period_order');
 
-    setData(periods || []);
+    if (ttErr) { console.error('OffClasses timetable error:', ttErr); }
+
+    // Attach teacher name to each period row for display
+    const enriched = (periods || []).map(p => ({
+      ...p,
+      teacher_name: nameMap[p.teacher] || 'Unknown Teacher',
+    }));
+
+    setData(enriched);
     setLoading(false);
   }
 
   if (userRole !== 'admin' && userRole !== 'teacher') {
     return (
-      <div className="sp-card text-slate-400 text-sm">Access Denied. Only for Admins & Teachers.</div>
+      <div className="sp-card text-slate-400 text-sm">Access Denied. Only for Admins &amp; Teachers.</div>
     );
   }
 
@@ -78,8 +92,11 @@ export default function OffClasses() {
             <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
           </div>
         ) : !data || data.length === 0 ? (
-          <div className="text-sm text-slate-500 italic text-center py-8">
-            No teachers are marked absent today, or absent teachers have no classes scheduled.
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <UserX size={32} className="text-slate-600" />
+            <p className="text-sm text-slate-500 italic">
+              No teachers are marked absent today, or absent teachers have no classes scheduled.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -95,12 +112,14 @@ export default function OffClasses() {
                 {data.map(p => (
                   <tr key={p.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
                     <td className="py-3 px-4">
-                      <span className="inline-block bg-slate-700 text-slate-200 text-xs font-black px-2 py-0.5 rounded-md mr-2">{p.period_order}</span>
+                      <span className="inline-block bg-slate-700 text-slate-200 text-xs font-black px-2 py-0.5 rounded-md mr-2">#{p.period_order}</span>
                       <span className="text-slate-500 text-xs">{p.period_label || ''}</span>
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-200">{p.class}</td>
                     <td className="py-3 px-4 text-slate-300">{p.subject}</td>
-                    <td className="py-3 px-4 font-bold text-red-400">{p.teacher}</td>
+                    <td className="py-3 px-4 font-bold text-red-400 flex items-center gap-2">
+                      <UserX size={14} /> {p.teacher_name}
+                    </td>
                   </tr>
                 ))}
               </tbody>

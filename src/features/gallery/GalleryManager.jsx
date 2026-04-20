@@ -114,7 +114,7 @@ export default function GalleryManager() {
                     <X size={16} />
                   </button>
                 )}
-                <div className="absolute top-2 left-2 px-2.5 py-1 bg-black/40 backdrop-blur-md rounded-lg text-[10px] font-bold text-white uppercase tracking-widest">
+                <div className="absolute top-2 left-2 px-2.5 py-1 bg-slate-800/40 backdrop-blur-md rounded-lg text-[10px] font-bold text-white uppercase tracking-widest">
                   {item.category}
                 </div>
               </div>
@@ -136,7 +136,7 @@ export default function GalleryManager() {
 
       {/* Add Media Modal */}
       {addModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-800/40 backdrop-blur-sm p-4">
           <div className="bg-white border border-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-border bg-slate-50 flex items-center justify-between">
               <h3 className="font-bold text-lg text-text">Add to Gallery</h3>
