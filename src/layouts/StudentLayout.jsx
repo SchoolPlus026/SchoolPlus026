@@ -21,17 +21,19 @@ export default function StudentLayout() {
     <div className="flex flex-col h-screen bg-transparent text-slate-100">
 
       <header className="sp-header h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          {schoolSettings?.logo_url ? (
-            <img src={schoolSettings.logo_url} alt="Logo" className="w-10 h-10 rounded-xl object-contain bg-white/10 p-1 shadow-lg" />
-          ) : (
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center font-black text-white text-lg shadow-lg border border-white/10">S</div>
-          )}
+        <div className="brand">
+          <div className="logo" title="Editable by Admin">
+            {schoolSettings?.logo_url ? (
+               <img src={schoolSettings.logo_url} alt="School Logo" className="w-[45px] object-contain" />
+            ) : (
+               <div className="w-full h-full flex items-center justify-center font-bold text-slate-800">S</div>
+            )}
+          </div>
           <div>
-            <Link to="/student" className="font-bold text-base tracking-tight text-white hover:text-indigo-200 transition-colors leading-none block">
-              {schoolSettings?.name || 'School Master'}
+            <Link to="/student" className="hover:opacity-80 transition-opacity">
+              <h1>{schoolSettings?.name || 'School Master'}</h1>
             </Link>
-            <div className="text-[10px] text-indigo-200/80 font-semibold uppercase tracking-widest">Student Portal</div>
+            <div className="sub uppercase tracking-widest font-semibold">Student Portal</div>
           </div>
         </div>
 

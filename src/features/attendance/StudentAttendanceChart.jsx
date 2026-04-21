@@ -39,76 +39,69 @@ export default function StudentAttendanceChart() {
   const otherPercentage = total > 0 ? Math.round(((total - present - absent - late) / total) * 100) : 0;
 
   return (
-    <div className="bg-surface border border-glass rounded-2xl p-6 shadow-xl relative overflow-hidden">
-      <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
-
-      <div className="flex items-center gap-3 mb-6">
-        <div className="bg-primary/20 p-2 rounded-xl text-primary border border-primary/20">
-          <CalendarHeart size={24} />
+    <div className="space-y-6">
+      <div className="card fade-in">
+        <div className="section-title">
+          <CalendarHeart className="text-accent" />
+          <h3>Attendance Overview</h3>
         </div>
-        <h2 className="text-xl font-bold text-text tracking-tight">My Attendance Analytics</h2>
-      </div>
-
-      <div className="flex flex-col md:flex-row items-center gap-8">
         
-        {/* CSS Circular Progress Ring */}
-        <div className="relative flex items-center justify-center flex-shrink-0">
-          <svg className="w-36 h-36 transform -rotate-90">
-            <circle
-              className="text-glass"
-              strokeWidth="12"
-              stroke="currentColor"
-              fill="transparent"
-              r="60"
-              cx="72"
-              cy="72"
-            />
-            <circle
-              className="text-primary transition-all duration-1000 ease-out"
-              strokeWidth="12"
-              strokeDasharray={60 * 2 * Math.PI}
-              strokeDashoffset={60 * 2 * Math.PI - (presentPercentage / 100) * 60 * 2 * Math.PI}
-              strokeLinecap="round"
-              stroke="currentColor"
-              fill="transparent"
-              r="60"
-              cx="72"
-              cy="72"
-            />
-          </svg>
-          <div className="absolute flex flex-col items-center justify-center text-center">
-             <span className="text-3xl font-bold text-text">{presentPercentage}%</span>
-             <span className="text-[10px] text-muted font-semibold uppercase tracking-widest mt-1">Present</span>
-          </div>
+        <div style={{ display: 'flex', gap: '40px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ width: '150px', height: '150px', borderRadius: '50%', background: `conic-gradient(var(--accent) ${presentPercentage}%, var(--glass) 0)`, display: 'grid', placeItems: 'center', position: 'relative' }}>
+                <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: 'var(--card)', display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: '24px' }}>{presentPercentage}%</h2>
+                      <span className="muted small">Present</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style={{ flex: 1, minWidth: '200px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                    <span className="muted">Total Days</span>
+                    <strong>{total}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                    <span className="muted">Present</span>
+                    <strong style={{ color: '#6ee7b7' }}>{present}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                    <span className="muted">Absent</span>
+                    <strong style={{ color: '#fca5a5' }}>{absent}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px' }}>
+                    <span className="muted">Late</span>
+                    <strong style={{ color: '#fcd34d' }}>{late}</strong>
+                </div>
+            </div>
         </div>
-
-        {/* Stacked Horizon Bar & Stats */}
-        <div className="flex-1 w-full space-y-5">
-          <div className="w-full h-3.5 bg-glass rounded-full overflow-hidden flex shadow-inner">
-             <div style={{ width: `${presentPercentage}%` }} className="h-full bg-emerald-500 transition-all duration-1000"></div>
-             <div style={{ width: `${latePercentage}%` }} className="h-full bg-amber-500 transition-all duration-1000"></div>
-             <div style={{ width: `${absentPercentage}%` }} className="h-full bg-red-500 transition-all duration-1000"></div>
-             <div style={{ width: `${otherPercentage}%` }} className="h-full bg-blue-500 transition-all duration-1000"></div>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
-            <div className="bg-surface border border-glass rounded-xl p-4 text-center">
-               <div className="text-2xl font-bold text-text">{total}</div>
-               <div className="text-[10px] text-muted font-bold uppercase tracking-wider mt-1">Total Days</div>
-            </div>
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
-               <div className="text-2xl font-bold text-emerald-400">{present}</div>
-               <div className="text-[10px] text-emerald-400/80 font-bold uppercase tracking-wider mt-1">Present</div>
-            </div>
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
-               <div className="text-2xl font-bold text-amber-400">{late}</div>
-               <div className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider mt-1">Late</div>
-            </div>
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
-               <div className="text-2xl font-bold text-red-400">{absent}</div>
-               <div className="text-[10px] text-red-400/80 font-bold uppercase tracking-wider mt-1">Absent</div>
-            </div>
-          </div>
+      </div>
+{/* Legacy Table rendering down here */}
+      <div className="card fade-in">
+        <div className="section-title">
+            <h3>Recent History</h3>
+        </div>
+        <div className="table-responsive">
+           <table className="legacy-table">
+              <thead>
+                <tr>
+                   <th>Date</th>
+                   <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendance?.map(a => (
+                  <tr key={a.id}>
+                     <td>{a.date}</td>
+                     <td>
+                       <span className={`badge ${a.status === 'Present' ? 'badge-success' : a.status === 'Absent' ? 'badge-danger' : 'badge-warn'}`}>
+                          {a.status}
+                       </span>
+                     </td>
+                  </tr>
+                ))}
+              </tbody>
+           </table>
         </div>
       </div>
     </div>

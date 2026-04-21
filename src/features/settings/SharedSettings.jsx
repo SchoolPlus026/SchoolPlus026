@@ -14,12 +14,14 @@ const TABLES_RESET = ['notifications', 'fees_payments', 'leaves', 'attendance', 
 
 function Section({ title, icon: Icon, children }) {
   return (
-    <div className="sp-card">
-      <div className="flex items-center gap-2 mb-4">
-        <Icon size={16} className="text-indigo-400" />
-        <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">{title}</h4>
+    <div className="card">
+      <div className="section-title mb-4">
+        <Icon className="text-accent" />
+        <h3>{title}</h3>
       </div>
-      {children}
+      <div style={{ maxWidth: '400px' }}>
+        {children}
+      </div>
     </div>
   );
 }

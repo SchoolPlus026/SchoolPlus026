@@ -147,182 +147,88 @@ export default function MarkAttendance() {
   const statuses = ['Present', 'Absent', 'Late', 'Half_day'];
 
   return (
+  return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Role specific header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-           <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Attendance Protocol</h2>
-           <p className="text-slate-500 font-medium italic">Standard Operating Procedure: Daily Registry</p>
-        </div>
-        
-        {role === 'teacher' && (
-          <div className="flex bg-slate-200/50 p-1 rounded-xl border border-slate-200">
-            <button 
-              onClick={() => { setViewMode('self'); setTargetRole('teacher'); }}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'self' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              My Attendance
-            </button>
-            <button 
-              onClick={() => { setViewMode('roster'); setTargetRole('student'); }}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'roster' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              Class Roster
-            </button>
-          </div>
-        )}
+      <div className="card">
+        <div className="section-title"><h3>{role === 'teacher' ? 'Mark Class Attendance' : 'Attendance Manager'}</h3></div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Filters Column */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white border border-border rounded-3xl p-6 shadow-xl shadow-slate-100/50 space-y-4">
-            <div>
-              <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Registry Date</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner"
-              />
-            </div>
-
-            {role === 'admin' && (
-              <div>
-                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Target Group</label>
-                <select
-                  value={targetRole}
-                  onChange={(e) => {
-                    setTargetRole(e.target.value);
-                    setSelectedClass('');
-                  }}
-                  className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner appearance-none cursor-pointer"
-                >
-                  <option value="student">Students</option>
-                  <option value="teacher">Teachers</option>
-                </select>
-              </div>
-            )}
-
-            {(targetRole === 'student' || (role === 'teacher' && viewMode === 'roster')) && (
-              <div>
-                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Selection Area</label>
-                {role === 'admin' ? (
-                  <select
-                    value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
-                    className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner appearance-none cursor-pointer"
-                  >
-                    <option value="">-- Choose Class --</option>
-                    {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                ) : (
-                  <div className="w-full bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-sm font-black text-primary flex items-center gap-2 shadow-sm">
-                    <Users size={16} /> {selectedClass || 'No Class Assigned'}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          
-          <button
-            onClick={handleSave}
-            disabled={saveMutation.isPending || !targets || targets.length === 0}
-            className="w-full flex items-center justify-center gap-2 py-4 bg-primary hover:bg-primary-dark text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/30 disabled:opacity-50 active:scale-[0.98]"
-          >
-            {saveMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save size={18} />}
-            {isAlreadyMarked ? 'Update Attendance' : 'Commit to Archive'}
-          </button>
-
-          {/* Already-marked status badge */}
-          {isAlreadyMarked && (
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
-              <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
-              <div>
-                <div className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Already Recorded</div>
-                <div className="text-[10px] text-emerald-600 font-semibold">
-                  {existingAttendance.length} of {targets?.length || 0} entries saved for this date. Changes above will overwrite.
-                </div>
-              </div>
-            </div>
-          )}
-
-          <button
-            onClick={handleExportCSV}
-            disabled={!targets || targets.length === 0}
-            className="w-full mt-2 flex items-center justify-center gap-2 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-slate-900/30 disabled:opacity-50 active:scale-[0.98]"
-          >
-            <Download size={18} />
-            Export CSV
-          </button>
+      
+      {role === 'admin' ? (
+      <div className="card">
+        <div className="tabs">
+            <div className={`tab ${targetRole === 'student' ? 'active' : ''}`} onClick={() => { setTargetRole('student'); setSelectedClass(''); }}>Student Attendance</div>
+            <div className={`tab ${targetRole === 'teacher' ? 'active' : ''}`} onClick={() => { setTargetRole('teacher'); setSelectedClass(''); }}>Teacher Attendance</div>
+            <div className={`tab ${targetRole === 'staff' ? 'active' : ''}`} onClick={() => { setTargetRole('staff'); setSelectedClass(''); }}>Staff Attendance</div>
         </div>
-
-        {/* List Column */}
-        <div className="lg:col-span-2">
-          <div className="bg-white border border-border rounded-[2.5rem] shadow-xl shadow-slate-100/50 overflow-hidden min-h-[400px]">
-             {targetsLoading || attendanceLoading ? (
-               <div className="flex flex-col items-center justify-center h-full py-32 gap-4">
-                  <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                  <span className="font-bold text-xs text-slate-400 uppercase tracking-widest">Hydrating Registry...</span>
-               </div>
-             ) : (targetRole === 'student' && !selectedClass) ? (
-               <div className="flex flex-col items-center justify-center h-full py-32 text-center px-8">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
-                    <Filter size={24} className="text-slate-300" />
-                  </div>
-                  <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest">Locked Module</h3>
-                  <p className="text-slate-400 text-sm mt-1 italic">Please select a class deployment to view the roster.</p>
-               </div>
-             ) : targets?.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full py-32">
-                   <AlertCircle size={40} className="text-slate-200 mb-2" />
-                   <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">No data objects found</p>
-                </div>
-             ) : (
-                <div className="divide-y divide-slate-100">
-                  {targets.map(target => {
-                    const status = currentStatusFor(target.id);
-                    return (
-                      <div key={target.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-slate-50/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                           <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center font-black text-slate-700 shadow-sm">
-                             {target.name.charAt(0)}
-                           </div>
-                           <div>
-                              <div className="font-black text-slate-800 uppercase tracking-tight leading-none mb-1">{target.name}</div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID: {target.username}</div>
-                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                           {statuses.map(st => {
-                             const isSelected = status === st;
-                             let colors = 'bg-white border-slate-200 text-slate-500';
-                             if (st === 'Present') colors = isSelected ? 'bg-emerald-500 border-emerald-600 text-white shadow-lg shadow-emerald-200 scale-105' : 'hover:border-emerald-200 hover:text-emerald-600';
-                             if (st === 'Absent') colors = isSelected ? 'bg-red-500 border-red-600 text-white shadow-lg shadow-red-200 scale-105' : 'hover:border-red-200 hover:text-red-600';
-                             if (st === 'Late') colors = isSelected ? 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-200 scale-105' : 'hover:border-amber-200 hover:text-amber-600';
-                             if (st === 'Half_day') colors = isSelected ? 'bg-indigo-500 border-indigo-600 text-white shadow-lg shadow-indigo-200 scale-105' : 'hover:border-indigo-200 hover:text-indigo-600';
-
-                             const label = st === 'Half_day' ? 'Half' : st;
-
-                             return (
-                               <button 
-                                key={st}
-                                onClick={() => handleStatusChange(target.id, st)}
-                                className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${colors}`}
-                               >
-                                 {label}
-                               </button>
-                             );
-                           })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-             )}
-          </div>
+        <div className="flex" style={{ gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {targetRole === 'student' && (
+            <select className="sp-input w-auto min-w-[150px]" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
+                <option value="">-- Choose Class --</option>
+                {classes.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            )}
+            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="sp-input w-[140px]" />
+            <button className="btn-primary" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
+              {saveMutation.isPending ? 'Saving...' : 'Load & Save Attendance'}
+            </button>
+            <button className="btn outline ml-auto" onClick={handleExportCSV} disabled={!targets || targets.length===0}>Export CSV</button>
         </div>
+      </div>
+      ) : (
+      <div className="card">
+         <div className="flex" style={{ gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {targetRole === 'student' && (
+               <div className="sp-input w-auto min-w-[150px] opacity-70 cursor-not-allowed uppercase text-xs font-bold flex items-center justify-center">CLASS {selectedClass || 'UNASSIGNED'}</div>
+            )}
+            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="sp-input w-[140px]" />
+            <button className="btn-primary" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
+              {saveMutation.isPending ? 'Saving...' : 'Load & Save Attendance'}
+            </button>
+         </div>
+      </div>
+      )}
+
+      {isAlreadyMarked && (
+         <div className="card" style={{ borderColor: 'var(--accent)', background: 'rgba(96, 165, 250, 0.1)' }}>
+            <div className="flex items-center gap-3">
+               <span className="badge">Recorded</span>
+               <span className="text-sm font-semibold">Attendance for this date is already recorded. Making changes will update the records.</span>
+            </div>
+         </div>
+      )}
+
+      <div className="card" id="attMarkerPanel">
+         <h4 className="mb-4">Marking for: <span className="muted">{targetRole === 'student' ? (selectedClass ? `Class ${selectedClass} on ${selectedDate}` : 'Please select class') : `${targetRole}s on ${selectedDate}`}</span></h4>
+         <div id="attList" className="mt-[10px]">
+           {targetsLoading || attendanceLoading ? (
+               <div className="muted p-4 text-center">Loading roster...</div>
+           ) : (!targets || targets.length === 0) ? (
+               <div className="muted p-4 text-center">No subjects found for this selection.</div>
+           ) : (
+               targets.map(target => {
+                 const status = currentStatusFor(target.id);
+                 return (
+                    <div key={target.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '150px' }}>
+                            <strong>{target.name}</strong><br/>
+                            <span className="muted small">{target.username}</span>
+                        </div>
+                        {['Present', 'Absent', 'Leave'].map(st => (
+                            <label key={st} className="cursor-pointer" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '10px' }}>
+                                <input 
+                                  type="radio" 
+                                  name={`status_${target.id}`} 
+                                  value={st} 
+                                  checked={status === st} 
+                                  onChange={() => handleStatusChange(target.id, st)}
+                                /> {st}
+                            </label>
+                        ))}
+                    </div>
+                 );
+               })
+           )}
+         </div>
       </div>
     </div>
   );

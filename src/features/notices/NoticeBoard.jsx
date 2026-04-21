@@ -87,95 +87,74 @@ export default function NoticeBoard() {
   };
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-500">
-      <div className="flex items-center gap-3 px-2 mb-2">
-         <Megaphone className="text-primary" size={24} />
-         <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Timeline Announcements</h2>
+    <div className="space-y-6 fade-in">
+      <div className="section-title">
+         <Megaphone className="text-accent" />
+         <h3>Notice Board</h3>
       </div>
 
       {notices?.length === 0 ? (
-        <div className="sp-card text-center py-12">
-          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-border">
-             <Calendar size={32} className="text-slate-400 dark:text-slate-500" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">No active transmissions</h3>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Your timeline is currently fully clear.</p>
+        <div className="card text-center py-5 muted small">
+           No active notices.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5">
+        <div className="space-y-4">
           {notices.map((notice) => (
-             <div key={notice.id} className="sp-card relative overflow-hidden group hover:border-primary/50 transition-colors p-0 border">
-                {/* Visual Flair Base Line */}
-                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-accent"></div>
-                
-                <div className="p-6 pl-8">
-                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 border-b border-border pb-4">
-                      <div>
-                        <h3 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight leading-snug">{notice.title}</h3>
-                        <div className="flex flex-wrap items-center gap-2 mt-3">
-                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-800/40 text-slate-300 border border-glass shadow-inner">
-                             <Calendar size={12}/> {new Date(notice.date).toLocaleDateString('en-US', { 'month': 'short', 'day': 'numeric', 'year': 'numeric' })}
-                          </span>
-                          <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-inner ${notice.scope === 'all' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
-                             {getScopeIcon(notice.scope)} {getScopeLabel(notice.scope)}
-                          </span>
+             <div key={notice.id} className="card">
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                    <div style={{ width: '50px', height: '50px', background: 'var(--glass)', borderRadius: '12px', display: 'grid', placeItems: 'center', flexShrink: 0, color: 'var(--accent)' }}>
+                        <Megaphone size={20} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', flexWrap: 'wrap', gap: '10px' }}>
+                            <h4 style={{ margin: 0 }}>{notice.title}</h4>
+                            <span className="muted small text-right">{new Date(notice.date).toLocaleDateString('en-US', { 'month': 'short', 'day': 'numeric', 'year': 'numeric' })}</span>
                         </div>
-                      </div>
-                      
-                      {role !== 'student' && (
-                        <div className="flex gap-2">
-                          <button 
-                             onClick={() => handleEditClick(notice)}
-                             className="flex-shrink-0 text-slate-500 hover:text-indigo-400 p-2 rounded-xl hover:bg-indigo-500/10 transition-colors"
-                          >
-                             <PenTool size={16} />
-                          </button>
-                          <button 
-                             onClick={() => deleteMutation.mutate(notice.id)}
-                             disabled={deleteMutation.isPending}
-                             className="flex-shrink-0 text-slate-500 hover:text-red-400 p-2 rounded-xl hover:bg-red-500/10 transition-colors"
-                          >
-                             <Trash2 size={16} />
-                          </button>
-                        </div>
-                      )}
-                   </div>
-                   
-                   {editingId === notice.id ? (
-                     <div className="mt-4 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-border">
-                        <input 
-                           type="text" 
-                           value={editTitle} 
-                           onChange={e => setEditTitle(e.target.value)} 
-                           className="sp-input mb-3"
-                        />
-                        <textarea 
-                           rows="4" 
-                           value={editContent} 
-                           onChange={e => setEditContent(e.target.value)} 
-                           className="sp-input mb-3 custom-scrollbar"
-                        />
-                        <div className="flex justify-end gap-2">
-                           <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white">Cancel</button>
-                           <button onClick={() => saveEditMutation.mutate({ id: notice.id, title: editTitle, content: editContent })} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Save</button>
-                        </div>
-                     </div>
-                   ) : (
-                     <div className="text-slate-700 dark:text-slate-300 text-[15px] leading-relaxed whitespace-pre-wrap font-medium flex-1">
-                       {notice.content}
-                     </div>
-                   )}
-                   
-                   {notice.photo_url && (
-                      <div className="mt-5 border border-glass rounded-xl overflow-hidden shadow-lg bg-slate-900">
-                        <img 
-                          src={notice.photo_url} 
-                          alt="Notice Attachment" 
-                          className="w-full h-auto max-h-96 object-contain" 
-                          onError={(e) => e.target.style.display = 'none'}
-                        />
-                      </div>
-                   )}
+                        <p className="muted small mb-0"><span className="badge">{getScopeLabel(notice.scope)}</span></p>
+                        
+                        {editingId === notice.id ? (
+                            <div className="mt-4 p-4 rounded-xl border border-border bg-slate-50 dark:bg-slate-900 border-white/5">
+                                <input 
+                                   type="text" 
+                                   value={editTitle} 
+                                   onChange={e => setEditTitle(e.target.value)} 
+                                   className="sp-input mb-3"
+                                />
+                                <textarea 
+                                   rows="4" 
+                                   value={editContent} 
+                                   onChange={e => setEditContent(e.target.value)} 
+                                   className="sp-input mb-3 custom-scrollbar"
+                                />
+                                <div className="flex justify-end gap-2">
+                                   <button onClick={() => setEditingId(null)} className="btn outline text-xs">Cancel</button>
+                                   <button onClick={() => saveEditMutation.mutate({ id: notice.id, title: editTitle, content: editContent })} className="btn btn-primary text-xs">Save</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <p style={{ marginTop: '10px', fontSize: '0.95em', whiteSpace: 'pre-wrap' }}>
+                                {notice.content}
+                            </p>
+                        )}
+                        
+                        {notice.photo_url && (
+                            <div className="mt-4 border border-glass rounded-xl overflow-hidden shadow-sm bg-slate-900 w-full max-w-sm">
+                                <img 
+                                src={notice.photo_url} 
+                                alt="Notice Attachment" 
+                                className="w-full h-auto object-contain" 
+                                onError={(e) => e.target.style.display = 'none'}
+                                />
+                            </div>
+                        )}
+
+                        {role !== 'student' && editingId !== notice.id && (
+                            <div className="flex gap-2 mt-4 pt-4 border-t border-glass">
+                                <button onClick={() => handleEditClick(notice)} className="muted border-0 bg-transparent cursor-pointer p-0 hover:text-indigo-400" title="Edit"><PenTool size={16} /></button>
+                                <button onClick={() => deleteMutation.mutate(notice.id)} disabled={deleteMutation.isPending} className="muted border-0 bg-transparent cursor-pointer p-0 hover:text-red-400 ml-2" title="Delete"><Trash2 size={16} /></button>
+                            </div>
+                        )}
+                    </div>
                 </div>
              </div>
           ))}

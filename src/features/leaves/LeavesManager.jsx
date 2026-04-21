@@ -82,17 +82,19 @@ export default function LeavesManager() {
     <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden">
       {/* Tab Navigation */}
       <div className="flex border-b border-border bg-slate-50">
-        <button 
-          onClick={() => setActiveTab('apply')}
-          className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'apply' ? 'text-primary border-b-2 border-primary bg-white' : 'text-muted hover:text-text'}`}
-        >
-          {role === 'admin' ? 'Configure Policy' : 'Apply for Leave'}
-        </button>
+        {role !== 'admin' && (
+          <button 
+            onClick={() => setActiveTab('apply')}
+            className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'apply' ? 'text-primary border-b-2 border-primary bg-white' : 'text-muted hover:text-text'}`}
+          >
+            Apply for Leave
+          </button>
+        )}
         <button 
           onClick={() => setActiveTab('history')}
           className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'history' ? 'text-primary border-b-2 border-primary bg-white' : 'text-muted hover:text-text'}`}
         >
-          {role === 'admin' ? 'Manage Applications' : 'My Applications'}
+          {role === 'admin' ? 'Leave Applications' : 'My Applications'}
         </button>
       </div>
 
@@ -132,12 +134,6 @@ export default function LeavesManager() {
               Submit Application
             </button>
           </form>
-        )}
-
-        {activeTab === 'apply' && role === 'admin' && (
-          <div className="text-center py-12 text-muted border-2 border-dashed border-border rounded-xl">
-            Admin leave configuration policies coming soon.
-          </div>
         )}
 
         {activeTab === 'history' && (

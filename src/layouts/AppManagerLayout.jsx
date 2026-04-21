@@ -18,17 +18,15 @@ export default function AppManagerLayout() {
   return (
     <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans">
       <header className="h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 bg-slate-950 border-b border-indigo-500/20 shadow-lg shadow-indigo-500/10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-white text-lg shadow-[0_0_15px_rgba(79,70,229,0.5)]">
-            <ShieldCheck size={24} />
+        <div className="brand">
+          <div className="logo" title="App Manager">
+            <ShieldCheck size={24} className="text-slate-800" />
           </div>
           <div>
-            <Link to="/app-manager" className="font-black text-base tracking-widest text-white hover:text-indigo-400 transition-colors uppercase">
-              Global Center
+             <Link to="/app-manager" className="hover:opacity-80 transition-opacity">
+              <h1>Global Center</h1>
             </Link>
-            <div className="text-[10px] text-indigo-400 font-bold uppercase tracking-[0.2em]">
-              App Manager Portal
-            </div>
+            <div className="sub uppercase tracking-widest font-semibold">App Manager Portal</div>
           </div>
         </div>
 

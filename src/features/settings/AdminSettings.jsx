@@ -169,228 +169,104 @@ export default function AdminSettings() {
     }
   };
 
-  // ── Reusable section card wrapper ──
-  const SectionCard = ({ children, className = '' }) => (
-    <div className={`sp-card ${className}`}>{children}</div>
-  );
-
-  const SectionHead = ({ title, subtitle }) => (
-    <div className="mb-6">
-      <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">{title}</h3>
-      {subtitle && <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{subtitle}</p>}
-    </div>
-  );
-
-  const inputClass = "sp-input";
-  const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2";
-
   return (
-    <div className="space-y-8 fade-in pb-12">
-      {/* Page Title */}
-      <div className="flex items-center gap-3">
-        <div className="p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-          <ShieldCheck size={22} className="text-white" />
-        </div>
-        <div>
-          <h2 className="text-xl font-black text-slate-100 uppercase tracking-tight">Portal Configuration</h2>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">System Settings &amp; Preferences</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* ────── LEFT COLUMN ────── */}
-        <div className="space-y-6">
-
-          {/* School Identity */}
-          <SectionCard>
-            <SectionHead title="School Identity" subtitle="Public facing metadata" />
-            <form onSubmit={(e) => { e.preventDefault(); brandingMutation.mutate(); }} className="space-y-5">
-              <div>
-                <label className={labelClass}>Legal Entity Name</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Institutional Emblem / Logo</label>
-                <div className="flex flex-col gap-3">
-                  {/* Live preview */}
-                  {logoUrl && (
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                      <img src={logoUrl} alt="School Logo" className="w-14 h-14 object-contain rounded-lg bg-white border border-slate-200 p-1 shadow-sm" />
-                      <div className="text-xs text-slate-500 font-medium">Current logo preview</div>
-                    </div>
-                  )}
-                  <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className={inputClass} placeholder="https://... (or upload below)" />
-                  <div className="relative">
-                    <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
-                    <div className={`sp-input text-center text-sm py-3 ${uploadingLogo ? 'text-slate-400 bg-slate-100' : 'text-primary bg-indigo-50 hover:bg-indigo-100 cursor-pointer'} transition-colors font-bold rounded-xl border-2 border-dashed border-indigo-200`}>
-                       {uploadingLogo ? '⏫ Uploading to Cloud...' : '📁 Click to Upload School Logo (max 2MB)'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={brandingMutation.isPending}
-                className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest disabled:opacity-50"
-              >
-                {brandingMutation.isPending
-                  ? <><Loader2 size={16} className="animate-spin" /> Propagating...</>
-                  : <><Save size={16} /> Synchronize Identity</>
-                }
-              </button>
-            </form>
-          </SectionCard>
-        </div>
-
-        {/* ────── RIGHT COLUMN ────── */}
-        <div className="space-y-6">
-
-          {/* App Preferences — Theme & Language (THIS is what was "missing") */}
-          <SectionCard>
-            <SectionHead title="App Preferences" subtitle="Personalize workspace experience" />
-            <div className="space-y-6">
-
-              {/* Theme */}
-              <div>
-                <label className={labelClass}>
-                  <Palette size={10} className="inline mr-1" />
-                  Visual Theme
-                </label>
-                <select
-                  value={theme}
-                  onChange={e => handleThemeChange(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="dark">🌙 Dark (Default)</option>
-                  <option value="light">☀ Light</option>
-                  <option value="system">⚙ System</option>
-                </select>
-              </div>
-
-              {/* Language */}
-              <div>
-                <label className={labelClass}>
-                  <Globe size={10} className="inline mr-1" />
-                  Language
-                </label>
-                <select
-                  value={language}
-                  onChange={e => handleLanguageChange(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="en">English</option>
-                  <option value="hi">हिन्दी (Hindi)</option>
-                  <option value="mr">मराठी (Marathi)</option>
-                </select>
-              </div>
-
-              {/* Change Password */}
-              <form onSubmit={handleChangePassword} className="pt-4 border-t border-white/5">
-                <label className={labelClass}>
-                  <KeyRound size={10} className="inline mr-1" />
-                  Change Account Password
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    placeholder="New authentication key..."
-                    className={`${inputClass} flex-1`}
-                  />
-                  <button
-                    type="submit"
-                    disabled={passwordLoading}
-                    className="px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest bg-slate-700 hover:bg-slate-600 text-slate-200 transition-all disabled:opacity-50 border border-white/5"
-                  >
-                    {passwordLoading ? '...' : 'Update'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </SectionCard>
-
-          {/* Class Registry */}
-          <SectionCard>
-            <SectionHead title="Class Registry" subtitle="Structural unit configuration" />
-            <div className="space-y-5">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newClass}
-                  onChange={e => setNewClass(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddClass()}
-                  placeholder="New standard label (e.g. Class 5th)..."
-                  className={`${inputClass} flex-1`}
-                />
-                <button
-                  onClick={handleAddClass}
-                  className="p-3 rounded-xl bg-indigo-600/50 hover:bg-indigo-600 text-white border border-indigo-500/30 transition-all"
-                >
-                  <Plus size={18} />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2 min-h-[32px]">
-                {classList.map(cls => (
-                  <div
-                    key={cls}
-                    className="group flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 px-4 py-1.5 rounded-full text-xs font-black text-indigo-300 transition-all hover:bg-indigo-500/20"
-                  >
-                    {cls}
-                    <button
-                      onClick={() => handleRemoveClass(cls)}
-                      className="text-indigo-500 hover:text-red-400 transition-colors"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-                {classList.length === 0 && (
-                  <p className="text-[11px] text-slate-600 italic">No classes added yet.</p>
-                )}
-              </div>
-            </div>
-          </SectionCard>
-
-          {/* Danger Zone */}
-          <div className="sp-card border border-red-500/20 bg-red-500/5 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-6 opacity-5 text-red-400">
-              <Trash2 size={80} />
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle size={18} className="text-red-400" />
-              <h3 className="text-sm font-black text-red-400 uppercase tracking-widest">Danger Zone</h3>
-            </div>
-            <p className="text-[10px] font-bold text-red-500/70 uppercase tracking-widest mb-6 leading-relaxed">
-              Structural Purge: Irreversible data deletion for all operational modules.
-            </p>
-            <button
-              onClick={() => setIsResetModalOpen(true)}
-              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-red-900/30"
-            >
-              Reset All Institutional Data
-            </button>
+    <div className="space-y-6 fade-in pb-12">
+      
+      {/* School Identity */}
+      <div className="card">
+        <div className="section-title"><h3>School Identity</h3></div>
+        <form onSubmit={(e) => { e.preventDefault(); brandingMutation.mutate(); }}>
+          <div className="mb-4">
+            <label className="muted small mb-2 block">Legal Entity Name</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} className="sp-input" />
           </div>
+          <div className="mb-4">
+            <label className="muted small mb-2 block">Institutional Emblem / Logo</label>
+            <div className="flex flex-col gap-3">
+              {logoUrl && (
+                <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+                  <img src={logoUrl} alt="School Logo" className="w-[50px] h-[50px] object-contain rounded-lg bg-white border border-slate-200 p-1 shadow-sm" />
+                  <div className="text-xs text-slate-400 font-medium">Current logo</div>
+                </div>
+              )}
+              <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="sp-input" placeholder="https://... (or upload below)" />
+              <div className="relative">
+                <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
+                <div className={`sp-input text-center text-sm py-3 ${uploadingLogo ? 'opacity-50 cursor-not-allowed' : 'btn outline cursor-pointer'}`}>
+                    {uploadingLogo ? 'Uploading to Cloud...' : 'Click to Upload School Logo (max 2MB)'}
+                </div>
+              </div>
+            </div>
+          </div>
+          <button type="submit" disabled={brandingMutation.isPending} className="btn btn-primary mt-2">
+            {brandingMutation.isPending ? 'Synchronizing...' : 'Synchronize Identity'}
+          </button>
+        </form>
+      </div>
+
+      {/* Class Registry */}
+      <div className="card">
+        <div className="section-title"><h3>Class Registry</h3></div>
+        <div className="flex gap-2 mb-4 max-w-sm">
+            <input type="text" value={newClass} onChange={e => setNewClass(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddClass()} placeholder="New standard label..." className="sp-input flex-1" />
+            <button onClick={handleAddClass} className="btn outline">Add</button>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+            {classList.map(cls => (
+                <span key={cls} className="badge" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {cls} <X size={12} className="cursor-pointer opacity-70 hover:opacity-100 text-red-300" onClick={() => handleRemoveClass(cls)} />
+                </span>
+            ))}
+            {classList.length === 0 && <span className="muted small">No classes added yet.</span>}
         </div>
       </div>
 
-      {/* ── Reset Confirmation Modal ── */}
-      {isResetModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
-          <div className="sp-card w-full max-w-md shadow-2xl p-8 border border-red-500/20">
-            <div className="w-14 h-14 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center mb-6 border border-red-500/20 mx-auto">
-              <ShieldCheck size={28} />
+      {/* App Preferences */}
+      <div className="card">
+         <div className="section-title"><h3>App Preferences</h3></div>
+         <div style={{ maxWidth: '400px' }}>
+            <div className="mb-4">
+                <label className="muted small mb-2 block">Language</label>
+                <select value={language} onChange={e => handleLanguageChange(e.target.value)} className="sp-input">
+                    <option value="en">English</option>
+                    <option value="hi">हिन्दी (Hindi)</option>
+                    <option value="mr">मराठी (Marathi)</option>
+                </select>
             </div>
-            <h3 className="text-lg font-black text-slate-100 uppercase tracking-tight text-center mb-2">
-              Protocol Authorization
-            </h3>
-            <p className="text-xs text-slate-500 font-medium text-center mb-8 px-4 leading-relaxed">
-              Enter your administrative credentials to authorize the purge sequence. This cannot be undone.
-            </p>
+            <div className="mb-4">
+                <label className="muted small mb-2 block">Theme Preference</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button type="button" className={`btn ${theme === 'dark' ? 'btn-primary' : 'outline'}`} style={{ flex: 1 }} onClick={() => handleThemeChange('dark')}>Dark</button>
+                    <button type="button" className={`btn ${theme === 'light' ? 'btn-primary' : 'outline'}`} style={{ flex: 1 }} onClick={() => handleThemeChange('light')}>Light</button>
+                </div>
+            </div>
+            <hr style={{ borderColor: 'var(--border-color)', margin: '20px 0' }} />
+            <form onSubmit={handleChangePassword}>
+                <label className="muted small mb-2 block">Change Password</label>
+                <div className="flex gap-2">
+                   <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Key..." className="sp-input flex-1" />
+                   <button className="btn outline" type="submit" disabled={passwordLoading}>Update</button>
+                </div>
+            </form>
+         </div>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="card border-red-500/30">
+         <div className="section-title"><h3 className="text-red-500">Danger Zone</h3></div>
+         <p className="muted small mb-4">Structural Purge: Irreversible data deletion for all operational modules.</p>
+         <button onClick={() => setIsResetModalOpen(true)} className="btn badge-danger w-full max-w-sm py-3 text-red-500 hover:text-white transition-colors border border-red-500/20">Reset All Institutional Data</button>
+      </div>
+
+      {/* Reset Confirmation Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="card w-full max-w-md border-red-500/30">
+            <h3 className="text-lg font-bold mb-2">Protocol Authorization</h3>
+            <p className="muted small mb-6">Enter your administrative credentials to authorize the purge sequence. This cannot be undone.</p>
             <form onSubmit={handleResetData} className="space-y-5">
               <div>
-                <label className={labelClass}>Confirmation Password</label>
+                <label className="muted small mb-2 block">Confirmation Password</label>
                 <input
                   type="password"
                   required
@@ -398,21 +274,12 @@ export default function AdminSettings() {
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className={inputClass}
+                  className="sp-input"
                 />
               </div>
               <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setIsResetModalOpen(false); setConfirmPassword(''); }}
-                  className="flex-1 py-3 text-xs font-black uppercase text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  Abort
-                </button>
-                <button
-                  disabled={resetLoading}
-                  className="flex-[2] py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
-                >
+                <button type="button" onClick={() => { setIsResetModalOpen(false); setConfirmPassword(''); }} className="btn outline flex-1">Abort</button>
+                <button disabled={resetLoading} className="btn badge-danger text-red-500 hover:text-white border-red-500/20 flex-[2]">
                   {resetLoading ? 'Purging...' : 'Confirm Purge'}
                 </button>
               </div>
