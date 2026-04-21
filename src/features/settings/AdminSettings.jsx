@@ -4,10 +4,10 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Loader2 } from 'lucide-react';
 
-/* ─────────────────────────────────────────────
-   TRANSLATION DICTIONARY  (UI labels only)
-   Does NOT touch any user-generated DB content.
-───────────────────────────────────────────────*/
+/* ─────────────────────────
+   TRANSLATION DICTIONARY
+   Only translates hardcoded UI labels — never DB content.
+─────────────────────────── */
 const T = {
   en: {
     settings: 'Settings',
@@ -30,6 +30,7 @@ const T = {
     savePassword: 'Save New Password',
     savingPassword: 'Saving…',
     dataManagement: 'Data Management',
+    dataDesc: 'Exports all data from all modules as a single JSON file.',
     exportJson: 'Export All Data (JSON)',
     exporting: 'Exporting…',
     dangerZone: 'Danger Zone',
@@ -37,9 +38,9 @@ const T = {
     resetAll: 'Reset All Data',
     confirmTitle: 'Confirm Reset',
     confirmDesc: 'Enter your password to authorize the data purge. This is irreversible.',
-    confirmPwdLabel: 'Your Password',
-    abort: 'Abort',
-    confirmPurge: 'Confirm Purge',
+    confirmPwdLabel: 'Your Current Password',
+    abort: 'Cancel',
+    confirmPurge: 'Confirm & Purge',
     purging: 'Purging…',
   },
   hi: {
@@ -48,10 +49,10 @@ const T = {
     schoolName: 'स्कूल का नाम',
     schoolNamePlaceholder: 'स्कूल का नाम दर्ज करें',
     currentLogo: 'वर्तमान लोगो',
-    noLogo: 'अभी तक कोई लोगो अपलोड नहीं किया गया।',
+    noLogo: 'अभी तक कोई लोगो अपलोड नहीं।',
     uploadLogo: 'लोगो अपलोड / बदलें',
     uploading: 'अपलोड हो रहा है…',
-    saveName: 'स्कूल का नाम सहेजें',
+    saveName: 'नाम सहेजें',
     saving: 'सहेज रहा है…',
     theme: 'थीम',
     themeDark: '🌙 डार्क',
@@ -63,13 +64,14 @@ const T = {
     savePassword: 'नया पासवर्ड सहेजें',
     savingPassword: 'सहेज रहा है…',
     dataManagement: 'डेटा प्रबंधन',
+    dataDesc: 'सभी मॉड्यूल का डेटा JSON के रूप में निर्यात करें।',
     exportJson: 'सभी डेटा निर्यात करें (JSON)',
     exporting: 'निर्यात हो रहा है…',
     dangerZone: 'खतरनाक क्षेत्र',
-    dangerDesc: 'यह सभी रिकॉर्ड स्थायी रूप से हटा देगा। इसे पूर्ववत नहीं किया जा सकता।',
+    dangerDesc: 'यह सभी रिकॉर्ड स्थायी रूप से हटा देगा।',
     resetAll: 'सभी डेटा रीसेट करें',
     confirmTitle: 'रीसेट की पुष्टि करें',
-    confirmDesc: 'डेटा पूर्ण रूप से हटाने हेतु पासवर्ड दर्ज करें। यह अपरिवर्तनीय है।',
+    confirmDesc: 'अपना पासवर्ड दर्ज करें। यह क्रिया अपरिवर्तनीय है।',
     confirmPwdLabel: 'आपका पासवर्ड',
     abort: 'रद्द करें',
     confirmPurge: 'पुष्टि करें',
@@ -84,7 +86,7 @@ const T = {
     noLogo: 'अद्याप लोगो अपलोड केलेला नाही.',
     uploadLogo: 'लोगो अपलोड / बदला',
     uploading: 'अपलोड होत आहे…',
-    saveName: 'शाळेचे नाव जतन करा',
+    saveName: 'नाव जतन करा',
     saving: 'जतन होत आहे…',
     theme: 'थीम',
     themeDark: '🌙 डार्क',
@@ -96,13 +98,14 @@ const T = {
     savePassword: 'नवीन पासवर्ड जतन करा',
     savingPassword: 'जतन होत आहे…',
     dataManagement: 'डेटा व्यवस्थापन',
+    dataDesc: 'सर्व मॉड्युलचा डेटा JSON म्हणून निर्यात करा.',
     exportJson: 'सर्व डेटा निर्यात करा (JSON)',
     exporting: 'निर्यात होत आहे…',
     dangerZone: 'धोकादायक विभाग',
-    dangerDesc: 'यामुळे सर्व नोंदी कायमस्वरूपी हटतील. हे पूर्ववत होणार नाही.',
+    dangerDesc: 'यामुळे सर्व नोंदी कायमस्वरूपी हटतील.',
     resetAll: 'सर्व डेटा रीसेट करा',
     confirmTitle: 'रीसेट ची पुष्टी करा',
-    confirmDesc: 'डेटा पूर्ण हटवण्यासाठी पासवर्ड टाका. हे अपरिवर्तनीय आहे.',
+    confirmDesc: 'पासवर्ड टाका. हे अपरिवर्तनीय आहे.',
     confirmPwdLabel: 'तुमचा पासवर्ड',
     abort: 'रद्द करा',
     confirmPurge: 'पुष्टी करा',
@@ -117,19 +120,17 @@ export default function AdminSettings() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
 
-  /* ─── Language ─── */
+  /* ── Language ── */
   const [lang, setLang] = useState(localStorage.getItem('sp_lang') || 'en');
   const t = T[lang] || T.en;
-
   const applyLang = (val) => {
     setLang(val);
     localStorage.setItem('sp_lang', val);
     document.documentElement.lang = val;
   };
 
-  /* ─── Theme ─── */
+  /* ── Theme ── */
   const [theme, setTheme] = useState(localStorage.getItem('sp_theme') || 'light');
-
   const applyTheme = (val) => {
     setTheme(val);
     localStorage.setItem('sp_theme', val);
@@ -137,13 +138,12 @@ export default function AdminSettings() {
     document.body.setAttribute('data-theme', val);
   };
 
-  /* ─── School Identity ─── */
-  const [schoolName, setSchoolName] = useState(schoolSettings?.name || '');
-  const [logoUrl, setLogoUrl] = useState(schoolSettings?.logo_url || '');
+  /* ── School Identity ── */
+  const [schoolName, setSchoolName]   = useState(schoolSettings?.name || '');
+  const [logoUrl, setLogoUrl]         = useState(schoolSettings?.logo_url || '');
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [savingName, setSavingName] = useState(false);
+  const [savingName, setSavingName]   = useState(false);
 
-  // Save only school name
   const handleSaveSchoolName = async () => {
     if (!schoolName.trim()) return alert('School name cannot be empty.');
     setSavingName(true);
@@ -162,38 +162,32 @@ export default function AdminSettings() {
     }
   };
 
-  // Upload logo — completely rebuilt
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { alert('File must be under 2MB.'); return; }
-
     setUploadingLogo(true);
     try {
-      const ext = file.name.split('.').pop();
+      const ext  = file.name.split('.').pop();
       const path = `logos/${schoolSettings.school_id}_logo.${ext}`;
 
-      // 1. Upload the file (upsert replaces existing)
       const { error: uploadErr } = await supabase.storage
         .from('school_assets')
         .upload(path, file, { upsert: true, cacheControl: '0' });
       if (uploadErr) throw uploadErr;
 
-      // 2. Get public URL
       const { data: urlData } = supabase.storage.from('school_assets').getPublicUrl(path);
       const freshUrl = `${urlData.publicUrl}?v=${Date.now()}`;
 
-      // 3. Simple UPDATE — no .single() to avoid JSON coerce errors
       const { error: dbErr } = await supabase
         .from('school_settings')
         .update({ logo_url: freshUrl })
         .eq('school_id', schoolSettings.school_id);
       if (dbErr) throw dbErr;
 
-      // 4. Update local state and global store
       setLogoUrl(freshUrl);
       setSchoolSettings({ ...schoolSettings, logo_url: freshUrl });
-      alert('Logo uploaded and saved! The header will reflect the new logo.');
+      alert('Logo uploaded successfully! It will show in the header after refresh.');
     } catch (err) {
       alert('Upload failed: ' + err.message);
     } finally {
@@ -202,9 +196,9 @@ export default function AdminSettings() {
     }
   };
 
-  /* ─── Password ─── */
-  const [oldPwd, setOldPwd] = useState('');
-  const [newPwd, setNewPwd] = useState('');
+  /* ── Password ── */
+  const [oldPwd, setOldPwd]   = useState('');
+  const [newPwd, setNewPwd]   = useState('');
   const [pwdLoading, setPwdLoading] = useState(false);
 
   const handleChangePassword = async () => {
@@ -212,17 +206,12 @@ export default function AdminSettings() {
     if (newPwd.length < 6) return alert('New password must be at least 6 characters.');
     setPwdLoading(true);
     try {
-      // Verify old password first
-      const { error: verifyErr } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: oldPwd,
-      });
+      const { error: verifyErr } = await supabase.auth.signInWithPassword({ email: user.email, password: oldPwd });
       if (verifyErr) throw new Error('Old password is incorrect.');
       const { error } = await supabase.auth.updateUser({ password: newPwd });
       if (error) throw error;
       alert('Password updated successfully!');
-      setOldPwd('');
-      setNewPwd('');
+      setOldPwd(''); setNewPwd('');
     } catch (err) {
       alert(err.message);
     } finally {
@@ -230,9 +219,8 @@ export default function AdminSettings() {
     }
   };
 
-  /* ─── Export ─── */
+  /* ── Export ── */
   const [exporting, setExporting] = useState(false);
-
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -244,9 +232,7 @@ export default function AdminSettings() {
       const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `school-export-${Date.now()}.json`;
-      a.click();
+      a.href = url; a.download = `school-export-${Date.now()}.json`; a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
       alert('Export error: ' + err.message);
@@ -255,19 +241,16 @@ export default function AdminSettings() {
     }
   };
 
-  /* ─── Danger Zone ─── */
+  /* ── Danger Zone ── */
   const [showResetModal, setShowResetModal] = useState(false);
   const [confirmPwd, setConfirmPwd] = useState('');
-  const [resetting, setResetting] = useState(false);
+  const [resetting, setResetting]   = useState(false);
 
   const handleReset = async (e) => {
     e.preventDefault();
     setResetting(true);
     try {
-      const { error: authErr } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: confirmPwd,
-      });
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email: user.email, password: confirmPwd });
       if (authErr) throw new Error('Incorrect password. Reset cancelled.');
       const tables = ['attendance', 'fees', 'fees_payments', 'notices', 'calendar_events', 'leaves', 'gallery', 'timetable'];
       for (const tbl of tables) {
@@ -284,11 +267,11 @@ export default function AdminSettings() {
     }
   };
 
-  /* ─────────────── RENDER ─────────────── */
+  /* ──────── RENDER ──────── */
   return (
     <div className="space-y-4 fade-in pb-12">
 
-      {/* Page Header */}
+      {/* Page Header Card */}
       <div className="card">
         <div className="section-title"><h3>{t.settings}</h3></div>
       </div>
@@ -297,42 +280,40 @@ export default function AdminSettings() {
       <div className="card">
         <h4>{t.schoolIdentity}</h4>
 
-        {/* School Name */}
-        <div style={{ marginBottom: '14px', marginTop: '10px' }}>
+        <div style={{ marginTop: '14px' }}>
           <label className="muted small block" style={{ marginBottom: '6px' }}>{t.schoolName}</label>
           <input
             type="text"
             value={schoolName}
             onChange={e => setSchoolName(e.target.value)}
             placeholder={t.schoolNamePlaceholder}
-            className="sp-input"
-            style={{ display: 'block', marginBottom: '8px' }}
+            className="sp-input block w-full"
+            style={{ marginBottom: '10px' }}
           />
-          <button
-            className="btn accent"
-            onClick={handleSaveSchoolName}
-            disabled={savingName}
-          >
+          <button onClick={handleSaveSchoolName} disabled={savingName} className="btn accent">
             {savingName ? t.saving : t.saveName}
           </button>
         </div>
 
-        {/* Divider */}
-        <hr style={{ borderColor: 'var(--border-color)', margin: '16px 0' }} />
+        <hr style={{ borderColor: 'var(--border-color)', margin: '18px 0' }} />
 
-        {/* Logo Display */}
-        <div style={{ marginBottom: '10px' }}>
+        {/* Logo Preview */}
+        <div style={{ marginBottom: '12px' }}>
           {logoUrl ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
               <img
                 src={logoUrl}
                 alt="School Logo"
-                style={{ width: '64px', height: '64px', objectFit: 'contain', background: '#fff', borderRadius: '10px', padding: '4px', border: '1px solid var(--border-color)' }}
+                style={{
+                  width: '72px', height: '72px', objectFit: 'contain',
+                  background: '#fff', borderRadius: '10px', padding: '6px',
+                  border: '1px solid var(--border-color)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                }}
               />
               <span className="muted small">{t.currentLogo}</span>
             </div>
           ) : (
-            <p className="muted small" style={{ marginBottom: '10px' }}>{t.noLogo}</p>
+            <p className="muted small" style={{ marginBottom: '12px' }}>{t.noLogo}</p>
           )}
         </div>
 
@@ -344,14 +325,18 @@ export default function AdminSettings() {
             accept="image/*"
             onChange={handleLogoUpload}
             disabled={uploadingLogo}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: uploadingLogo ? 'not-allowed' : 'pointer' }}
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              opacity: 0, cursor: uploadingLogo ? 'not-allowed' : 'pointer', zIndex: 1
+            }}
           />
           <button className="btn outline" disabled={uploadingLogo} style={{ pointerEvents: 'none' }}>
-            {uploadingLogo ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Loader2 size={14} className="animate-spin" /> {t.uploading}
-              </span>
-            ) : t.uploadLogo}
+            {uploadingLogo
+              ? <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Loader2 size={14} className="animate-spin" /> {t.uploading}
+                </span>
+              : t.uploadLogo
+            }
           </button>
         </div>
       </div>
@@ -362,7 +347,6 @@ export default function AdminSettings() {
         <select
           value={theme}
           onChange={e => applyTheme(e.target.value)}
-          id="themeSelect"
           className="sp-input block w-full mt-2"
         >
           <option value="light">{t.themeLight}</option>
@@ -376,7 +360,6 @@ export default function AdminSettings() {
         <select
           value={lang}
           onChange={e => applyLang(e.target.value)}
-          id="langSelect"
           className="sp-input block w-full mt-2"
         >
           <option value="en">English</option>
@@ -393,7 +376,7 @@ export default function AdminSettings() {
           placeholder={t.oldPassword}
           value={oldPwd}
           onChange={e => setOldPwd(e.target.value)}
-          className="sp-input block w-full mt-2 mb-2"
+          className="sp-input block w-full mt-3 mb-2"
         />
         <input
           type="password"
@@ -402,11 +385,7 @@ export default function AdminSettings() {
           onChange={e => setNewPwd(e.target.value)}
           className="sp-input block w-full mb-3"
         />
-        <button
-          className="btn accent"
-          onClick={handleChangePassword}
-          disabled={pwdLoading}
-        >
+        <button onClick={handleChangePassword} disabled={pwdLoading} className="btn accent">
           {pwdLoading ? t.savingPassword : t.savePassword}
         </button>
       </div>
@@ -414,17 +393,16 @@ export default function AdminSettings() {
       {/* ── 5. DATA MANAGEMENT ── */}
       <div className="card">
         <h4>{t.dataManagement}</h4>
-        <div style={{ marginTop: '8px' }}>
-          <button className="btn" onClick={handleExport} disabled={exporting}>
-            {exporting ? t.exporting : t.exportJson}
-          </button>
-        </div>
+        <div className="muted small" style={{ marginBottom: '12px' }}>{t.dataDesc}</div>
+        <button onClick={handleExport} disabled={exporting} className="btn outline">
+          {exporting ? t.exporting : t.exportJson}
+        </button>
       </div>
 
       {/* ── 6. DANGER ZONE ── */}
-      <div className="card" style={{ borderColor: 'rgba(239,68,68,0.3)' }}>
+      <div className="card" style={{ borderLeft: '3px solid #ef4444' }}>
         <h4 style={{ color: '#ef4444' }}>{t.dangerZone}</h4>
-        <div className="muted small" style={{ marginTop: '6px', marginBottom: '12px' }}>{t.dangerDesc}</div>
+        <div className="muted small" style={{ marginBottom: '14px' }}>{t.dangerDesc}</div>
         <button className="btn danger" onClick={() => setShowResetModal(true)}>
           {t.resetAll}
         </button>
@@ -432,10 +410,14 @@ export default function AdminSettings() {
 
       {/* ── RESET MODAL ── */}
       {showResetModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '420px', borderColor: 'rgba(239,68,68,0.4)' }}>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.75)', padding: '16px'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '420px', borderLeft: '4px solid #ef4444' }}>
             <h3 style={{ marginBottom: '8px' }}>{t.confirmTitle}</h3>
-            <p className="muted small" style={{ marginBottom: '16px' }}>{t.confirmDesc}</p>
+            <p className="muted small" style={{ marginBottom: '18px' }}>{t.confirmDesc}</p>
             <form onSubmit={handleReset}>
               <label className="muted small block" style={{ marginBottom: '6px' }}>{t.confirmPwdLabel}</label>
               <input
@@ -445,7 +427,7 @@ export default function AdminSettings() {
                 value={confirmPwd}
                 onChange={e => setConfirmPwd(e.target.value)}
                 placeholder="••••••••"
-                style={{ marginBottom: '16px', display: 'block' }}
+                className="sp-input block w-full mb-4"
               />
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
@@ -456,12 +438,7 @@ export default function AdminSettings() {
                 >
                   {t.abort}
                 </button>
-                <button
-                  type="submit"
-                  disabled={resetting}
-                  className="btn danger"
-                  style={{ flex: 2 }}
-                >
+                <button type="submit" disabled={resetting} className="btn danger" style={{ flex: 2 }}>
                   {resetting ? t.purging : t.confirmPurge}
                 </button>
               </div>
