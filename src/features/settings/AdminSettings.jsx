@@ -221,41 +221,49 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      {/* App Preferences */}
       <div className="card">
-         <div className="section-title"><h3>App Preferences</h3></div>
-         <div style={{ maxWidth: '400px' }}>
-            <div className="mb-4">
-                <label className="muted small mb-2 block">Language</label>
-                <select value={language} onChange={e => handleLanguageChange(e.target.value)} className="sp-input">
-                    <option value="en">English</option>
-                    <option value="hi">हिन्दी (Hindi)</option>
-                    <option value="mr">मराठी (Marathi)</option>
-                </select>
-            </div>
-            <div className="mb-4">
-                <label className="muted small mb-2 block">Theme Preference</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button type="button" className={`btn ${theme === 'dark' ? 'btn-primary' : 'outline'}`} style={{ flex: 1 }} onClick={() => handleThemeChange('dark')}>Dark</button>
-                    <button type="button" className={`btn ${theme === 'light' ? 'btn-primary' : 'outline'}`} style={{ flex: 1 }} onClick={() => handleThemeChange('light')}>Light</button>
-                </div>
-            </div>
-            <hr style={{ borderColor: 'var(--border-color)', margin: '20px 0' }} />
-            <form onSubmit={handleChangePassword}>
-                <label className="muted small mb-2 block">Change Password</label>
-                <div className="flex gap-2">
-                   <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Key..." className="sp-input flex-1" />
-                   <button className="btn outline" type="submit" disabled={passwordLoading}>Update</button>
-                </div>
-            </form>
-         </div>
+        <h4>Theme</h4>
+        <select value={theme} onChange={e => handleThemeChange(e.target.value)} id="themeSelect">
+            <option value="dark">🌙 Dark</option>
+            <option value="light">☀ Light</option>
+        </select>
       </div>
 
-      {/* Danger Zone */}
-      <div className="card border-red-500/30">
-         <div className="section-title"><h3 className="text-red-500">Danger Zone</h3></div>
-         <p className="muted small mb-4">Structural Purge: Irreversible data deletion for all operational modules.</p>
-         <button onClick={() => setIsResetModalOpen(true)} className="btn badge-danger w-full max-w-sm py-3 text-red-500 hover:text-white transition-colors border border-red-500/20">Reset All Institutional Data</button>
+      <div className="card">
+        <h4>Language</h4>
+        <select value={language} onChange={e => handleLanguageChange(e.target.value)} id="langSelect">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी (Hindi)</option>
+            <option value="mr">मराठी (Marathi)</option>
+        </select>
+      </div>
+
+      <div className="card">
+        <h4>Change Password</h4>
+        <input type="password" id="oldPwd" placeholder="Old Password" style={{ marginBottom: '10px' }} />
+        <br/>
+        <input type="password" id="newPwd" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Password" style={{ marginBottom: '10px' }} />
+        <br/>
+        <button className="btn accent" id="changePwdBtn" disabled={passwordLoading} onClick={handleChangePassword}>
+          {passwordLoading ? 'Updating...' : 'Save New Password'}
+        </button>
+      </div>
+
+      <div id="adminSettings">
+        <div className="card">
+          <h4>Data Management</h4>
+          <div style={{ marginTop: '8px' }} className="flex">
+            <button className="btn" id="exportAll" onClick={() => alert('Data Export requires Shared Settings Data module or backend hook implementation')}>Export All Data (JSON)</button>
+          </div>
+        </div>
+
+        <div className="card">
+          <h4>Danger Zone</h4>
+          <div className="muted small">This will permanently delete all records from all tables. This cannot be undone.</div>
+          <div style={{ marginTop: '8px' }}>
+            <button className="btn danger" id="btnReset" onClick={() => setIsResetModalOpen(true)}>Reset All Data</button>
+          </div>
+        </div>
       </div>
 
       {/* Reset Confirmation Modal */}

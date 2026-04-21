@@ -158,105 +158,100 @@ export default function SharedSettings() {
       )}
 
       {/* Theme */}
-      <Section title="Theme" icon={theme === 'dark' ? Moon : Sun}>
-        <div className="flex bg-slate-800/50 dark:bg-slate-900 border border-border rounded-2xl w-fit p-1">
-          <button 
-            onClick={() => applyTheme('dark')} 
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'}`}
-          >
-            <Moon size={16} /> Dark
-          </button>
-          <button 
-            onClick={() => applyTheme('light')} 
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${theme === 'light' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'}`}
-          >
-            <Sun size={16} /> Light
-          </button>
-        </div>
-      </Section>
+      <div className="card">
+        <h4>Theme</h4>
+        <select
+          value={theme}
+          onChange={e => applyTheme(e.target.value)}
+          className="sp-input mt-2"
+        >
+          <option value="dark">🌙 Dark</option>
+          <option value="light">☀ Light</option>
+        </select>
+      </div>
 
       {/* Language */}
-      <Section title="Language" icon={Globe}>
+      <div className="card">
+        <h4>Language</h4>
         <select
           value={lang}
           onChange={e => applyLang(e.target.value)}
-          className="sp-input w-full"
+          className="sp-input mt-2"
         >
           <option value="en">English</option>
           <option value="hi">हिन्दी (Hindi)</option>
           <option value="mr">मराठी (Marathi)</option>
         </select>
-      </Section>
+      </div>
 
       {/* Change Password */}
-      <Section title="Change Password" icon={KeyRound}>
-        <div className="space-y-2">
-          <input
-            type="password"
-            placeholder="Old Password"
-            value={oldPwd}
-            onChange={e => setOldPwd(e.target.value)}
-            className="sp-input w-full"
-          />
-          <input
-            type="password"
-            placeholder="New Password"
-            value={newPwd}
-            onChange={e => setNewPwd(e.target.value)}
-            className="sp-input w-full"
-          />
-          <button
-            onClick={changePassword}
-            disabled={pwdLoading}
-            className="btn-primary flex items-center gap-2 text-sm mt-1"
-          >
-            {pwdLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-            Save New Password
-          </button>
-        </div>
-      </Section>
+      <div className="card">
+        <h4>Change Password</h4>
+        <input
+          type="password"
+          placeholder="Old Password"
+          value={oldPwd}
+          onChange={e => setOldPwd(e.target.value)}
+          className="sp-input block"
+          style={{ marginBottom: '10px', marginTop: '10px' }}
+        />
+        <input
+          type="password"
+          placeholder="New Password"
+          value={newPwd}
+          onChange={e => setNewPwd(e.target.value)}
+          className="sp-input block"
+          style={{ marginBottom: '10px' }}
+        />
+        <button
+          onClick={changePassword}
+          disabled={pwdLoading}
+          className="btn accent"
+        >
+          {pwdLoading ? 'Saving...' : 'Save New Password'}
+        </button>
+      </div>
 
       {/* Admin-only sections */}
       {userRole === 'admin' && (
-        <>
-          <Section title="Data Management" icon={Database}>
-            <p className="text-xs text-slate-500 mb-3">
-              Exports all data from all tables as a single JSON file.
-            </p>
-            <button
-              onClick={exportAll}
-              disabled={loading}
-              className="btn-primary flex items-center gap-2 text-sm"
-            >
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              Export All Data (JSON)
-            </button>
-          </Section>
+        <div id="adminSettings">
+          <div className="card">
+            <h4>Data Management</h4>
+            <div style={{ marginTop: '8px' }} className="flex">
+              <button
+                onClick={exportAll}
+                disabled={loading}
+                className="btn"
+              >
+                {loading ? 'Exporting...' : 'Export All Data (JSON)'}
+              </button>
+            </div>
+          </div>
 
-          <Section title="Danger Zone" icon={Trash2}>
-            <p className="text-xs text-slate-500 mb-3">
+          <div className="card">
+            <h4>Danger Zone</h4>
+            <div className="muted small">
               This will permanently delete all records from all tables. This cannot be undone.
-            </p>
-            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3">
-              <label className="text-[10px] font-black text-red-400 uppercase tracking-widest block">Enter Your Current Password to Unlock</label>
+            </div>
+            <div style={{ marginTop: '8px' }}>
               <input
                 type="password"
                 placeholder="Your current password"
                 value={dangerPwd}
                 onChange={e => setDangerPwd(e.target.value)}
-                className="sp-input w-full border-red-500/30 focus:border-red-500"
+                className="sp-input block"
+                style={{ marginBottom: '10px' }}
               />
               <button
                 onClick={resetAll}
                 disabled={!dangerPwd}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-bold rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn danger"
               >
-                <Trash2 size={14} />
                 Reset All Data
               </button>
             </div>
-          </Section>
-        </>
+          </div>
+        </div>
       )}
 
       {/* About This Application */}

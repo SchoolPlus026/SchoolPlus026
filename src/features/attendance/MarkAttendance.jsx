@@ -10,7 +10,6 @@ export default function MarkAttendance() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedClass, setSelectedClass] = useState('');
   const [targetRole, setTargetRole] = useState('student'); // 'student' or 'teacher'
-  const [viewMode, setViewMode] = useState('roster'); // 'roster' or 'self'
   
   const [attendanceEdits, setAttendanceEdits] = useState({});
 
@@ -22,9 +21,6 @@ export default function MarkAttendance() {
         if (data?.class) {
           setSelectedClass(data.class);
         }
-        // Teachers default to self-attendance view first? 
-        // Actually PDF shows they are separate modules usually, but we'll put them in one component with tabs.
-        setViewMode('self');
       }
     }
     fetchTeacherClass();
@@ -32,14 +28,10 @@ export default function MarkAttendance() {
 
   const classes = schoolSettings?.classes || [];
 
-  // 2. Fetch Targets (Students in class OR Self)
+  // 2. Fetch Targets (Students in class)
   const { data: targets, isLoading: targetsLoading } = useQuery({
-    queryKey: ['attendance-targets', targetRole, selectedClass, viewMode, user.id, schoolSettings?.school_id],
+    queryKey: ['attendance-targets', targetRole, selectedClass, schoolSettings?.school_id],
     queryFn: async () => {
-      if (viewMode === 'self') {
-        return [{ id: user.id, name: 'My Self', username: 'self' }];
-      }
-
       let query = supabase
         .from('users')
         .select('id, name, username')
@@ -54,12 +46,12 @@ export default function MarkAttendance() {
       if (error) throw error;
       return data;
     },
-    enabled: !!schoolSettings?.school_id && (viewMode === 'self' || targetRole === 'teacher' || !!selectedClass)
+    enabled: !!schoolSettings?.school_id && (targetRole === 'teacher' || targetRole === 'staff' || !!selectedClass)
   });
 
   // 3. Fetch Existing Attendance
   const { data: existingAttendance, isLoading: attendanceLoading } = useQuery({
-    queryKey: ['attendance', targetRole, selectedClass, viewMode, selectedDate, schoolSettings?.school_id],
+    queryKey: ['attendance', targetRole, selectedClass, selectedDate, schoolSettings?.school_id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('attendance')
@@ -121,7 +113,7 @@ export default function MarkAttendance() {
       school_id: schoolSettings.school_id,
       user_id: s.id,
       date: selectedDate,
-      role: viewMode === 'self' ? role : targetRole,
+      role: targetRole,
       status: currentStatusFor(s.id),
     }));
     saveMutation.mutate(payload);
