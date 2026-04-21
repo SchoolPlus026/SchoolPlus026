@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Settings, Moon, Sun, Globe, KeyRound, Database, Trash2, Loader2, Download, CheckCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 
 /* ─── helpers ─── */
 function toast(msg, setT) {
@@ -12,19 +12,7 @@ function toast(msg, setT) {
 const TABLES_EXPORT = ['users', 'notices', 'attendance', 'fees', 'fees_payments', 'leaves', 'gallery', 'timetable', 'calendar_events', 'notifications'];
 const TABLES_RESET = ['notifications', 'fees_payments', 'leaves', 'attendance', 'fees', 'timetable', 'calendar_events', 'gallery', 'notices', 'users'];
 
-function Section({ title, icon: Icon, children }) {
-  return (
-    <div className="card">
-      <div className="section-title mb-4">
-        <Icon className="text-accent" />
-        <h3>{title}</h3>
-      </div>
-      <div style={{ maxWidth: '400px' }}>
-        {children}
-      </div>
-    </div>
-  );
-}
+
 
 export default function SharedSettings() {
   const { user, role } = useAppStore();
@@ -142,11 +130,8 @@ export default function SharedSettings() {
   return (
     <div className="space-y-4 fade-in pb-10">
       {/* Header */}
-      <div className="sp-card">
-        <div className="flex items-center gap-3">
-          <Settings size={18} className="text-indigo-400" />
-          <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Settings</h3>
-        </div>
+      <div className="card">
+        <div className="section-title"><h3>Settings</h3></div>
       </div>
 
       {/* Toast */}
@@ -255,7 +240,7 @@ export default function SharedSettings() {
       )}
 
       {/* About This Application */}
-      <div className="sp-card mt-8">
+      <div className="card" style={{ marginTop: '8px' }}>
         <div className="flex items-center justify-between mb-4">
            <h4 className="text-xl font-bold text-slate-100">About This Application</h4>
            {(userRole === 'admin' || userRole === 'app_manager') && (
