@@ -147,7 +147,6 @@ export default function MarkAttendance() {
   const statuses = ['Present', 'Absent', 'Late', 'Half_day'];
 
   return (
-  return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="card">
         <div className="section-title"><h3>{role === 'teacher' ? 'Mark Class Attendance' : 'Attendance Manager'}</h3></div>
