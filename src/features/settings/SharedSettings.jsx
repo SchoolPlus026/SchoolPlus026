@@ -148,7 +148,7 @@ export default function SharedSettings() {
         <select
           value={theme}
           onChange={e => applyTheme(e.target.value)}
-          className="sp-input mt-2"
+          className="sp-input block w-full mt-2"
         >
           <option value="dark">🌙 Dark</option>
           <option value="light">☀ Light</option>
@@ -161,7 +161,7 @@ export default function SharedSettings() {
         <select
           value={lang}
           onChange={e => applyLang(e.target.value)}
-          className="sp-input mt-2"
+          className="sp-input block w-full mt-2"
         >
           <option value="en">English</option>
           <option value="hi">हिन्दी (Hindi)</option>
@@ -177,16 +177,14 @@ export default function SharedSettings() {
           placeholder="Old Password"
           value={oldPwd}
           onChange={e => setOldPwd(e.target.value)}
-          className="sp-input block"
-          style={{ marginBottom: '10px', marginTop: '10px' }}
+          className="sp-input block w-full mt-2 mb-2"
         />
         <input
           type="password"
           placeholder="New Password"
           value={newPwd}
           onChange={e => setNewPwd(e.target.value)}
-          className="sp-input block"
-          style={{ marginBottom: '10px' }}
+          className="sp-input block w-full mb-3"
         />
         <button
           onClick={changePassword}

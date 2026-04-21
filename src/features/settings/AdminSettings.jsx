@@ -363,7 +363,7 @@ export default function AdminSettings() {
           value={theme}
           onChange={e => applyTheme(e.target.value)}
           id="themeSelect"
-          style={{ marginTop: '8px' }}
+          className="sp-input block w-full mt-2"
         >
           <option value="light">{t.themeLight}</option>
           <option value="dark">{t.themeDark}</option>
@@ -377,7 +377,7 @@ export default function AdminSettings() {
           value={lang}
           onChange={e => applyLang(e.target.value)}
           id="langSelect"
-          style={{ marginTop: '8px' }}
+          className="sp-input block w-full mt-2"
         >
           <option value="en">English</option>
           <option value="hi">हिन्दी (Hindi)</option>
@@ -393,14 +393,14 @@ export default function AdminSettings() {
           placeholder={t.oldPassword}
           value={oldPwd}
           onChange={e => setOldPwd(e.target.value)}
-          style={{ marginBottom: '10px', marginTop: '10px', display: 'block' }}
+          className="sp-input block w-full mt-2 mb-2"
         />
         <input
           type="password"
           placeholder={t.newPassword}
           value={newPwd}
           onChange={e => setNewPwd(e.target.value)}
-          style={{ marginBottom: '10px', display: 'block' }}
+          className="sp-input block w-full mb-3"
         />
         <button
           className="btn accent"
