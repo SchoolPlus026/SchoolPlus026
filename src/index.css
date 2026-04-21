@@ -206,11 +206,12 @@
     border: 1px solid var(--border-color);
     border-radius: 10px;
     color: var(--text);
-    padding: 10px 14px;
+    padding: 8px 14px;
     width: 100%;
     font-family: inherit;
     font-size: 0.875rem;
     line-height: 1.5;
+    height: auto;
     min-height: 2.75rem;
     transition: border-color 0.15s, box-shadow 0.15s;
     outline: none;

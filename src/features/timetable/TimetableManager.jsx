@@ -127,7 +127,7 @@ export default function TimetableManager() {
         <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
            <div>
               <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Select Class</label>
-              <select required value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-text focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-sm">
+              <select required value={targetClass} onChange={e => setTargetClass(e.target.value)} className="sp-input appearance-none cursor-pointer">
                 <option value="">-- Choose a Class --</option>
                 {classes?.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -135,14 +135,14 @@ export default function TimetableManager() {
            
            <div>
               <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Day</label>
-              <select required value={day} onChange={e => setDay(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-text focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-sm">
+              <select required value={day} onChange={e => setDay(e.target.value)} className="sp-input appearance-none cursor-pointer">
                 {daysOfWeek.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
            </div>
            
            <div>
               <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Teacher</label>
-              <select required value={selectedTeacher} onChange={e => setSelectedTeacher(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-text focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-sm">
+              <select required value={selectedTeacher} onChange={e => setSelectedTeacher(e.target.value)} className="sp-input appearance-none cursor-pointer">
                 <option value="">-- Assign Teacher --</option>
                 {teachers?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
@@ -150,22 +150,22 @@ export default function TimetableManager() {
            
            <div>
               <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Subject</label>
-              <input required type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Science" className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-text focus:outline-none focus:border-primary shadow-sm" />
+              <input required type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Science" className="sp-input" />
            </div>
 
            <div className="flex gap-4">
               <div className="w-24">
                 <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Period #</label>
-                <input required type="number" min="1" value={periodOrder} onChange={e => setPeriodOrder(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-primary focus:outline-none focus:border-primary text-center font-bold shadow-sm" />
+                <input required type="number" min="1" value={periodOrder} onChange={e => setPeriodOrder(e.target.value)} className="sp-input text-center font-bold" />
               </div>
               <div className="flex-1 grid grid-cols-2 gap-2">
                 <div>
                    <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Start Time</label>
-                   <input required type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-primary shadow-sm" />
+                   <input required type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="sp-input" style={{ colorScheme: 'dark light' }} />
                 </div>
                 <div>
                    <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">End Time</label>
-                   <input required type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-primary shadow-sm" />
+                   <input required type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="sp-input" style={{ colorScheme: 'dark light' }} />
                 </div>
               </div>
            </div>

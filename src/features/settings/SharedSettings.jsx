@@ -157,14 +157,20 @@ export default function SharedSettings() {
 
       {/* Theme */}
       <Section title="Theme" icon={theme === 'dark' ? Moon : Sun}>
-        <select
-          value={theme}
-          onChange={e => applyTheme(e.target.value)}
-          className="sp-input w-full"
-        >
-          <option value="dark">🌙 Dark</option>
-          <option value="light">☀ Light</option>
-        </select>
+        <div className="flex bg-slate-800/50 dark:bg-slate-900 border border-border rounded-2xl w-fit p-1">
+          <button 
+            onClick={() => applyTheme('dark')} 
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'}`}
+          >
+            <Moon size={16} /> Dark
+          </button>
+          <button 
+            onClick={() => applyTheme('light')} 
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${theme === 'light' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'}`}
+          >
+            <Sun size={16} /> Light
+          </button>
+        </div>
       </Section>
 
       {/* Language */}

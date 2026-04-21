@@ -241,17 +241,6 @@ export default function AdminSettings() {
               </button>
             </form>
           </SectionCard>
-
-          {/* Credits */}
-          <SectionCard>
-            <div className="flex items-center gap-2 text-indigo-400 mb-4">
-              <Info size={16} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Architectural Credits</span>
-            </div>
-            <div className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] text-center">
-              Built by Shubham Arun Hajare — 9022761401
-            </div>
-          </SectionCard>
         </div>
 
         {/* ────── RIGHT COLUMN ────── */}

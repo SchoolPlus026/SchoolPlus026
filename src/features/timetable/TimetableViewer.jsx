@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Loader2, CalendarClock } from 'lucide-react';
+import { Loader2, CalendarClock, Pencil, X, Save } from 'lucide-react';
 
 export default function TimetableViewer({ adminPreviewClass }) {
   const { role, user, schoolSettings } = useAppStore();
@@ -13,7 +13,47 @@ export default function TimetableViewer({ adminPreviewClass }) {
   const isAdmin = role === 'admin';
 
   // For Class Timetable view
-  const [targetClass, setTargetClass] = React.useState(adminPreviewClass || '');
+  const [targetClass, setTargetClass] = useState(adminPreviewClass || '');
+  const queryClient = useQueryClient();
+
+  // In-line editing states
+  const [editingSlot, setEditingSlot] = useState(null);
+  const [editForm, setEditForm] = useState({ subject: '', teacher: '', start: '', end: '' });
+
+  const { data: allTeachers } = useQuery({
+     queryKey: ['available-teachers', schoolSettings?.school_id],
+     queryFn: async () => {
+        const { data } = await supabase.from('users').select('id, name').eq('role', 'teacher');
+        return data || [];
+     },
+     enabled: !!isAdmin && !!schoolSettings?.school_id
+  });
+
+  const updateSlotMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('timetable').update({
+        subject: editForm.subject,
+        teacher: editForm.teacher,
+        period_label: `${editForm.start} to ${editForm.end}`
+      }).eq('id', editingSlot.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ['timetable'] });
+       setEditingSlot(null);
+    }
+  });
+
+  const openEditor = (slot) => {
+    setEditingSlot(slot);
+    const times = slot.period_label ? slot.period_label.split(' to ') : [];
+    setEditForm({
+      subject: slot.subject || '',
+      teacher: slot.teacher || '',
+      start: times[0]?.trim() || '',
+      end: times[1]?.trim() || ''
+    });
+  };
 
   React.useEffect(() => {
      if (adminPreviewClass) setTargetClass(adminPreviewClass);
@@ -178,8 +218,13 @@ export default function TimetableViewer({ adminPreviewClass }) {
                            return (
                               <td key={order} className="px-3 py-3 border-r border-glass last:border-0 text-center align-top relative">
                                  {slot ? (
-                                    <div className={`h-full flex flex-col justify-center items-center bg-slate-900 rounded-xl p-3 border shadow-sm transition-all ${isToday ? 'border-primary/30' : 'border-glass hover:border-glass/80'} `}>
-                                       <div className={`text-[13px] font-black tracking-tight mb-1 ${isToday ? 'text-white' : 'text-slate-200'}`}>
+                                    <div className={`h-full group/card flex flex-col justify-center items-center bg-slate-900 rounded-xl p-3 border shadow-sm transition-all relative ${isToday ? 'border-primary/30' : 'border-glass hover:border-glass/80'} `}>
+                                       {isAdmin && (
+                                          <button onClick={() => openEditor(slot)} className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 opacity-0 group-hover/card:opacity-100 transition-all z-10">
+                                             <Pencil size={12} />
+                                          </button>
+                                       )}
+                                       <div className={`text-[13px] font-black tracking-tight mb-1 break-words text-center ${isToday ? 'text-white' : 'text-slate-200'}`}>
                                           {slot.subject}
                                        </div>
                                        <div className="text-[10px] font-mono font-bold text-slate-500 tracking-tighter mb-2">
@@ -190,7 +235,7 @@ export default function TimetableViewer({ adminPreviewClass }) {
                                             {slot.class}
                                           </div>
                                        ) : (
-                                          <div className="text-[10px] uppercase font-bold text-emerald-400 tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 truncate max-w-full">
+                                          <div className="text-[10px] uppercase font-bold text-emerald-400 tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 truncate max-w-[120px]">
                                             {slot.teacher_name}
                                           </div>
                                        )}
@@ -244,6 +289,48 @@ export default function TimetableViewer({ adminPreviewClass }) {
           </div>
          )})}
       </div>
+
+      {editingSlot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700/50 rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in duration-300">
+             <div className="flex justify-between items-center mb-5">
+                <h3 className="text-white font-bold tracking-tight">Edit Block <span className="text-primary italic">#{editingSlot.period_order}</span></h3>
+                <button onClick={() => setEditingSlot(null)} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><X size={16}/></button>
+             </div>
+             
+             <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 tracking-widest uppercase block mb-1">Subject</label>
+                  <input type="text" value={editForm.subject} onChange={e => setEditForm(f => ({ ...f, subject: e.target.value }))} className="sp-input" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 tracking-widest uppercase block mb-1">Teacher</label>
+                  <select value={editForm.teacher} onChange={e => setEditForm(f => ({ ...f, teacher: e.target.value }))} className="sp-input">
+                    <option value="">Unassigned</option>
+                    {allTeachers?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                     <label className="text-[10px] font-black text-slate-400 tracking-widest uppercase block mb-1">Start Time</label>
+                     <input type="time" value={editForm.start} onChange={e => setEditForm(f => ({ ...f, start: e.target.value }))} className="sp-input" style={{ colorScheme: 'dark light' }} />
+                  </div>
+                  <div>
+                     <label className="text-[10px] font-black text-slate-400 tracking-widest uppercase block mb-1">End Time</label>
+                     <input type="time" value={editForm.end} onChange={e => setEditForm(f => ({ ...f, end: e.target.value }))} className="sp-input" style={{ colorScheme: 'dark light' }} />
+                  </div>
+                </div>
+             </div>
+
+             <div className="flex gap-2 mt-6">
+                <button onClick={() => setEditingSlot(null)} className="px-4 py-2 text-sm font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all flex-1">Cancel</button>
+                <button onClick={() => updateSlotMutation.mutate()} disabled={updateSlotMutation.isPending} className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-all flex-1 shadow-lg disabled:opacity-50 flex justify-center items-center gap-2">
+                   {updateSlotMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

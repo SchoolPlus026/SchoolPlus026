@@ -90,28 +90,28 @@ export default function NoticeBoard() {
     <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-500">
       <div className="flex items-center gap-3 px-2 mb-2">
          <Megaphone className="text-primary" size={24} />
-         <h2 className="text-2xl font-bold text-white tracking-tight">Timeline Announcements</h2>
+         <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Timeline Announcements</h2>
       </div>
 
       {notices?.length === 0 ? (
-        <div className="bg-surface border border-glass rounded-2xl p-12 text-center shadow-xl">
-          <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-glass">
-             <Calendar size={32} className="text-slate-500" />
+        <div className="sp-card text-center py-12">
+          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-border">
+             <Calendar size={32} className="text-slate-400 dark:text-slate-500" />
           </div>
-          <h3 className="text-lg font-bold text-white tracking-tight">No active transmissions</h3>
-          <p className="text-slate-400 text-sm mt-1">Your timeline is currently fully clear.</p>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">No active transmissions</h3>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Your timeline is currently fully clear.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5">
           {notices.map((notice) => (
-             <div key={notice.id} className="relative overflow-hidden bg-surface/80 backdrop-blur-md rounded-2xl border border-glass shadow-lg hover:border-primary/30 transition-all group">
+             <div key={notice.id} className="sp-card relative overflow-hidden group hover:border-primary/50 transition-colors p-0 border">
                 {/* Visual Flair Base Line */}
                 <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-accent"></div>
                 
                 <div className="p-6 pl-8">
-                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 border-b border-glass pb-4">
+                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 border-b border-border pb-4">
                       <div>
-                        <h3 className="text-xl font-bold text-white tracking-tight leading-snug">{notice.title}</h3>
+                        <h3 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight leading-snug">{notice.title}</h3>
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-800/40 text-slate-300 border border-glass shadow-inner">
                              <Calendar size={12}/> {new Date(notice.date).toLocaleDateString('en-US', { 'month': 'short', 'day': 'numeric', 'year': 'numeric' })}
@@ -142,26 +142,26 @@ export default function NoticeBoard() {
                    </div>
                    
                    {editingId === notice.id ? (
-                     <div className="mt-4 bg-slate-900 p-4 rounded-xl border border-glass">
+                     <div className="mt-4 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-border">
                         <input 
                            type="text" 
                            value={editTitle} 
                            onChange={e => setEditTitle(e.target.value)} 
-                           className="w-full mb-3 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                           className="sp-input mb-3"
                         />
                         <textarea 
                            rows="4" 
                            value={editContent} 
                            onChange={e => setEditContent(e.target.value)} 
-                           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm mb-3 custom-scrollbar"
+                           className="sp-input mb-3 custom-scrollbar"
                         />
                         <div className="flex justify-end gap-2">
-                           <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white">Cancel</button>
+                           <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white">Cancel</button>
                            <button onClick={() => saveEditMutation.mutate({ id: notice.id, title: editTitle, content: editContent })} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Save</button>
                         </div>
                      </div>
                    ) : (
-                     <div className="text-slate-300 text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
+                     <div className="text-slate-700 dark:text-slate-300 text-[15px] leading-relaxed whitespace-pre-wrap font-medium flex-1">
                        {notice.content}
                      </div>
                    )}

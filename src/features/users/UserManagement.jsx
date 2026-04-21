@@ -7,9 +7,32 @@ import {
   CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo
 } from 'lucide-react';
 
+const EField = ({ label, field, type = 'text', options = null, editForm, setEditForm }) => (
+  <div>
+    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">{label}</label>
+    {options ? (
+      <select
+        value={editForm[field] || ''}
+        onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
+        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-300 leading-normal"
+      >
+        <option value="">{label}...</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    ) : (
+      <input
+        type={type}
+        value={editForm[field] || ''}
+        onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
+        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-300 leading-normal"
+      />
+    )}
+  </div>
+);
+
 export default function UserManagement() {
   const { schoolSettings } = useAppStore();
-  const [activeTab, setActiveTab] = useState('student');
+  const [activeTab, setActiveTab] = useState('teacher');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const queryClient = useQueryClient();
@@ -103,41 +126,17 @@ export default function UserManagement() {
     onError: (err) => alert('Error: ' + err.message),
   });
 
-  /* ── Helpers ── */
   const openEditPanel = (user) => {
     setEditingUser(user);
     setEditForm({ ...user });
   };
 
-  const EField = ({ label, field, type = 'text', options = null }) => (
-    <div>
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">{label}</label>
-      {options ? (
-        <select
-          value={editForm[field] || ''}
-          onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
-          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-300 leading-normal"
-        >
-          <option value="">{label}...</option>
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-      ) : (
-        <input
-          type={type}
-          value={editForm[field] || ''}
-          onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
-          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-300 leading-normal"
-        />
-      )}
-    </div>
-  );
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
 
       {/* Tab Switcher */}
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-200 shadow-inner">
-        {[['student', 'Students', Users], ['teacher', 'Teachers', BookOpen], ['staff', 'Staff', Users]].map(([tab, label, Icon]) => (
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-200 shadow-inner overflow-x-auto">
+        {[['teacher', 'Teachers', BookOpen], ['student', 'Students', Users], ['staff', 'Staff', Users]].map(([tab, label, Icon]) => (
           <button
             key={tab}
             onClick={() => { setActiveTab(tab); setSelectedClass(''); setEditingUser(null); }}
@@ -275,21 +274,21 @@ export default function UserManagement() {
             <div className="p-6 flex-1 overflow-y-auto space-y-4">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Edit Profile Information</p>
 
-              <EField label="Full Name" field="name" />
-              <EField label="Contact Phone" field="contact" />
-              <EField label="Date of Birth" field="dob" type="date" />
-              <EField label="Blood Group" field="blood_group" options={['A+','A-','B+','B-','O+','O-','AB+','AB-']} />
-              <EField label="Address" field="address" />
-              <EField label="Aadhar Card Number" field="aadhar_card" />
+              <EField label="Full Name" field="name" editForm={editForm} setEditForm={setEditForm} />
+              <EField label="Contact Phone" field="contact" editForm={editForm} setEditForm={setEditForm} />
+              <EField label="Date of Birth" field="dob" type="date" editForm={editForm} setEditForm={setEditForm} />
+              <EField label="Blood Group" field="blood_group" options={['A+','A-','B+','B-','O+','O-','AB+','AB-']} editForm={editForm} setEditForm={setEditForm} />
+              <EField label="Address" field="address" editForm={editForm} setEditForm={setEditForm} />
+              <EField label="Aadhar Card Number" field="aadhar_card" editForm={editForm} setEditForm={setEditForm} />
 
               {(activeTab === 'student' || activeTab === 'teacher') && (
-                <EField label="Class / Standard" field="class" options={classes} />
+                <EField label="Class / Standard" field="class" options={classes} editForm={editForm} setEditForm={setEditForm} />
               )}
               {(activeTab === 'teacher' || activeTab === 'staff') && (
-                <EField label="Qualification" field="qualification" />
+                <EField label="Qualification" field="qualification" editForm={editForm} setEditForm={setEditForm} />
               )}
               {activeTab === 'staff' && (
-                <EField label="Designation" field="designation" />
+                <EField label="Designation" field="designation" editForm={editForm} setEditForm={setEditForm} />
               )}
 
               {/* Read-only info */}
@@ -300,7 +299,7 @@ export default function UserManagement() {
             </div>
 
             {/* Save Button */}
-            <div className="p-6 border-t border-slate-100 flex-shrink-0 flex gap-3">
+            <div className="p-6 border-t border-slate-100 flex-shrink-0 flex gap-3 sticky bottom-0 bg-white z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
               <button
                 onClick={() => setEditingUser(null)}
                 className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors rounded-xl hover:bg-slate-50"
