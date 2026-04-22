@@ -5,6 +5,7 @@ import { supabase } from '../config/supabaseClient';
 import { LogOut, LayoutDashboard, Settings, ChevronLeft } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
+import GlobalBroadcastBanner from '../components/GlobalBroadcastBanner';
 
 export default function StudentLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -58,6 +59,9 @@ export default function StudentLayout() {
           </button>
         </div>
       </header>
+
+      {/* ── Global Broadcast Banner ── */}
+      <GlobalBroadcastBanner />
 
       <main className="flex-1 overflow-y-auto scroll-stable">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

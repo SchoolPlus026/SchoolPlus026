@@ -11,10 +11,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './layouts/AdminLayout';
 import TeacherLayout from './layouts/TeacherLayout';
 import StudentLayout from './layouts/StudentLayout';
-import AppManagerLayout from './layouts/AppManagerLayout';
+import PlatformAdminLayout from './layouts/PlatformAdminLayout';
 
-// App Manager
-import AppManagerDashboard from './features/super_admin/AppManagerDashboard';
+import PlatformAdminDashboard from './features/super_admin/PlatformAdminDashboard';
 
 // Dashboards
 import AdminDashboard from './features/dashboard/AdminDashboard';
@@ -78,9 +77,9 @@ export default function App() {
             return;
           }
 
-          // App Manager has no school — skip school settings lookup
-          if (profile.role === 'app_manager') {
-            setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'MANAGER' });
+          // Platform Admin has no school — skip school settings lookup
+          if (profile.role === 'platform_admin') {
+            setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
             setUserAndRole(session.user, profile.role);
           } else {
             const { data: settings } = await supabase
@@ -130,7 +129,7 @@ export default function App() {
   // Helper function for root redirects
   const getRoleRoute = (role) => {
     if (!role) return '/login';
-    if (role === 'app_manager') return '/app-manager';
+    if (role === 'platform_admin') return '/platform-admin';
     return `/${role}`;
   };
 
@@ -195,11 +194,11 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* ──────────────── APP MANAGER ──────────────── */}
-      <Route element={<ProtectedRoute allowedRoles={['app_manager']} />}>
-        <Route path="/app-manager" element={<AppManagerLayout />}>
+      {/* ──────────────── PLATFORM ADMIN ──────────────── */}
+      <Route element={<ProtectedRoute allowedRoles={['platform_admin']} />}>
+        <Route path="/platform-admin" element={<PlatformAdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<AppManagerDashboard />} />
+          <Route path="dashboard" element={<PlatformAdminDashboard />} />
         </Route>
       </Route>
 

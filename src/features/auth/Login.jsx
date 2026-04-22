@@ -13,10 +13,17 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const [globalApp, setGlobalApp] = useState({ name: 'SchoolOS+', logo: null });
   const { setUserAndRole, setSchoolSettings, schoolSettings } = useAppStore();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Fetch global branding
+    supabase.from('platform_settings').select('app_name, logo_url').single()
+      .then(({ data }) => {
+        if (data) setGlobalApp({ name: data.app_name || 'SchoolOS+', logo: data.logo_url });
+      }).catch(console.error);
+      
     if (schoolSettings?.school_id && step === 1) {
       setStep(2);
     }
@@ -24,8 +31,8 @@ export default function Login() {
 
   const handleIdentifySchool = async (e) => {
     e.preventDefault();
-    if (schoolCode.toUpperCase() === 'MANAGER') {
-       setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'MANAGER' });
+    if (schoolCode.toUpperCase() === 'PLATFORM') {
+       setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
        setStep(2);
        return;
     }
@@ -97,24 +104,24 @@ export default function Login() {
         throw new Error('Could not load your profile. Please contact your administrator.');
       }
 
-      // ── Step 4: School validation (skip for app_manager) ──
-      if (profile.role !== 'app_manager') {
+      // ── Step 4: School validation (skip for platform_admin) ──
+      if (profile.role !== 'platform_admin') {
         if (profile.school_id !== schoolSettings?.school_id) {
           await supabase.auth.signOut();
           throw new Error('This account does not belong to the selected school workspace.');
         }
       }
 
-      // ── Step 5: For app_manager, load school settings from their own record ──
-      if (profile.role === 'app_manager' && !schoolSettings) {
-        // App manager has no school; just set a placeholder so the store isn't null
-        setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'MANAGER' });
+      // ── Step 5: For platform_admin, load school settings from their own record ──
+      if (profile.role === 'platform_admin' && !schoolSettings) {
+        // Platform admin has no school; just set a placeholder so the store isn't null
+        setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
       }
 
       setUserAndRole(authData.user, profile.role);
 
-      if (profile.role === 'app_manager') {
-        navigate('/app-manager', { replace: true });
+      if (profile.role === 'platform_admin') {
+        navigate('/platform-admin', { replace: true });
       } else {
         navigate(`/${profile.role}`, { replace: true });
       }
@@ -137,12 +144,16 @@ export default function Login() {
 
       {/* App header branding */}
       <div className="mb-8 text-center relative z-10">
-        <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-2xl border border-white/10"
-          style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-          <SchoolIcon size={32} className="text-white" />
+        <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden"
+          style={{ background: globalApp.logo ? 'transparent' : 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+          {globalApp.logo ? (
+             <img src={globalApp.logo} alt="Global Logo" className="w-full h-full object-contain" />
+          ) : (
+             <SchoolIcon size={32} className="text-white" />
+          )}
         </div>
         <h1 className="text-2xl font-extrabold text-white tracking-tight">
-          {step === 2 && schoolSettings?.name ? schoolSettings.name : 'SchoolPro'}
+          {step === 2 && schoolSettings?.name ? schoolSettings.name : globalApp.name}
         </h1>
         <p className="text-slate-400 text-sm mt-1 font-medium">
           Digital School — Portal for Students, Teachers &amp; Admin

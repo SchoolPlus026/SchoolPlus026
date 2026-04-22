@@ -3,7 +3,7 @@ import { create } from 'zustand';
 export const useAppStore = create((set) => ({
   // Auth state
   user: null,
-  role: null, // 'admin', 'teacher', or 'student'
+  role: null, // 'admin', 'teacher', 'student', or 'platform_admin'
   
   // Tenant (School) state for dynamic branding and feature gating
   schoolSettings: null, 
