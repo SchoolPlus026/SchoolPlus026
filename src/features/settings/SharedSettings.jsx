@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import { 
+  Sun, Globe, Lock, Database, ShieldAlert, Info,
+  Upload, Save, Eye, EyeOff, Trash2
+} from 'lucide-react';
 
 /* ─── helpers ─── */
 function toast(msg, setT) {
@@ -61,6 +65,8 @@ export default function SharedSettings() {
   /* ── Change Password ── */
   const [oldPwd, setOldPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
+  const [showOldPwd, setShowOldPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
 
   const changePassword = async () => {
     if (!oldPwd || !newPwd) return toast('Please enter both old and new passwords.', setToastMsg);
@@ -109,71 +115,96 @@ export default function SharedSettings() {
 
   /* ─────────── RENDER ─────────── */
   return (
-    <div className="space-y-4 fade-in pb-12">
+    <div className="space-y-4 fade-in pb-12 max-w-2xl mx-auto">
 
       {/* Toast notification */}
       {toastMsg && (
         <div style={{
           position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 9999, background: 'var(--card)', border: '1px solid var(--border-color)',
+          zIndex: 9999, background: 'var(--card-bg)', border: '1px solid var(--card-border)',
           borderRadius: '12px', padding: '10px 20px', fontWeight: 600, fontSize: '14px',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.3)', color: 'var(--text)'
+          boxShadow: '0 8px 30px rgba(0,0,0,0.3)', color: 'var(--text-main)'
         }}>
           ✅ {toastMsg}
         </div>
       )}
 
-      {/* ── Settings Header ── */}
-      <div className="card">
-        <div className="section-title"><h3>Settings</h3></div>
+      {/* Page Header */}
+      <div className="section-title" style={{ padding: '0 8px', marginTop: '16px' }}>
+        <h3>Settings</h3>
       </div>
 
       {/* ── 1. THEME ── */}
-      <div className="card">
-        <h4>Theme</h4>
-        <select
-          value={theme}
-          onChange={e => applyTheme(e.target.value)}
-          className="sp-input block w-full mt-2"
-        >
-          <option value="light">☀ Light</option>
-          <option value="dark">🌙 Dark</option>
-        </select>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
+        <div className="icon-box"><Sun size={20} /></div>
+        <div className="text-content" style={{ flex: 1 }}>
+          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Theme</h4>
+          <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Choose your preferred appearance</p>
+        </div>
+        <div style={{ width: '130px' }}>
+          <select value={theme} onChange={e => applyTheme(e.target.value)} className="sp-input">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
       </div>
 
       {/* ── 2. LANGUAGE ── */}
-      <div className="card">
-        <h4>Language</h4>
-        <select
-          value={lang}
-          onChange={e => applyLang(e.target.value)}
-          className="sp-input block w-full mt-2"
-        >
-          <option value="en">English</option>
-          <option value="hi">हिन्दी (Hindi)</option>
-          <option value="mr">मराठी (Marathi)</option>
-        </select>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
+        <div className="icon-box"><Globe size={20} /></div>
+        <div className="text-content" style={{ flex: 1 }}>
+          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Language</h4>
+          <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Select your preferred language</p>
+        </div>
+        <div style={{ width: '130px' }}>
+          <select value={lang} onChange={e => applyLang(e.target.value)} className="sp-input">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी (Hindi)</option>
+            <option value="mr">मराठी (Marathi)</option>
+          </select>
+        </div>
       </div>
 
       {/* ── 3. CHANGE PASSWORD ── */}
       <div className="card">
-        <h4>Change Password</h4>
-        <input
-          type="password"
-          placeholder="Old Password"
-          value={oldPwd}
-          onChange={e => setOldPwd(e.target.value)}
-          className="sp-input block w-full mt-2 mb-2"
-        />
-        <input
-          type="password"
-          placeholder="New Password"
-          value={newPwd}
-          onChange={e => setNewPwd(e.target.value)}
-          className="sp-input block w-full mb-3"
-        />
-        <button onClick={changePassword} disabled={pwdLoading} className="btn accent">
-          {pwdLoading ? 'Saving…' : 'Save New Password'}
+        <div className="settings-header">
+          <div className="icon-box"><Lock size={20} /></div>
+          <div className="text-content">
+            <h4>Change Password</h4>
+            <p>Keep your account secure</p>
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', marginBottom: '12px' }}>
+          <input
+            type={showOldPwd ? "text" : "password"}
+            placeholder="Old Password"
+            value={oldPwd}
+            onChange={e => setOldPwd(e.target.value)}
+            className="sp-input block w-full"
+            style={{ paddingRight: '40px' }}
+          />
+          <button type="button" onClick={() => setShowOldPwd(!showOldPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+             {showOldPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+        
+        <div style={{ position: 'relative', marginBottom: '16px' }}>
+          <input
+            type={showNewPwd ? "text" : "password"}
+            placeholder="New Password"
+            value={newPwd}
+            onChange={e => setNewPwd(e.target.value)}
+            className="sp-input block w-full"
+            style={{ paddingRight: '40px' }}
+          />
+          <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+             {showNewPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+        
+        <button onClick={changePassword} disabled={pwdLoading} className="btn accent w-full">
+          <Lock size={16} /> {pwdLoading ? 'Saving…' : 'Save New Password'}
         </button>
       </div>
 
@@ -181,20 +212,26 @@ export default function SharedSettings() {
       {userRole === 'admin' && (
         <>
           <div className="card">
-            <h4>Data Management</h4>
-            <div className="muted small" style={{ marginBottom: '12px' }}>
-              Exports all data from all modules as a single JSON file.
+            <div className="settings-header">
+              <div className="icon-box"><Database size={20} /></div>
+              <div className="text-content">
+                <h4>Data Management</h4>
+                <p>Export all data from all modules as a single JSON file.</p>
+              </div>
             </div>
-            <button onClick={exportAll} disabled={loading} className="btn outline">
-              {loading ? 'Exporting…' : 'Export All Data (JSON)'}
+            <button onClick={exportAll} disabled={loading} className="btn outline w-full">
+              <Upload size={16} /> {loading ? 'Exporting…' : 'Export All Data (JSON)'}
             </button>
           </div>
 
           {/* ── 5. DANGER ZONE (admin only) ── */}
-          <div className="card" style={{ borderLeft: '3px solid #ef4444' }}>
-            <h4 style={{ color: '#ef4444' }}>Danger Zone</h4>
-            <div className="muted small" style={{ marginBottom: '12px' }}>
-              This will permanently delete all records from all tables. This cannot be undone.
+          <div className="card" style={{ backgroundColor: 'var(--danger-bg)', borderColor: 'var(--danger-border)' }}>
+            <div className="settings-header" style={{ marginBottom: '16px' }}>
+              <div className="icon-box danger"><ShieldAlert size={20} /></div>
+              <div className="text-content">
+                <h4 style={{ color: 'var(--danger)' }}>Danger Zone</h4>
+                <p style={{ color: 'var(--danger)' }}>This will permanently delete all records. This cannot be undone.</p>
+              </div>
             </div>
             <input
               type="password"
@@ -203,8 +240,8 @@ export default function SharedSettings() {
               onChange={e => setDangerPwd(e.target.value)}
               className="sp-input block w-full mb-3"
             />
-            <button onClick={resetAll} disabled={!dangerPwd} className="btn danger">
-              Reset All Data
+            <button onClick={resetAll} disabled={!dangerPwd} className="btn danger w-full">
+              <Trash2 size={16} /> Reset All Data
             </button>
           </div>
         </>
@@ -212,34 +249,40 @@ export default function SharedSettings() {
 
       {/* ── 6. ABOUT ── */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h4 style={{ margin: 0 }}>About This Application</h4>
+        <div className="settings-header" style={{ marginBottom: '16px' }}>
+          <div className="icon-box"><Info size={20} /></div>
+          <div className="text-content">
+            <h4>About This Application</h4>
+            <p>System information and credits</p>
+          </div>
           {(userRole === 'admin' || userRole === 'app_manager') && (
             !isEditingAbout
-              ? <button onClick={() => setIsEditingAbout(true)} className="btn outline" style={{ fontSize: '12px', padding: '4px 12px' }}>Edit</button>
+              ? <button onClick={() => setIsEditingAbout(true)} className="btn outline" style={{ width: 'auto', padding: '6px 12px' }}>Edit</button>
               : <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => { setIsEditingAbout(false); setNewAbout(aboutText); }} className="btn ghost" style={{ fontSize: '12px' }}>Cancel</button>
-                  <button onClick={saveAboutText} disabled={loading} className="btn accent" style={{ fontSize: '12px' }}>Save</button>
+                  <button onClick={() => { setIsEditingAbout(false); setNewAbout(aboutText); }} className="btn ghost" style={{ width: 'auto', padding: '6px 12px' }}>Cancel</button>
+                  <button onClick={saveAboutText} disabled={loading} className="btn accent" style={{ width: 'auto', padding: '6px 12px' }}>Save</button>
                 </div>
           )}
         </div>
 
-        {isEditingAbout ? (
-          <textarea
-            rows="8"
-            value={newAbout}
-            onChange={e => setNewAbout(e.target.value)}
-            className="sp-input"
-            style={{ width: '100%', resize: 'vertical' }}
-          />
-        ) : (
-          <div className="muted small" style={{ lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-            {aboutText || 'Loading…'}
-          </div>
-        )}
+        <div style={{ padding: '16px', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
+          {isEditingAbout ? (
+            <textarea
+              rows="5"
+              value={newAbout}
+              onChange={e => setNewAbout(e.target.value)}
+              className="sp-input"
+              style={{ width: '100%', resize: 'vertical' }}
+            />
+          ) : (
+            <div className="muted small" style={{ lineHeight: 1.8, whiteSpace: 'pre-wrap', color: 'var(--text-main)' }}>
+              {aboutText || 'Loading…'}
+            </div>
+          )}
+        </div>
 
-        <div style={{ marginTop: '16px', padding: '10px 14px', background: 'var(--glass)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-          <p className="muted small">
+        <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--icon-bg)', color: 'var(--icon-color)', borderRadius: '12px' }}>
+          <p className="muted small" style={{ margin: 0 }}>
             <strong>Backend:</strong> Supabase &nbsp;&bull;&nbsp;
             <strong>Frontend:</strong> React &nbsp;&bull;&nbsp;
             <strong>Hosting:</strong> Netlify

@@ -2,11 +2,13 @@ import React, { useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Loader2 } from 'lucide-react';
+import { 
+  Building, Sun, Globe, Lock, Database, ShieldAlert, 
+  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2
+} from 'lucide-react';
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
-   Only translates hardcoded UI labels — never DB content.
 ─────────────────────────── */
 const T = {
   en: {
@@ -21,8 +23,8 @@ const T = {
     saveName: 'Save School Name',
     saving: 'Saving…',
     theme: 'Theme',
-    themeDark: '🌙 Dark',
-    themeLight: '☀ Light',
+    themeDark: 'Dark',
+    themeLight: 'Light',
     language: 'Language',
     changePassword: 'Change Password',
     oldPassword: 'Old Password',
@@ -30,7 +32,7 @@ const T = {
     savePassword: 'Save New Password',
     savingPassword: 'Saving…',
     dataManagement: 'Data Management',
-    dataDesc: 'Exports all data from all modules as a single JSON file.',
+    dataDesc: 'Export all data from all modules as a single JSON file.',
     exportJson: 'Export All Data (JSON)',
     exporting: 'Exporting…',
     dangerZone: 'Danger Zone',
@@ -55,8 +57,8 @@ const T = {
     saveName: 'नाम सहेजें',
     saving: 'सहेज रहा है…',
     theme: 'थीम',
-    themeDark: '🌙 डार्क',
-    themeLight: '☀ लाइट',
+    themeDark: 'डार्क',
+    themeLight: 'लाइट',
     language: 'भाषा',
     changePassword: 'पासवर्ड बदलें',
     oldPassword: 'पुराना पासवर्ड',
@@ -89,8 +91,8 @@ const T = {
     saveName: 'नाव जतन करा',
     saving: 'जतन होत आहे…',
     theme: 'थीम',
-    themeDark: '🌙 डार्क',
-    themeLight: '☀ लाइट',
+    themeDark: 'डार्क',
+    themeLight: 'लाइट',
     language: 'भाषा',
     changePassword: 'पासवर्ड बदला',
     oldPassword: 'जुना पासवर्ड',
@@ -148,13 +150,9 @@ export default function AdminSettings() {
     if (!schoolName.trim()) return alert('School name cannot be empty.');
     setSavingName(true);
     try {
-      const { error } = await supabase
-        .from('school_settings')
-        .update({ name: schoolName.trim() })
-        .eq('school_id', schoolSettings.school_id);
+      const { error } = await supabase.from('school_settings').update({ name: schoolName.trim() }).eq('school_id', schoolSettings.school_id);
       if (error) throw error;
       setSchoolSettings({ ...schoolSettings, name: schoolName.trim() });
-      alert('School name saved!');
     } catch (err) {
       alert('Error: ' + err.message);
     } finally {
@@ -171,23 +169,17 @@ export default function AdminSettings() {
       const ext  = file.name.split('.').pop();
       const path = `logos/${schoolSettings.school_id}_logo.${ext}`;
 
-      const { error: uploadErr } = await supabase.storage
-        .from('school_assets')
-        .upload(path, file, { upsert: true, cacheControl: '0' });
+      const { error: uploadErr } = await supabase.storage.from('school_assets').upload(path, file, { upsert: true, cacheControl: '0' });
       if (uploadErr) throw uploadErr;
 
       const { data: urlData } = supabase.storage.from('school_assets').getPublicUrl(path);
       const freshUrl = `${urlData.publicUrl}?v=${Date.now()}`;
 
-      const { error: dbErr } = await supabase
-        .from('school_settings')
-        .update({ logo_url: freshUrl })
-        .eq('school_id', schoolSettings.school_id);
+      const { error: dbErr } = await supabase.from('school_settings').update({ logo_url: freshUrl }).eq('school_id', schoolSettings.school_id);
       if (dbErr) throw dbErr;
 
       setLogoUrl(freshUrl);
       setSchoolSettings({ ...schoolSettings, logo_url: freshUrl });
-      alert('Logo uploaded successfully! It will show in the header after refresh.');
     } catch (err) {
       alert('Upload failed: ' + err.message);
     } finally {
@@ -197,9 +189,11 @@ export default function AdminSettings() {
   };
 
   /* ── Password ── */
-  const [oldPwd, setOldPwd]   = useState('');
-  const [newPwd, setNewPwd]   = useState('');
+  const [oldPwd, setOldPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
   const [pwdLoading, setPwdLoading] = useState(false);
+  const [showOldPwd, setShowOldPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
 
   const handleChangePassword = async () => {
     if (!oldPwd || !newPwd) return alert('Please fill both password fields.');
@@ -269,178 +263,198 @@ export default function AdminSettings() {
 
   /* ──────── RENDER ──────── */
   return (
-    <div className="space-y-4 fade-in pb-12">
+    <div className="space-y-4 fade-in pb-12 max-w-2xl mx-auto">
 
-      {/* Page Header Card */}
-      <div className="card">
-        <div className="section-title"><h3>{t.settings}</h3></div>
+      {/* Page Header */}
+      <div className="section-title" style={{ padding: '0 8px', marginTop: '16px' }}>
+        <h3>{t.settings}</h3>
       </div>
 
       {/* ── 1. SCHOOL IDENTITY ── */}
       <div className="card">
-        <h4>{t.schoolIdentity}</h4>
+        <div className="settings-header">
+          <div className="icon-box"><Building size={20} /></div>
+          <div className="text-content">
+            <h4>{t.schoolIdentity}</h4>
+            <p>Manage your school's basic information</p>
+          </div>
+          <ChevronRight size={20} className="text-muted" />
+        </div>
 
-        <div style={{ marginTop: '14px' }}>
-          <label className="muted small block" style={{ marginBottom: '6px' }}>{t.schoolName}</label>
+        <div style={{ padding: '16px', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
+          <label className="muted small block" style={{ marginBottom: '8px', fontWeight: 600, color: 'var(--text-main)' }}>{t.schoolName}</label>
           <input
             type="text"
             value={schoolName}
             onChange={e => setSchoolName(e.target.value)}
             placeholder={t.schoolNamePlaceholder}
             className="sp-input block w-full"
-            style={{ marginBottom: '10px' }}
+            style={{ marginBottom: '12px' }}
           />
-          <button onClick={handleSaveSchoolName} disabled={savingName} className="btn accent">
-            {savingName ? t.saving : t.saveName}
+          <button onClick={handleSaveSchoolName} disabled={savingName} className="btn accent w-full">
+            <Save size={16} /> {savingName ? t.saving : t.saveName}
           </button>
         </div>
 
-        <hr style={{ borderColor: 'var(--border-color)', margin: '18px 0' }} />
-
-        {/* Logo Preview */}
-        <div style={{ marginBottom: '12px' }}>
-          {logoUrl ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
-              <img
-                src={logoUrl}
-                alt="School Logo"
-                style={{
-                  width: '72px', height: '72px', objectFit: 'contain',
-                  background: '#fff', borderRadius: '10px', padding: '6px',
-                  border: '1px solid var(--border-color)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-                }}
-              />
-              <span className="muted small">{t.currentLogo}</span>
+        <div style={{ padding: '16px', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--card-border)', marginTop: '16px' }}>
+          {/* Logo Preview */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="School Logo"
+                  style={{ width: '48px', height: '48px', objectFit: 'contain', background: '#fff', borderRadius: '12px', padding: '4px' }}
+                />
+              ) : (
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--input-bg)', display: 'grid', placeItems: 'center' }}>
+                   <ImageIcon size={20} color="var(--text-muted)" />
+                </div>
+              )}
+              <span style={{ fontWeight: 600, fontSize: '15px' }}>{t.currentLogo}</span>
             </div>
-          ) : (
-            <p className="muted small" style={{ marginBottom: '12px' }}>{t.noLogo}</p>
-          )}
-        </div>
+            <button className="btn success" style={{ width: 'auto', padding: '8px', borderRadius: '12px' }}>
+              <MoreHorizontal size={20} />
+            </button>
+          </div>
 
-        {/* Upload Button */}
-        <div style={{ position: 'relative', display: 'inline-block' }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleLogoUpload}
-            disabled={uploadingLogo}
-            style={{
-              position: 'absolute', inset: 0, width: '100%', height: '100%',
-              opacity: 0, cursor: uploadingLogo ? 'not-allowed' : 'pointer', zIndex: 1
-            }}
-          />
-          <button className="btn outline" disabled={uploadingLogo} style={{ pointerEvents: 'none' }}>
-            {uploadingLogo
-              ? <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Loader2 size={14} className="animate-spin" /> {t.uploading}
-                </span>
-              : t.uploadLogo
-            }
-          </button>
+          {/* Upload Button */}
+          <div style={{ position: 'relative' }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleLogoUpload}
+              disabled={uploadingLogo}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: uploadingLogo ? 'not-allowed' : 'pointer', zIndex: 1 }}
+            />
+            <button className="btn outline w-full" disabled={uploadingLogo} style={{ height: '64px', flexDirection: 'column', gap: '4px', pointerEvents: 'none' }}>
+              {uploadingLogo
+                ? <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Loader2 size={16} className="animate-spin" /> {t.uploading}</div>
+                : <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Upload size={16} /> {t.uploadLogo}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400 }}>JPG, PNG or SVG (Max. 2MB)</div>
+                  </>
+              }
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ── 2. THEME ── */}
-      <div className="card">
-        <h4>{t.theme}</h4>
-        <select
-          value={theme}
-          onChange={e => applyTheme(e.target.value)}
-          className="sp-input block w-full mt-2"
-        >
-          <option value="light">{t.themeLight}</option>
-          <option value="dark">{t.themeDark}</option>
-        </select>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
+        <div className="icon-box"><Sun size={20} /></div>
+        <div className="text-content" style={{ flex: 1 }}>
+          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>{t.theme}</h4>
+          <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Choose your preferred appearance</p>
+        </div>
+        <div style={{ width: '130px' }}>
+          <select value={theme} onChange={e => applyTheme(e.target.value)} className="sp-input">
+            <option value="light">{t.themeLight}</option>
+            <option value="dark">{t.themeDark}</option>
+          </select>
+        </div>
       </div>
 
       {/* ── 3. LANGUAGE ── */}
-      <div className="card">
-        <h4>{t.language}</h4>
-        <select
-          value={lang}
-          onChange={e => applyLang(e.target.value)}
-          className="sp-input block w-full mt-2"
-        >
-          <option value="en">English</option>
-          <option value="hi">हिन्दी (Hindi)</option>
-          <option value="mr">मराठी (Marathi)</option>
-        </select>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
+        <div className="icon-box"><Globe size={20} /></div>
+        <div className="text-content" style={{ flex: 1 }}>
+          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>{t.language}</h4>
+          <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Select your preferred language</p>
+        </div>
+        <div style={{ width: '130px' }}>
+          <select value={lang} onChange={e => applyLang(e.target.value)} className="sp-input">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी</option>
+            <option value="mr">मराठी</option>
+          </select>
+        </div>
       </div>
 
       {/* ── 4. CHANGE PASSWORD ── */}
       <div className="card">
-        <h4>{t.changePassword}</h4>
-        <input
-          type="password"
-          placeholder={t.oldPassword}
-          value={oldPwd}
-          onChange={e => setOldPwd(e.target.value)}
-          className="sp-input block w-full mt-3 mb-2"
-        />
-        <input
-          type="password"
-          placeholder={t.newPassword}
-          value={newPwd}
-          onChange={e => setNewPwd(e.target.value)}
-          className="sp-input block w-full mb-3"
-        />
-        <button onClick={handleChangePassword} disabled={pwdLoading} className="btn accent">
-          {pwdLoading ? t.savingPassword : t.savePassword}
+        <div className="settings-header">
+          <div className="icon-box"><Lock size={20} /></div>
+          <div className="text-content">
+            <h4>{t.changePassword}</h4>
+            <p>Keep your account secure</p>
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', marginBottom: '12px' }}>
+          <input
+            type={showOldPwd ? "text" : "password"}
+            placeholder={t.oldPassword}
+            value={oldPwd}
+            onChange={e => setOldPwd(e.target.value)}
+            className="sp-input block w-full"
+            style={{ paddingRight: '40px' }}
+          />
+          <button type="button" onClick={() => setShowOldPwd(!showOldPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+             {showOldPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+        
+        <div style={{ position: 'relative', marginBottom: '16px' }}>
+          <input
+            type={showNewPwd ? "text" : "password"}
+            placeholder={t.newPassword}
+            value={newPwd}
+            onChange={e => setNewPwd(e.target.value)}
+            className="sp-input block w-full"
+            style={{ paddingRight: '40px' }}
+          />
+          <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+             {showNewPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+        
+        <button onClick={handleChangePassword} disabled={pwdLoading} className="btn accent w-full">
+          <Lock size={16} /> {pwdLoading ? t.savingPassword : t.savePassword}
         </button>
       </div>
 
       {/* ── 5. DATA MANAGEMENT ── */}
       <div className="card">
-        <h4>{t.dataManagement}</h4>
-        <div className="muted small" style={{ marginBottom: '12px' }}>{t.dataDesc}</div>
-        <button onClick={handleExport} disabled={exporting} className="btn outline">
-          {exporting ? t.exporting : t.exportJson}
+        <div className="settings-header">
+          <div className="icon-box"><Database size={20} /></div>
+          <div className="text-content">
+            <h4>{t.dataManagement}</h4>
+            <p>{t.dataDesc}</p>
+          </div>
+        </div>
+        <button onClick={handleExport} disabled={exporting} className="btn outline w-full">
+          <Upload size={16} /> {exporting ? t.exporting : t.exportJson}
         </button>
       </div>
 
       {/* ── 6. DANGER ZONE ── */}
-      <div className="card" style={{ borderLeft: '3px solid #ef4444' }}>
-        <h4 style={{ color: '#ef4444' }}>{t.dangerZone}</h4>
-        <div className="muted small" style={{ marginBottom: '14px' }}>{t.dangerDesc}</div>
-        <button className="btn danger" onClick={() => setShowResetModal(true)}>
-          {t.resetAll}
+      <div className="card" style={{ backgroundColor: 'var(--danger-bg)', borderColor: 'var(--danger-border)' }}>
+        <div className="settings-header" style={{ marginBottom: '16px' }}>
+          <div className="icon-box danger"><ShieldAlert size={20} /></div>
+          <div className="text-content">
+            <h4 style={{ color: 'var(--danger)' }}>{t.dangerZone}</h4>
+            <p style={{ color: 'var(--danger)' }}>{t.dangerDesc}</p>
+          </div>
+        </div>
+        <button className="btn danger w-full" onClick={() => setShowResetModal(true)}>
+          <Trash2 size={16} /> {t.resetAll}
         </button>
       </div>
 
       {/* ── RESET MODAL ── */}
       {showResetModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.75)', padding: '16px'
-        }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
           <div className="card" style={{ width: '100%', maxWidth: '420px', borderLeft: '4px solid #ef4444' }}>
             <h3 style={{ marginBottom: '8px' }}>{t.confirmTitle}</h3>
             <p className="muted small" style={{ marginBottom: '18px' }}>{t.confirmDesc}</p>
             <form onSubmit={handleReset}>
               <label className="muted small block" style={{ marginBottom: '6px' }}>{t.confirmPwdLabel}</label>
-              <input
-                type="password"
-                required
-                autoFocus
-                value={confirmPwd}
-                onChange={e => setConfirmPwd(e.target.value)}
-                placeholder="••••••••"
-                className="sp-input block w-full mb-4"
-              />
+              <input type="password" required autoFocus value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} placeholder="••••••••" className="sp-input block w-full mb-4" />
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  type="button"
-                  className="btn outline"
-                  style={{ flex: 1 }}
-                  onClick={() => { setShowResetModal(false); setConfirmPwd(''); }}
-                >
-                  {t.abort}
-                </button>
-                <button type="submit" disabled={resetting} className="btn danger" style={{ flex: 2 }}>
-                  {resetting ? t.purging : t.confirmPurge}
-                </button>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setShowResetModal(false); setConfirmPwd(''); }}>{t.abort}</button>
+                <button type="submit" disabled={resetting} className="btn danger" style={{ flex: 2 }}>{resetting ? t.purging : t.confirmPurge}</button>
               </div>
             </form>
           </div>
