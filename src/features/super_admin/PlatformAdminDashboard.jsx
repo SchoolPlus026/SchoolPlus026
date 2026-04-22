@@ -14,6 +14,8 @@ export default function PlatformAdminDashboard() {
   // Platform Settings State
   const [platformName, setPlatformName] = useState('');
   const [platformLogo, setPlatformLogo] = useState('');
+  const [termsConditions, setTermsConditions] = useState('');
+  const [aboutApp, setAboutApp] = useState('');
   const [savingPlatform, setSavingPlatform] = useState(false);
 
   // Broadcast State
@@ -21,10 +23,13 @@ export default function PlatformAdminDashboard() {
   const [bTargetRole, setBTargetRole] = useState('all');
   const [bStyle, setBStyle] = useState('info');
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
+  const [broadcasts, setBroadcasts] = useState([]);
+  const [loadingBroadcasts, setLoadingBroadcasts] = useState(false);
 
   useEffect(() => {
     fetchSchools();
     fetchPlatformSettings();
+    fetchAnnouncements();
   }, []);
 
   const fetchSchools = async () => {
@@ -44,14 +49,32 @@ export default function PlatformAdminDashboard() {
     if (data) {
       setPlatformName(data.app_name || '');
       setPlatformLogo(data.logo_url || '');
+      setTermsConditions(data.terms_conditions || '');
+      setAboutApp(data.about_app || '');
     }
+  };
+
+  const fetchAnnouncements = async () => {
+    setLoadingBroadcasts(true);
+    const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+    if (!error && data) setBroadcasts(data);
+    setLoadingBroadcasts(false);
+  };
+
+  const deleteAnnouncement = async (id) => {
+    if (!window.confirm('Delete this announcement?')) return;
+    const { error } = await supabase.from('announcements').delete().eq('id', id);
+    if (error) alert('Error: ' + error.message);
+    else fetchAnnouncements();
   };
 
   const handleSavePlatform = async () => {
     setSavingPlatform(true);
     const { error } = await supabase.from('platform_settings').update({ 
       app_name: platformName,
-      logo_url: platformLogo 
+      logo_url: platformLogo,
+      terms_conditions: termsConditions,
+      about_app: aboutApp
     }).neq('id', '00000000-0000-0000-0000-000000000000'); // Update all (there's only 1 row)
     
     setSavingPlatform(false);
@@ -71,13 +94,14 @@ export default function PlatformAdminDashboard() {
       type_style: bStyle
     }]);
 
-    setSendingBroadcast(false);
     if (error) {
       alert('Error: ' + error.message);
     } else {
       alert('Broadcast sent successfully!');
       setBMessage('');
+      fetchAnnouncements();
     }
+    setSendingBroadcast(false);
   };
 
   return (
@@ -221,6 +245,49 @@ export default function PlatformAdminDashboard() {
               <Send size={16} /> {sendingBroadcast ? 'Sending...' : 'Send Broadcast'}
             </button>
           </form>
+
+          {/* Broadcast History */}
+          <div className="mt-10 pt-8 border-t border-slate-700/50">
+            <h5 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4">Broadcast History</h5>
+            <div className="table-responsive border border-slate-700/50 rounded-xl overflow-hidden">
+              <table className="legacy-table">
+                <thead>
+                  <tr className="bg-slate-800/50">
+                    <th>Date</th>
+                    <th>Message</th>
+                    <th>Role</th>
+                    <th>Style</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingBroadcasts ? (
+                    <tr><td colSpan="5" className="text-center py-4 text-muted">Loading history...</td></tr>
+                  ) : broadcasts.length === 0 ? (
+                    <tr><td colSpan="5" className="text-center py-4 text-muted">No past broadcasts.</td></tr>
+                  ) : (
+                    broadcasts.map(b => (
+                      <tr key={b.id}>
+                        <td className="text-[10px] text-slate-500">{new Date(b.created_at).toLocaleDateString()}</td>
+                        <td className="text-xs max-w-xs truncate">{b.message}</td>
+                        <td><span className="badge">{b.target_role}</span></td>
+                        <td>
+                          <span className={`badge ${b.type_style === 'warning' ? 'badge-danger' : b.type_style === 'success' ? 'badge-success' : 'badge-info'}`}>
+                            {b.type_style}
+                          </span>
+                        </td>
+                        <td>
+                          <button className="text-red-400 hover:text-red-300 transition-colors" onClick={() => deleteAnnouncement(b.id)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -248,28 +315,28 @@ export default function PlatformAdminDashboard() {
             </div>
 
             <div>
-              <label className="muted small block mb-2 font-semibold">Global Logo URL (Optional)</label>
-              <div className="flex gap-4 items-center">
-                <input 
-                  type="text" 
-                  className="sp-input flex-1" 
-                  value={platformLogo} 
-                  onChange={e => setPlatformLogo(e.target.value)} 
-                  placeholder="https://example.com/logo.png"
-                />
-                {platformLogo ? (
-                  <div className="w-12 h-12 rounded bg-white p-1 border border-slate-700 flex-shrink-0">
-                    <img src={platformLogo} alt="Logo" className="w-full h-full object-contain" />
-                  </div>
-                ) : (
-                  <div className="w-12 h-12 rounded bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-700 flex-shrink-0">
-                    <ImageIcon size={20} />
-                  </div>
-                )}
-              </div>
+              <label className="muted small block mb-2 font-semibold">Terms & Conditions</label>
+              <textarea 
+                rows={4}
+                className="sp-input"
+                placeholder="Platform usage terms..."
+                value={termsConditions}
+                onChange={e => setTermsConditions(e.target.value)}
+              />
             </div>
 
-            <button onClick={handleSavePlatform} disabled={savingPlatform} className="btn accent w-full">
+            <div>
+              <label className="muted small block mb-2 font-semibold">About This App</label>
+              <textarea 
+                rows={4}
+                className="sp-input"
+                placeholder="Description shown on login/about page..."
+                value={aboutApp}
+                onChange={e => setAboutApp(e.target.value)}
+              />
+            </div>
+
+            <button onClick={handleSavePlatform} disabled={savingPlatform} className="btn accent w-full mt-4">
               <Save size={16} /> {savingPlatform ? 'Saving...' : 'Save Settings'}
             </button>
           </div>
