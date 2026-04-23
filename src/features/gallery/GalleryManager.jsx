@@ -11,8 +11,10 @@ export default function GalleryManager() {
 
   // Form states
   const [title, setTitle] = useState('');
-  const [link, setLink] = useState('');
+  const [link, setLink] = useState(''); // For direct URL fallback
   const [category, setCategory] = useState('Events');
+  const [file, setFile] = useState(null);
+  const [uploadingGdrive, setUploadingGdrive] = useState(false);
 
   const { data: media, isLoading } = useQuery({
     queryKey: ['gallery', schoolSettings?.school_id],
@@ -37,6 +39,7 @@ export default function GalleryManager() {
       setAddModalOpen(false);
       setTitle('');
       setLink('');
+      setFile(null);
       setCategory('Events');
     }
   });
@@ -51,12 +54,49 @@ export default function GalleryManager() {
     }
   });
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
+    let finalLink = link;
+
+    if (file && schoolSettings?.gdrive_config) {
+      setUploadingGdrive(true);
+      try {
+        // Read file as base64
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = error => reject(error);
+        });
+        reader.readAsDataURL(file);
+        const fileBase64 = await base64Promise;
+
+        const { data, error } = await supabase.functions.invoke('gdrive-upload', {
+          body: {
+            fileName: file.name,
+            mimeType: file.type,
+            fileBase64
+          }
+        });
+
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
+
+        finalLink = data.link;
+      } catch (err) {
+        alert('Google Drive upload failed: ' + err.message);
+        setUploadingGdrive(false);
+        return;
+      }
+      setUploadingGdrive(false);
+    } else if (!finalLink) {
+       alert('Please provide a direct URL or connect Google Drive to upload files.');
+       return;
+    }
+
     addMutation.mutate({
       school_id: schoolSettings.school_id,
       title,
-      link,
+      link: finalLink,
       category
     });
   };
@@ -156,17 +196,39 @@ export default function GalleryManager() {
                   <option value="Awards">Awards & Honors</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-text mb-1.5">Direct Image URL or YouTube Link</label>
-                <input required value={link} onChange={e => setLink(e.target.value)} type="url" className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm font-mono text-sm" placeholder="https://..." />
-              </div>
+              {schoolSettings?.gdrive_config ? (
+                <div>
+                  <label className="block text-sm font-semibold text-text mb-1.5">Upload Photo/Video to Google Drive</label>
+                  <input 
+                    type="file" 
+                    accept="image/*,video/*"
+                    onChange={e => setFile(e.target.files[0])} 
+                    className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm text-sm" 
+                  />
+                  <p className="text-xs text-muted mt-2 text-green-600 font-semibold">Google Drive connected. File will be uploaded securely.</p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-semibold text-text mb-1.5">Direct Image URL or YouTube Link</label>
+                  <input 
+                    required 
+                    value={link} 
+                    onChange={e => setLink(e.target.value)} 
+                    type="url" 
+                    className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm font-mono text-sm" 
+                    placeholder="https://..." 
+                  />
+                  <p className="text-xs text-muted mt-2">To upload files directly, ask Platform Admin to connect Google Drive.</p>
+                </div>
+              )}
+              
               <button 
                 type="submit" 
-                disabled={addMutation.isPending}
+                disabled={addMutation.isPending || uploadingGdrive}
                 className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
               >
-                {addMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-                Add Media Row
+                {(addMutation.isPending || uploadingGdrive) ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                {(addMutation.isPending || uploadingGdrive) ? 'Uploading...' : 'Add Media'}
               </button>
             </form>
           </div>

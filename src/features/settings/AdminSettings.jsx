@@ -4,8 +4,9 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { 
   Building, Sun, Globe, Lock, Database, ShieldAlert, 
-  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2
+  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
@@ -121,6 +122,77 @@ export default function AdminSettings() {
   const { user, schoolSettings, setSchoolSettings } = useAppStore();
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  /* ── Google Drive State ── */
+  const [connectingDrive, setConnectingDrive] = useState(false);
+  const [disconnectingDrive, setDisconnectingDrive] = useState(false);
+
+  React.useEffect(() => {
+    const code = searchParams.get('code');
+    if (code && !connectingDrive) {
+      handleDriveCallback(code);
+    }
+  }, [searchParams]);
+
+  const handleConnectDrive = () => {
+    // We redirect to Google's OAuth consent screen
+    // Note: The Client ID and Redirect URI must match the Google Cloud Console
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = window.location.origin + window.location.pathname; // Should be /admin/settings
+    
+    if (!clientId) {
+      return alert('Google Client ID is missing in environment variables.');
+    }
+    
+    const scope = 'https://www.googleapis.com/auth/drive.file';
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+    
+    window.location.href = authUrl;
+  };
+
+  const handleDriveCallback = async (code) => {
+    setConnectingDrive(true);
+    // Clear code from URL
+    searchParams.delete('code');
+    setSearchParams(searchParams, { replace: true });
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('gdrive-auth', {
+        body: { code, school_id: schoolSettings.school_id }
+      });
+      
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      
+      alert('Google Drive connected successfully!');
+      
+      // Update local state
+      const { data: newSettings } = await supabase.from('school_settings').select('*').eq('school_id', schoolSettings.school_id).single();
+      setSchoolSettings(newSettings);
+    } catch (err) {
+      alert('Error connecting drive: ' + err.message);
+    } finally {
+      setConnectingDrive(false);
+    }
+  };
+
+  const handleDisconnectDrive = async () => {
+    if (!window.confirm('Are you sure you want to disconnect Google Drive? New gallery images will fall back to Supabase Storage or external links.')) return;
+    setDisconnectingDrive(true);
+    try {
+      const { error } = await supabase.from('school_settings').update({ gdrive_config: null }).eq('school_id', schoolSettings.school_id);
+      if (error) throw error;
+      
+      const { data: newSettings } = await supabase.from('school_settings').select('*').eq('school_id', schoolSettings.school_id).single();
+      setSchoolSettings(newSettings);
+      alert('Google Drive disconnected.');
+    } catch (err) {
+      alert('Error disconnecting: ' + err.message);
+    } finally {
+      setDisconnectingDrive(false);
+    }
+  };
 
   /* ── Language ── */
   const [lang, setLang] = useState(localStorage.getItem('sp_lang') || 'en');
@@ -427,6 +499,43 @@ export default function AdminSettings() {
         <button onClick={handleExport} disabled={exporting} className="btn outline w-full">
           <Upload size={16} /> {exporting ? t.exporting : t.exportJson}
         </button>
+      </div>
+
+      {/* ── 5.5 GOOGLE DRIVE STORAGE ── */}
+      <div className="card">
+        <div className="settings-header">
+          <div className="icon-box"><HardDrive size={20} /></div>
+          <div className="text-content">
+            <h4>Google Drive Storage</h4>
+            <p>Connect Google Drive for zero-cost gallery storage.</p>
+          </div>
+        </div>
+        
+        {schoolSettings?.gdrive_config ? (
+           <div className="mt-4 p-4 border border-green-500/30 bg-green-500/10 rounded-xl flex items-center justify-between">
+             <div className="text-sm">
+               <div className="font-bold text-green-600">Connected</div>
+               <div className="text-slate-500 text-[10px] mt-1">Folder ID: {schoolSettings.gdrive_config.folder_id}</div>
+             </div>
+             <button 
+               onClick={handleDisconnectDrive} 
+               disabled={disconnectingDrive}
+               className="btn danger"
+               style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }}
+             >
+               {disconnectingDrive ? 'Disconnecting...' : 'Disconnect'}
+             </button>
+           </div>
+        ) : (
+           <button 
+             onClick={handleConnectDrive} 
+             disabled={connectingDrive} 
+             className="btn outline w-full mt-4 flex justify-center items-center gap-2"
+           >
+             {connectingDrive ? <Loader2 size={16} className="animate-spin" /> : <HardDrive size={16} />} 
+             {connectingDrive ? 'Connecting...' : 'Connect School Google Drive'}
+           </button>
+        )}
       </div>
 
       {/* ── 6. DANGER ZONE ── */}
