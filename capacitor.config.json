@@ -1,6 +1,6 @@
 {
   "appId": "com.schoolsaas.app",
-  "appName": "School SaaS App",
+  "appName": "SchoolOS+",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "plugins": {

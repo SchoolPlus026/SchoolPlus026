@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon } from 'lucide-react';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield } from 'lucide-react';
+
+import { useNavigate } from 'react-router-dom';
 
 export default function PlatformAdminDashboard() {
-  const { user } = useAppStore();
+  const { user, setImpersonation } = useAppStore();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('schools');
   
   // Schools State
@@ -26,11 +29,41 @@ export default function PlatformAdminDashboard() {
   const [broadcasts, setBroadcasts] = useState([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(false);
 
+  // Support Tickets State
+  const [tickets, setTickets] = useState([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+
+  // Analytics State
+  const [analytics, setAnalytics] = useState(null);
+  
+  // Audit Logs State
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
   useEffect(() => {
     fetchSchools();
     fetchPlatformSettings();
     fetchAnnouncements();
+    fetchTickets();
+    fetchAnalytics();
+    fetchAuditLogs();
   }, []);
+
+  const fetchAnalytics = async () => {
+    const { data, error } = await supabase.rpc('get_platform_analytics');
+    if (!error && data) setAnalytics(data);
+  };
+
+  const fetchAuditLogs = async () => {
+    setLoadingAudit(true);
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`*, users(email), school_settings(name)`)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (!error && data) setAuditLogs(data);
+    setLoadingAudit(false);
+  };
 
   const fetchSchools = async () => {
     setLoadingSchools(true);
@@ -59,6 +92,22 @@ export default function PlatformAdminDashboard() {
     const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
     if (!error && data) setBroadcasts(data);
     setLoadingBroadcasts(false);
+  };
+
+  const fetchTickets = async () => {
+    setLoadingTickets(true);
+    const { data, error } = await supabase.from('support_tickets').select(`*, school_settings(name)`).order('created_at', { ascending: false });
+    if (!error && data) setTickets(data);
+    setLoadingTickets(false);
+  };
+
+  const handleUpdateTier = async (schoolId, newTier) => {
+    const { error } = await supabase.from('school_settings').update({ subscription_tier: newTier }).eq('school_id', schoolId);
+    if (error) {
+      alert('Error updating tier: ' + error.message);
+    } else {
+      fetchSchools();
+    }
   };
 
   const deleteAnnouncement = async (id) => {
@@ -138,10 +187,44 @@ export default function PlatformAdminDashboard() {
 
       {/* Tabs */}
       <div className="tabs">
+        <div className={`tab ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>Analytics</div>
         <div className={`tab ${activeTab === 'schools' ? 'active' : ''}`} onClick={() => setActiveTab('schools')}>Tenant Schools</div>
         <div className={`tab ${activeTab === 'broadcast' ? 'active' : ''}`} onClick={() => setActiveTab('broadcast')}>Broadcast Center</div>
+        <div className={`tab ${activeTab === 'tickets' ? 'active' : ''}`} onClick={() => setActiveTab('tickets')}>Support Tickets</div>
+        <div className={`tab ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>Audit Logs</div>
         <div className={`tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Platform Settings</div>
       </div>
+
+      {/* ── SECTION 0: ANALYTICS ── */}
+      {activeTab === 'analytics' && (
+        <div className="card fade-in">
+          <div className="settings-header">
+            <div className="icon-box"><Activity size={20} /></div>
+            <div className="text-content">
+              <h4>Platform Analytics</h4>
+              <p>Real-time overview of your SaaS growth</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            <div className="p-6 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex flex-col items-center justify-center text-center hover:shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-shadow">
+              <div className="text-3xl font-black text-indigo-400 mb-1">{analytics?.total_schools || 0}</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-indigo-300">Total Schools</div>
+            </div>
+            <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center justify-center text-center hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-shadow">
+              <div className="text-3xl font-black text-emerald-400 mb-1">{analytics?.premium_schools || 0}</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-emerald-300">Premium Schools</div>
+            </div>
+            <div className="p-6 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex flex-col items-center justify-center text-center hover:shadow-[0_0_20px_rgba(59,130,246,0.2)] transition-shadow">
+              <div className="text-3xl font-black text-blue-400 mb-1">{analytics?.total_students || 0}</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-blue-300">Total Students</div>
+            </div>
+            <div className="p-6 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex flex-col items-center justify-center text-center hover:shadow-[0_0_20px_rgba(168,85,247,0.2)] transition-shadow">
+              <div className="text-3xl font-black text-purple-400 mb-1">{analytics?.total_teachers || 0}</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-purple-300">Total Teachers</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── SECTION 1: TENANT SCHOOLS ── */}
       {activeTab === 'schools' && (
@@ -176,15 +259,28 @@ export default function PlatformAdminDashboard() {
                       <td className="font-mono text-xs">{s.school_code}</td>
                       <td className="font-semibold">{s.name}</td>
                       <td>
-                        <span className={`badge ${s.subscription_status === 'Premium' ? 'badge-success' : 'badge-warn'}`}>
-                          {s.subscription_status || 'Trial'}
-                        </span>
+                        <select 
+                          value={s.subscription_tier || 'Free'} 
+                          onChange={(e) => handleUpdateTier(s.school_id, e.target.value)}
+                          className={`sp-input text-xs py-1 px-2 h-auto ${s.subscription_tier === 'Premium' ? 'text-green-400 border-green-500/30' : 'text-slate-400 border-slate-500/30'}`}
+                          style={{ width: '100px' }}
+                        >
+                          <option value="Free">Free</option>
+                          <option value="Premium">Premium</option>
+                        </select>
                       </td>
                       <td>
                         <span className="text-success text-xs font-bold uppercase">Active</span>
                       </td>
                       <td>
-                        <button className="btn outline" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} onClick={() => alert('Impersonation logic will be wired here!')}>
+                        <button 
+                          className="btn outline" 
+                          style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} 
+                          onClick={() => {
+                            setImpersonation(s);
+                            navigate('/admin/dashboard');
+                          }}
+                        >
                           Impersonate
                         </button>
                       </td>
@@ -291,7 +387,112 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* ── SECTION 3: PLATFORM SETTINGS ── */}
+      {/* ── SECTION 3: SUPPORT TICKETS ── */}
+      {activeTab === 'tickets' && (
+        <div className="card fade-in">
+          <div className="settings-header">
+            <div className="icon-box"><HelpCircle size={20} /></div>
+            <div className="text-content">
+              <h4>Support Tickets</h4>
+              <p>Manage support requests from school admins.</p>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {loadingTickets ? (
+              <div className="text-center py-6 text-muted">Loading tickets...</div>
+            ) : tickets.length === 0 ? (
+              <div className="text-center py-6 text-muted">No support tickets found.</div>
+            ) : (
+              tickets.map(t => (
+                <div key={t.id} className="border border-slate-700/50 rounded-xl p-4 bg-slate-800/30">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h5 className="font-bold">{t.subject}</h5>
+                      <div className="text-xs text-slate-400 mt-1">{t.school_settings?.name || 'Unknown School'} • {new Date(t.created_at).toLocaleDateString()}</div>
+                    </div>
+                    <span className={`badge ${t.status === 'Resolved' ? 'badge-success' : 'badge-warn'}`}>{t.status}</span>
+                  </div>
+                  <div className="text-sm text-slate-300 mt-3 whitespace-pre-wrap">{t.message}</div>
+                  
+                  {t.status !== 'Resolved' && (
+                    <div className="mt-4 pt-4 border-t border-slate-700/50">
+                      <button 
+                        className="btn accent" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }}
+                        onClick={async () => {
+                          const response = window.prompt('Enter your response to resolve this ticket:');
+                          if (response) {
+                            const { error } = await supabase.from('support_tickets').update({ status: 'Resolved', response }).eq('id', t.id);
+                            if (error) alert(error.message);
+                            else fetchTickets();
+                          }
+                        }}
+                      >
+                        Mark as Resolved
+                      </button>
+                    </div>
+                  )}
+                  {t.response && (
+                    <div className="mt-4 pt-4 border-t border-slate-700/50">
+                      <h6 className="text-xs font-bold text-slate-400 mb-1">Your Response:</h6>
+                      <div className="text-sm text-green-400 whitespace-pre-wrap">{t.response}</div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── SECTION 4: AUDIT LOGS ── */}
+      {activeTab === 'audit' && (
+        <div className="card fade-in">
+          <div className="settings-header flex justify-between items-center">
+            <div className="flex gap-4 items-center">
+              <div className="icon-box"><Shield size={20} /></div>
+              <div className="text-content">
+                <h4>Global Audit Ledger</h4>
+                <p>Track critical security events across all tenants.</p>
+              </div>
+            </div>
+            <button className="btn outline" onClick={fetchAuditLogs}>Refresh</button>
+          </div>
+
+          <div className="table-responsive mt-6 border border-slate-700/50 rounded-xl overflow-hidden">
+            <table className="legacy-table">
+              <thead>
+                <tr className="bg-slate-800/50">
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Performed By</th>
+                  <th>Tenant School</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingAudit ? (
+                  <tr><td colSpan="4" className="text-center py-6 text-muted">Loading ledger...</td></tr>
+                ) : auditLogs.length === 0 ? (
+                  <tr><td colSpan="4" className="text-center py-6 text-muted">No security events recorded.</td></tr>
+                ) : (
+                  auditLogs.map(log => (
+                    <tr key={log.id}>
+                      <td className="text-xs font-mono text-slate-400">{new Date(log.created_at).toLocaleString()}</td>
+                      <td>
+                        <span className="badge badge-warn font-mono text-[10px]">{log.action_type}</span>
+                      </td>
+                      <td className="text-xs">{log.users?.email || 'Unknown User'}</td>
+                      <td className="text-xs font-semibold">{log.school_settings?.name || 'Platform'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── SECTION 5: PLATFORM SETTINGS ── */}
       {activeTab === 'settings' && (
         <div className="card fade-in">
           <div className="settings-header">

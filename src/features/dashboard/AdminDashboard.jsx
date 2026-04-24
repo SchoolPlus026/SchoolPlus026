@@ -1,10 +1,11 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Users, ClipboardList, DollarSign, Clock, CalendarHeart,
-  Image, Bell, Calendar, LineChart, Settings, CalendarX, Phone
+  Image, Bell, Calendar, LineChart, Settings, CalendarX, Phone, Lock
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
+import { useAppStore } from '../../store/useAppStore';
 
 // Exact legacy module list for Admin role:
 // Users, Attendance, Fees, Calendar, Notices, Gallery, Timetable, Off Classes, Leaves, Reports, Settings
@@ -23,7 +24,21 @@ const MODULES = [
   { name: 'Settings',     path: '/admin/settings',     icon: <Settings size={28} />,      color: 'text-slate-400',   bg: 'bg-slate-500/10',   glow: 'hover:shadow-slate-500/20' },
 ];
 
+const PREMIUM_MODULES = ['Fees', 'Timetable', 'Gallery'];
+
 export default function AdminDashboard() {
+  const { schoolSettings } = useAppStore();
+  const navigate = useNavigate();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  
+  const isPremium = schoolSettings?.subscription_tier === 'Premium';
+
+  const handleModuleClick = (e, mod) => {
+    if (!isPremium && PREMIUM_MODULES.includes(mod.name)) {
+      e.preventDefault();
+      setShowUpgradeModal(true);
+    }
+  };
   return (
     <div className="space-y-8 fade-in pb-10">
       <DashboardHero />
@@ -36,22 +51,46 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4">
-          {MODULES.map((mod) => (
-            <Link
-              key={mod.name}
-              to={mod.path}
-              className={`module-card flex flex-col items-center justify-center p-6 gap-4 group ${mod.glow} hover:shadow-xl`}
-            >
-              <div className={`p-4 rounded-2xl ${mod.bg} ${mod.color} group-hover:scale-110 transition-transform duration-300`}>
-                {mod.icon}
-              </div>
-              <span className={`font-bold text-xs uppercase tracking-widest ${mod.color} text-center`}>
-                {mod.name}
-              </span>
-            </Link>
-          ))}
+          {MODULES.map((mod) => {
+            const isLocked = !isPremium && PREMIUM_MODULES.includes(mod.name);
+            return (
+              <Link
+                key={mod.name}
+                to={isLocked ? '#' : mod.path}
+                onClick={(e) => handleModuleClick(e, mod)}
+                className={`module-card flex flex-col items-center justify-center p-6 gap-4 group hover:shadow-xl relative ${isLocked ? 'opacity-80 grayscale-[0.5]' : mod.glow}`}
+              >
+                {isLocked && (
+                  <div className="absolute top-3 right-3 text-slate-400">
+                    <Lock size={16} />
+                  </div>
+                )}
+                <div className={`p-4 rounded-2xl ${isLocked ? 'bg-slate-500/10 text-slate-400' : `${mod.bg} ${mod.color}`} ${!isLocked && 'group-hover:scale-110'} transition-transform duration-300`}>
+                  {mod.icon}
+                </div>
+                <span className={`font-bold text-xs uppercase tracking-widest ${isLocked ? 'text-slate-400' : mod.color} text-center`}>
+                  {mod.name}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '420px', borderLeft: '4px solid #4f46e5' }}>
+            <h3 style={{ marginBottom: '8px' }} className="flex items-center gap-2"><Lock size={20} className="text-indigo-400" /> Premium Feature</h3>
+            <p className="muted small" style={{ marginBottom: '24px', fontSize: '14px' }}>
+              Unlock this feature with a Premium Subscription. Contact Platform Admin to upgrade your account and access Timetable, Fees, and infinite Gallery storage.
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button type="button" className="btn outline w-full" onClick={() => setShowUpgradeModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,9 +4,10 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { 
   Building, Sun, Globe, Lock, Database, ShieldAlert, 
-  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive
+  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { logAuditAction } from '../../utils/auditLogger';
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
@@ -128,12 +129,55 @@ export default function AdminSettings() {
   const [connectingDrive, setConnectingDrive] = useState(false);
   const [disconnectingDrive, setDisconnectingDrive] = useState(false);
 
+  /* ── Platform Settings & Legal ── */
+  const [platformSettings, setPlatformSettings] = useState(null);
+
+  /* ── Support Ticket State ── */
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [submittingTicket, setSubmittingTicket] = useState(false);
+
   React.useEffect(() => {
     const code = searchParams.get('code');
     if (code && !connectingDrive) {
       handleDriveCallback(code);
     }
+    
+    // Fetch Platform Legal Info
+    const fetchPlatformInfo = async () => {
+      const { data } = await supabase.from('platform_settings').select('*').single();
+      if (data) setPlatformSettings(data);
+    };
+    fetchPlatformInfo();
   }, [searchParams]);
+
+  const handleSubmitTicket = async (e) => {
+    e.preventDefault();
+    if (!supportSubject.trim() || !supportMessage.trim()) return;
+    setSubmittingTicket(true);
+    
+    try {
+      const { error } = await supabase.from('support_tickets').insert({
+        school_id: schoolSettings.school_id,
+        subject: supportSubject,
+        message: supportMessage
+      });
+      if (error) throw error;
+      
+      // Audit Log
+      await logAuditAction('SUBMIT_SUPPORT_TICKET', schoolSettings.school_id, { subject: supportSubject });
+      
+      alert('Support ticket submitted successfully. The Platform Admin will review it shortly.');
+      setShowSupportModal(false);
+      setSupportSubject('');
+      setSupportMessage('');
+    } catch (err) {
+      alert('Error submitting ticket: ' + err.message);
+    } finally {
+      setSubmittingTicket(false);
+    }
+  };
 
   const handleConnectDrive = () => {
     // We redirect to Google's OAuth consent screen
@@ -538,6 +582,45 @@ export default function AdminSettings() {
         )}
       </div>
 
+      {/* ── 5.6 HELP & SUPPORT ── */}
+      <div className="card">
+        <div className="settings-header">
+          <div className="icon-box"><HelpCircle size={20} /></div>
+          <div className="text-content">
+            <h4>Help & Support</h4>
+            <p>Need help? Submit a ticket to the Platform Admin.</p>
+          </div>
+        </div>
+        <button onClick={() => setShowSupportModal(true)} className="btn outline w-full mt-2">
+          Contact Support
+        </button>
+      </div>
+
+      {/* ── 5.7 ABOUT PLATFORM (LEGAL) ── */}
+      <div className="card">
+        <div className="settings-header">
+          <div className="icon-box"><FileText size={20} /></div>
+          <div className="text-content">
+            <h4>About {platformSettings?.app_name || 'SchoolOS+'}</h4>
+            <p>Platform information and terms of service</p>
+          </div>
+        </div>
+        <div className="mt-4 space-y-4">
+          {platformSettings?.about_app && (
+            <div>
+              <h5 className="font-bold text-sm text-slate-700 mb-1">About App</h5>
+              <div className="text-xs text-slate-500 whitespace-pre-wrap bg-slate-50 p-3 rounded-xl border border-slate-100">{platformSettings.about_app}</div>
+            </div>
+          )}
+          {platformSettings?.terms_conditions && (
+            <div>
+              <h5 className="font-bold text-sm text-slate-700 mb-1">Terms & Conditions</h5>
+              <div className="text-xs text-slate-500 whitespace-pre-wrap bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-40 overflow-y-auto">{platformSettings.terms_conditions}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── 6. DANGER ZONE ── */}
       <div className="card" style={{ backgroundColor: 'var(--danger-bg)', borderColor: 'var(--danger-border)' }}>
         <div className="settings-header" style={{ marginBottom: '16px' }}>
@@ -564,6 +647,29 @@ export default function AdminSettings() {
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setShowResetModal(false); setConfirmPwd(''); }}>{t.abort}</button>
                 <button type="submit" disabled={resetting} className="btn danger" style={{ flex: 2 }}>{resetting ? t.purging : t.confirmPurge}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ── SUPPORT MODAL ── */}
+      {showSupportModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
+            <h3 style={{ marginBottom: '8px' }}>Submit Support Ticket</h3>
+            <p className="muted small" style={{ marginBottom: '18px' }}>Describe your issue and the Platform Admin will respond to you.</p>
+            <form onSubmit={handleSubmitTicket}>
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Subject</label>
+              <input type="text" required value={supportSubject} onChange={e => setSupportSubject(e.target.value)} placeholder="e.g. Billing Issue" className="sp-input block w-full mb-4" />
+              
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Message</label>
+              <textarea required rows={4} value={supportMessage} onChange={e => setSupportMessage(e.target.value)} placeholder="Describe the problem in detail..." className="sp-input block w-full mb-6" />
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setShowSupportModal(false); setSupportSubject(''); setSupportMessage(''); }}>Cancel</button>
+                <button type="submit" disabled={submittingTicket} className="btn accent" style={{ flex: 2 }}>
+                  {submittingTicket ? 'Submitting...' : <><Send size={16} /> Submit Ticket</>}
+                </button>
               </div>
             </form>
           </div>

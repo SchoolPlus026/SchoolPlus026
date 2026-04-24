@@ -8,9 +8,10 @@ import ThemeToggle from '../components/ThemeToggle';
 import GlobalBroadcastBanner from '../components/GlobalBroadcastBanner';
 
 export default function AdminLayout() {
-  const { user, schoolSettings } = useAppStore();
+  const { user, schoolSettings, isImpersonating, clearImpersonation } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [hideFreeBanner, setHideFreeBanner] = React.useState(false);
   const isDashboard = location.pathname.endsWith('/dashboard') || location.pathname === '/admin';
 
   const handleLogout = async () => {
@@ -20,6 +21,22 @@ export default function AdminLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-transparent text-slate-100">
+
+      {/* ── Impersonation Banner ── */}
+      {isImpersonating && (
+        <div className="bg-red-500 text-white font-bold text-sm py-2 px-4 flex justify-between items-center z-50 shadow-md">
+          <span>You are currently impersonating <strong>{schoolSettings?.name}</strong>. Actions taken here are live!</span>
+          <button 
+            onClick={() => {
+              clearImpersonation();
+              navigate('/platform-admin');
+            }}
+            className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded transition-colors"
+          >
+            Exit Impersonation
+          </button>
+        </div>
+      )}
 
       {/* ── Gradient Header ── */}
       <header className="sp-header h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
@@ -71,6 +88,19 @@ export default function AdminLayout() {
 
       {/* ── Global Broadcast Banner ── */}
       <GlobalBroadcastBanner />
+
+      {/* ── Trial/Free Plan Banner ── */}
+      {schoolSettings?.subscription_tier === 'Free' && !hideFreeBanner && (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold text-sm py-2 px-4 flex justify-between items-center shadow-md">
+          <span>You are currently on the Free Plan. Upgrade to Premium to unlock Timetable, Fees, and more!</span>
+          <button 
+            onClick={() => setHideFreeBanner(true)}
+            className="text-white/80 hover:text-white transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* ── Scrollable Content ── */}
       <main className="flex-1 overflow-y-auto scroll-stable">
