@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
@@ -137,6 +137,7 @@ export default function AdminSettings() {
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [submittingTicket, setSubmittingTicket] = useState(false);
+  const [legalTab, setLegalTab] = useState(null); // 'about' | 'terms' | null
 
   React.useEffect(() => {
     const code = searchParams.get('code');
@@ -158,8 +159,10 @@ export default function AdminSettings() {
     setSubmittingTicket(true);
     
     try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
       const { error } = await supabase.from('support_tickets').insert({
         school_id: schoolSettings.school_id,
+        admin_id: currentUser.id,
         subject: supportSubject,
         message: supportMessage
       });
@@ -678,3 +681,4 @@ export default function AdminSettings() {
     </div>
   );
 }
+

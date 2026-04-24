@@ -65,6 +65,12 @@ export default function GalleryManager() {
     let payloads = [];
 
     if (files.length > 0 && schoolSettings?.gdrive_config) {
+      // Validate max 5 files at a time to avoid timeout
+      if (files.length > 5) {
+        alert('Please select a maximum of 5 files at a time to avoid upload timeouts.');
+        return;
+      }
+
       setUploadingGdrive(true);
       for (let i = 0; i < files.length; i++) {
         setUploadProgress(`Uploading ${i + 1} of ${files.length}...`);
@@ -82,13 +88,15 @@ export default function GalleryManager() {
           const { data, error } = await supabase.functions.invoke('gdrive-upload', {
             body: {
               fileName: currentFile.name,
-              mimeType: currentFile.type,
+              mimeType: currentFile.type || 'application/octet-stream',
               fileBase64
             }
           });
 
           if (error) throw new Error(error.message);
+          if (!data) throw new Error('No response from upload service. Please try again.');
           if (data?.error) throw new Error(data.error);
+          if (!data.link) throw new Error('Upload succeeded but no link returned.');
 
           payloads.push({
             school_id: schoolSettings.school_id,
@@ -97,7 +105,7 @@ export default function GalleryManager() {
             category
           });
         } catch (err) {
-          alert(`Failed on file ${currentFile.name}: ` + err.message);
+          alert(`Failed on file "${currentFile.name}": ${err.message}`);
           setUploadingGdrive(false);
           setUploadProgress('');
           return;
@@ -276,10 +284,18 @@ export default function GalleryManager() {
                     type="file" 
                     multiple
                     accept="image/*,video/*"
-                    onChange={e => setFiles(Array.from(e.target.files))} 
+                    onChange={e => {
+                      const selected = Array.from(e.target.files);
+                      if (selected.length > 5) {
+                        alert('Maximum 5 files allowed at a time.');
+                        e.target.value = '';
+                        return;
+                      }
+                      setFiles(selected);
+                    }} 
                     className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm text-sm" 
                   />
-                  <p className="text-xs text-muted mt-2 text-green-600 font-semibold">Google Drive connected. Multiple files allowed.</p>
+                  <p className="text-xs text-muted mt-2 text-green-600 font-semibold">Google Drive connected. Max 5 files at a time.</p>
                 </div>
               ) : (
                 <div>

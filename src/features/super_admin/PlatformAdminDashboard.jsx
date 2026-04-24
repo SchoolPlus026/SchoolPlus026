@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield } from 'lucide-react';
@@ -195,7 +195,7 @@ export default function PlatformAdminDashboard() {
         <div className={`tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Platform Settings</div>
       </div>
 
-      {/* ── SECTION 0: ANALYTICS ── */}
+      {/* â”€â”€ SECTION 0: ANALYTICS â”€â”€ */}
       {activeTab === 'analytics' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -226,7 +226,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* ── SECTION 1: TENANT SCHOOLS ── */}
+      {/* â”€â”€ SECTION 1: TENANT SCHOOLS â”€â”€ */}
       {activeTab === 'schools' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -237,7 +237,7 @@ export default function PlatformAdminDashboard() {
             </div>
           </div>
           
-          <div className="table-responsive mt-4 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div className="table-responsive overflow-x-auto mt-4 border border-slate-700/50 rounded-xl overflow-hidden">
             <table className="legacy-table">
               <thead>
                 <tr className="bg-slate-800/50">
@@ -293,7 +293,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* ── SECTION 2: BROADCAST CENTER ── */}
+      {/* â”€â”€ SECTION 2: BROADCAST CENTER â”€â”€ */}
       {activeTab === 'broadcast' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -345,7 +345,7 @@ export default function PlatformAdminDashboard() {
           {/* Broadcast History */}
           <div className="mt-10 pt-8 border-t border-slate-700/50">
             <h5 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4">Broadcast History</h5>
-            <div className="table-responsive border border-slate-700/50 rounded-xl overflow-hidden">
+            <div className="table-responsive overflow-x-auto border border-slate-700/50 rounded-xl overflow-hidden">
               <table className="legacy-table">
                 <thead>
                   <tr className="bg-slate-800/50">
@@ -387,7 +387,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* ── SECTION 3: SUPPORT TICKETS ── */}
+      {/* â”€â”€ SECTION 3: SUPPORT TICKETS â”€â”€ */}
       {activeTab === 'tickets' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -409,7 +409,7 @@ export default function PlatformAdminDashboard() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h5 className="font-bold">{t.subject}</h5>
-                      <div className="text-xs text-slate-400 mt-1">{t.school_settings?.name || 'Unknown School'} • {new Date(t.created_at).toLocaleDateString()}</div>
+                      <div className="text-xs text-slate-400 mt-1">{t.school_settings?.name || 'Unknown School'} â€¢ {new Date(t.created_at).toLocaleDateString()}</div>
                     </div>
                     <span className={`badge ${t.status === 'Resolved' ? 'badge-success' : 'badge-warn'}`}>{t.status}</span>
                   </div>
@@ -445,7 +445,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* ── SECTION 4: AUDIT LOGS ── */}
+      {/* â”€â”€ SECTION 4: AUDIT LOGS â”€â”€ */}
       {activeTab === 'audit' && (
         <div className="card fade-in">
           <div className="settings-header flex justify-between items-center">
@@ -459,7 +459,7 @@ export default function PlatformAdminDashboard() {
             <button className="btn outline" onClick={fetchAuditLogs}>Refresh</button>
           </div>
 
-          <div className="table-responsive mt-6 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div className="table-responsive overflow-x-auto mt-6 border border-slate-700/50 rounded-xl overflow-hidden">
             <table className="legacy-table">
               <thead>
                 <tr className="bg-slate-800/50">
@@ -492,7 +492,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* ── SECTION 5: PLATFORM SETTINGS ── */}
+      {/* â”€â”€ SECTION 5: PLATFORM SETTINGS â”€â”€ */}
       {activeTab === 'settings' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -546,3 +546,4 @@ export default function PlatformAdminDashboard() {
     </div>
   );
 }
+
