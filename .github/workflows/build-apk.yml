@@ -28,13 +28,19 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: 🎨 Generate App Icons
-        run: npx @capacitor/assets generate --android
-
       - name: 🚀 Add & Sync Capacitor Android Platform
         run: |
           npx cap add android || true
           npx cap sync android
+
+      - name: 🎨 Generate App Icons
+        run: npx @capacitor/assets generate --android
+
+      - name: 🧹 Clean Conflicting Default Android XML Icons
+        run: |
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26/*
+          rm -f android/app/src/main/res/drawable/ic_launcher_background.xml
+          rm -f android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
 
       - name: ☕ Setup Java JDK 17 (Required for Android)
         uses: actions/setup-java@v4
