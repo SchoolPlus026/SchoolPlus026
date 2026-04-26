@@ -33,6 +33,26 @@ jobs:
           npx cap add android || true
           npx cap sync android
 
+      - name: 🔔 Patch AndroidManifest.xml — Add FCM Permissions
+        # CRITICAL: The android/ folder is git-ignored and fully regenerated each run.
+        # cap sync produces a minimal manifest with only INTERNET permission.
+        # Android 13+ (API 33+) REQUIRES POST_NOTIFICATIONS declared in the manifest
+        # or requestPermissions() throws a SecurityException → immediate app crash.
+        # We patch the manifest here, after sync, every CI run.
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # Verify the file exists before patching
+          if [ ! -f "$MANIFEST" ]; then
+            echo "❌ AndroidManifest.xml not found at $MANIFEST"
+            exit 1
+          fi
+          # Insert FCM permissions block before the closing </manifest> tag.
+          # sed -i edits in-place; the \n sequences produce real newlines.
+          sed -i 's|</manifest>|    <!-- FCM: Android 13+ POST_NOTIFICATIONS runtime permission (REQUIRED) -->\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <!-- FCM: Notification vibration support -->\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <!-- FCM: Wake device to deliver messages reliably -->\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <!-- FCM: Re-register token after device reboot -->\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n</manifest>|' "$MANIFEST"
+          echo "✅ FCM permissions patched into AndroidManifest.xml"
+          # Verify the patch was applied
+          grep -q "POST_NOTIFICATIONS" "$MANIFEST" && echo "✅ POST_NOTIFICATIONS confirmed" || (echo "❌ Patch FAILED" && exit 1)
+
       - name: 🔑 Inject google-services.json for FCM
         # The android/ directory is git-ignored and rebuilt fresh every CI run.
         # google-services.json CANNOT be committed. Instead:
