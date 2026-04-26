@@ -6,6 +6,7 @@ import { supabase } from './config/supabaseClient';
 // Core Flow Components
 import Login from './features/auth/Login';
 import ProtectedRoute from './components/ProtectedRoute';
+import NotificationProvider from './components/NotificationProvider';
 
 // Layout Wrappers
 import AdminLayout from './layouts/AdminLayout';
@@ -152,7 +153,7 @@ export default function App() {
 
       {/* ──────────────── ADMIN ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={<NotificationProvider><AdminLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard"   element={<AdminDashboard />} />
           <Route path="users"       element={<UserManagement />} />
@@ -172,7 +173,7 @@ export default function App() {
 
       {/* ──────────────── TEACHER ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
-        <Route path="/teacher" element={<TeacherLayout />}>
+        <Route path="/teacher" element={<NotificationProvider><TeacherLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard"        element={<TeacherDashboard />} />
           <Route path="profile"          element={<UserProfile />} />
@@ -191,7 +192,7 @@ export default function App() {
 
       {/* ──────────────── STUDENT ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
-        <Route path="/student" element={<StudentLayout />}>
+        <Route path="/student" element={<NotificationProvider><StudentLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard"  element={<StudentDashboard />} />
           <Route path="profile"    element={<UserProfile />} />
@@ -208,7 +209,7 @@ export default function App() {
 
       {/* ──────────────── PLATFORM ADMIN ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['platform_admin']} />}>
-        <Route path="/platform-admin" element={<PlatformAdminLayout />}>
+        <Route path="/platform-admin" element={<NotificationProvider><PlatformAdminLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<PlatformAdminDashboard />} />
         </Route>

@@ -2,7 +2,6 @@
   "appId": "com.schoolsaas.app",
   "appName": "SchoolOS+",
   "webDir": "dist",
-  "bundledWebRuntime": false,
   "plugins": {
     "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"]
