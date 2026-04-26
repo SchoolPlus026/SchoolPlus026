@@ -26,6 +26,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../config/supabaseClient';
 
@@ -37,11 +38,10 @@ const APP_VERSION_NAME = '1.0.0'; // human-readable string (for display only)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Open a URL in the system browser (Android intent) ────────────────────────
-// We dynamically import Browser to avoid crashing on web where it's absent.
+// Uses @capacitor/browser which wraps the Android Custom Tabs / system intent.
+// Falls back to window.open on web (where Capacitor is a no-op stub).
 async function openInSystemBrowser(url) {
   try {
-    // Try Capacitor Browser plugin first (if installed)
-    const { Browser } = await import('@capacitor/browser');
     await Browser.open({ url, presentationStyle: 'fullscreen' });
   } catch {
     // Fallback: window.open works for sideload URLs on Android WebView too
