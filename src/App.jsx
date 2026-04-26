@@ -7,6 +7,7 @@ import { supabase } from './config/supabaseClient';
 import Login from './features/auth/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationProvider from './components/NotificationProvider';
+import VersionChecker from './components/VersionChecker';
 
 // Layout Wrappers
 import AdminLayout from './layouts/AdminLayout';
@@ -147,7 +148,13 @@ export default function App() {
   };
 
   return (
-    <Routes>
+    <>
+      {/* VersionChecker: runs once on launch for all native authenticated sessions.
+          Renders null on web. Must be outside <Routes> so it isn't unmounted
+          on route transitions. */}
+      {user && <VersionChecker />}
+
+      <Routes>
       <Route path="/" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />
       <Route path="/login" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Login />} />
 
@@ -217,5 +224,6 @@ export default function App() {
 
       <Route path="*" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />
     </Routes>
+    </>
   );
 }
