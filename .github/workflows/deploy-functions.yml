@@ -1,0 +1,54 @@
+name: Deploy Supabase Edge Functions (SchoolOS+)
+
+on:
+  push:
+    branches: ["main", "master"]
+    paths:
+      # Only trigger this workflow when Edge Function code actually changes.
+      # This prevents unnecessary deployments on every push.
+      - "supabase/functions/**"
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions UI
+
+jobs:
+  deploy-edge-functions:
+    name: 🚀 Deploy Edge Functions to Supabase
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4
+
+      # ─────────────────────────────────────────────────────────────────────
+      # The official Supabase CLI GitHub Action.
+      # It installs the correct version of the CLI automatically — no manual
+      # installation required. Authentication is handled via the access token.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: ⚙️ Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Deploy ONLY the send-notice-notification function.
+      # The --no-verify-jwt flag is intentional: this function is called by
+      # a PostgreSQL pg_net trigger (server-to-server), not by an authenticated
+      # browser client. The trigger passes the Authorization header with the
+      # service role key, but the JWT verification step should be skipped
+      # to prevent false 401 rejections on cold-start invocations.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: 🔔 Deploy send-notice-notification Function
+        run: |
+          supabase functions deploy send-notice-notification \
+            --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} \
+            --no-verify-jwt
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: ✅ Deployment Complete
+        run: |
+          echo "────────────────────────────────────────────────"
+          echo "✅ send-notice-notification deployed successfully!"
+          echo "   Project: ${{ secrets.SUPABASE_PROJECT_ID }}"
+          echo "   Branch : ${{ github.ref_name }}"
+          echo "   Commit : ${{ github.sha }}"
+          echo "────────────────────────────────────────────────"

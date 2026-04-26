@@ -23,6 +23,7 @@
  *   SUPABASE_URL            — Auto-injected by Supabase
  *   SUPABASE_SERVICE_ROLE_KEY — Auto-injected by Supabase
  * ─────────────────────────────────────────────────────────────────────────────
+ * Updated: 2026-04-26 (Triggering GitHub Action deployment)
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
