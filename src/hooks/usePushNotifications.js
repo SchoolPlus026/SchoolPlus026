@@ -116,22 +116,35 @@ function showInAppToast(title, body) {
 // ─── Main Hook ───────────────────────────────────────────────────────────────
 export function usePushNotifications() {
   const { user, schoolSettings } = useAppStore();
+
+  // Use refs to hold mutable state that should not re-trigger useEffect
   const listenersRegistered = useRef(false);
+  const isSettingUp = useRef(false);         // prevents concurrent async runs
   const tokenSaved = useRef(false);
+  const userRef = useRef(user);
+  const schoolRef = useRef(schoolSettings);
+
+  // Keep refs in sync with the latest values without causing effect re-runs
+  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { schoolRef.current = schoolSettings; }, [schoolSettings]);
 
   // Save (upsert) the FCM token to Supabase
+  // Reads from refs so this callback never needs to be re-created
   const saveToken = useCallback(async (token) => {
-    if (!user?.id || !token || tokenSaved.current) return;
+    const currentUser = userRef.current;
+    const currentSchool = schoolRef.current;
+
+    if (!currentUser?.id || !token || tokenSaved.current) return;
 
     const platform = Capacitor.getPlatform(); // 'android' | 'ios' | 'web'
 
     try {
       const { error } = await supabase.rpc('upsert_device_token', {
-        p_user_id:    user.id,
-        p_school_id:  schoolSettings?.school_id ?? null,
-        p_fcm_token:  token,
-        p_platform:   platform,
-        p_device_name: null, // Could use Capacitor Device plugin for device name
+        p_user_id:     currentUser.id,
+        p_school_id:   currentSchool?.school_id ?? null,
+        p_fcm_token:   token,
+        p_platform:    platform,
+        p_device_name: null,
       });
 
       if (error) {
@@ -141,109 +154,154 @@ export function usePushNotifications() {
         console.info('[FCM] Token saved successfully. Platform:', platform);
       }
     } catch (err) {
+      // Non-fatal: token save failure should never crash the app
       console.error('[FCM] Unexpected error saving token:', err);
     }
-  }, [user?.id, schoolSettings?.school_id]);
+  }, []); // stable — reads from refs, no deps needed
 
   useEffect(() => {
-    // ── Guard: Only run on native Android/iOS ──────────────────────────────
-    // On web (PWA), Capacitor Push Notifications is not available.
-    // We skip silently — web push would use a different flow (VAPID).
+    // ── Guard 1: Only run on native Android/iOS ────────────────────────────
+    // On web (Netlify/PWA), Capacitor Push is unavailable — skip silently.
     if (!Capacitor.isNativePlatform()) {
       console.info('[FCM] Skipping push notification setup on web platform.');
       return;
     }
 
-    // ── Guard: Must have an authenticated user ─────────────────────────────
+    // ── Guard 2: Must have an authenticated user ───────────────────────────
     if (!user?.id) {
       console.info('[FCM] No authenticated user — skipping token registration.');
       return;
     }
 
-    // ── Guard: Prevent double-registration ────────────────────────────────
-    if (listenersRegistered.current) return;
-    listenersRegistered.current = true;
+    // ── Guard 3: Prevent double-registration on re-renders ─────────────────
+    if (listenersRegistered.current || isSettingUp.current) return;
 
-    let registrationListener;
-    let receivedListener;
-    let errorListener;
+    let registrationListener = null;
+    let receivedListener = null;
+    let errorListener = null;
+    let actionListener = null;
 
     async function setupPushNotifications() {
-      try {
-        // ── Step 1: Request Permission (Android 13+ requires runtime request) ──
-        let permStatus = await PushNotifications.checkPermissions();
+      // ── Guard 4: Prevent concurrent async executions ─────────────────────
+      if (isSettingUp.current) return;
+      isSettingUp.current = true;
 
+      try {
+        // ── Step 1: Check existing permission status ───────────────────────
+        // checkPermissions() itself is safe and never throws on Android 13+
+        let permStatus;
+        try {
+          permStatus = await PushNotifications.checkPermissions();
+        } catch (checkErr) {
+          console.warn('[FCM] checkPermissions() failed (likely emulator):', checkErr);
+          isSettingUp.current = false;
+          return;
+        }
+
+        // ── Step 2: Request runtime permission if needed ───────────────────
+        // POST_NOTIFICATIONS is a runtime permission on Android 13+ (API 33+).
+        // The <uses-permission> in AndroidManifest.xml is required FIRST —
+        // without it, this call throws a SecurityException → crash.
         if (permStatus.receive === 'prompt') {
-          permStatus = await PushNotifications.requestPermissions();
+          try {
+            permStatus = await PushNotifications.requestPermissions();
+          } catch (reqErr) {
+            console.warn('[FCM] requestPermissions() failed:', reqErr);
+            isSettingUp.current = false;
+            return;
+          }
         }
 
         if (permStatus.receive !== 'granted') {
-          console.warn('[FCM] Push notification permission denied by user.');
-          return; // Don't break the app — just skip registration
+          console.warn('[FCM] Push notification permission not granted. Status:', permStatus.receive);
+          isSettingUp.current = false;
+          return; // User denied — fail gracefully, do NOT crash
         }
 
-        // ── Step 2: Register with FCM ─────────────────────────────────────
-        await PushNotifications.register();
+        // ── Step 3: Register with FCM ─────────────────────────────────────
+        try {
+          await PushNotifications.register();
+        } catch (regErr) {
+          console.error('[FCM] register() failed:', regErr);
+          isSettingUp.current = false;
+          return;
+        }
 
-        // ── Step 3: Listen for the FCM Token ──────────────────────────────
+        // ── Step 4: Attach listeners (only after successful registration) ──
+        // We set listenersRegistered.current here so cleanup knows they exist
+        listenersRegistered.current = true;
+
         registrationListener = await PushNotifications.addListener(
           'registration',
           (tokenData) => {
-            const fcmToken = tokenData.value;
-            console.info('[FCM] Device registered. Token (truncated):', fcmToken.substring(0, 20) + '...');
-            saveToken(fcmToken);
+            try {
+              const fcmToken = tokenData.value;
+              console.info('[FCM] Token received (truncated):', fcmToken.substring(0, 20) + '...');
+              saveToken(fcmToken);
+            } catch (e) {
+              console.error('[FCM] Error in registration handler:', e);
+            }
           }
         );
 
-        // ── Step 4: Handle Foreground Notifications ───────────────────────
-        // When a push arrives while the app is OPEN, Capacitor fires this event.
-        // The system notification tray is NOT used — we show our own in-app toast.
         receivedListener = await PushNotifications.addListener(
           'pushNotificationReceived',
           (notification) => {
-            console.info('[FCM] Foreground notification received:', notification.title);
-            showInAppToast(
-              notification.title,
-              notification.body
-            );
+            try {
+              console.info('[FCM] Foreground notification:', notification.title);
+              showInAppToast(notification.title, notification.body);
+            } catch (e) {
+              console.error('[FCM] Error in notification handler:', e);
+            }
           }
         );
 
-        // ── Step 5: Handle Notification Tap (background → foreground) ─────
-        // When user taps a notification in the system tray, this fires.
-        // You can use notification.actionId / data for deep linking later.
-        await PushNotifications.addListener(
+        // NOTE: We keep the action listener alive as a module-level concern;
+        // it intentionally outlives the component.
+        actionListener = await PushNotifications.addListener(
           'pushNotificationActionPerformed',
           (action) => {
-            console.info('[FCM] Notification tapped:', action.notification.title);
-            // Future: navigate based on action.notification.data.route
+            try {
+              console.info('[FCM] Notification tapped:', action.notification.title);
+              // Future: navigate based on action.notification.data.route
+            } catch (e) {
+              console.error('[FCM] Error in action handler:', e);
+            }
           }
         );
 
-        // ── Step 6: Handle Registration Errors ────────────────────────────
         errorListener = await PushNotifications.addListener(
           'registrationError',
           (err) => {
-            console.error('[FCM] Registration error:', err.error);
+            console.error('[FCM] FCM registration error:', err.error);
           }
         );
 
+        console.info('[FCM] Push notification setup complete.');
+
       } catch (err) {
-        console.error('[FCM] Setup failed:', err);
-        listenersRegistered.current = false; // Allow retry on next render
+        // Top-level safety net — nothing here should propagate to React
+        console.error('[FCM] Unexpected setup failure (non-fatal):', err);
+        listenersRegistered.current = false;
+      } finally {
+        isSettingUp.current = false;
       }
     }
 
     setupPushNotifications();
 
-    // ── Cleanup: Remove all listeners on unmount ───────────────────────────
+    // ── Cleanup: Remove listeners on unmount ──────────────────────────────
     return () => {
-      registrationListener?.remove();
-      receivedListener?.remove();
-      errorListener?.remove();
-      // Note: we do NOT remove pushNotificationActionPerformed listener
-      // because it needs to persist even after component unmounts.
+      try {
+        registrationListener?.remove();
+        receivedListener?.remove();
+        errorListener?.remove();
+        // actionListener intentionally NOT removed — needs to survive remounts
+      } catch (cleanupErr) {
+        console.warn('[FCM] Cleanup error (non-fatal):', cleanupErr);
+      }
       listenersRegistered.current = false;
+      isSettingUp.current = false;
     };
-  }, [user?.id, saveToken]);
+  }, [user?.id, saveToken]); // saveToken is stable (reads from refs)
 }
