@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { 
-  Sun, Globe, Lock, Database, ShieldAlert, Info,
-  Upload, Save, Eye, EyeOff, Trash2
+  Sun, Moon, Globe, Lock, Database, ShieldAlert, Info,
+  Upload, Eye, EyeOff, Trash2
 } from 'lucide-react';
 
 /* ─── helpers ─── */
@@ -46,19 +46,26 @@ export default function SharedSettings() {
   };
 
   /* ── Theme ── */
-  const [theme, setTheme] = useState(() => localStorage.getItem('sp_theme') || 'light');
+  const [theme, setTheme] = useState(() => localStorage.getItem('lfs_theme') || 'dark');
   const applyTheme = (val) => {
     setTheme(val);
-    localStorage.setItem('sp_theme', val);
-    document.documentElement.setAttribute('data-theme', val);
-    document.body.setAttribute('data-theme', val);
+    localStorage.setItem('lfs_theme', val);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', val);
+    if (val === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
   };
 
   /* ── Language ── */
-  const [lang, setLang] = useState(() => localStorage.getItem('sp_lang') || 'en');
+  const [lang, setLang] = useState(() => localStorage.getItem('lfs_lang') || 'en');
   const applyLang = (val) => {
     setLang(val);
-    localStorage.setItem('sp_lang', val);
+    localStorage.setItem('lfs_lang', val);
     document.documentElement.lang = val;
   };
 
@@ -136,15 +143,19 @@ export default function SharedSettings() {
 
       {/* ── 1. THEME ── */}
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
-        <div className="icon-box"><Sun size={20} /></div>
-        <div className="text-content" style={{ flex: 1 }}>
-          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Theme</h4>
-          <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Choose your preferred appearance</p>
+        <div className="icon-box">
+          {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
         </div>
-        <div style={{ width: '130px' }}>
+        <div className="text-content" style={{ flex: 1 }}>
+          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Theme</h4>
+          <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+            Currently: <strong style={{ color: 'var(--tab-active-color)' }}>{theme === 'dark' ? '🌙 Dark Mode' : '☀️ Light Mode'}</strong>
+          </p>
+        </div>
+        <div style={{ width: '140px' }}>
           <select value={theme} onChange={e => applyTheme(e.target.value)} className="sp-input">
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
+            <option value="dark">🌙 Dark</option>
+            <option value="light">☀️ Light</option>
           </select>
         </div>
       </div>

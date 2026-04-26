@@ -19,7 +19,7 @@ export default function StudentLayout() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-transparent text-slate-100">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)' }}>
 
       <header className="sp-header h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
         <div className="brand">
@@ -66,7 +66,7 @@ export default function StudentLayout() {
       <main className="flex-1 overflow-y-auto scroll-stable">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {!isDashboard && (
-            <Link to="/student/dashboard" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white mb-6 bg-slate-800/50 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-glass transition-all">
+            <Link to="/student/dashboard" className="sp-back-btn">
                <ChevronLeft size={14} /> Back to Dashboard
             </Link>
           )}

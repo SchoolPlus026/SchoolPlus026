@@ -11,18 +11,18 @@ import { supabase } from '../../config/supabaseClient';
 
 // Exact legacy module list for Admin role:
 const MODULES = [
-  { name: 'Users',        path: '/admin/users',        icon: <Users size={28} />,         color: 'text-blue-400',    bg: 'bg-blue-500/10',    glow: 'hover:shadow-blue-500/20' },
-  { name: 'Attendance',   path: '/admin/attendance',   icon: <ClipboardList size={28} />, color: 'text-indigo-400',  bg: 'bg-indigo-500/10',  glow: 'hover:shadow-indigo-500/20' },
-  { name: 'Fees',         path: '/admin/fees',         icon: <DollarSign size={28} />,    color: 'text-emerald-400', bg: 'bg-emerald-500/10', glow: 'hover:shadow-emerald-500/20' },
-  { name: 'Calendar',     path: '/admin/calendar',     icon: <Calendar size={28} />,      color: 'text-teal-400',    bg: 'bg-teal-500/10',    glow: 'hover:shadow-teal-500/20' },
-  { name: 'Notices',      path: '/admin/notices',      icon: <Bell size={28} />,          color: 'text-amber-400',   bg: 'bg-amber-500/10',   glow: 'hover:shadow-amber-500/20' },
-  { name: 'Gallery',      path: '/admin/gallery',      icon: <Image size={28} />,         color: 'text-pink-400',    bg: 'bg-pink-500/10',    glow: 'hover:shadow-pink-500/20' },
-  { name: 'Timetable',    path: '/admin/timetable',    icon: <Clock size={28} />,         color: 'text-purple-400',  bg: 'bg-purple-500/10',  glow: 'hover:shadow-purple-500/20' },
-  { name: 'Off Classes',  path: '/admin/off-classes',  icon: <CalendarX size={28} />,     color: 'text-orange-400',  bg: 'bg-orange-500/10',  glow: 'hover:shadow-orange-500/20' },
-  { name: 'Leaves',       path: '/admin/leaves',       icon: <CalendarHeart size={28} />, color: 'text-rose-400',    bg: 'bg-rose-500/10',    glow: 'hover:shadow-rose-500/20' },
-  { name: 'Reports',      path: '/admin/reports',      icon: <LineChart size={28} />,     color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    glow: 'hover:shadow-cyan-500/20' },
-  { name: 'Contact',      path: '/admin/contact',      icon: <Phone size={28} />,         color: 'text-zinc-400',    bg: 'bg-zinc-500/10',    glow: 'hover:shadow-zinc-500/20' },
-  { name: 'Settings',     path: '/admin/settings',     icon: <Settings size={28} />,      color: 'text-slate-400',   bg: 'bg-slate-500/10',   glow: 'hover:shadow-slate-500/20' },
+  { name: 'Users',        path: '/admin/users',        icon: <Users size={26} />,         colorHex: '#60a5fa', bgRgb: '96,165,250'   },
+  { name: 'Attendance',   path: '/admin/attendance',   icon: <ClipboardList size={26} />, colorHex: '#818cf8', bgRgb: '129,140,248'  },
+  { name: 'Fees',         path: '/admin/fees',         icon: <DollarSign size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153'   },
+  { name: 'Calendar',     path: '/admin/calendar',     icon: <Calendar size={26} />,      colorHex: '#2dd4bf', bgRgb: '45,212,191'   },
+  { name: 'Notices',      path: '/admin/notices',      icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36'   },
+  { name: 'Gallery',      path: '/admin/gallery',      icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182'  },
+  { name: 'Timetable',    path: '/admin/timetable',    icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252'  },
+  { name: 'Off Classes',  path: '/admin/off-classes',  icon: <CalendarX size={26} />,     colorHex: '#fb923c', bgRgb: '251,146,60'   },
+  { name: 'Leaves',       path: '/admin/leaves',       icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133'  },
+  { name: 'Reports',      path: '/admin/reports',      icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238'   },
+  { name: 'Contact',      path: '/admin/contact',      icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184'  },
+  { name: 'Settings',     path: '/admin/settings',     icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184'  },
 ];
 
 const PREMIUM_MODULES = ['Fees', 'Timetable', 'Gallery'];
@@ -100,36 +100,45 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="space-y-8 fade-in pb-10">
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
       <DashboardHero />
 
       {/* ── Subscription Status Card ── */}
-      <div className={`rounded-2xl p-4 flex items-center justify-between gap-4 border ${
-        isPremium 
-          ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-indigo-500/30' 
-          : 'bg-gradient-to-r from-slate-500/10 to-slate-600/10 border-slate-500/30'
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-xl ${isPremium ? 'bg-indigo-500/20' : 'bg-slate-500/20'}`}>
-            <Crown size={20} className={isPremium ? 'text-indigo-400' : 'text-slate-400'} />
+      <div style={{
+        borderRadius: '16px', padding: '16px 20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
+        background: isPremium
+          ? 'linear-gradient(135deg, rgba(79,70,229,0.08), rgba(124,58,237,0.08))'
+          : 'var(--accent-light)',
+        border: `1px solid ${isPremium ? 'rgba(79,70,229,0.3)' : 'var(--card-border)'}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '12px',
+            background: isPremium ? 'rgba(79,70,229,0.18)' : 'var(--glass)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: isPremium ? '#818cf8' : 'var(--text-muted)',
+          }}>
+            <Crown size={18} />
           </div>
           <div>
-            <div className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Current Plan</div>
-            <div className={`font-black text-lg ${isPremium ? 'text-indigo-300' : 'text-slate-300'}`}>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Current Plan</div>
+            <div style={{ fontSize: '18px', fontWeight: 900, color: isPremium ? 'var(--tab-active-color)' : 'var(--text-main)' }}>
               {schoolSettings?.subscription_tier || 'Free'}
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {isPremium ? (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30">
-              <CheckCircle size={13} className="text-emerald-400" />
-              <span className="text-xs font-bold text-emerald-400">Active</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '999px', background: 'var(--success-bg)', border: '1px solid var(--success-border)' }}>
+              <CheckCircle size={12} style={{ color: 'var(--success)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--success)' }}>Active</span>
             </div>
           ) : (
             <button
               onClick={() => setShowUpgradeModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 transition-colors text-xs font-bold text-white"
+              className="btn accent"
+              style={{ width: 'auto', padding: '8px 16px', fontSize: '12px' }}
             >
               <Crown size={12} /> Upgrade to Premium
             </button>
@@ -139,12 +148,12 @@ export default function AdminDashboard() {
 
       <div>
         {/* Legacy exact title: "Admin — Master Control" */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg, #4f46e5, #7c3aed)' }} />
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Admin — Master Control</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+          <div style={{ width: '3px', height: '22px', borderRadius: '999px', background: 'linear-gradient(180deg, #4f46e5, #7c3aed)', flexShrink: 0 }} />
+          <h3 style={{ margin: 0, fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Admin — Master Control</h3>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '14px' }}>
           {MODULES.map((mod) => {
             const isLocked = !isPremium && PREMIUM_MODULES.includes(mod.name);
             return (
@@ -152,17 +161,32 @@ export default function AdminDashboard() {
                 key={mod.name}
                 to={isLocked ? '#' : mod.path}
                 onClick={(e) => handleModuleClick(e, mod)}
-                className={`module-card flex flex-col items-center justify-center p-6 gap-4 group hover:shadow-xl relative ${isLocked ? 'opacity-80 grayscale-[0.5]' : mod.glow}`}
+                className="module-card"
+                style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative', opacity: isLocked ? 0.6 : 1 }}
               >
                 {isLocked && (
-                  <div className="absolute top-3 right-3 text-slate-400">
-                    <Lock size={16} />
+                  <div style={{ position: 'absolute', top: '10px', right: '10px', color: 'var(--text-faint)' }}>
+                    <Lock size={14} />
                   </div>
                 )}
-                <div className={`p-4 rounded-2xl ${isLocked ? 'bg-slate-500/10 text-slate-400' : `${mod.bg} ${mod.color}`} ${!isLocked && 'group-hover:scale-110'} transition-transform duration-300`}>
+                <div style={{
+                  width: '54px', height: '54px', borderRadius: '16px',
+                  background: isLocked ? 'var(--glass)' : `rgba(${mod.bgRgb}, 0.12)`,
+                  border: `1px solid ${isLocked ? 'var(--card-border)' : `rgba(${mod.bgRgb}, 0.2)`}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: isLocked ? 'var(--text-faint)' : mod.colorHex,
+                  transition: 'transform 0.25s ease',
+                }}
+                  onMouseEnter={e => !isLocked && (e.currentTarget.style.transform = 'scale(1.12)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                >
                   {mod.icon}
                 </div>
-                <span className={`font-bold text-xs uppercase tracking-widest ${isLocked ? 'text-slate-400' : mod.color} text-center`}>
+                <span style={{
+                  fontSize: '11px', fontWeight: 800, textTransform: 'uppercase',
+                  letterSpacing: '0.06em', color: isLocked ? 'var(--text-faint)' : 'var(--text-main)',
+                  textAlign: 'center', lineHeight: 1.3,
+                }}>
                   {mod.name}
                 </span>
               </Link>

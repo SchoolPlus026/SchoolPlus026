@@ -7,7 +7,6 @@ import { Bell, Calendar, Loader2, Megaphone, Sparkles } from 'lucide-react';
 export default function DashboardHero() {
   const { schoolSettings, user } = useAppStore();
 
-  // ── SAFETY: Use safe fallback in queryKey to avoid null dereference ──
   const schoolId = schoolSettings?.school_id ?? null;
 
   const { data: latestNotice, isLoading: noticeLoading } = useQuery({
@@ -41,103 +40,188 @@ export default function DashboardHero() {
   });
 
   return (
-    <div className="space-y-5 mb-2">
-      {/* ── Hero Header Card (gradient, matches legacy style) ── */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '8px' }}>
+
+      {/* ── Hero Header Card — always uses the gradient (same in both modes) ── */}
       <div
-        className="rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden shadow-2xl"
-        style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}
+        className="fade-in"
+        style={{
+          background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+          borderRadius: '20px',
+          padding: '28px 32px',
+          color: '#fff',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: '0 8px 32px rgba(79, 70, 229, 0.35)',
+        }}
       >
         {/* Decorative blobs */}
-        <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -mr-24 -mt-24 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/10 rounded-full -ml-12 -mb-12 blur-2xl pointer-events-none" />
+        <div style={{
+          position: 'absolute', top: '-60px', right: '-60px',
+          width: '220px', height: '220px', borderRadius: '50%',
+          background: 'rgba(255,255,255,0.08)', filter: 'blur(40px)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '-40px', left: '-40px',
+          width: '160px', height: '160px', borderRadius: '50%',
+          background: 'rgba(255,255,255,0.06)', filter: 'blur(30px)',
+          pointerEvents: 'none',
+        }} />
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-3 text-indigo-200/80 font-semibold tracking-widest uppercase text-[10px]">
-            <Sparkles size={12} />
-            Global Workspace Dashboard
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            marginBottom: '10px', color: 'rgba(199,210,254,0.85)',
+            fontWeight: 700, textTransform: 'uppercase',
+            letterSpacing: '0.12em', fontSize: '10px',
+          }}>
+            <Sparkles size={11} />
+            Digital School Portal
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2 text-white">
+          <h1 style={{
+            margin: '0 0 8px', fontSize: 'clamp(20px, 4vw, 28px)',
+            fontWeight: 900, letterSpacing: '-0.02em', color: '#fff',
+          }}>
             Welcome to {schoolSettings?.name || 'School Portal'}
           </h1>
-          <p className="text-indigo-200/90 max-w-xl text-sm leading-relaxed">
+          <p style={{
+            margin: 0, fontSize: '13px', color: 'rgba(199,210,254,0.9)',
+            maxWidth: '480px', lineHeight: 1.55,
+          }}>
             Digital School — Portal for Students, Teachers &amp; Admin
           </p>
         </div>
       </div>
 
       {/* ── Info Widgets Row ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
 
         {/* Latest Notice */}
-        <div className="sp-card flex flex-col group hover:border-indigo-500/30 transition-colors">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', margin: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#f59e0b', flexShrink: 0,
+            }}>
               <Megaphone size={16} />
             </div>
-            <h3 className="font-bold text-slate-200 text-sm uppercase tracking-widest">Latest Notice</h3>
+            <h3 style={{
+              margin: 0, fontSize: '11px', fontWeight: 800,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              color: 'var(--text-muted)',
+            }}>
+              Latest Notice
+            </h3>
           </div>
 
           {noticeLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '16px' }}>
+              <Loader2 size={20} className="animate-spin" style={{ color: 'var(--text-faint)' }} />
             </div>
           ) : latestNotice ? (
-            <div className="flex-1">
-              <h4 className="font-bold text-slate-100 mb-1 text-sm group-hover:text-indigo-400 transition-colors">
+            <div style={{ flex: 1 }}>
+              <h4 style={{
+                margin: '0 0 6px', fontSize: '14px', fontWeight: 700,
+                color: 'var(--text-main)', lineHeight: 1.3,
+              }}>
                 {latestNotice.title}
               </h4>
-              <p className="text-xs text-slate-400 clamp-2 mb-3 leading-relaxed">
+              <p className="clamp-2" style={{
+                fontSize: '12px', color: 'var(--text-muted)',
+                margin: '0 0 10px', lineHeight: 1.6,
+              }}>
                 {latestNotice.content}
               </p>
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              <div style={{
+                fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '0.06em', color: 'var(--text-faint)',
+              }}>
                 Posted {new Date(latestNotice.created_at).toLocaleDateString()}
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-xs text-slate-500 italic border border-dashed border-slate-700 rounded-xl py-6">
-              No recent announcements.
-            </div>
+            <div className="sp-notice-empty">No recent announcements.</div>
           )}
         </div>
 
         {/* Upcoming Events */}
-        <div className="sp-card flex flex-col group hover:border-indigo-500/30 transition-colors">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center border border-teal-500/20">
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', margin: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              background: 'rgba(20, 184, 166, 0.12)',
+              border: '1px solid rgba(20, 184, 166, 0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#14b8a6', flexShrink: 0,
+            }}>
               <Calendar size={16} />
             </div>
-            <h3 className="font-bold text-slate-200 text-sm uppercase tracking-widest">Upcoming Events</h3>
+            <h3 style={{
+              margin: 0, fontSize: '11px', fontWeight: 800,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              color: 'var(--text-muted)',
+            }}>
+              Upcoming Events
+            </h3>
           </div>
 
           {eventsLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '16px' }}>
+              <Loader2 size={20} className="animate-spin" style={{ color: 'var(--text-faint)' }} />
             </div>
           ) : upcomingEvents && upcomingEvents.length > 0 ? (
-            <div className="space-y-3 flex-1">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
               {upcomingEvents.map(event => (
-                <div key={event.id} className="flex items-start gap-4">
-                  <div className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-center min-w-[46px]">
-                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                <div key={event.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  {/* Mini date chip */}
+                  <div style={{
+                    background: 'var(--icon-bg)',
+                    border: '1px solid var(--card-border)',
+                    borderRadius: '10px',
+                    padding: '6px 10px',
+                    textAlign: 'center',
+                    minWidth: '48px',
+                    flexShrink: 0,
+                  }}>
+                    <div style={{
+                      fontSize: '9px', fontWeight: 800, textTransform: 'uppercase',
+                      letterSpacing: '0.05em', color: 'var(--text-faint)', lineHeight: 1,
+                    }}>
                       {new Date(event.start_date).toLocaleDateString('en-US', { month: 'short' })}
                     </div>
-                    <div className="text-base font-black text-slate-100 leading-none mt-1">
+                    <div style={{
+                      fontSize: '18px', fontWeight: 900, color: 'var(--text-main)',
+                      lineHeight: 1.1, marginTop: '2px',
+                    }}>
                       {new Date(event.start_date).getDate()}
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-200 mb-0.5">{event.title}</h4>
-                    <p className="text-[11px] text-slate-500 capitalize">{event.type}</p>
+                    <h4 style={{
+                      margin: '0 0 2px', fontSize: '13px',
+                      fontWeight: 700, color: 'var(--text-main)',
+                    }}>
+                      {event.title}
+                    </h4>
+                    <p style={{
+                      margin: 0, fontSize: '11px',
+                      color: 'var(--text-muted)', textTransform: 'capitalize',
+                    }}>
+                      {event.type}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-xs text-slate-500 italic border border-dashed border-slate-700 rounded-xl py-6">
-              No upcoming events scheduled.
-            </div>
+            <div className="sp-notice-empty">No upcoming events scheduled.</div>
           )}
         </div>
+
       </div>
     </div>
   );

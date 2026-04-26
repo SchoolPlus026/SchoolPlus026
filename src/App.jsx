@@ -114,11 +114,23 @@ export default function App() {
 
   if (isInitializing) {
     return (
-      <div className="flex items-center justify-center h-screen text-slate-300"
-        style={{ background: 'linear-gradient(180deg, #0b1020 0%, #061233 100%)' }}>
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl border-2 border-indigo-500/50 border-t-indigo-400 animate-spin" />
-          <p className="text-xs text-slate-500 tracking-[0.3em] uppercase font-bold">
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          height: '100vh', background: 'var(--bg-main)', color: 'var(--text-muted)',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '16px',
+            border: '3px solid rgba(79,70,229,0.3)',
+            borderTopColor: '#4f46e5',
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          <p style={{
+            fontSize: '11px', color: 'var(--text-faint)',
+            letterSpacing: '0.25em', textTransform: 'uppercase', fontWeight: 800,
+          }}>
             Loading...
           </p>
         </div>

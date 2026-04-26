@@ -10,40 +10,70 @@ import { useAppStore } from '../../store/useAppStore';
 // Exact legacy module list for Student role:
 // My Profile, Attendance, Fees, Timetable, Notices, Leaves, Gallery, Contact, Settings
 const MODULES = [
-  { name: 'My Profile',  path: '/student/profile',    icon: <User size={28} />,          color: 'text-blue-400',    bg: 'bg-blue-500/10',    glow: 'hover:shadow-blue-500/20' },
-  { name: 'Attendance',  path: '/student/attendance', icon: <ClipboardList size={28} />, color: 'text-indigo-400',  bg: 'bg-indigo-500/10',  glow: 'hover:shadow-indigo-500/20' },
-  { name: 'Fees',        path: '/student/fees',       icon: <DollarSign size={28} />,    color: 'text-emerald-400', bg: 'bg-emerald-500/10', glow: 'hover:shadow-emerald-500/20' },
-  { name: 'Timetable',   path: '/student/timetable',  icon: <Clock size={28} />,         color: 'text-purple-400',  bg: 'bg-purple-500/10',  glow: 'hover:shadow-purple-500/20' },
-  { name: 'Notices',     path: '/student/notices',    icon: <Bell size={28} />,          color: 'text-amber-400',   bg: 'bg-amber-500/10',   glow: 'hover:shadow-amber-500/20' },
-  { name: 'Leaves',      path: '/student/leaves',     icon: <CalendarHeart size={28} />, color: 'text-rose-400',    bg: 'bg-rose-500/10',    glow: 'hover:shadow-rose-500/20' },
-  { name: 'Gallery',     path: '/student/gallery',    icon: <Image size={28} />,         color: 'text-pink-400',    bg: 'bg-pink-500/10',    glow: 'hover:shadow-pink-500/20' },
-  { name: 'Contact',     path: '/student/contact',    icon: <Phone size={28} />,         color: 'text-teal-400',    bg: 'bg-teal-500/10',    glow: 'hover:shadow-teal-500/20' },
-  { name: 'Settings',    path: '/student/settings',   icon: <Settings size={28} />,      color: 'text-slate-400',   bg: 'bg-slate-500/10',   glow: 'hover:shadow-slate-500/20' },
+  { name: 'My Profile',  path: '/student/profile',    icon: <User size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250'   },
+  { name: 'Attendance',  path: '/student/attendance', icon: <ClipboardList size={26} />, colorHex: '#818cf8', bgRgb: '129,140,248'  },
+  { name: 'Fees',        path: '/student/fees',       icon: <DollarSign size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153'   },
+  { name: 'Timetable',   path: '/student/timetable',  icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252'  },
+  { name: 'Notices',     path: '/student/notices',    icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36'   },
+  { name: 'Leaves',      path: '/student/leaves',     icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133'  },
+  { name: 'Gallery',     path: '/student/gallery',    icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182'  },
+  { name: 'Contact',     path: '/student/contact',    icon: <Phone size={26} />,         colorHex: '#2dd4bf', bgRgb: '45,212,191'   },
+  { name: 'Settings',    path: '/student/settings',   icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184'  },
 ];
 
 function StudentDashboardContent() {
   return (
-    <div className="space-y-8 fade-in pb-10">
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
       <DashboardHero />
 
       <div>
         {/* Legacy exact title: "Student Panel" */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg, #4f46e5, #7c3aed)' }} />
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Student Panel</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+          <div style={{
+            width: '3px', height: '22px', borderRadius: '999px',
+            background: 'linear-gradient(180deg, #4f46e5, #7c3aed)',
+            flexShrink: 0,
+          }} />
+          <h3 style={{
+            margin: 0, fontSize: '11px', fontWeight: 800,
+            color: 'var(--text-muted)', textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+          }}>
+            Student Panel
+          </h3>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+          gap: '14px',
+        }}>
           {MODULES.map((mod) => (
             <Link
               key={mod.name}
               to={mod.path}
-              className={`module-card flex flex-col items-center justify-center p-6 gap-4 group ${mod.glow} hover:shadow-xl`}
+              className="module-card"
+              style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px' }}
             >
-              <div className={`p-4 rounded-2xl ${mod.bg} ${mod.color} group-hover:scale-110 transition-transform duration-300`}>
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '16px',
+                background: `rgba(${mod.bgRgb}, 0.12)`,
+                border: `1px solid rgba(${mod.bgRgb}, 0.2)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: mod.colorHex,
+                transition: 'transform 0.25s ease',
+              }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
                 {mod.icon}
               </div>
-              <span className={`font-bold text-xs uppercase tracking-widest ${mod.color} text-center`}>
+              <span style={{
+                fontSize: '11px', fontWeight: 800,
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+                color: 'var(--text-main)', textAlign: 'center',
+                lineHeight: 1.3,
+              }}>
                 {mod.name}
               </span>
             </Link>
@@ -58,10 +88,19 @@ export default function StudentDashboard() {
   const { user, schoolSettings } = useAppStore();
   if (!user || !schoolSettings) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-xl border-2 border-indigo-500/50 border-t-indigo-400 animate-spin" />
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Loading...</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '256px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '32px', height: '32px', borderRadius: '10px',
+            border: '2px solid rgba(79,70,229,0.3)', borderTopColor: '#4f46e5',
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          <p style={{
+            fontSize: '10px', color: 'var(--text-faint)',
+            fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em',
+          }}>
+            Loading...
+          </p>
         </div>
       </div>
     );
