@@ -1,9 +1,10 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  # Skip deploy if the latest commit message contains [skip netlify]
+  # Usage: git commit -m "fix: update database schema [skip netlify]"
+  ignore = "git log -1 --pretty=%B | grep -qF '[skip netlify]'"
 
-# Skip Netlify deploy if commit message contains [skip deploy] or [skip ci]
-# Usage: git commit -m "fix: update SQL schema [skip deploy]"
 [build.environment]
   NODE_VERSION = "20"
 
