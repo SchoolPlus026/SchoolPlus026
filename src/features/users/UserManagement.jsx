@@ -107,6 +107,7 @@ export default function UserManagement() {
     mutationFn: async () => {
       const { error } = await supabase.from('users').update({
         name: editForm.name,
+        username: editForm.username,
         contact: editForm.contact || null,
         dob: editForm.dob || null,
         blood_group: editForm.blood_group || null,
@@ -291,10 +292,13 @@ export default function UserManagement() {
                 <EField label="Designation" field="designation" editForm={editForm} setEditForm={setEditForm} />
               )}
 
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">System Information</p>
+              <EField label="Username" field="username" editForm={editForm} setEditForm={setEditForm} />
+              
               {/* Read-only info */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mt-4">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Username (Read Only)</div>
-                <div className="text-sm font-bold text-slate-700">@{editingUser.username}</div>
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">System Role</div>
+                <div className="text-sm font-bold text-slate-700 uppercase">{editingUser.role}</div>
               </div>
             </div>
 

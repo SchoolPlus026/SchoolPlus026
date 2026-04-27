@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.app_notifications_queue (
 ALTER TABLE public.app_notifications_queue ENABLE ROW LEVEL SECURITY;
 
 -- Service role and platform admin have full access. Admins can view their school's queue.
+DROP POLICY IF EXISTS "Admins can view their school's notification queue" ON public.app_notifications_queue;
 CREATE POLICY "Admins can view their school's notification queue" 
     ON public.app_notifications_queue FOR SELECT 
     USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid AND (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
@@ -34,10 +35,13 @@ CREATE POLICY "Admins can view their school's notification queue"
 
 -- A. Attendance
 CREATE OR REPLACE FUNCTION trg_notify_attendance() RETURNS trigger AS $$
+DECLARE
+    v_user_name text;
 BEGIN
     IF NEW.status = 'Absent' THEN
+        SELECT name INTO v_user_name FROM public.users WHERE id = NEW.user_id;
         INSERT INTO public.app_notifications_queue (school_id, user_id, title, body, route)
-        VALUES (NEW.school_id, NEW.user_id, 'Attendance Alert', 'You have been marked absent today. Please provide a valid reason or leave application.', '/attendance');
+        VALUES (NEW.school_id, NEW.user_id, 'Attendance Alert', 'Hi ' || v_user_name || ', you have been marked absent today. Please provide a valid reason or leave application.', '/attendance');
     END IF;
     RETURN NEW;
 END;
@@ -46,14 +50,22 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- B. Fees Payments
 CREATE OR REPLACE FUNCTION trg_notify_fees_payment() RETURNS trigger AS $$
 DECLARE
-    v_student_id uuid;
+    v_student record;
+    v_total_paid numeric;
+    v_remaining numeric;
 BEGIN
-    -- Fetch student_id from fees table
-    SELECT student_id INTO v_student_id FROM public.fees WHERE id = NEW.fee_id;
+    -- Fetch student info and fee details
+    SELECT student_id, total, last_year_pending INTO v_student FROM public.fees WHERE id = NEW.fee_id;
     
-    IF v_student_id IS NOT NULL THEN
+    IF v_student.student_id IS NOT NULL THEN
+        -- Calculate total paid
+        SELECT COALESCE(SUM(amount), 0) INTO v_total_paid FROM public.fees_payments WHERE fee_id = NEW.fee_id;
+        
+        -- Calculate remaining
+        v_remaining := (v_student.total + v_student.last_year_pending) - v_total_paid;
+        
         INSERT INTO public.app_notifications_queue (school_id, user_id, title, body, route)
-        VALUES (NEW.school_id, v_student_id, 'Payment Received', 'Your fee payment of ₹' || NEW.amount || ' via ' || NEW.method || ' has been successfully recorded.', '/fees');
+        VALUES (NEW.school_id, v_student.student_id, 'Payment Received', 'Your fee payment of ₹' || NEW.amount || ' via ' || NEW.method || ' has been successfully recorded. Your remaining balance is ₹' || v_remaining, '/fees');
     END IF;
     RETURN NEW;
 END;
@@ -61,10 +73,19 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- C. Leaves
 CREATE OR REPLACE FUNCTION trg_notify_leave_update() RETURNS trigger AS $$
+DECLARE
+    v_user_name text;
 BEGIN
-    IF OLD.status != NEW.status AND NEW.status IN ('approved', 'rejected') THEN
+    SELECT name INTO v_user_name FROM public.users WHERE id = NEW.user_id;
+
+    IF TG_OP = 'INSERT' THEN
         INSERT INTO public.app_notifications_queue (school_id, user_id, title, body, route)
-        VALUES (NEW.school_id, NEW.user_id, 'Leave Update', 'Your leave application from ' || NEW.from_date || ' to ' || NEW.to_date || ' has been ' || NEW.status || '.', '/leaves');
+        VALUES (NEW.school_id, NEW.user_id, 'Leave Application', 'Hi ' || v_user_name || ', your leave application has been submitted and is pending approval.', '/leaves');
+    ELSIF TG_OP = 'UPDATE' THEN
+        IF OLD.status != NEW.status AND NEW.status IN ('approved', 'rejected') THEN
+            INSERT INTO public.app_notifications_queue (school_id, user_id, title, body, route)
+            VALUES (NEW.school_id, NEW.user_id, 'Leave Update', 'Hi ' || v_user_name || ', your leave application from ' || NEW.from_date || ' to ' || NEW.to_date || ' has been ' || NEW.status || '.', '/leaves');
+        END IF;
     END IF;
     RETURN NEW;
 END;
@@ -74,7 +95,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION trg_notify_gallery_insert() RETURNS trigger AS $$
 BEGIN
     INSERT INTO public.app_notifications_queue (school_id, target_role, title, body, route)
-    VALUES (NEW.school_id, 'all', 'New Photos Added', 'New photos have been added to the gallery: ' || NEW.title, '/gallery');
+    VALUES (NEW.school_id, 'all', 'New Event Added', 'A new event has been added to the gallery: ' || NEW.title || '. Check it out now!', '/gallery');
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -139,7 +160,7 @@ CREATE TRIGGER on_fees_payment_notify
 
 DROP TRIGGER IF EXISTS on_leaves_notify ON public.leaves;
 CREATE TRIGGER on_leaves_notify
-    AFTER UPDATE ON public.leaves
+    AFTER INSERT OR UPDATE ON public.leaves
     FOR EACH ROW EXECUTE FUNCTION trg_notify_leave_update();
 
 DROP TRIGGER IF EXISTS on_gallery_notify ON public.gallery;

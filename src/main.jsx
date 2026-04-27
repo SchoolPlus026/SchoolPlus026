@@ -15,6 +15,20 @@ const queryClient = new QueryClient({
   },
 });
 
+// Apply initial theme and language
+const theme = localStorage.getItem('lfs_theme') || 'dark';
+const lang = localStorage.getItem('lfs_lang') || 'en';
+
+document.documentElement.setAttribute('data-theme', theme);
+if (theme === 'dark') {
+  document.documentElement.classList.add('dark');
+  document.documentElement.classList.remove('light');
+} else {
+  document.documentElement.classList.add('light');
+  document.documentElement.classList.remove('dark');
+}
+document.documentElement.lang = lang;
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>

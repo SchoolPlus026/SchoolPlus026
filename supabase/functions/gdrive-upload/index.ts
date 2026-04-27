@@ -49,8 +49,61 @@ serve(async (req) => {
     if (!tokenData.access_token) throw new Error('Failed to refresh Google token')
     const accessToken = tokenData.access_token
 
-    // The frontend sends the file as base64 in JSON payload to avoid complex multipart parsing in Deno std 0.168
-    const { fileName, mimeType, fileBase64 } = await req.json()
+    const body = await req.json()
+    const action = body.action
+
+    if (action === 'create_folder') {
+      const folderName = body.folderName
+      if (!folderName) throw new Error('Missing folderName')
+
+      const metadata = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [folder_id]
+      }
+
+      const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(metadata)
+      })
+
+      const createData = await createResponse.json()
+      if (!createResponse.ok) throw new Error(`Drive folder creation failed: ${JSON.stringify(createData)}`)
+
+      // Make folder public (reader access for anyone)
+      await fetch(`https://www.googleapis.com/drive/v3/files/${createData.id}/permissions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          role: 'reader',
+          type: 'anyone'
+        })
+      })
+
+      // We need to fetch the webViewLink
+      const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${createData.id}?fields=webViewLink`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+      const fileData = await fileResponse.json()
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        id: createData.id, 
+        link: fileData.webViewLink 
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    }
+
+    // Original file upload logic
+    const { fileName, mimeType, fileBase64 } = body
     if (!fileName || !fileBase64) throw new Error('Missing file data')
 
     // Upload to Google Drive using multipart upload
