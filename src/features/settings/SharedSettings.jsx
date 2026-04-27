@@ -15,6 +15,57 @@ function toast(msg, setT) {
 const TABLES_EXPORT = ['users', 'notices', 'attendance', 'fees', 'fees_payments', 'leaves', 'gallery', 'timetable', 'calendar_events', 'notifications'];
 const TABLES_RESET  = ['notifications', 'fees_payments', 'leaves', 'attendance', 'fees', 'timetable', 'calendar_events', 'gallery', 'notices', 'users'];
 
+/* ─────────────────────────
+   TRANSLATION DICTIONARY
+─────────────────────────── */
+const T = {
+  en: {
+    settings: 'Settings',
+    theme: 'Theme',
+    themeDark: 'Dark Mode',
+    themeLight: 'Light Mode',
+    language: 'Language',
+    changePassword: 'Change Password',
+    oldPassword: 'Old Password',
+    newPassword: 'New Password',
+    savePassword: 'Save New Password',
+    savingPassword: 'Saving…',
+    about: 'About This Application',
+    dataManagement: 'Data Management',
+    dangerZone: 'Danger Zone',
+  },
+  hi: {
+    settings: 'सेटिंग',
+    theme: 'थीम',
+    themeDark: 'डार्क मोड',
+    themeLight: 'लाइट मोड',
+    language: 'भाषा',
+    changePassword: 'पासवर्ड बदलें',
+    oldPassword: 'पुराना पासवर्ड',
+    newPassword: 'नया पासवर्ड',
+    savePassword: 'नया पासवर्ड सहेजें',
+    savingPassword: 'सहेज रहा है…',
+    about: 'इस एप्लिकेशन के बारे में',
+    dataManagement: 'डेटा प्रबंधन',
+    dangerZone: 'खतरनाक क्षेत्र',
+  },
+  mr: {
+    settings: 'सेटिंग्ज',
+    theme: 'थीम',
+    themeDark: 'डार्क मोड',
+    themeLight: 'लाइट मोड',
+    language: 'भाषा',
+    changePassword: 'पासवर्ड बदला',
+    oldPassword: 'जुना पासवर्ड',
+    newPassword: 'नवीन पासवर्ड',
+    savePassword: 'नवीन पासवर्ड जतन करा',
+    savingPassword: 'जतन होत आहे…',
+    about: 'या ऍप्लिकेशन बद्दल',
+    dataManagement: 'डेटा व्यवस्थापन',
+    dangerZone: 'धोकादायक विभाग',
+  },
+};
+
 export default function SharedSettings() {
   const { user, role } = useAppStore();
   const [toastMsg, setToastMsg] = useState('');
@@ -46,12 +97,13 @@ export default function SharedSettings() {
   };
 
   /* ── Theme ── */
-  const [theme, setTheme] = useState(() => localStorage.getItem('lfs_theme') || 'dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem('sp_theme') || 'light');
   const applyTheme = (val) => {
     setTheme(val);
-    localStorage.setItem('lfs_theme', val);
+    localStorage.setItem('sp_theme', val);
     const root = document.documentElement;
     root.setAttribute('data-theme', val);
+    document.body.setAttribute('data-theme', val);
     if (val === 'dark') {
       root.classList.add('dark');
       root.classList.remove('light');
@@ -62,10 +114,11 @@ export default function SharedSettings() {
   };
 
   /* ── Language ── */
-  const [lang, setLang] = useState(() => localStorage.getItem('lfs_lang') || 'en');
+  const [lang, setLang] = useState(() => localStorage.getItem('sp_lang') || 'en');
+  const t = T[lang] || T.en;
   const applyLang = (val) => {
     setLang(val);
-    localStorage.setItem('lfs_lang', val);
+    localStorage.setItem('sp_lang', val);
     document.documentElement.lang = val;
   };
 
@@ -138,7 +191,7 @@ export default function SharedSettings() {
 
       {/* Page Header */}
       <div className="section-title" style={{ padding: '0 8px', marginTop: '16px' }}>
-        <h3>Settings</h3>
+        <h3>{t.settings}</h3>
       </div>
 
       {/* ── 1. THEME ── */}
@@ -147,15 +200,15 @@ export default function SharedSettings() {
           {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
         </div>
         <div className="text-content" style={{ flex: 1 }}>
-          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Theme</h4>
+          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>{t.theme}</h4>
           <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-            Currently: <strong style={{ color: 'var(--tab-active-color)' }}>{theme === 'dark' ? '🌙 Dark Mode' : '☀️ Light Mode'}</strong>
+            Choose your preferred appearance
           </p>
         </div>
         <div style={{ width: '140px' }}>
           <select value={theme} onChange={e => applyTheme(e.target.value)} className="sp-input">
-            <option value="dark">🌙 Dark</option>
-            <option value="light">☀️ Light</option>
+            <option value="dark">{t.themeDark}</option>
+            <option value="light">{t.themeLight}</option>
           </select>
         </div>
       </div>
@@ -164,14 +217,14 @@ export default function SharedSettings() {
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
         <div className="icon-box"><Globe size={20} /></div>
         <div className="text-content" style={{ flex: 1 }}>
-          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Language</h4>
+          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>{t.language}</h4>
           <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Select your preferred language</p>
         </div>
         <div style={{ width: '130px' }}>
           <select value={lang} onChange={e => applyLang(e.target.value)} className="sp-input">
             <option value="en">English</option>
-            <option value="hi">हिन्दी (Hindi)</option>
-            <option value="mr">मराठी (Marathi)</option>
+            <option value="hi">हिन्दी</option>
+            <option value="mr">मराठी</option>
           </select>
         </div>
       </div>
@@ -181,7 +234,7 @@ export default function SharedSettings() {
         <div className="settings-header">
           <div className="icon-box"><Lock size={20} /></div>
           <div className="text-content">
-            <h4>Change Password</h4>
+            <h4>{t.changePassword}</h4>
             <p>Keep your account secure</p>
           </div>
         </div>
@@ -189,7 +242,7 @@ export default function SharedSettings() {
         <div style={{ position: 'relative', marginBottom: '12px' }}>
           <input
             type={showOldPwd ? "text" : "password"}
-            placeholder="Old Password"
+            placeholder={t.oldPassword}
             value={oldPwd}
             onChange={e => setOldPwd(e.target.value)}
             className="sp-input block w-full"
@@ -203,7 +256,7 @@ export default function SharedSettings() {
         <div style={{ position: 'relative', marginBottom: '16px' }}>
           <input
             type={showNewPwd ? "text" : "password"}
-            placeholder="New Password"
+            placeholder={t.newPassword}
             value={newPwd}
             onChange={e => setNewPwd(e.target.value)}
             className="sp-input block w-full"
@@ -215,7 +268,7 @@ export default function SharedSettings() {
         </div>
         
         <button onClick={changePassword} disabled={pwdLoading} className="btn accent w-full">
-          <Lock size={16} /> {pwdLoading ? 'Saving…' : 'Save New Password'}
+          <Lock size={16} /> {pwdLoading ? t.savingPassword : t.savePassword}
         </button>
       </div>
 
@@ -226,7 +279,7 @@ export default function SharedSettings() {
             <div className="settings-header">
               <div className="icon-box"><Database size={20} /></div>
               <div className="text-content">
-                <h4>Data Management</h4>
+                <h4>{t.dataManagement}</h4>
                 <p>Export all data from all modules as a single JSON file.</p>
               </div>
             </div>
@@ -240,7 +293,7 @@ export default function SharedSettings() {
             <div className="settings-header" style={{ marginBottom: '16px' }}>
               <div className="icon-box danger"><ShieldAlert size={20} /></div>
               <div className="text-content">
-                <h4 style={{ color: 'var(--danger)' }}>Danger Zone</h4>
+                <h4 style={{ color: 'var(--danger)' }}>{t.dangerZone}</h4>
                 <p style={{ color: 'var(--danger)' }}>This will permanently delete all records. This cannot be undone.</p>
               </div>
             </div>
@@ -263,7 +316,7 @@ export default function SharedSettings() {
         <div className="settings-header" style={{ marginBottom: '16px' }}>
           <div className="icon-box"><Info size={20} /></div>
           <div className="text-content">
-            <h4>About This Application</h4>
+            <h4>{t.about}</h4>
             <p>System information and credits</p>
           </div>
           {(userRole === 'admin' || userRole === 'app_manager') && (

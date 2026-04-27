@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown } from 'lucide-react';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -13,6 +13,13 @@ export default function PlatformAdminDashboard() {
   // Schools State
   const [schools, setSchools] = useState([]);
   const [loadingSchools, setLoadingSchools] = useState(true);
+  
+  // Add School State
+  const [showAddSchool, setShowAddSchool] = useState(false);
+  const [newSchoolName, setNewSchoolName] = useState('');
+  const [newSchoolCode, setNewSchoolCode] = useState('');
+  const [newSchoolTier, setNewSchoolTier] = useState('Free');
+  const [addingSchool, setAddingSchool] = useState(false);
 
   // Platform Settings State
   const [platformName, setPlatformName] = useState('');
@@ -135,6 +142,33 @@ export default function PlatformAdminDashboard() {
       setSchools(schoolData);
     }
     setLoadingSchools(false);
+  };
+
+  const handleAddSchool = async (e) => {
+    e.preventDefault();
+    if (!newSchoolName.trim() || !newSchoolCode.trim()) return;
+    setAddingSchool(true);
+    
+    try {
+      const { error } = await supabase.from('school_settings').insert({
+        name: newSchoolName.trim(),
+        school_code: newSchoolCode.trim().toUpperCase(),
+        subscription_tier: newSchoolTier,
+        subscription_status: 'Paid'
+      });
+      if (error) throw error;
+      
+      alert('School added successfully!');
+      setShowAddSchool(false);
+      setNewSchoolName('');
+      setNewSchoolCode('');
+      setNewSchoolTier('Free');
+      fetchSchools();
+    } catch (err) {
+      alert('Error adding school: ' + err.message);
+    } finally {
+      setAddingSchool(false);
+    }
   };
 
   const fetchPlatformSettings = async () => {
@@ -297,12 +331,17 @@ export default function PlatformAdminDashboard() {
       {/* â”€â”€ SECTION 1: TENANT SCHOOLS â”€â”€ */}
       {activeTab === 'schools' && (
         <div className="card fade-in">
-          <div className="settings-header">
-            <div className="icon-box"><Building size={20} /></div>
-            <div className="text-content">
-              <h4>Registered Schools</h4>
-              <p>Manage all tenants on the platform</p>
+          <div className="settings-header flex justify-between items-center">
+            <div className="flex gap-4 items-center">
+              <div className="icon-box"><Building size={20} /></div>
+              <div className="text-content">
+                <h4>Registered Schools</h4>
+                <p>Manage all tenants on the platform</p>
+              </div>
             </div>
+            <button className="btn accent" onClick={() => setShowAddSchool(true)}>
+              <Plus size={16} /> Add School
+            </button>
           </div>
           
           <div className="table-responsive overflow-x-auto mt-4 border border-slate-700/50 rounded-xl overflow-hidden">
@@ -690,6 +729,34 @@ export default function PlatformAdminDashboard() {
           </div>
         </div>
       )}
+      {/* ── ADD SCHOOL MODAL ── */}
+      {showAddSchool && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '420px' }}>
+            <h3 style={{ marginBottom: '8px' }}>Add New School</h3>
+            <p className="muted small" style={{ marginBottom: '18px' }}>Create a new tenant in the platform.</p>
+            <form onSubmit={handleAddSchool}>
+              <label className="muted small block" style={{ marginBottom: '6px' }}>School Name</label>
+              <input type="text" required value={newSchoolName} onChange={e => setNewSchoolName(e.target.value)} placeholder="e.g. Lincoln High" className="sp-input block w-full mb-4" />
+              
+              <label className="muted small block" style={{ marginBottom: '6px' }}>School Code</label>
+              <input type="text" required value={newSchoolCode} onChange={e => setNewSchoolCode(e.target.value)} placeholder="e.g. LNC01" className="sp-input block w-full mb-4 uppercase" />
+
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Subscription Tier</label>
+              <select value={newSchoolTier} onChange={e => setNewSchoolTier(e.target.value)} className="sp-input block w-full mb-6">
+                <option value="Free">Free</option>
+                <option value="Premium">Premium</option>
+              </select>
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => setShowAddSchool(false)}>Cancel</button>
+                <button type="submit" disabled={addingSchool} className="btn accent" style={{ flex: 2 }}>{addingSchool ? 'Adding...' : 'Add School'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

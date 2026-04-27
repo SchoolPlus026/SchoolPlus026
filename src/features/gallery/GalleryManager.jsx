@@ -14,7 +14,7 @@ export default function GalleryManager() {
   const [link, setLink] = useState(''); // For direct URL fallback
   const [category, setCategory] = useState('Events');
   const [isCreating, setIsCreating] = useState(false);
-  const [progressText, setProgressText] = useState('');
+  const [coverFile, setCoverFile] = useState(null);
   
   const { data: media, isLoading } = useQuery({
     queryKey: ['gallery', schoolSettings?.school_id],
@@ -40,6 +40,7 @@ export default function GalleryManager() {
       setTitle('');
       setLink('');
       setCategory('Events');
+      setCoverFile(null);
       setProgressText('');
     }
   });
@@ -56,13 +57,34 @@ export default function GalleryManager() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (!coverFile) return alert('Please select a cover photo.');
     
+    setIsCreating(true);
     let finalLink = link;
+    let coverLink = '';
 
-    if (schoolSettings?.gdrive_config && !link) {
-      setIsCreating(true);
-      setProgressText('Creating Google Drive Folder...');
-      try {
+    try {
+      // 1. Upload Cover Photo to Supabase Storage
+      setProgressText('Uploading Cover Photo...');
+      const fileExt = coverFile.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${schoolSettings.school_id}/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('gallery')
+        .upload(filePath, coverFile);
+        
+      if (uploadError) throw new Error(`Cover upload failed: ${uploadError.message}`);
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('gallery')
+        .getPublicUrl(filePath);
+        
+      coverLink = publicUrl;
+
+      // 2. Create Google Drive Folder if connected
+      if (schoolSettings?.gdrive_config && !link) {
+        setProgressText('Creating Google Drive Folder...');
         const { data, error } = await supabase.functions.invoke('gdrive-upload', {
           body: {
             action: 'create_folder',
@@ -75,27 +97,26 @@ export default function GalleryManager() {
         if (!data.link) throw new Error('No link returned from Google Drive');
 
         finalLink = data.link;
-      } catch (err) {
-        alert(`Failed to create folder: ${err.message}`);
-        setIsCreating(false);
-        setProgressText('');
-        return;
       }
+
+      if (!finalLink) {
+         throw new Error('Please provide a direct URL or connect Google Drive.');
+      }
+
+      setProgressText('Saving Event...');
+      addMutation.mutate({
+        school_id: schoolSettings.school_id,
+        title,
+        link: finalLink,
+        cover_link: coverLink,
+        category
+      });
+    } catch (err) {
+      alert(err.message);
       setIsCreating(false);
       setProgressText('');
+      return;
     }
-
-    if (!finalLink) {
-       alert('Please provide a direct URL or connect Google Drive.');
-       return;
-    }
-
-    addMutation.mutate({
-      school_id: schoolSettings.school_id,
-      title,
-      link: finalLink,
-      category
-    });
   };
 
   return (
@@ -130,12 +151,14 @@ export default function GalleryManager() {
               key={item.id} 
               className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm group hover:border-primary/50 transition-all flex flex-col relative"
             >
-              <div className="aspect-[4/3] relative overflow-hidden bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-                <Folder size={64} className="text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="font-bold text-slate-800 text-lg leading-tight mb-1">{item.title}</h3>
-                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold uppercase tracking-widest mt-2">
-                  {item.category}
-                </span>
+              <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
+                {item.cover_link ? (
+                  <img src={item.cover_link} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-50">
+                    <Folder size={64} className="text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
+                  </div>
+                )}
                 
                 {role === 'admin' && (
                   <button 
@@ -151,15 +174,19 @@ export default function GalleryManager() {
                   </button>
                 )}
               </div>
-              <div className="p-3 bg-white border-t border-slate-100">
-                <a 
-                  href={item.link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-primary hover:text-white hover:border-primary transition-all"
-                >
-                   Open <ExternalLink size={16} />
-                </a>
+              <div className="p-4 flex flex-col items-start bg-white border-t border-slate-100">
+                 <h3 className="font-bold text-slate-800 text-base leading-tight mb-1 truncate w-full">{item.title}</h3>
+                 <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-bold uppercase tracking-widest mb-3">
+                   {item.category}
+                 </span>
+                 <a 
+                   href={item.link} 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   className="flex items-center justify-center gap-2 w-full py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-primary hover:text-white hover:border-primary transition-all"
+                 >
+                    <Folder size={14} /> Open Folder <ExternalLink size={14} />
+                 </a>
               </div>
             </div>
           ))}
@@ -188,6 +215,17 @@ export default function GalleryManager() {
                   <option value="Awards">Awards & Honors</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-text mb-1.5">Cover Photo</label>
+                <input 
+                  required 
+                  type="file" 
+                  accept="image/*"
+                  onChange={e => setCoverFile(e.target.files[0])} 
+                  className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" 
+                />
+              </div>
+              
               {schoolSettings?.gdrive_config ? (
                 <div>
                   <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-800">

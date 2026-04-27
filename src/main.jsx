@@ -16,10 +16,11 @@ const queryClient = new QueryClient({
 });
 
 // Apply initial theme and language
-const theme = localStorage.getItem('lfs_theme') || 'dark';
-const lang = localStorage.getItem('lfs_lang') || 'en';
+const theme = localStorage.getItem('sp_theme') || 'light';
+const lang = localStorage.getItem('sp_lang') || 'en';
 
 document.documentElement.setAttribute('data-theme', theme);
+document.body.setAttribute('data-theme', theme);
 if (theme === 'dark') {
   document.documentElement.classList.add('dark');
   document.documentElement.classList.remove('light');
