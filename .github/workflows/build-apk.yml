@@ -71,8 +71,8 @@ jobs:
         #   Then add to GitHub → Settings → Secrets → Actions as: KEYSTORE_BASE64
         #   Also add: KEY_ALIAS, KEY_PASSWORD, STORE_PASSWORD
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/schoolos.jks
-          echo "✅ Keystore restored to android/app/schoolos.jks"
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ${{ github.workspace }}/schoolos.jks
+          echo "✅ Keystore restored to ${{ github.workspace }}/schoolos.jks"
 
       - name: 🎨 Generate App Icons
         run: npx @capacitor/assets generate --android
@@ -97,7 +97,7 @@ jobs:
         # Writes signing config into local.properties so it's picked up by build.gradle
         run: |
           cat >> android/local.properties << EOF
-          storeFile=schoolos.jks
+          storeFile=${{ github.workspace }}/schoolos.jks
           storePassword=${{ secrets.STORE_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
@@ -110,7 +110,7 @@ jobs:
         run: |
           cd android
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=schoolos.jks \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/schoolos.jks \
             -Pandroid.injected.signing.store.password=${{ secrets.STORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
