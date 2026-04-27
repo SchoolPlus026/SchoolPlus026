@@ -30,11 +30,12 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../config/supabaseClient';
 
-// ─── IMPORTANT: Update this whenever you ship a new APK build ────────────────
-// This must match the version_code value inserted into the app_versions table
-// for the build currently installed on the user's device.
-const APP_VERSION_CODE = 1;       // integer build number  (e.g. 1, 2, 3 …)
-const APP_VERSION_NAME = '1.0.0'; // human-readable string (for display only)
+// ─── VERSION: Injected by CI/CD at build time via VITE_APP_VERSION_CODE env var ──
+// In build-apk.yml, set:  VITE_APP_VERSION_CODE: ${{ github.run_number }}
+// This keeps VersionChecker in sync with the database automatically.
+// Fallback to 1 for local development builds.
+const APP_VERSION_CODE = parseInt(import.meta.env.VITE_APP_VERSION_CODE || '1', 10);
+const APP_VERSION_NAME = import.meta.env.VITE_APP_VERSION_NAME || '1.0.0';
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Open a URL in the system browser (Android intent) ────────────────────────

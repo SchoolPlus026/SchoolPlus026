@@ -3,12 +3,12 @@ import { Moon, Sun } from 'lucide-react';
 
 /**
  * ThemeToggle — unified with the rest of the app.
- * Storage key: 'lfs_theme'  (matches SharedSettings & legacy app)
- * Applies: data-theme attr on <html> + class 'dark' / 'light' on <html>
+ * Storage key: 'sp_theme'  (matches main.jsx, SharedSettings & AdminSettings)
+ * Applies: data-theme attr on <html> + <body> + class 'dark' / 'light' on <html>
  */
 export default function ThemeToggle() {
   const [theme, setTheme] = useState(
-    () => localStorage.getItem('lfs_theme') || 'dark'
+    () => localStorage.getItem('sp_theme') || 'light'
   );
 
   useEffect(() => {
@@ -17,8 +17,9 @@ export default function ThemeToggle() {
 
   function applyTheme(val) {
     const root = document.documentElement;
-    localStorage.setItem('lfs_theme', val);
+    localStorage.setItem('sp_theme', val);
     root.setAttribute('data-theme', val);
+    document.body.setAttribute('data-theme', val);
     if (val === 'dark') {
       root.classList.add('dark');
       root.classList.remove('light');

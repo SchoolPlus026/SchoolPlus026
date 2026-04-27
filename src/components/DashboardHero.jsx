@@ -15,6 +15,7 @@ export default function DashboardHero() {
       const { data, error } = await supabase
         .from('notices')
         .select('*')
+        .eq('school_id', schoolId)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -30,6 +31,7 @@ export default function DashboardHero() {
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
+        .eq('school_id', schoolId)
         .gte('start_date', new Date().toISOString().split('T')[0])
         .order('start_date', { ascending: true })
         .limit(2);

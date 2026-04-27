@@ -19,6 +19,7 @@ export default function NoticeBoard() {
       let query = supabase
         .from('notices')
         .select('*')
+        .eq('school_id', schoolSettings.school_id)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
 

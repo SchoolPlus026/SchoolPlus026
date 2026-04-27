@@ -37,12 +37,24 @@ jobs:
       # to prevent false 401 rejections on cold-start invocations.
       - name: 🔔 Deploy Edge Functions
         run: |
-          # We deploy all master notification functions and the old notice notification
-          FUNCTIONS=("send-notice-notification" "process-notification-queue" "cron-notification-scheduler")
+          # Deploy all functions
+          # Note: platform-create-school DOES verify JWT (called by authenticated UI users)
+          # Note: notification functions skip JWT verification (called by pg_net server triggers)
+          FUNCTIONS_NO_JWT=("send-notice-notification" "process-notification-queue" "cron-notification-scheduler")
+          FUNCTIONS_WITH_JWT=("platform-create-school" "gdrive-upload" "gdrive-auth")
           
-          for func in "${FUNCTIONS[@]}"; do
-            echo "Deploying $func..."
-            supabase functions deploy "$func" --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --no-verify-jwt
+          for func in "${FUNCTIONS_NO_JWT[@]}"; do
+            if [ -d "supabase/functions/$func" ]; then
+              echo "Deploying $func (no JWT verify)..."
+              supabase functions deploy "$func" --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --no-verify-jwt
+            fi
+          done
+          
+          for func in "${FUNCTIONS_WITH_JWT[@]}"; do
+            if [ -d "supabase/functions/$func" ]; then
+              echo "Deploying $func (with JWT verify)..."
+              supabase functions deploy "$func" --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+            fi
           done
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

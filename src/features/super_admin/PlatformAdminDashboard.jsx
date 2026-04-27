@@ -19,7 +19,12 @@ export default function PlatformAdminDashboard() {
   const [newSchoolName, setNewSchoolName] = useState('');
   const [newSchoolCode, setNewSchoolCode] = useState('');
   const [newSchoolTier, setNewSchoolTier] = useState('Free');
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminUsername, setNewAdminUsername] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
   const [addingSchool, setAddingSchool] = useState(false);
+  const [addSchoolError, setAddSchoolError] = useState('');
 
   // Platform Settings State
   const [platformName, setPlatformName] = useState('');
@@ -147,25 +152,39 @@ export default function PlatformAdminDashboard() {
   const handleAddSchool = async (e) => {
     e.preventDefault();
     if (!newSchoolName.trim() || !newSchoolCode.trim()) return;
+    if (!newAdminEmail.trim() || !newAdminPassword || !newAdminUsername.trim()) return;
     setAddingSchool(true);
+    setAddSchoolError('');
     
     try {
-      const { error } = await supabase.from('school_settings').insert({
-        name: newSchoolName.trim(),
-        school_code: newSchoolCode.trim().toUpperCase(),
-        subscription_tier: newSchoolTier,
-        subscription_status: 'Paid'
+      const { data, error } = await supabase.functions.invoke('platform-create-school', {
+        body: {
+          school_name: newSchoolName.trim(),
+          school_code: newSchoolCode.trim().toUpperCase(),
+          subscription_tier: newSchoolTier,
+          admin_name: newAdminName.trim(),
+          admin_username: newAdminUsername.trim(),
+          admin_email: newAdminEmail.trim(),
+          admin_password: newAdminPassword,
+        }
       });
-      if (error) throw error;
       
-      alert('School added successfully!');
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      
+      alert(`✅ ${data.message}`);
       setShowAddSchool(false);
       setNewSchoolName('');
       setNewSchoolCode('');
       setNewSchoolTier('Free');
+      setNewAdminName('');
+      setNewAdminUsername('');
+      setNewAdminEmail('');
+      setNewAdminPassword('');
+      setAddSchoolError('');
       fetchSchools();
     } catch (err) {
-      alert('Error adding school: ' + err.message);
+      setAddSchoolError(err.message);
     } finally {
       setAddingSchool(false);
     }
@@ -731,26 +750,54 @@ export default function PlatformAdminDashboard() {
       )}
       {/* ── ADD SCHOOL MODAL ── */}
       {showAddSchool && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '420px' }}>
-            <h3 style={{ marginBottom: '8px' }}>Add New School</h3>
-            <p className="muted small" style={{ marginBottom: '18px' }}>Create a new tenant in the platform.</p>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: '16px', overflowY: 'auto' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '480px', margin: 'auto' }}>
+            <h3 style={{ marginBottom: '4px' }}>Add New School</h3>
+            <p className="muted small" style={{ marginBottom: '20px' }}>Creates the school workspace AND the first admin user in one secure operation.</p>
+            
+            {addSchoolError && (
+              <div style={{ padding: '12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '16px', color: '#f87171', fontSize: '13px' }}>
+                ⚠️ {addSchoolError}
+              </div>
+            )}
+            
             <form onSubmit={handleAddSchool}>
-              <label className="muted small block" style={{ marginBottom: '6px' }}>School Name</label>
-              <input type="text" required value={newSchoolName} onChange={e => setNewSchoolName(e.target.value)} placeholder="e.g. Lincoln High" className="sp-input block w-full mb-4" />
+              <p className="muted small" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px', marginTop: '4px' }}>School Details</p>
               
-              <label className="muted small block" style={{ marginBottom: '6px' }}>School Code</label>
-              <input type="text" required value={newSchoolCode} onChange={e => setNewSchoolCode(e.target.value)} placeholder="e.g. LNC01" className="sp-input block w-full mb-4 uppercase" />
+              <label className="muted small block" style={{ marginBottom: '6px' }}>School Name</label>
+              <input type="text" required value={newSchoolName} onChange={e => setNewSchoolName(e.target.value)} placeholder="e.g. Lincoln High School" className="sp-input block w-full mb-4" />
+              
+              <label className="muted small block" style={{ marginBottom: '6px' }}>School Code <span style={{color:'var(--text-faint)'}}>(unique login identifier)</span></label>
+              <input type="text" required value={newSchoolCode} onChange={e => setNewSchoolCode(e.target.value.toUpperCase())} placeholder="e.g. LNC01" className="sp-input block w-full mb-4" style={{ textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 700 }} />
 
               <label className="muted small block" style={{ marginBottom: '6px' }}>Subscription Tier</label>
-              <select value={newSchoolTier} onChange={e => setNewSchoolTier(e.target.value)} className="sp-input block w-full mb-6">
+              <select value={newSchoolTier} onChange={e => setNewSchoolTier(e.target.value)} className="sp-input block w-full mb-5">
                 <option value="Free">Free</option>
                 <option value="Premium">Premium</option>
+                <option value="Enterprise">Enterprise</option>
               </select>
               
+              <div style={{ height: '1px', background: 'var(--card-border)', margin: '4px 0 16px' }} />
+              
+              <p className="muted small" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>First Admin Account</p>
+
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Full Name</label>
+              <input type="text" required value={newAdminName} onChange={e => setNewAdminName(e.target.value)} placeholder="e.g. Ravi Sharma" className="sp-input block w-full mb-4" />
+              
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Username <span style={{color:'var(--text-faint)'}}>(used at login)</span></label>
+              <input type="text" required value={newAdminUsername} onChange={e => setNewAdminUsername(e.target.value)} placeholder="e.g. admin_lnc" className="sp-input block w-full mb-4" />
+              
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Email</label>
+              <input type="email" required value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)} placeholder="e.g. admin@lincolnhigh.edu" className="sp-input block w-full mb-4" />
+              
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Password <span style={{color:'var(--text-faint)'}}>(min 6 chars)</span></label>
+              <input type="password" required minLength={6} value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} placeholder="••••••••" className="sp-input block w-full mb-6" />
+              
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => setShowAddSchool(false)}>Cancel</button>
-                <button type="submit" disabled={addingSchool} className="btn accent" style={{ flex: 2 }}>{addingSchool ? 'Adding...' : 'Add School'}</button>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setShowAddSchool(false); setAddSchoolError(''); }}>Cancel</button>
+                <button type="submit" disabled={addingSchool} className="btn accent" style={{ flex: 2 }}>
+                  {addingSchool ? 'Creating School...' : 'Create School & Admin'}
+                </button>
               </div>
             </form>
           </div>

@@ -1,9 +1,15 @@
 name: Build Android APK (SchoolOS+)
 
+# ── TRIGGER STRATEGY ──────────────────────────────────────────────────────────
+# Builds ONLY fire on version tags (e.g. v1.0.5) or manual dispatch.
+# This prevents burning Netlify + GitHub Actions minutes on every code commit.
+# To release a new APK: git tag v1.0.X && git push origin v1.0.X
+# ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
-    branches: [ "main", "master" ]
-  workflow_dispatch: # Allows you to manually click "Run workflow" from GitHub UI
+    tags:
+      - 'v*'           # Only fire on version tags: v1.0.0, v1.0.5, v2.0.0, etc.
+  workflow_dispatch:   # Also allows manual "Run workflow" click from GitHub UI
 
 jobs:
   build-apk:
@@ -27,6 +33,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_VERSION_CODE: ${{ github.run_number }}
+          VITE_APP_VERSION_NAME: ${{ github.ref_name || format('1.0.{0}', github.run_number) }}
 
       - name: 🚀 Add & Sync Capacitor Android Platform
         run: |
@@ -34,36 +42,37 @@ jobs:
           npx cap sync android
 
       - name: 🔔 Patch AndroidManifest.xml — Add FCM Permissions
-        # CRITICAL: The android/ folder is git-ignored and fully regenerated each run.
-        # cap sync produces a minimal manifest with only INTERNET permission.
-        # Android 13+ (API 33+) REQUIRES POST_NOTIFICATIONS declared in the manifest
-        # or requestPermissions() throws a SecurityException → immediate app crash.
-        # We patch the manifest here, after sync, every CI run.
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # Verify the file exists before patching
           if [ ! -f "$MANIFEST" ]; then
             echo "❌ AndroidManifest.xml not found at $MANIFEST"
             exit 1
           fi
-          # Insert FCM permissions block before the closing </manifest> tag.
-          # sed -i edits in-place; the \n sequences produce real newlines.
           sed -i 's|</manifest>|    <!-- FCM: Android 13+ POST_NOTIFICATIONS runtime permission (REQUIRED) -->\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <!-- FCM: Notification vibration support -->\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <!-- FCM: Wake device to deliver messages reliably -->\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <!-- FCM: Re-register token after device reboot -->\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n</manifest>|' "$MANIFEST"
           echo "✅ FCM permissions patched into AndroidManifest.xml"
-          # Verify the patch was applied
           grep -q "POST_NOTIFICATIONS" "$MANIFEST" && echo "✅ POST_NOTIFICATIONS confirmed" || (echo "❌ Patch FAILED" && exit 1)
 
       - name: 🔑 Inject google-services.json for FCM
-        # The android/ directory is git-ignored and rebuilt fresh every CI run.
-        # google-services.json CANNOT be committed. Instead:
-        #   1. Go to GitHub → Settings → Secrets → Actions
-        #   2. Create secret: GOOGLE_SERVICES_JSON_BASE64
-        #   3. Value: base64-encode your google-services.json file
-        #      PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("google-services.json"))
-        #      Linux/Mac:  base64 -w 0 google-services.json
         run: |
           echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
           echo "✅ google-services.json written to android/app/"
+
+      - name: 🗝️ Restore Signing Keystore
+        # CRITICAL: We use a PERSISTENT keystore stored as a GitHub Secret (base64).
+        # This ensures every APK build has the SAME signature, allowing users
+        # to UPDATE without uninstalling the old APK.
+        #
+        # HOW TO GENERATE (run ONCE on your machine):
+        #   keytool -genkey -v -keystore schoolos.jks -alias schoolos -keyalg RSA -keysize 2048 -validity 10000
+        #   (fill in the prompts, remember the password)
+        #
+        # HOW TO ENCODE AND ADD TO SECRETS:
+        #   PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("schoolos.jks")) | clip
+        #   Then add to GitHub → Settings → Secrets → Actions as: KEYSTORE_BASE64
+        #   Also add: KEY_ALIAS, KEY_PASSWORD, STORE_PASSWORD
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/schoolos.jks
+          echo "✅ Keystore restored to android/app/schoolos.jks"
 
       - name: 🎨 Generate App Icons
         run: npx @capacitor/assets generate --android
@@ -84,26 +93,73 @@ jobs:
       - name: 🔨 Grant Execute Permission to Gradle Wrapper
         run: chmod +x android/gradlew
 
-      - name: ⚙️ Compile Android Debug APK
+      - name: 🔧 Configure Gradle Signing
+        # Writes signing config into local.properties so it's picked up by build.gradle
+        run: |
+          cat >> android/local.properties << EOF
+          storeFile=schoolos.jks
+          storePassword=${{ secrets.STORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      - name: ⚙️ Compile Signed Release APK
+        # assembleRelease uses the keystore configured above.
+        # Produces: android/app/build/outputs/apk/release/app-release-unsigned.apk
+        # (Gradle will auto-sign it with the configured keystore)
         run: |
           cd android
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=schoolos.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.STORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
 
-      - name: 📤 Upload APK as SchoolOS_Plus
-        uses: actions/upload-artifact@v4
-        with:
-          name: SchoolOS_Plus
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-
-      - name: 📝 Insert Version Record to Supabase
-        # Requires SUPABASE_SERVICE_ROLE_KEY in GitHub Secrets
+      - name: 📦 Rename APK for Release
         run: |
-          VERSION_NAME="1.0.${{ github.run_number }}"
+          VERSION_TAG="${{ github.ref_name }}"
+          # Fallback for manual dispatch (no tag)
+          if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "refs/heads/main" ]; then
+            VERSION_TAG="v1.0.${{ github.run_number }}"
+          fi
+          APK_SRC="android/app/build/outputs/apk/release/app-release.apk"
+          APK_DEST="SchoolOS_Plus_${VERSION_TAG}.apk"
+          # Try release first, fall back to unsigned
+          if [ ! -f "$APK_SRC" ]; then
+            APK_SRC="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          fi
+          cp "$APK_SRC" "$APK_DEST"
+          echo "APK_FILE=$APK_DEST" >> $GITHUB_ENV
+          echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
+          echo "✅ APK ready: $APK_DEST"
+
+      - name: 🚀 Create GitHub Release with APK
+        # This creates a PUBLIC GitHub Release with the APK as a downloadable asset.
+        # The direct download URL will be:
+        # https://github.com/<owner>/<repo>/releases/download/<tag>/SchoolOS_Plus_<tag>.apk
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION_TAG }}
+          name: "SchoolOS+ ${{ env.VERSION_TAG }}"
+          body: "🚀 Automated release from GitHub Actions CI/CD pipeline.\n\nInstall the APK directly from the assets below. Users with the previous version can update without uninstalling."
+          files: ${{ env.APK_FILE }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📝 Register Version in Supabase
+        # Stores the DIRECT APK download URL (not the webpage URL) in app_versions.
+        # VersionChecker.jsx uses this URL to open the APK in the system browser.
+        run: |
           VERSION_CODE="${{ github.run_number }}"
-          APK_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          VERSION_NAME="${{ env.VERSION_TAG }}"
+          REPO="${{ github.repository }}"
+          APK_FILE="${{ env.APK_FILE }}"
           
-          curl -X POST "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/app_versions" \
+          # Direct download URL — no login required, works in Capacitor Browser plugin
+          APK_URL="https://github.com/${REPO}/releases/download/${VERSION_NAME}/${APK_FILE}"
+          
+          curl -sS -X POST "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/app_versions" \
             -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
@@ -112,7 +168,8 @@ jobs:
               \"version_code\": $VERSION_CODE,
               \"version_name\": \"$VERSION_NAME\",
               \"apk_url\": \"$APK_URL\",
-              \"release_notes\": \"Automated CI/CD Build from GitHub Actions\",
+              \"release_notes\": \"Automated CI/CD release $VERSION_NAME from GitHub Actions.\",
               \"is_critical\": false
             }"
-          echo "✅ Version $VERSION_NAME ($VERSION_CODE) registered in database."
+          echo "✅ Version $VERSION_NAME (code: $VERSION_CODE) registered in Supabase."
+          echo "📥 Direct APK URL: $APK_URL"

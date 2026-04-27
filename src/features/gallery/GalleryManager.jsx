@@ -14,6 +14,7 @@ export default function GalleryManager() {
   const [link, setLink] = useState(''); // For direct URL fallback
   const [category, setCategory] = useState('Events');
   const [isCreating, setIsCreating] = useState(false);
+  const [progressText, setProgressText] = useState('');
   const [coverFile, setCoverFile] = useState(null);
   
   const { data: media, isLoading } = useQuery({
@@ -22,6 +23,7 @@ export default function GalleryManager() {
       const { data, error } = await supabase
         .from('gallery')
         .select('*')
+        .eq('school_id', schoolSettings.school_id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -42,6 +44,7 @@ export default function GalleryManager() {
       setCategory('Events');
       setCoverFile(null);
       setProgressText('');
+      setIsCreating(false);
     }
   });
 
