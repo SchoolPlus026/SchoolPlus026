@@ -6,165 +6,186 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// ── Helper: refresh Google OAuth token ──────────────────────────────────────
+async function getAccessToken(refreshToken: string): Promise<string> {
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     Deno.env.get('GOOGLE_CLIENT_ID')!,
+      client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET')!,
+      refresh_token: refreshToken,
+      grant_type:    'refresh_token',
+    }),
+  })
+  const tokenData = await tokenResponse.json()
+  if (!tokenData.access_token) throw new Error('Failed to refresh Google token: ' + JSON.stringify(tokenData))
+  return tokenData.access_token
+}
+
+// ── Helper: make a Drive file/folder publicly readable ───────────────────────
+async function makePublic(fileId: string, accessToken: string): Promise<void> {
+  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+  })
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    // ── 1. Auth: verify the calling user ────────────────────────────────────
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
 
-    // Verify user
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) throw new Error('Unauthorized')
 
-    // Get school_id from profile
-    const { data: profile } = await supabaseClient.from('users').select('school_id').eq('id', user.id).single()
-    if (!profile || !profile.school_id) throw new Error('No school linked')
+    // ── 2. Fetch school's gdrive_config ─────────────────────────────────────
+    const { data: profile } = await supabaseClient
+      .from('users').select('school_id').eq('id', user.id).single()
+    if (!profile?.school_id) throw new Error('No school linked to this user')
 
-    // Get gdrive_config
-    const { data: settings } = await supabaseClient.from('school_settings').select('gdrive_config').eq('school_id', profile.school_id).single()
-    if (!settings || !settings.gdrive_config || !settings.gdrive_config.refresh_token) {
-        throw new Error('Google Drive not connected for this school')
+    const { data: settings } = await supabaseClient
+      .from('school_settings')
+      .select('gdrive_config')
+      .eq('school_id', profile.school_id)
+      .single()
+
+    if (!settings?.gdrive_config?.refresh_token) {
+      throw new Error('Google Drive not connected for this school')
     }
 
     const { refresh_token, folder_id } = settings.gdrive_config
 
-    // Get new access token
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: Deno.env.get('GOOGLE_CLIENT_ID')!,
-        client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET')!,
-        refresh_token: refresh_token,
-        grant_type: 'refresh_token',
-      }),
-    })
-    const tokenData = await tokenResponse.json()
-    if (!tokenData.access_token) throw new Error('Failed to refresh Google token')
-    const accessToken = tokenData.access_token
+    // ── 3. Get a fresh access token ──────────────────────────────────────────
+    const accessToken = await getAccessToken(refresh_token)
 
+    // ── 4. Route by action ───────────────────────────────────────────────────
     const body = await req.json()
     const action = body.action
 
+    // ════════════════════════════════════════════════════════════════════════
+    // ACTION: create_folder
+    // Creates a named subfolder inside the school's root GDrive folder.
+    // Returns: { success, id, link }
+    // ════════════════════════════════════════════════════════════════════════
     if (action === 'create_folder') {
       const folderName = body.folderName
       if (!folderName) throw new Error('Missing folderName')
-
-      const metadata = {
-        name: folderName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [folder_id]
-      }
 
       const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(metadata)
+        body: JSON.stringify({
+          name:     folderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents:  [folder_id],
+        }),
       })
 
       const createData = await createResponse.json()
       if (!createResponse.ok) throw new Error(`Drive folder creation failed: ${JSON.stringify(createData)}`)
 
-      // Make folder public (reader access for anyone)
-      await fetch(`https://www.googleapis.com/drive/v3/files/${createData.id}/permissions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          role: 'reader',
-          type: 'anyone'
-        })
-      })
+      // Make folder publicly accessible
+      await makePublic(createData.id, accessToken)
 
-      // We need to fetch the webViewLink
-      const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${createData.id}?fields=webViewLink`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      })
+      // Fetch the shareable webViewLink
+      const fileResponse = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${createData.id}?fields=webViewLink`,
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+      )
       const fileData = await fileResponse.json()
 
-      return new Response(JSON.stringify({ 
-        success: true, 
-        id: createData.id, 
-        link: fileData.webViewLink 
+      return new Response(JSON.stringify({
+        success: true,
+        id:      createData.id,
+        link:    fileData.webViewLink,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
-    // Original file upload logic
-    const { fileName, mimeType, fileBase64 } = body
-    if (!fileName || !fileBase64) throw new Error('Missing file data')
+    // ════════════════════════════════════════════════════════════════════════
+    // ACTION: upload_file
+    // Uploads a single file (sent as base64) directly into a specific GDrive
+    // folder (parentFolderId). Used for multi-photo gallery uploads.
+    // Returns: { success, id, thumbnailLink, webViewLink }
+    // ════════════════════════════════════════════════════════════════════════
+    if (action === 'upload_file') {
+      const { fileName, mimeType, fileBase64, parentFolderId } = body
 
-    // Upload to Google Drive using multipart upload
-    const boundary = '-------314159265358979323846'
-    const delimiter = "\r\n--" + boundary + "\r\n"
-    const close_delim = "\r\n--" + boundary + "--"
+      if (!fileName)        throw new Error('Missing fileName')
+      if (!fileBase64)      throw new Error('Missing fileBase64')
+      if (!parentFolderId)  throw new Error('Missing parentFolderId — files must go into a specific event folder')
 
-    const metadata = {
-      name: fileName,
-      parents: [folder_id]
+      const boundary = '-------SchoolOSGalleryUpload314159'
+      const delimiter    = `\r\n--${boundary}\r\n`
+      const closeDelim   = `\r\n--${boundary}--`
+
+      const metadata = {
+        name:    fileName,
+        parents: [parentFolderId],  // ← uploads into the specific event subfolder
+      }
+
+      const multipartBody =
+        delimiter +
+        'Content-Type: application/json\r\n\r\n' +
+        JSON.stringify(metadata) +
+        delimiter +
+        `Content-Type: ${mimeType}\r\n` +
+        'Content-Transfer-Encoding: base64\r\n\r\n' +
+        fileBase64 +
+        closeDelim
+
+      const uploadResponse = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,thumbnailLink',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`,
+          },
+          body: multipartBody,
+        }
+      )
+
+      const uploadData = await uploadResponse.json()
+      if (!uploadResponse.ok) throw new Error(`Drive upload failed: ${JSON.stringify(uploadData)}`)
+
+      // Make the file publicly viewable
+      await makePublic(uploadData.id, accessToken)
+
+      // thumbnailLink is available for images; videos may only have webViewLink
+      // Strip the size suffix from thumbnailLink (e.g. =s220) to get a larger preview
+      const thumbnailLink = uploadData.thumbnailLink
+        ? uploadData.thumbnailLink.replace(/=s\d+$/, '=s800')
+        : null
+
+      return new Response(JSON.stringify({
+        success:       true,
+        id:            uploadData.id,
+        name:          uploadData.name,
+        thumbnailLink: thumbnailLink,
+        webViewLink:   uploadData.webViewLink,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
-    const multipartRequestBody =
-      delimiter +
-      'Content-Type: application/json\r\n\r\n' +
-      JSON.stringify(metadata) +
-      delimiter +
-      'Content-Type: ' + mimeType + '\r\n' +
-      'Content-Transfer-Encoding: base64\r\n\r\n' +
-      fileBase64 +
-      close_delim
-
-    const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,webContentLink,thumbnailLink', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`
-      },
-      body: multipartRequestBody
-    })
-
-    const uploadData = await uploadResponse.json()
-    if (!uploadResponse.ok) throw new Error(`Drive upload failed: ${JSON.stringify(uploadData)}`)
-
-    // Make file public so it can be viewed in Gallery
-    await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}/permissions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        role: 'reader',
-        type: 'anyone'
-      })
-    })
-
-    // Return the link (thumbnail or fallback to webViewLink)
-    // Drive thumbnails look like: https://lh3.googleusercontent.com/d/FILE_ID
-    const publicLink = uploadData.thumbnailLink 
-      ? uploadData.thumbnailLink.replace(/=s220/, '') // remove the size limit to get full res
-      : uploadData.webViewLink
-
-    return new Response(JSON.stringify({ 
-      success: true, 
-      id: uploadData.id, 
-      link: publicLink 
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    throw new Error(`Unknown action: "${action}". Valid actions: create_folder, upload_file`)
 
   } catch (error) {
-    console.error('Edge Function Error:', error)
+    console.error('gdrive-upload Edge Function Error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
