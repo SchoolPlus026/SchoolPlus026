@@ -44,7 +44,7 @@ const FREE_FEATURES = {
   profile:                 true,
 };
 
-const FEATURE_LABELS: Record<string, string> = {
+const FEATURE_LABELS = {
   fees:                   'Fees & Payments Module',
   timetable:              'Timetable Builder',
   leaves:                 'Leave Management',
