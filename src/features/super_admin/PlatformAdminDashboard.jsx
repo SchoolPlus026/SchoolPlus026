@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus } from 'lucide-react';
@@ -13,18 +13,34 @@ export default function PlatformAdminDashboard() {
   // Schools State
   const [schools, setSchools] = useState([]);
   const [loadingSchools, setLoadingSchools] = useState(true);
-  
+
   // Add School State
   const [showAddSchool, setShowAddSchool] = useState(false);
   const [newSchoolName, setNewSchoolName] = useState('');
   const [newSchoolCode, setNewSchoolCode] = useState('');
   const [newSchoolTier, setNewSchoolTier] = useState('Free');
+  const [newPlanType, setNewPlanType] = useState('free');
+  const [newBillingCycle, setNewBillingCycle] = useState('monthly');
   const [newAdminName, setNewAdminName] = useState('');
   const [newAdminUsername, setNewAdminUsername] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [addingSchool, setAddingSchool] = useState(false);
   const [addSchoolError, setAddSchoolError] = useState('');
+
+  // Edit School State
+  const [editingSchool, setEditingSchool] = useState(null); // school object
+  const [editName, setEditName] = useState('');
+  const [editCode, setEditCode] = useState('');
+  const [editPlanType, setEditPlanType] = useState('free');
+  const [editBillingCycle, setEditBillingCycle] = useState('monthly');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Delete School State
+  const [deletingSchool, setDeletingSchool] = useState(null); // school object
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // Platform Settings State
   const [platformName, setPlatformName] = useState('');
@@ -110,7 +126,7 @@ export default function PlatformAdminDashboard() {
       .update({ subscription_tier: 'Premium' })
       .eq('school_id', request.school_id);
     if (tierError) { alert('Error upgrading tier: ' + tierError.message); return; }
-    alert(`✅ ${request.school_settings?.name} has been upgraded to Premium!`);
+    alert(`âœ… ${request.school_settings?.name} has been upgraded to Premium!`);
     fetchPaymentRequests();
     fetchSchools();
   };
@@ -159,34 +175,88 @@ export default function PlatformAdminDashboard() {
     try {
       const { data, error } = await supabase.functions.invoke('platform-create-school', {
         body: {
-          school_name: newSchoolName.trim(),
-          school_code: newSchoolCode.trim().toUpperCase(),
+          school_name:       newSchoolName.trim(),
+          school_code:       newSchoolCode.trim().toUpperCase(),
           subscription_tier: newSchoolTier,
-          admin_name: newAdminName.trim(),
-          admin_username: newAdminUsername.trim(),
-          admin_email: newAdminEmail.trim(),
-          admin_password: newAdminPassword,
+          plan_type:         newPlanType,
+          billing_cycle:     (newPlanType === 'premium') ? newBillingCycle : null,
+          admin_name:        newAdminName.trim(),
+          admin_username:    newAdminUsername.trim(),
+          admin_email:       newAdminEmail.trim(),
+          admin_password:    newAdminPassword,
         }
       });
       
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       
-      alert(`✅ ${data.message}`);
+      alert(`âœ… ${data.message}`);
       setShowAddSchool(false);
-      setNewSchoolName('');
-      setNewSchoolCode('');
-      setNewSchoolTier('Free');
-      setNewAdminName('');
-      setNewAdminUsername('');
-      setNewAdminEmail('');
-      setNewAdminPassword('');
+      setNewSchoolName(''); setNewSchoolCode(''); setNewSchoolTier('Free');
+      setNewPlanType('free'); setNewBillingCycle('monthly');
+      setNewAdminName(''); setNewAdminUsername(''); setNewAdminEmail(''); setNewAdminPassword('');
       setAddSchoolError('');
       fetchSchools();
     } catch (err) {
       setAddSchoolError(err.message);
     } finally {
       setAddingSchool(false);
+    }
+  };
+
+  const handleEditSchool = async (e) => {
+    e.preventDefault();
+    if (!editingSchool) return;
+    setSavingEdit(true);
+    try {
+      const now = new Date();
+      const updateData = {
+        name:          editName.trim(),
+        school_code:   editCode.trim().toUpperCase(),
+        plan_type:     editPlanType,
+        billing_cycle: editPlanType === 'premium' ? editBillingCycle : null,
+        subscription_tier: editPlanType === 'premium' ? 'Premium' : editPlanType === 'trial' ? 'Trial' : 'Free',
+      };
+      if (editPlanType === 'trial') {
+        updateData.trial_start_date = now.toISOString();
+      } else if (editPlanType === 'premium') {
+        const days = editBillingCycle === 'yearly' ? 365 : 28;
+        updateData.subscription_end_date = new Date(now.getTime() + days * 86400000).toISOString();
+        updateData.trial_start_date = null;
+      } else {
+        updateData.trial_start_date = null;
+        updateData.subscription_end_date = null;
+      }
+      const { error } = await supabase.from('school_settings').update(updateData).eq('school_id', editingSchool.school_id);
+      if (error) throw new Error(error.message);
+      setEditingSchool(null);
+      fetchSchools();
+    } catch (err) {
+      alert('Error saving: ' + err.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteSchool = async (e) => {
+    e.preventDefault();
+    if (!deletingSchool || !deletePassword.trim()) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('platform-delete-school', {
+        body: { school_id: deletingSchool.school_id, platform_admin_password: deletePassword },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      alert(`âœ… ${data.message}`);
+      setDeletingSchool(null);
+      setDeletePassword('');
+      fetchSchools();
+    } catch (err) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -316,7 +386,7 @@ export default function PlatformAdminDashboard() {
         <div className={`tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Platform Settings</div>
       </div>
 
-      {/* â”€â”€ SECTION 0: ANALYTICS â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ SECTION 0: ANALYTICS Ã¢â€â‚¬Ã¢â€â‚¬ */}
       {activeTab === 'analytics' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -347,7 +417,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* â”€â”€ SECTION 1: TENANT SCHOOLS â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ SECTION 1: TENANT SCHOOLS Ã¢â€â‚¬Ã¢â€â‚¬ */}
       {activeTab === 'schools' && (
         <div className="card fade-in">
           <div className="settings-header flex justify-between items-center">
@@ -385,30 +455,41 @@ export default function PlatformAdminDashboard() {
                       <td className="font-mono text-xs">{s.school_code}</td>
                       <td className="font-semibold">{s.name}</td>
                       <td>
-                        <select 
-                          value={s.subscription_tier || 'Free'} 
-                          onChange={(e) => handleUpdateTier(s.school_id, e.target.value)}
-                          className={`sp-input text-xs py-1 px-2 h-auto ${s.subscription_tier === 'Premium' ? 'text-green-400 border-green-500/30' : 'text-slate-400 border-slate-500/30'}`}
-                          style={{ width: '100px' }}
-                        >
-                          <option value="Free">Free</option>
-                          <option value="Premium">Premium</option>
-                        </select>
+                        <span className={`badge ${s.plan_type === 'premium' ? 'badge-success' : s.plan_type === 'trial' ? 'badge-warn' : ''}`}>
+                          {s.plan_type === 'premium' ? 'Premium' : s.plan_type === 'trial' ? 'Trial' : 'Free'}
+                          {s.billing_cycle ? ` (${s.billing_cycle})` : ''}
+                        </span>
                       </td>
                       <td>
                         <span className="text-success text-xs font-bold uppercase">Active</span>
                       </td>
                       <td>
-                        <button 
-                          className="btn outline" 
-                          style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} 
-                          onClick={() => {
-                            setImpersonation(s);
-                            navigate('/admin/dashboard');
-                          }}
-                        >
-                          Impersonate
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <button
+                            className="btn outline"
+                            style={{ padding: '4px 10px', fontSize: '11px', width: 'auto' }}
+                            onClick={() => {
+                              setEditingSchool(s);
+                              setEditName(s.name);
+                              setEditCode(s.school_code);
+                              setEditPlanType(s.plan_type || 'free');
+                              setEditBillingCycle(s.billing_cycle || 'monthly');
+                            }}
+                          >Edit</button>
+                          <button
+                            className="btn outline"
+                            style={{ padding: '4px 10px', fontSize: '11px', width: 'auto' }}
+                            onClick={() => {
+                              setImpersonation(s);
+                              navigate('/admin/dashboard');
+                            }}
+                          >Impersonate</button>
+                          <button
+                            className="btn outline"
+                            style={{ padding: '4px 10px', fontSize: '11px', width: 'auto', color: '#f87171', borderColor: '#f87171' }}
+                            onClick={() => { setDeletingSchool(s); setDeletePassword(''); setDeleteError(''); }}
+                          >Delete</button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -419,7 +500,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* â”€â”€ SECTION 2: BROADCAST CENTER â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ SECTION 2: BROADCAST CENTER Ã¢â€â‚¬Ã¢â€â‚¬ */}
       {activeTab === 'broadcast' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -513,7 +594,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* ── SECTION 3: SUPPORT TICKETS ── */}
+      {/* â”€â”€ SECTION 3: SUPPORT TICKETS â”€â”€ */}
       {activeTab === 'tickets' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -535,7 +616,7 @@ export default function PlatformAdminDashboard() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h5 className="font-bold">{t.subject}</h5>
-                      <div className="text-xs text-slate-400 mt-1">{t.school_settings?.name || 'Unknown School'} • {new Date(t.created_at).toLocaleDateString()}</div>
+                      <div className="text-xs text-slate-400 mt-1">{t.school_settings?.name || 'Unknown School'} â€¢ {new Date(t.created_at).toLocaleDateString()}</div>
                     </div>
                     <span className={`badge ${t.status === 'Resolved' ? 'badge-success' : 'badge-warn'}`}>{t.status}</span>
                   </div>
@@ -582,7 +663,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* ── SECTION 3b: PENDING PAYMENTS ── */}
+      {/* â”€â”€ SECTION 3b: PENDING PAYMENTS â”€â”€ */}
       {activeTab === 'payments' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -612,8 +693,8 @@ export default function PlatformAdminDashboard() {
                       </h5>
                       <div className="text-xs text-slate-400 mt-1">
                         UTR: <span className="font-mono font-bold text-slate-200">{pr.utr_number}</span>
-                        {pr.amount && <> • ₹{pr.amount}</>}
-                        {' '} • {new Date(pr.created_at).toLocaleString()}
+                        {pr.amount && <> â€¢ â‚¹{pr.amount}</>}
+                        {' '} â€¢ {new Date(pr.created_at).toLocaleString()}
                       </div>
                     </div>
                     <span className={`badge ${
@@ -650,7 +731,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* ── SECTION 4: AUDIT LOGS ── */}
+      {/* â”€â”€ SECTION 4: AUDIT LOGS â”€â”€ */}
       {activeTab === 'audit' && (
         <div className="card fade-in">
           <div className="settings-header flex justify-between items-center">
@@ -697,7 +778,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* â”€â”€ SECTION 5: PLATFORM SETTINGS â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ SECTION 5: PLATFORM SETTINGS Ã¢â€â‚¬Ã¢â€â‚¬ */}
       {activeTab === 'settings' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -748,7 +829,7 @@ export default function PlatformAdminDashboard() {
           </div>
         </div>
       )}
-      {/* ── ADD SCHOOL MODAL ── */}
+      {/* â”€â”€ ADD SCHOOL MODAL â”€â”€ */}
       {showAddSchool && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: '16px', overflowY: 'auto' }}>
           <div className="card" style={{ width: '100%', maxWidth: '480px', margin: 'auto' }}>
@@ -757,7 +838,7 @@ export default function PlatformAdminDashboard() {
             
             {addSchoolError && (
               <div style={{ padding: '12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '16px', color: '#f87171', fontSize: '13px' }}>
-                ⚠️ {addSchoolError}
+                âš ï¸ {addSchoolError}
               </div>
             )}
             
@@ -770,12 +851,25 @@ export default function PlatformAdminDashboard() {
               <label className="muted small block" style={{ marginBottom: '6px' }}>School Code <span style={{color:'var(--text-faint)'}}>(unique login identifier)</span></label>
               <input type="text" required value={newSchoolCode} onChange={e => setNewSchoolCode(e.target.value.toUpperCase())} placeholder="e.g. LNC01" className="sp-input block w-full mb-4" style={{ textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 700 }} />
 
-              <label className="muted small block" style={{ marginBottom: '6px' }}>Subscription Tier</label>
-              <select value={newSchoolTier} onChange={e => setNewSchoolTier(e.target.value)} className="sp-input block w-full mb-5">
-                <option value="Free">Free</option>
-                <option value="Premium">Premium</option>
-                <option value="Enterprise">Enterprise</option>
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Plan</label>
+              <select value={newPlanType} onChange={e => {
+                const v = e.target.value;
+                setNewPlanType(v);
+                setNewSchoolTier(v === 'premium' ? 'Premium' : v === 'trial' ? 'Trial' : 'Free');
+              }} className="sp-input block w-full mb-2">
+                <option value="free">Free</option>
+                <option value="trial">28-Day Free Trial</option>
+                <option value="premium">Premium</option>
               </select>
+              {newPlanType === 'premium' && (
+                <>
+                  <label className="muted small block" style={{ marginBottom: '6px', marginTop: '6px' }}>Billing Cycle</label>
+                  <select value={newBillingCycle} onChange={e => setNewBillingCycle(e.target.value)} className="sp-input block w-full mb-4">
+                    <option value="monthly">Monthly (28 days)</option>
+                    <option value="yearly">Yearly (365 days)</option>
+                  </select>
+                </>
+              )}
               
               <div style={{ height: '1px', background: 'var(--card-border)', margin: '4px 0 16px' }} />
               
@@ -791,7 +885,7 @@ export default function PlatformAdminDashboard() {
               <input type="email" required value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)} placeholder="e.g. admin@lincolnhigh.edu" className="sp-input block w-full mb-4" />
               
               <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Password <span style={{color:'var(--text-faint)'}}>(min 6 chars)</span></label>
-              <input type="password" required minLength={6} value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} placeholder="••••••••" className="sp-input block w-full mb-6" />
+              <input type="password" required minLength={6} value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="sp-input block w-full mb-6" />
               
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setShowAddSchool(false); setAddSchoolError(''); }}>Cancel</button>
@@ -804,8 +898,88 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
+      {/* â”€â”€ EDIT SCHOOL MODAL â”€â”€ */}
+      {editingSchool && (
+        <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.8)', padding:'16px', overflowY:'auto' }}>
+          <div className="card" style={{ width:'100%', maxWidth:'440px', margin:'auto' }}>
+            <h3 style={{ marginBottom:'4px' }}>Edit School</h3>
+            <p className="muted small" style={{ marginBottom:'20px' }}>Update school details and plan assignment.</p>
+            <form onSubmit={handleEditSchool} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+              <div>
+                <label className="muted small block" style={{ marginBottom:'6px' }}>School Name</label>
+                <input required className="sp-input block w-full" value={editName} onChange={e => setEditName(e.target.value)} />
+              </div>
+              <div>
+                <label className="muted small block" style={{ marginBottom:'6px' }}>School Code</label>
+                <input required className="sp-input block w-full" value={editCode} onChange={e => setEditCode(e.target.value.toUpperCase())} style={{ textTransform:'uppercase', letterSpacing:'0.15em', fontWeight:700 }} />
+              </div>
+              <div>
+                <label className="muted small block" style={{ marginBottom:'6px' }}>Plan</label>
+                <select className="sp-input block w-full" value={editPlanType} onChange={e => setEditPlanType(e.target.value)}>
+                  <option value="free">Free</option>
+                  <option value="trial">28-Day Free Trial (starts now)</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </div>
+              {editPlanType === 'premium' && (
+                <div>
+                  <label className="muted small block" style={{ marginBottom:'6px' }}>Billing Cycle</label>
+                  <select className="sp-input block w-full" value={editBillingCycle} onChange={e => setEditBillingCycle(e.target.value)}>
+                    <option value="monthly">Monthly (28 days from now)</option>
+                    <option value="yearly">Yearly (365 days from now)</option>
+                  </select>
+                </div>
+              )}
+              <div style={{ display:'flex', gap:'10px', marginTop:'8px' }}>
+                <button type="button" className="btn outline" style={{ flex:1 }} onClick={() => setEditingSchool(null)}>Cancel</button>
+                <button type="submit" disabled={savingEdit} className="btn accent" style={{ flex:2 }}>
+                  {savingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* â”€â”€ DELETE SCHOOL MODAL â”€â”€ */}
+      {deletingSchool && (
+        <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.85)', padding:'16px' }}>
+          <div className="card" style={{ width:'100%', maxWidth:'440px', borderLeft:'4px solid #ef4444' }}>
+            <h3 style={{ marginBottom:'4px', color:'#f87171' }}>âš ï¸ Delete School</h3>
+            <p className="muted small" style={{ marginBottom:'16px', fontSize:'13px', lineHeight:1.6 }}>
+              You are about to <strong style={{ color:'#f87171' }}>permanently delete</strong> <strong>{deletingSchool.name}</strong> and ALL its data â€” users, attendance, fees, gallery, notices, timetable, and leaves. <strong>This cannot be undone.</strong>
+            </p>
+            {deleteError && (
+              <div style={{ padding:'10px 14px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'10px', marginBottom:'14px', color:'#f87171', fontSize:'13px' }}>
+                âš ï¸ {deleteError}
+              </div>
+            )}
+            <form onSubmit={handleDeleteSchool} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+              <div>
+                <label className="muted small block" style={{ marginBottom:'6px', color:'#f87171', fontWeight:700 }}>
+                  Enter your Platform Admin password to confirm:
+                </label>
+                <input
+                  required
+                  type="password"
+                  className="sp-input block w-full"
+                  placeholder="Your password"
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  style={{ borderColor:'rgba(239,68,68,0.4)' }}
+                />
+              </div>
+              <div style={{ display:'flex', gap:'10px' }}>
+                <button type="button" className="btn outline" style={{ flex:1 }} onClick={() => { setDeletingSchool(null); setDeleteError(''); }}>Cancel</button>
+                <button type="submit" disabled={deleteLoading || !deletePassword.trim()} className="btn outline" style={{ flex:2, color:'#f87171', borderColor:'#ef4444' }}>
+                  {deleteLoading ? 'Deleting...' : 'ðŸ—‘ï¸ Delete Permanently'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
-
-

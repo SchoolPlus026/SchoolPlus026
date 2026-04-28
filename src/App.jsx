@@ -57,6 +57,10 @@ import Contact from './features/contact/Contact';
 // Calendar Events
 import CalendarEvents from './features/calendar/CalendarEvents';
 
+// Subscription / Billing
+import ManageSubscription from './features/billing/ManageSubscription';
+import FeatureGuard from './components/FeatureGuard';
+
 export default function App() {
   const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
   const [isInitializing, setIsInitializing] = useState(true);
@@ -163,17 +167,18 @@ export default function App() {
         <Route path="/admin" element={<NotificationProvider><AdminLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard"   element={<AdminDashboard />} />
-          <Route path="users"       element={<UserManagement />} />
+          <Route path="users"       element={<FeatureGuard feature="users_manage"><UserManagement /></FeatureGuard>} />
           <Route path="attendance"  element={<MarkAttendance />} />
-          <Route path="fees"        element={<AdminFeeManager />} />
+          <Route path="fees"        element={<FeatureGuard feature="fees"><AdminFeeManager /></FeatureGuard>} />
           <Route path="calendar"    element={<CalendarEvents />} />
           <Route path="notices"     element={<NoticeManager />} />
           <Route path="gallery"     element={<GalleryManager />} />
-          <Route path="timetable"   element={<TimetableManager />} />
+          <Route path="timetable"   element={<FeatureGuard feature="timetable"><TimetableManager /></FeatureGuard>} />
           <Route path="off-classes" element={<OffClasses />} />
-          <Route path="leaves"      element={<LeavesManager />} />
-          <Route path="reports"     element={<Reports />} />
+          <Route path="leaves"      element={<FeatureGuard feature="leaves"><LeavesManager /></FeatureGuard>} />
+          <Route path="reports"     element={<FeatureGuard feature="reports"><Reports /></FeatureGuard>} />
           <Route path="contact"     element={<Contact />} />
+          <Route path="billing"     element={<ManageSubscription />} />
           <Route path="settings"    element={<AdminSettings />} />
         </Route>
       </Route>

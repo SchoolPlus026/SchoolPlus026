@@ -47,6 +47,8 @@ serve(async (req) => {
       school_name,
       school_code,
       subscription_tier,
+      plan_type,          // 'free' | 'trial' | 'premium'
+      billing_cycle,      // 'monthly' | 'yearly' | null
       admin_name,
       admin_username,
       admin_email,
@@ -100,14 +102,31 @@ serve(async (req) => {
       });
     }
 
+    // ── Business logic: compute billing dates ────────────────────────────────
+    const effectivePlanType: string = plan_type || 'free';
+    const now = new Date();
+    let trialStartDate: string | null = null;
+    let subscriptionEndDate: string | null = null;
+
+    if (effectivePlanType === 'trial') {
+      trialStartDate = now.toISOString();
+    } else if (effectivePlanType === 'premium') {
+      const days = billing_cycle === 'yearly' ? 365 : 28; // 1 month = 28 days
+      subscriptionEndDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+    }
+
     // ── 6. Create school_settings row ─────────────────────────────────────────
     const { data: school, error: schoolError } = await supabaseAdmin
       .from('school_settings')
       .insert({
-        name: school_name.trim(),
-        school_code: school_code.trim().toUpperCase(),
-        subscription_tier: subscription_tier || 'Free',
-        subscription_status: 'Paid',
+        name:                  school_name.trim(),
+        school_code:           school_code.trim().toUpperCase(),
+        subscription_tier:     subscription_tier || 'Free',
+        subscription_status:   'Paid',
+        plan_type:             effectivePlanType,
+        billing_cycle:         billing_cycle || null,
+        trial_start_date:      trialStartDate,
+        subscription_end_date: subscriptionEndDate,
       })
       .select('school_id')
       .single();
