@@ -15,7 +15,7 @@ export default function GalleryManager() {
   const [category, setCategory] = useState('Events');
   const [isCreating, setIsCreating] = useState(false);
   const [progressText, setProgressText] = useState('');
-  const [coverFile, setCoverFile] = useState(null);
+  const [coverFiles, setCoverFiles] = useState([]); // Multi-file array
   
   const { data: media, isLoading } = useQuery({
     queryKey: ['gallery', schoolSettings?.school_id],
@@ -42,7 +42,7 @@ export default function GalleryManager() {
       setTitle('');
       setLink('');
       setCategory('Events');
-      setCoverFile(null);
+      setCoverFiles([]);
       setProgressText('');
       setIsCreating(false);
     }
@@ -60,30 +60,33 @@ export default function GalleryManager() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!coverFile) return alert('Please select a cover photo.');
+    if (coverFiles.length === 0) return alert('Please select at least one photo.');
     
     setIsCreating(true);
     let finalLink = link;
-    let coverLink = '';
+    const uploadedUrls = [];
 
     try {
-      // 1. Upload Cover Photo to Supabase Storage
-      setProgressText('Uploading Cover Photo...');
-      const fileExt = coverFile.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${schoolSettings.school_id}/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('gallery')
-        .upload(filePath, coverFile);
+      // 1. Upload ALL selected photos to Supabase Storage
+      for (let i = 0; i < coverFiles.length; i++) {
+        const file = coverFiles[i];
+        setProgressText(`Uploading photo ${i + 1} of ${coverFiles.length}...`);
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${fileExt}`;
+        const filePath = `${schoolSettings.school_id}/${fileName}`;
         
-      if (uploadError) throw new Error(`Cover upload failed: ${uploadError.message}`);
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('gallery')
-        .getPublicUrl(filePath);
+        const { error: uploadError } = await supabase.storage
+          .from('gallery')
+          .upload(filePath, file);
+          
+        if (uploadError) throw new Error(`Upload failed for "${file.name}": ${uploadError.message}`);
         
-      coverLink = publicUrl;
+        const { data: { publicUrl } } = supabase.storage
+          .from('gallery')
+          .getPublicUrl(filePath);
+          
+        uploadedUrls.push(publicUrl);
+      }
 
       // 2. Create Google Drive Folder if connected
       if (schoolSettings?.gdrive_config && !link) {
@@ -107,11 +110,14 @@ export default function GalleryManager() {
       }
 
       setProgressText('Saving Event...');
+      // cover_link: first photo URL for the card thumbnail
+      // photo_urls: JSON array of ALL uploaded photo URLs
       addMutation.mutate({
         school_id: schoolSettings.school_id,
         title,
         link: finalLink,
-        cover_link: coverLink,
+        cover_link: uploadedUrls[0],
+        photo_urls: uploadedUrls,
         category
       });
     } catch (err) {
@@ -148,18 +154,30 @@ export default function GalleryManager() {
           Your gallery is currently empty.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {media.map((item) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {media.map((item) => {
+            // Support both single cover_link (string) and multi-photo (photo_urls array)
+            const photoList = item.photo_urls || (item.cover_link ? [item.cover_link] : []);
+            const thumbUrl = photoList[0] || null;
+            const photoCount = photoList.length;
+            return (
             <div 
               key={item.id} 
               className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm group hover:border-primary/50 transition-all flex flex-col relative"
             >
               <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
-                {item.cover_link ? (
-                  <img src={item.cover_link} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                {thumbUrl ? (
+                  <img src={thumbUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-50">
                     <Folder size={64} className="text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
+                  </div>
+                )}
+
+                {/* Photo count badge */}
+                {photoCount > 1 && (
+                  <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 text-white text-[10px] font-bold rounded-full backdrop-blur-sm flex items-center gap-1">
+                    <ImageIcon size={10} /> {photoCount} photos
                   </div>
                 )}
                 
@@ -192,7 +210,8 @@ export default function GalleryManager() {
                  </a>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -219,14 +238,22 @@ export default function GalleryManager() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-text mb-1.5">Cover Photo</label>
+                <label className="block text-sm font-semibold text-text mb-1.5">
+                  Photos <span className="text-muted font-normal">(select multiple)</span>
+                </label>
                 <input 
                   required 
                   type="file" 
-                  accept="image/*"
-                  onChange={e => setCoverFile(e.target.files[0])} 
+                  accept="image/*,video/*"
+                  multiple
+                  onChange={e => setCoverFiles(Array.from(e.target.files))} 
                   className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" 
                 />
+                {coverFiles.length > 0 && (
+                  <p className="text-xs text-primary font-semibold mt-1.5">
+                    ✓ {coverFiles.length} file{coverFiles.length > 1 ? 's' : ''} selected — first photo will be the cover.
+                  </p>
+                )}
               </div>
               
               {schoolSettings?.gdrive_config ? (

@@ -30,11 +30,23 @@ jobs:
       - name: 📥 Install Dependencies
         run: npm install
 
+      - name: 🔐 Create .env file from GitHub Secrets
+        # Belt-and-suspenders: write a .env file so Vite picks up all vars
+        # regardless of whether they are passed via the env: block or read from .env
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+          echo "VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}" >> .env
+          echo "VITE_APP_VERSION_CODE=${{ github.run_number }}" >> .env
+          echo "VITE_APP_VERSION_NAME=${{ github.ref_name }}" >> .env
+          echo "✅ .env file created with all VITE_ variables"
+
       - name: 🏗️ Build React Vite Web Assets
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_APP_VERSION_CODE: ${{ github.run_number }}
           VITE_APP_VERSION_NAME: ${{ github.ref_name || format('1.0.{0}', github.run_number) }}
 
