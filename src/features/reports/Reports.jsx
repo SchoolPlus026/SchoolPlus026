@@ -4,22 +4,64 @@ import { useAppStore } from '../../store/useAppStore';
 import { BarChart2, FileText, FileSpreadsheet, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-// ─── Reliable download helper ─────────────────────────────────────────────────
-// Always appends the <a> to the DOM, clicks it, then removes it.
-// This is the ONLY pattern that works consistently across browsers, WebViews, and iOS/Android.
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  // Small delay before revoking so the browser has time to start the download
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 200);
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+
+// ─── Environment-aware file download/share helper ─────────────────────────────
+//
+// WEB (Netlify / browser):
+//   Creates a blob:// URL, appends a hidden <a download> to the DOM, clicks it,
+//   then revokes the URL. This is the correct pattern for all desktop browsers.
+//
+// NATIVE Android (Capacitor APK):
+//   blob:// URLs are silently blocked by Android's WebView DownloadManager.
+//   Instead we:
+//     1. Convert the Blob to base64
+//     2. Write it to the device's Documents directory via @capacitor/filesystem
+//     3. Open Android's native Share Sheet via @capacitor/share
+//        → user can pick "Open with Microsoft Excel", "Save to Files", etc.
+//
+async function triggerDownload(blob, filename) {
+  if (Capacitor.isNativePlatform()) {
+    // ── Native Android path ───────────────────────────────────────────────
+    // Step 1: Convert blob → base64 string
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8Array  = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.byteLength; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64Data = btoa(binary);
+
+    // Step 2: Write file to Documents directory
+    const writeResult = await Filesystem.writeFile({
+      path:      filename,
+      data:      base64Data,
+      directory: Directory.Documents,
+    });
+
+    // Step 3: Open native Android share sheet so user can open/save the file
+    await Share.share({
+      title:      filename,
+      url:        writeResult.uri,
+      dialogTitle: `Open or save ${filename}`,
+    });
+
+  } else {
+    // ── Web / browser path ────────────────────────────────────────────────
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href    = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 200);
+  }
 }
 
 export default function Reports() {
@@ -153,10 +195,13 @@ export default function Reports() {
           alternateRowStyles: { fillColor: [248, 249, 250] },
         });
 
-        // Trigger download via blob (works in all environments including Capacitor)
+        // Trigger download (web) or share sheet (Android native)
         const pdfBlob = doc.output('blob');
-        triggerDownload(pdfBlob, `${fileName}.pdf`);
-        showToast(`✅ PDF downloaded: ${fileName}.pdf`);
+        await triggerDownload(pdfBlob, `${fileName}.pdf`);
+        showToast(Capacitor.isNativePlatform()
+          ? '✅ PDF ready — select an app to open or save it.'
+          : `✅ PDF downloaded: ${fileName}.pdf`
+        );
       }
 
       // ── Excel (.xlsx) Export ─────────────────────────────────────────────
@@ -176,8 +221,11 @@ export default function Reports() {
         const blob = new Blob([wbBuffer], {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         });
-        triggerDownload(blob, `${fileName}.xlsx`);
-        showToast(`✅ Excel downloaded: ${fileName}.xlsx`);
+        await triggerDownload(blob, `${fileName}.xlsx`);
+        showToast(Capacitor.isNativePlatform()
+          ? '✅ Excel ready — select an app to open or save it.'
+          : `✅ Excel downloaded: ${fileName}.xlsx`
+        );
       }
 
     } catch (err) {

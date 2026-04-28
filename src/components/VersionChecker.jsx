@@ -26,7 +26,6 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../config/supabaseClient';
 
@@ -38,20 +37,22 @@ const APP_VERSION_CODE = parseInt(import.meta.env.VITE_APP_VERSION_CODE || '1', 
 const APP_VERSION_NAME = import.meta.env.VITE_APP_VERSION_NAME || '1.0.0';
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Open a URL in the system browser (Android intent) ────────────────────────
-// Uses @capacitor/browser which wraps the Android Custom Tabs / system intent.
-// Falls back to window.open on web (where Capacitor is a no-op stub).
-async function openInSystemBrowser(url) {
+// ── Open APK URL via Android system intent ────────────────────────────────────
+// window.open(url, '_system') bypasses Capacitor's Custom Tab and hands the URL
+// directly to Android's Intent resolver. Android routes .apk URLs to the system
+// DownloadManager — users see the standard download notification in the status bar.
+// Falls back to window.open(url, '_blank') on web (where this is never called).
+function openAPKDownload(url) {
   try {
-    await Browser.open({ url, presentationStyle: 'fullscreen' });
+    // '_system' is the Capacitor/Cordova convention for a true system browser intent
+    window.open(url, '_system');
   } catch {
-    // Fallback: window.open works for sideload URLs on Android WebView too
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 }
 
 // ── Glassmorphic Update Modal ─────────────────────────────────────────────────
-function UpdateModal({ version, onDismiss, onDownload, isDownloading }) {
+function UpdateModal({ version, onDismiss, onDownload, isDownloading, downloadStarted }) {
   const isCritical = version.is_critical;
 
   return (
@@ -191,23 +192,35 @@ function UpdateModal({ version, onDismiss, onDownload, isDownloading }) {
           <button
             id="btn-download-update"
             onClick={onDownload}
-            disabled={isDownloading}
+            disabled={isDownloading || downloadStarted}
             style={{
               width: '100%', padding: '15px', borderRadius: '14px',
-              background: isDownloading
-                ? 'rgba(79,70,229,0.5)'
-                : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-              border: 'none', cursor: isDownloading ? 'not-allowed' : 'pointer',
+              background: downloadStarted
+                ? 'linear-gradient(135deg, #166534 0%, #15803d 100%)'
+                : isDownloading
+                  ? 'rgba(79,70,229,0.5)'
+                  : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+              border: 'none', cursor: (isDownloading || downloadStarted) ? 'default' : 'pointer',
               color: 'white', fontSize: '14px', fontWeight: 800,
               letterSpacing: '0.02em',
-              boxShadow: isDownloading ? 'none' : '0 8px 24px rgba(79,70,229,0.4)',
-              transition: 'all 0.2s ease',
+              boxShadow: downloadStarted
+                ? '0 8px 24px rgba(22,101,52,0.4)'
+                : isDownloading ? 'none' : '0 8px 24px rgba(79,70,229,0.4)',
+              transition: 'all 0.3s ease',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
             }}
-            onMouseEnter={e => !isDownloading && (e.currentTarget.style.transform = 'translateY(-1px)')}
-            onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
           >
-            {isDownloading ? (
+            {downloadStarted ? (
+              <>
+                <span style={{ fontSize: '16px' }}>✅</span>
+                <span>
+                  <div style={{ fontSize: '13px', fontWeight: 800 }}>Download Started!</div>
+                  <div style={{ fontSize: '10px', fontWeight: 600, opacity: 0.85, marginTop: '2px' }}>
+                    Check notification bar ↓
+                  </div>
+                </span>
+              </>
+            ) : isDownloading ? (
               <>
                 <span style={{
                   display: 'inline-block', width: '14px', height: '14px',
@@ -215,7 +228,7 @@ function UpdateModal({ version, onDismiss, onDownload, isDownloading }) {
                   borderTopColor: 'white', borderRadius: '50%',
                   animation: 'spin 0.7s linear infinite',
                 }} />
-                Opening download…
+                Starting download…
               </>
             ) : (
               <>⬇️ Download &amp; Update</>
@@ -262,9 +275,10 @@ function UpdateModal({ version, onDismiss, onDownload, isDownloading }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VersionChecker() {
-  const [updateInfo, setUpdateInfo] = useState(null);    // null = no update
-  const [dismissed, setDismissed] = useState(false);
+  const [updateInfo, setUpdateInfo]       = useState(null);
+  const [dismissed, setDismissed]         = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadStarted, setDownloadStarted] = useState(false); // post-click feedback
 
   useEffect(() => {
     // Only run on native Android (web builds are always "latest")
@@ -301,15 +315,18 @@ export default function VersionChecker() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleDownload = useCallback(async () => {
+  const handleDownload = useCallback(() => {
     if (!updateInfo?.apk_url) return;
     setIsDownloading(true);
     try {
-      await openInSystemBrowser(updateInfo.apk_url);
+      // _system intent: hands URL to Android's DownloadManager — NOT a Custom Tab.
+      // The user will see a standard Android download notification in the status bar.
+      openAPKDownload(updateInfo.apk_url);
+      // Immediately show success feedback — download is async in the OS
+      setDownloadStarted(true);
     } catch (err) {
       console.error('[VersionChecker] Failed to open download URL:', err);
     } finally {
-      // Keep the modal open after launching browser so user can return
       setIsDownloading(false);
     }
   }, [updateInfo]);
@@ -331,6 +348,7 @@ export default function VersionChecker() {
       onDismiss={handleDismiss}
       onDownload={handleDownload}
       isDownloading={isDownloading}
+      downloadStarted={downloadStarted}
     />
   );
 }
