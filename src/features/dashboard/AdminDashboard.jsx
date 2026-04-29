@@ -26,7 +26,7 @@ const MODULES = [
 ];
 
 // Locked for Free plan — clicking redirects to /admin/billing
-const PREMIUM_MODULES = ['Fees', 'Timetable', 'Leaves', 'Reports', 'Users'];
+const PREMIUM_MODULES = ['Fees', 'Timetable', 'Leaves', 'Reports'];
 
 export default function AdminDashboard() {
   const { schoolSettings } = useAppStore();

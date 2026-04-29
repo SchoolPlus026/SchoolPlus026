@@ -29,7 +29,7 @@ const FREE_FEATURES = {
   timetable:               false,
   leaves:                  false,
   reports:                 false,
-  users_manage:            false,
+  users_manage:            true,   // User management is free
   // Partially locked on Free
   calendar_add:            false,  // calendar VIEW is free, ADD/EDIT is not
   notifications_targeted:  false,  // global ok, targeting class/role is not

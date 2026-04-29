@@ -7,7 +7,7 @@ import { CalendarHeart, Loader2, Plus, CheckCircle2, XCircle, Clock } from 'luci
 export default function LeavesManager() {
   const { user, role, schoolSettings } = useAppStore();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('apply'); // 'apply' or 'history/manage'
+  const [activeTab, setActiveTab] = useState(() => role === 'admin' ? 'history' : 'apply');
 
   // Form states
   const [fromDate, setFromDate] = useState('');
@@ -83,14 +83,14 @@ export default function LeavesManager() {
       {/* Tab Navigation */}
       <div className="flex border-b border-border bg-slate-50">
         {role !== 'admin' && (
-          <button 
+          <button
             onClick={() => setActiveTab('apply')}
             className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'apply' ? 'text-primary border-b-2 border-primary bg-white' : 'text-muted hover:text-text'}`}
           >
             Apply for Leave
           </button>
         )}
-        <button 
+        <button
           onClick={() => setActiveTab('history')}
           className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'history' ? 'text-primary border-b-2 border-primary bg-white' : 'text-muted hover:text-text'}`}
         >
@@ -116,17 +116,17 @@ export default function LeavesManager() {
             </div>
             <div>
               <label className="block text-sm font-semibold text-text mb-1.5">Reason for Absence</label>
-              <textarea 
-                required 
-                rows="4" 
-                value={reason} 
-                onChange={e => setReason(e.target.value)} 
+              <textarea
+                required
+                rows="4"
+                value={reason}
+                onChange={e => setReason(e.target.value)}
                 className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm"
                 placeholder="Briefly explain your reason..."
               ></textarea>
             </div>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={applyMutation.isPending}
               className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
             >
@@ -152,11 +152,10 @@ export default function LeavesManager() {
                   <div key={leave.id} className="bg-slate-50 border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          leave.status === 'pending' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                          leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                          'bg-red-100 text-red-700 border border-red-200'
-                        }`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${leave.status === 'pending' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                            leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                              'bg-red-100 text-red-700 border border-red-200'
+                          }`}>
                           {leave.status}
                         </span>
                         <span className="text-xs font-bold text-muted uppercase tracking-widest">
@@ -169,13 +168,13 @@ export default function LeavesManager() {
 
                     {role === 'admin' && leave.status === 'pending' && (
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={() => statusMutation.mutate({ id: leave.id, status: 'Approved' })}
                           className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 shadow-sm"
                         >
                           <CheckCircle2 size={14} /> Approve
                         </button>
-                        <button 
+                        <button
                           onClick={() => statusMutation.mutate({ id: leave.id, status: 'Rejected' })}
                           className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 shadow-sm"
                         >

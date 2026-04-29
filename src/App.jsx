@@ -167,7 +167,7 @@ export default function App() {
         <Route path="/admin" element={<NotificationProvider><AdminLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard"   element={<AdminDashboard />} />
-          <Route path="users"       element={<FeatureGuard feature="users_manage"><UserManagement /></FeatureGuard>} />
+          <Route path="users"       element={<UserManagement />} />
           <Route path="attendance"  element={<MarkAttendance />} />
           <Route path="fees"        element={<FeatureGuard feature="fees"><AdminFeeManager /></FeatureGuard>} />
           <Route path="calendar"    element={<CalendarEvents />} />
