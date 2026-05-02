@@ -4,7 +4,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { 
   Building, Sun, Globe, Lock, Database, ShieldAlert, 
-  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send
+  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { logAuditAction } from '../../utils/auditLogger';
