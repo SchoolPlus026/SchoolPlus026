@@ -41,6 +41,13 @@ serve(async (req) => {
   }
 
   try {
+    // ── 0. Parse body FIRST — must happen before any await to avoid stream closure ──
+    const body = await req.json()
+    const action = body.action
+    const driveIndex = body.driveIndex ?? 0  // nullish coalescing: 0 is valid, only fall back on null/undefined
+
+    if (!action) throw new Error('Missing action in request body')
+
     // ── 1. Auth: verify the calling user ────────────────────────────────────
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -62,10 +69,6 @@ serve(async (req) => {
       .eq('school_id', profile.school_id)
       .single()
 
-    const body = await req.json()
-    const action = body.action
-    const driveIndex = body.driveIndex || 0
-
     if (!settings?.gdrive_config) {
       throw new Error('Google Drive not connected for this school')
     }
@@ -74,7 +77,7 @@ serve(async (req) => {
     configArray = configArray.filter(Boolean)
 
     if (configArray.length === 0 || driveIndex >= configArray.length) {
-       throw new Error('Invalid Google Drive connection index')
+       throw new Error(`Invalid Google Drive connection index ${driveIndex} (${configArray.length} drive(s) connected)`)
     }
 
     const { refresh_token, folder_id } = configArray[driveIndex]

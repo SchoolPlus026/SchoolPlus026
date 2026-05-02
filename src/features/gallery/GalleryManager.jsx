@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
@@ -23,6 +23,12 @@ export default function GalleryManager() {
   const { role, schoolSettings } = useAppStore();
   const queryClient = useQueryClient();
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const isMountedRef = useRef(true); // Guard against setState on unmounted component
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   // Form states
   const [title, setTitle]           = useState('');
@@ -157,13 +163,16 @@ export default function GalleryManager() {
             const folderId = folderData.id;
             const folderLink = folderData.link;
             const gdriveMeta = [];
+            let failedCount = 0;
 
             for (let i = 0; i < filesToUpload.length; i++) {
                const file = filesToUpload[i];
                const fileBase64 = await readFileAsBase64(file);
                
-               // update progress
-               setBackgroundUploads(prev => prev.map(p => p.id === uploadId ? { ...p, current: i + 1 } : p));
+               // update progress — guard against unmount
+               if (isMountedRef.current) {
+                  setBackgroundUploads(prev => prev.map(p => p.id === uploadId ? { ...p, current: i + 1 } : p));
+               }
 
                const { data: uploadData, error: uploadError } = await supabase.functions.invoke('gdrive-upload', {
                  body: {
@@ -181,6 +190,9 @@ export default function GalleryManager() {
                     thumbnailLink: uploadData.thumbnailLink,
                     webViewLink:   uploadData.webViewLink,
                   });
+               } else {
+                  failedCount++;
+                  console.warn(`File "${file.name}" failed to upload:`, uploadError?.message || uploadData?.error);
                }
             }
 
@@ -197,11 +209,18 @@ export default function GalleryManager() {
               photo_urls: photoUrls,
             });
 
-            // Finish
-            setBackgroundUploads(prev => prev.filter(p => p.id !== uploadId));
-            alert(`✅ Gallery Event "${eventTitle}" uploaded successfully!`);
+            // Finish — guard against unmount
+            if (isMountedRef.current) {
+               setBackgroundUploads(prev => prev.filter(p => p.id !== uploadId));
+            }
+            const successMsg = failedCount > 0
+              ? `⚠️ Gallery Event "${eventTitle}" saved, but ${failedCount} of ${filesToUpload.length} files failed to upload to Drive. Check Drive manually.`
+              : `✅ Gallery Event "${eventTitle}" uploaded successfully!`;
+            alert(successMsg);
          } catch(err) {
-            setBackgroundUploads(prev => prev.filter(p => p.id !== uploadId));
+            if (isMountedRef.current) {
+               setBackgroundUploads(prev => prev.filter(p => p.id !== uploadId));
+            }
             alert(`Upload failed for "${eventTitle}": ${err.message}`);
          }
       })();
