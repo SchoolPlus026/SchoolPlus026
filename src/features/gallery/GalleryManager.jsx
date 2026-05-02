@@ -219,6 +219,7 @@ export default function GalleryManager() {
         photo_urls: [],
       });
       resetForm();
+    }
   };
 
   return (
