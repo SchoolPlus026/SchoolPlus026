@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Image as ImageIcon, Plus, Loader2, X, ExternalLink, Folder, CloudOff } from 'lucide-react';
+import { Image as ImageIcon, Plus, Loader2, X, ExternalLink, Folder, CloudOff, HardDrive } from 'lucide-react';
 
 // ── Helper: read a File as a pure base64 string (no data: prefix) ────────────
 // GDrive multipart upload expects raw base64, not a data URI.
