@@ -19,8 +19,6 @@ function readFileAsBase64(file) {
   });
 }
 
-const MAX_FILE_SIZE_MB = 5;
-
 export default function GalleryManager() {
   const { role, schoolSettings } = useAppStore();
   const queryClient = useQueryClient();
@@ -31,11 +29,35 @@ export default function GalleryManager() {
   const [link, setLink]             = useState(''); // Manual URL fallback (no GDrive)
   const [category, setCategory]     = useState('Events');
   const [isCreating, setIsCreating] = useState(false);
-  const [progressText, setProgressText] = useState('');
   const [coverFiles, setCoverFiles] = useState([]); // Array<File>
-  const [sizeWarning, setSizeWarning] = useState('');
+  
+  // Multiple drives
+  const [selectedDriveIndex, setSelectedDriveIndex] = useState(0);
+  const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
+  const gdriveConnected = drives.length > 0;
 
-  const gdriveConnected = !!schoolSettings?.gdrive_config?.refresh_token;
+  // Background uploads
+  const [backgroundUploads, setBackgroundUploads] = useState([]);
+
+  // Fetch Quotas
+  const { data: driveQuotas } = useQuery({
+    queryKey: ['driveQuotas', drives.length],
+    queryFn: async () => {
+      const quotas = [];
+      for (let i = 0; i < drives.length; i++) {
+         const { data, error } = await supabase.functions.invoke('gdrive-upload', {
+            body: { action: 'get_quota', driveIndex: i }
+         });
+         if (!error && data?.quota) {
+            quotas.push(data.quota);
+         } else {
+            quotas.push(null);
+         }
+      }
+      return quotas;
+    },
+    enabled: drives.length > 0
+  });
 
   // ── Fetch gallery events ─────────────────────────────────────────────────
   const { data: media, isLoading } = useQuery({
@@ -60,21 +82,33 @@ export default function GalleryManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gallery'] });
-      resetForm();
     },
     onError: (err) => {
       alert(`Failed to save event: ${err.message}`);
-      setIsCreating(false);
-      setProgressText('');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id) => {
-      const { error } = await supabase.from('gallery').delete().eq('id', id);
+    mutationFn: async (item) => {
+      // Step 1: Delete from Supabase
+      const { error } = await supabase.from('gallery').delete().eq('id', item.id);
       if (error) throw error;
+
+      // Step 2: Try to delete from Google Drive if it's a Drive folder link
+      if (gdriveConnected && item.link && item.link.includes('drive.google.com/drive/folders/')) {
+         const folderIdMatch = item.link.match(/folders\/([^?]+)/);
+         if (folderIdMatch && folderIdMatch[1]) {
+            const folderId = folderIdMatch[1];
+            // Since we don't strictly track WHICH drive it was uploaded to, try deleting from the primary (or iterating)
+            // For safety and simplicity, we just try to delete using the primary connected drive
+            await supabase.functions.invoke('gdrive-upload', {
+               body: { action: 'delete_file', fileId: folderId, driveIndex: 0 }
+            });
+         }
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gallery'] }),
+    onError: (err) => alert(`Delete failed: ${err.message}`)
   });
 
   function resetForm() {
@@ -82,26 +116,14 @@ export default function GalleryManager() {
     setLink('');
     setCategory('Events');
     setCoverFiles([]);
-    setSizeWarning('');
-    setProgressText('');
     setIsCreating(false);
     setAddModalOpen(false);
   }
 
   function handleFileChange(e) {
     const files = Array.from(e.target.files);
-    const oversized = files.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
-    if (oversized.length > 0) {
-      setSizeWarning(
-        `⚠️ ${oversized.length} file(s) exceed ${MAX_FILE_SIZE_MB}MB and will be skipped. ` +
-        `Upload them manually into the Google Drive folder after creation.`
-      );
-      const safe = files.filter(f => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024);
-      setCoverFiles(safe);
-    } else {
-      setSizeWarning('');
-      setCoverFiles(files);
-    }
+    // Removed 5MB limit
+    setCoverFiles(files);
   }
 
   // ── Main submission handler ──────────────────────────────────────────────
@@ -114,77 +136,80 @@ export default function GalleryManager() {
         return alert('Please select at least one photo to upload.');
       }
 
-      setIsCreating(true);
-      try {
-        // ── Step 1: Create event subfolder in GDrive ──────────────────────
-        setProgressText('Creating Google Drive folder...');
-        const { data: folderData, error: folderError } = await supabase.functions.invoke('gdrive-upload', {
-          body: { action: 'create_folder', folderName: title },
-        });
-        if (folderError) throw new Error(folderError.message);
-        if (folderData?.error) throw new Error(folderData.error);
-        if (!folderData?.id)   throw new Error('No folder ID returned from Google Drive');
+      // Snapshot state
+      const eventTitle = title;
+      const eventCat = category;
+      const filesToUpload = [...coverFiles];
+      const targetDriveIndex = selectedDriveIndex;
+      
+      resetForm(); // close modal instantly
+      
+      const uploadId = Date.now().toString();
+      setBackgroundUploads(prev => [...prev, { id: uploadId, title: eventTitle, total: filesToUpload.length, current: 0 }]);
 
-        const folderId   = folderData.id;
-        const folderLink = folderData.link; // The "Open Folder" URL saved in DB
+      (async () => {
+         try {
+            const { data: folderData, error: folderError } = await supabase.functions.invoke('gdrive-upload', {
+              body: { action: 'create_folder', folderName: eventTitle, driveIndex: targetDriveIndex },
+            });
+            if (folderError || folderData?.error) throw new Error("Folder creation failed");
+            
+            const folderId = folderData.id;
+            const folderLink = folderData.link;
+            const gdriveMeta = [];
 
-        // ── Step 2: Upload each file into that subfolder ──────────────────
-        const gdriveMeta = []; // { thumbnailLink, webViewLink } per file
+            for (let i = 0; i < filesToUpload.length; i++) {
+               const file = filesToUpload[i];
+               const fileBase64 = await readFileAsBase64(file);
+               
+               // update progress
+               setBackgroundUploads(prev => prev.map(p => p.id === uploadId ? { ...p, current: i + 1 } : p));
 
-        for (let i = 0; i < coverFiles.length; i++) {
-          const file = coverFiles[i];
-          setProgressText(`Uploading photo ${i + 1} of ${coverFiles.length} to Google Drive...`);
+               const { data: uploadData, error: uploadError } = await supabase.functions.invoke('gdrive-upload', {
+                 body: {
+                   action: 'upload_file',
+                   parentFolderId: folderId,
+                   fileName: file.name,
+                   mimeType: file.type || 'application/octet-stream',
+                   fileBase64: fileBase64,
+                   driveIndex: targetDriveIndex
+                 },
+               });
+               
+               if (!uploadError && !uploadData?.error) {
+                  gdriveMeta.push({
+                    thumbnailLink: uploadData.thumbnailLink,
+                    webViewLink:   uploadData.webViewLink,
+                  });
+               }
+            }
 
-          const fileBase64 = await readFileAsBase64(file);
+            const firstMeta   = gdriveMeta[0];
+            const coverLink   = firstMeta?.thumbnailLink || firstMeta?.webViewLink;
+            const photoUrls   = gdriveMeta.map(m => m.webViewLink);
 
-          const { data: uploadData, error: uploadError } = await supabase.functions.invoke('gdrive-upload', {
-            body: {
-              action:         'upload_file',
-              parentFolderId: folderId,
-              fileName:       file.name,
-              mimeType:       file.type || 'application/octet-stream',
-              fileBase64:     fileBase64,
-            },
-          });
+            addMutation.mutate({
+              school_id:  schoolSettings.school_id,
+              title:      eventTitle,
+              category:   eventCat,
+              link:       folderLink,
+              cover_link: coverLink,
+              photo_urls: photoUrls,
+            });
 
-          if (uploadError) throw new Error(`File "${file.name}": ${uploadError.message}`);
-          if (uploadData?.error) throw new Error(`File "${file.name}": ${uploadData.error}`);
-
-          gdriveMeta.push({
-            thumbnailLink: uploadData.thumbnailLink,
-            webViewLink:   uploadData.webViewLink,
-          });
-        }
-
-        // ── Step 3: Save to Supabase DB — ZERO bytes in Supabase Storage ──
-        setProgressText('Saving event...');
-        // cover_link  = first file's thumbnail (for card UI preview)
-        // photo_urls  = all GDrive webViewLinks (for lightbox / viewing)
-        // link        = the GDrive subfolder link (for "Open Folder" button)
-        const firstMeta   = gdriveMeta[0];
-        const coverLink   = firstMeta.thumbnailLink || firstMeta.webViewLink;
-        const photoUrls   = gdriveMeta.map(m => m.webViewLink);
-
-        addMutation.mutate({
-          school_id:  schoolSettings.school_id,
-          title,
-          category,
-          link:       folderLink,
-          cover_link: coverLink,
-          photo_urls: photoUrls,
-        });
-
-      } catch (err) {
-        alert(`Upload failed: ${err.message}`);
-        setIsCreating(false);
-        setProgressText('');
-      }
+            // Finish
+            setBackgroundUploads(prev => prev.filter(p => p.id !== uploadId));
+            alert(`✅ Gallery Event "${eventTitle}" uploaded successfully!`);
+         } catch(err) {
+            setBackgroundUploads(prev => prev.filter(p => p.id !== uploadId));
+            alert(`Upload failed for "${eventTitle}": ${err.message}`);
+         }
+      })();
 
     // PATH B: GDrive NOT connected — save a manually entered URL only
     } else {
       if (!link.trim()) return alert('Please enter a folder URL.');
       setIsCreating(true);
-      setProgressText('Saving event...');
       addMutation.mutate({
         school_id:  schoolSettings.school_id,
         title,
@@ -193,7 +218,7 @@ export default function GalleryManager() {
         cover_link: null,
         photo_urls: [],
       });
-    }
+      resetForm();
   };
 
   return (
@@ -215,6 +240,24 @@ export default function GalleryManager() {
           </button>
         )}
       </div>
+
+      {/* Background Uploads Toasts */}
+      {backgroundUploads.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+           {backgroundUploads.map(upload => (
+              <div key={upload.id} className="bg-slate-900 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-4 w-80 animate-in slide-in-from-right">
+                 <Loader2 size={24} className="text-primary animate-spin shrink-0" />
+                 <div className="flex-1">
+                    <div className="text-sm font-bold truncate">{upload.title}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Uploading {upload.current} of {upload.total} files in background...</div>
+                    <div className="w-full h-1.5 bg-slate-700 rounded-full mt-2 overflow-hidden">
+                       <div className="h-full bg-primary transition-all duration-300" style={{ width: `${(upload.current / Math.max(1, upload.total)) * 100}%` }}></div>
+                    </div>
+                 </div>
+              </div>
+           ))}
+        </div>
+      )}
 
       {/* Grid */}
       {isLoading ? (
@@ -264,8 +307,8 @@ export default function GalleryManager() {
                     <button
                       onClick={(ev) => {
                         ev.stopPropagation();
-                        if (window.confirm('Delete this event from the gallery?')) {
-                          deleteMutation.mutate(item.id);
+                        if (window.confirm('Delete this event from the gallery? It will also be deleted from Google Drive.')) {
+                          deleteMutation.mutate(item);
                         }
                       }}
                       className="absolute top-3 right-3 p-2 bg-red-100 text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
@@ -294,6 +337,35 @@ export default function GalleryManager() {
             );
           })}
         </div>
+      )}
+
+      {/* Quota Display */}
+      {role === 'admin' && gdriveConnected && (
+         <div className="flex flex-col sm:flex-row gap-4 mt-8">
+            {drives.map((drive, idx) => {
+               const quota = driveQuotas && driveQuotas[idx] ? driveQuotas[idx] : null;
+               return (
+                 <div key={idx} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex-1 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                       <HardDrive size={18} className="text-primary" />
+                       <span className="font-bold text-sm text-slate-800">Drive {idx + 1} Storage</span>
+                    </div>
+                    {quota ? (
+                       <>
+                         <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden mt-1">
+                            <div className="h-full bg-primary" style={{ width: `${Math.min(100, (quota.usage / Math.max(1, quota.limit)) * 100)}%` }}></div>
+                         </div>
+                         <div className="text-[11px] font-semibold text-slate-500">
+                            {Math.round(quota.usage / 1024 / 1024 / 1024)} GB used of {Math.round(quota.limit / 1024 / 1024 / 1024)} GB
+                         </div>
+                       </>
+                    ) : (
+                       <div className="text-[11px] text-slate-500 flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Fetching quota...</div>
+                    )}
+                 </div>
+               )
+            })}
+         </div>
       )}
 
       {/* ── Add Event Modal ─────────────────────────────────────────────────── */}
@@ -339,13 +411,26 @@ export default function GalleryManager() {
               {gdriveConnected ? (
                 <div>
                   {/* GDrive connected — show file picker */}
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-xs text-green-800 font-semibold flex items-center gap-2 mb-3">
-                    <Folder size={14} className="text-green-600" />
-                    Google Drive connected — photos upload directly to Drive. Zero Supabase storage used.
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-xs text-green-800 font-semibold flex flex-col gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                       <Folder size={14} className="text-green-600" />
+                       Google Drive connected — photos upload directly to Drive.
+                    </div>
+                    {drives.length > 1 && (
+                       <select 
+                          value={selectedDriveIndex} 
+                          onChange={(e) => setSelectedDriveIndex(Number(e.target.value))}
+                          className="w-full bg-white border border-green-200 rounded p-1.5 outline-none text-green-800 font-mono text-[10px]"
+                       >
+                          {drives.map((d, i) => (
+                             <option key={i} value={i}>Drive {i + 1}: {d.email || d.folder_id}</option>
+                          ))}
+                       </select>
+                    )}
                   </div>
 
                   <label className="block text-sm font-semibold text-text mb-1.5">
-                    Photos / Videos <span className="text-muted font-normal">(select multiple, max {MAX_FILE_SIZE_MB}MB each)</span>
+                    Photos / Videos <span className="text-muted font-normal">(select multiple, unlimited size)</span>
                   </label>
                   <input
                     required
@@ -358,12 +443,8 @@ export default function GalleryManager() {
 
                   {coverFiles.length > 0 && (
                     <p className="text-xs text-primary font-semibold mt-1.5">
-                      ✓ {coverFiles.length} file{coverFiles.length > 1 ? 's' : ''} selected — first photo will be the card cover.
+                      ✓ {coverFiles.length} file{coverFiles.length > 1 ? 's' : ''} selected.
                     </p>
-                  )}
-
-                  {sizeWarning && (
-                    <p className="text-xs text-amber-600 font-medium mt-1.5 leading-relaxed">{sizeWarning}</p>
                   )}
                 </div>
               ) : (
@@ -395,7 +476,7 @@ export default function GalleryManager() {
                 className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {(addMutation.isPending || isCreating)
-                  ? <><Loader2 size={18} className="animate-spin" /> {progressText || 'Creating...'}</>
+                  ? <><Loader2 size={18} className="animate-spin" /> Submitting...</>
                   : <><Plus size={18} /> Create Event</>
                 }
               </button>

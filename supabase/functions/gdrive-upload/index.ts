@@ -62,18 +62,25 @@ serve(async (req) => {
       .eq('school_id', profile.school_id)
       .single()
 
-    if (!settings?.gdrive_config?.refresh_token) {
+    const body = await req.json()
+    const action = body.action
+    const driveIndex = body.driveIndex || 0
+
+    if (!settings?.gdrive_config) {
       throw new Error('Google Drive not connected for this school')
     }
 
-    const { refresh_token, folder_id } = settings.gdrive_config
+    let configArray = Array.isArray(settings.gdrive_config) ? settings.gdrive_config : [settings.gdrive_config]
+    configArray = configArray.filter(Boolean)
+
+    if (configArray.length === 0 || driveIndex >= configArray.length) {
+       throw new Error('Invalid Google Drive connection index')
+    }
+
+    const { refresh_token, folder_id } = configArray[driveIndex]
 
     // ── 3. Get a fresh access token ──────────────────────────────────────────
     const accessToken = await getAccessToken(refresh_token)
-
-    // ── 4. Route by action ───────────────────────────────────────────────────
-    const body = await req.json()
-    const action = body.action
 
     // ════════════════════════════════════════════════════════════════════════
     // ACTION: create_folder
@@ -182,7 +189,36 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
-    throw new Error(`Unknown action: "${action}". Valid actions: create_folder, upload_file`)
+    // ════════════════════════════════════════════════════════════════════════
+    // ACTION: get_quota
+    // ════════════════════════════════════════════════════════════════════════
+    if (action === 'get_quota') {
+       const aboutResponse = await fetch('https://www.googleapis.com/drive/v3/about?fields=storageQuota', {
+         headers: { 'Authorization': `Bearer ${accessToken}` }
+       });
+       const aboutData = await aboutResponse.json();
+       if (!aboutResponse.ok) throw new Error(`Quota fetch failed: ${JSON.stringify(aboutData)}`);
+       return new Response(JSON.stringify({ success: true, quota: aboutData.storageQuota }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ACTION: delete_file
+    // ════════════════════════════════════════════════════════════════════════
+    if (action === 'delete_file') {
+       const fileId = body.fileId;
+       if (!fileId) throw new Error('Missing fileId');
+       const delResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+         method: 'DELETE',
+         headers: { 'Authorization': `Bearer ${accessToken}` }
+       });
+       if (!delResponse.ok) {
+          const err = await delResponse.json();
+          throw new Error('Failed to delete file: ' + JSON.stringify(err));
+       }
+       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    }
+
+    throw new Error(`Unknown action: "${action}". Valid actions: create_folder, upload_file, get_quota, delete_file`)
 
   } catch (error) {
     console.error('gdrive-upload Edge Function Error:', error)

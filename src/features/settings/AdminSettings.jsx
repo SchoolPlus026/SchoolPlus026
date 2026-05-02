@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { logAuditAction } from '../../utils/auditLogger';
+import { usePlan } from '../../hooks/usePlan';
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
@@ -124,6 +125,7 @@ export default function AdminSettings() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isFree } = usePlan();
 
   /* ── Google Drive State ── */
   const [connectingDrive, setConnectingDrive] = useState(false);
@@ -183,6 +185,14 @@ export default function AdminSettings() {
   };
 
   const handleConnectDrive = () => {
+    const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
+    if (isFree && drives.length >= 1) {
+       if (window.confirm('The Free plan is strictly limited to 1 Google Drive connection. Upgrade to Premium to connect multiple drives. Go to Billing now?')) {
+          window.location.href = '/admin/billing';
+       }
+       return;
+    }
+
     // We redirect to Google's OAuth consent screen
     // Note: The Client ID and Redirect URI must match the Google Cloud Console
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -228,11 +238,15 @@ export default function AdminSettings() {
     }
   };
 
-  const handleDisconnectDrive = async () => {
-    if (!window.confirm('Are you sure you want to disconnect Google Drive? New gallery images will fall back to Supabase Storage or external links.')) return;
+  const handleDisconnectDrive = async (index) => {
+    if (!window.confirm('Are you sure you want to disconnect this Google Drive? New gallery images will fall back to Supabase Storage or external links.')) return;
     setDisconnectingDrive(true);
     try {
-      const { error } = await supabase.from('school_settings').update({ gdrive_config: null }).eq('school_id', schoolSettings.school_id);
+      const drives = Array.isArray(schoolSettings?.gdrive_config) ? [...schoolSettings.gdrive_config] : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
+      drives.splice(index, 1);
+      const newConfig = drives.length > 0 ? drives : null;
+
+      const { error } = await supabase.from('school_settings').update({ gdrive_config: newConfig }).eq('school_id', schoolSettings.school_id);
       if (error) throw error;
       
       const { data: newSettings } = await supabase.from('school_settings').select('*').eq('school_id', schoolSettings.school_id).single();
@@ -562,31 +576,48 @@ export default function AdminSettings() {
           </div>
         </div>
         
-        {schoolSettings?.gdrive_config ? (
-           <div className="mt-4 p-4 border border-green-500/30 bg-green-500/10 rounded-xl flex items-center justify-between">
-             <div className="text-sm">
-               <div className="font-bold text-green-600">Connected</div>
-               <div className="text-slate-500 text-[10px] mt-1">Folder ID: {schoolSettings.gdrive_config.folder_id}</div>
-             </div>
-             <button 
-               onClick={handleDisconnectDrive} 
-               disabled={disconnectingDrive}
-               className="btn danger"
-               style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }}
-             >
-               {disconnectingDrive ? 'Disconnecting...' : 'Disconnect'}
-             </button>
-           </div>
-        ) : (
-           <button 
-             onClick={handleConnectDrive} 
-             disabled={connectingDrive} 
-             className="btn outline w-full mt-4 flex justify-center items-center gap-2"
-           >
-             {connectingDrive ? <Loader2 size={16} className="animate-spin" /> : <HardDrive size={16} />} 
-             {connectingDrive ? 'Connecting...' : 'Connect School Google Drive'}
-           </button>
-        )}
+        {(() => {
+          const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
+          return (
+            <div className="flex flex-col gap-3 mt-4">
+              {drives.map((drive, idx) => (
+                 <div key={drive.id || idx} className="p-4 border border-green-500/30 bg-green-500/10 rounded-xl flex items-center justify-between">
+                   <div className="text-sm">
+                     <div className="font-bold text-green-600">Connected</div>
+                     <div className="text-slate-500 text-[10px] mt-1 break-all">
+                        {drive.email ? <strong>{drive.email}</strong> : `Folder ID: ${drive.folder_id}`}
+                     </div>
+                     {drive.storageQuota && (
+                        <div className="text-slate-500 text-[10px] mt-2 flex items-center gap-2">
+                           <div className="w-32 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                              <div className="h-full bg-green-500" style={{ width: `${Math.min(100, (drive.storageQuota.usage / Math.max(1, drive.storageQuota.limit)) * 100)}%` }}></div>
+                           </div>
+                           <span>{Math.round((drive.storageQuota.usage || 0)/1024/1024/1024)}GB / {Math.round((drive.storageQuota.limit || 0)/1024/1024/1024)}GB</span>
+                        </div>
+                     )}
+                   </div>
+                   <button 
+                     onClick={() => handleDisconnectDrive(idx)} 
+                     disabled={disconnectingDrive}
+                     className="btn danger"
+                     style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }}
+                   >
+                     {disconnectingDrive ? 'Disconnecting...' : 'Disconnect'}
+                   </button>
+                 </div>
+              ))}
+              
+              <button 
+                onClick={handleConnectDrive} 
+                disabled={connectingDrive} 
+                className="btn outline w-full flex justify-center items-center gap-2 mt-2"
+              >
+                {connectingDrive ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} 
+                {drives.length > 0 ? 'Add Another Drive' : 'Connect School Google Drive'}
+              </button>
+            </div>
+          )
+        })()}
       </div>
 
       {/* ── 5.6 HELP & SUPPORT ── */}

@@ -75,27 +75,55 @@ serve(async (req) => {
 
     const folder_id = folderData.id;
 
+    // 2.5 Fetch user email
+    const aboutResponse = await fetch('https://www.googleapis.com/drive/v3/about?fields=user,storageQuota', {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    const aboutData = await aboutResponse.json();
+    const email = aboutData.user?.emailAddress || 'Unknown Account';
+    const storageQuota = aboutData.storageQuota || null;
+
     // 3. Save to Supabase school_settings
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const gdrive_config = {
+    // Fetch existing
+    const { data: currentSettings } = await supabaseClient
+      .from('school_settings')
+      .select('gdrive_config')
+      .eq('school_id', school_id)
+      .single();
+
+    let existingConfig = currentSettings?.gdrive_config || [];
+    // Convert object to array if legacy
+    if (!Array.isArray(existingConfig)) {
+      existingConfig = [existingConfig];
+    }
+    // Remove any empty/null entries
+    existingConfig = existingConfig.filter(Boolean);
+
+    const newConnection = {
+      id: crypto.randomUUID(),
+      email,
       refresh_token,
       folder_id,
+      storageQuota,
       connected_at: new Date().toISOString()
     }
 
+    existingConfig.push(newConnection);
+
     const { error: dbError } = await supabaseClient
       .from('school_settings')
-      .update({ gdrive_config })
+      .update({ gdrive_config: existingConfig })
       .eq('school_id', school_id)
 
     if (dbError) throw dbError
 
     return new Response(
-      JSON.stringify({ success: true, folder_id }),
+      JSON.stringify({ success: true, folder_id, email }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
