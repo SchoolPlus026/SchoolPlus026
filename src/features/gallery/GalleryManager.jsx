@@ -152,7 +152,7 @@ export default function GalleryManager() {
             const { data: folderData, error: folderError } = await supabase.functions.invoke('gdrive-upload', {
               body: { action: 'create_folder', folderName: eventTitle, driveIndex: targetDriveIndex },
             });
-            if (folderError || folderData?.error) throw new Error("Folder creation failed");
+            if (folderError || folderData?.error) throw new Error(folderData?.error || folderError?.message || "Folder creation failed");
             
             const folderId = folderData.id;
             const folderLink = folderData.link;
