@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
@@ -206,7 +206,11 @@ export default function AdminSettings() {
     
     try {
       const { data, error } = await supabase.functions.invoke('gdrive-auth', {
-        body: { code, school_id: schoolSettings.school_id }
+        body: { 
+          code, 
+          school_id: schoolSettings.school_id,
+          redirect_uri: window.location.origin + window.location.pathname
+        }
       });
       
       if (error) throw new Error(error.message);

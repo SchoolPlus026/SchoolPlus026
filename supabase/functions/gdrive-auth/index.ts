@@ -13,17 +13,18 @@ serve(async (req) => {
   }
 
   try {
-    const { code, school_id } = await req.json()
+    const { code, school_id, redirect_uri } = await req.json()
     
-    if (!code || !school_id) {
-      return new Response(JSON.stringify({ error: 'Missing code or school_id' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+    if (!code || !school_id || !redirect_uri) {
+      return new Response(JSON.stringify({ error: 'Missing code, school_id, or redirect_uri' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
     }
 
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
     const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
-    const redirectUri = Deno.env.get('GOOGLE_REDIRECT_URI')
+    // Use the redirect_uri provided by the frontend, fall back to env var if missing
+    const finalRedirectUri = redirect_uri || Deno.env.get('GOOGLE_REDIRECT_URI')
 
-    if (!clientId || !clientSecret || !redirectUri) {
+    if (!clientId || !clientSecret || !finalRedirectUri) {
        return new Response(JSON.stringify({ error: 'Server configuration missing' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 })
     }
 
@@ -35,7 +36,7 @@ serve(async (req) => {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri,
+        redirect_uri: finalRedirectUri,
         grant_type: 'authorization_code',
       }),
     })
