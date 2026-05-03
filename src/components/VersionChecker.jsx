@@ -26,8 +26,8 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
-import { Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capawesome-team/capacitor-file-opener';
 import { supabase } from '../config/supabaseClient';
 
@@ -313,49 +313,58 @@ export default function VersionChecker() {
     if (!updateInfo?.apk_url) return;
     setIsDownloading(true);
     setDownloadProgress(0);
-    
-    let progressListener = null;
+
+    const fileName = `SchoolOS_Update_v${updateInfo.version_name}.apk`;
 
     try {
-      const fileName = `SchoolOS_Update_v${updateInfo.version_name}.apk`;
+      // ── Step 1: Download APK using Filesystem (supports onProgress) ──
+      console.info('[VersionChecker] Starting download to Cache dir:', fileName);
 
-      // Listen to progress specifically for this download
-      progressListener = await CapacitorHttp.addListener('progress', (e) => {
-        if (e.url === updateInfo.apk_url && e.contentLength > 0) {
-           const percent = Math.round((e.bytes / e.contentLength) * 100);
-           setDownloadProgress(percent);
-        }
-      });
-
-      // 1. Download directly to Cache Directory
-      const response = await CapacitorHttp.downloadFile({
+      const downloadResult = await Filesystem.downloadFile({
         url: updateInfo.apk_url,
-        filePath: fileName,
-        fileDirectory: Directory.Cache,
-        progress: true,
+        path: fileName,
+        directory: Directory.Cache,
+        recursive: true,
+        // Native progress callback
+        onProgress: (progress) => {
+          if (progress.contentLength > 0) {
+            const percent = Math.round((progress.bytes / progress.contentLength) * 100);
+            setDownloadProgress(percent);
+          }
+        },
       });
 
-      // 2. Open / Install via Native FileOpener Intent
-      if (response.path) {
-        setDownloadProgress(100);
-        setIsDownloading(false);
-        setDownloadStarted(true);
+      console.info('[VersionChecker] Download complete. Internal path:', downloadResult.path);
 
-        await FileOpener.openFile({
-          path: response.path,
-          // Mime-type forces the Android Package Installer intent
-          mimeType: 'application/vnd.android.package-archive',
-        });
-      }
+      // ── Step 2: Convert internal path → FileProvider content:// URI ──
+      // Android 7+ blocks direct file:// URIs between apps. We must use
+      // FileProvider (declared in AndroidManifest + file_paths.xml) to get
+      // a safe content:// URI the Package Installer can read.
+      const uriResult = await Filesystem.getUri({
+        path: fileName,
+        directory: Directory.Cache,
+      });
+
+      const contentUri = uriResult.uri;
+      console.info('[VersionChecker] FileProvider URI:', contentUri);
+
+      // ── Step 3: Trigger Android Package Installer via FileOpener ──
+      setDownloadProgress(100);
+      setIsDownloading(false);
+      setDownloadStarted(true);
+
+      await FileOpener.openFile({
+        path: contentUri,
+        mimeType: 'application/vnd.android.package-archive',
+      });
 
     } catch (err) {
-      console.error('[VersionChecker] Download/Install Failed:', err);
-      alert('Failed to install update. Please try again later.');
+      // Show the EXACT native error — critical for debugging on-device
+      const errorMsg = err?.message || JSON.stringify(err) || 'Unknown error';
+      console.error('[VersionChecker] Download/Install Failed:', errorMsg, err);
+      alert(`Update failed:\n${errorMsg}`);
       setIsDownloading(false);
-    } finally {
-      if (progressListener) {
-        progressListener.remove();
-      }
+      setDownloadProgress(0);
     }
   }, [updateInfo]);
 
