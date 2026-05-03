@@ -6,12 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// ── Helper: refresh Google OAuth token ──────────────────────────────────────
 async function getAccessToken(refreshToken: string): Promise<string> {
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
+    body: newSearchParams({
       client_id:     Deno.env.get('GOOGLE_CLIENT_ID')!,
       client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET')!,
       refresh_token: refreshToken,
@@ -19,134 +18,140 @@ async function getAccessToken(refreshToken: string): Promise<string> {
     }),
   })
   const tokenData = await tokenResponse.json()
-  if (!tokenData.access_token) throw new Error('Failed to refresh Google token: ' + JSON.stringify(tokenData))
+  if (!tokenData.access_token) throw new Error('Failed to refresh Google token')
   return tokenData.access_token
 }
 
-// ── Helper: make a Drive file/folder publicly readable ───────────────────────
-async function makePublic(fileId: string, accessToken: string): Promise<void> {
-  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ role: 'reader', type: 'anyone' }),
-  })
+function newSearchParams(params: Record<string, string>): URLSearchParams {
+  const searchParams = new URLSearchParams()
+  for (const key in params) {
+    searchParams.append(key, params[key])
+  }
+  return searchParams
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    // ── 0. Parse body FIRST — must happen before any await to avoid stream closure ──
-    const body = await req.json()
-    const action = body.action
-    const driveIndex = body.driveIndex ?? 0  // nullish coalescing: 0 is valid, only fall back on null/undefined
+    const bodyText = await req.text();
+    const body = bodyText ? JSON.parse(bodyText) : {};
+    const { action, driveIndex, school_id } = body;
+    
+    if (!action) throw new Error('Action is required')
 
-    if (!action) throw new Error('Missing action in request body')
-
-    // ── 1. Auth: verify the calling user ────────────────────────────────────
+    // --- 1. Auth verification ---
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) throw new Error('Missing Authorization header')
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      { global: { headers: { Authorization: authHeader } } }
+    )
+    
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    if (authError || !user) throw new Error('Unauthorized')
+
+    // Extract school_id safely (accept body.school_id or user.user_metadata)
+    const targetSchoolId = school_id || user.user_metadata?.school_id
+    if (!targetSchoolId) throw new Error('Missing school_id')
+
+    // --- 2. Fetch config securely using Admin key (Bypass RLS) ---
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { data: { user } } = await supabaseClient.auth.getUser()
-    if (!user) throw new Error('Unauthorized')
-
-    // ── 2. Fetch school's gdrive_config ─────────────────────────────────────
-    const { data: profile } = await supabaseClient
-      .from('users').select('school_id').eq('id', user.id).single()
-    if (!profile?.school_id) throw new Error('No school linked to this user')
-
-    const { data: settings } = await supabaseClient
+    const { data: schoolData } = await supabaseAdmin
       .from('school_settings')
       .select('gdrive_config')
-      .eq('school_id', profile.school_id)
+      .eq('school_id', targetSchoolId)
       .single()
 
-    if (!settings?.gdrive_config) {
-      throw new Error('Google Drive not connected for this school')
+    const configArray = Array.isArray(schoolData?.gdrive_config) ? schoolData.gdrive_config : []
+    const targetDrive = configArray[driveIndex ?? 0]
+    
+    if (!targetDrive || !targetDrive.refresh_token) {
+      throw new Error(`Google Drive configuration not found for index ${driveIndex ?? 0}.`)
     }
 
-    let configArray = Array.isArray(settings.gdrive_config) ? settings.gdrive_config : [settings.gdrive_config]
-    configArray = configArray.filter(Boolean)
+    // --- 3. Get fresh Access Token ---
+    const accessToken = await getAccessToken(targetDrive.refresh_token)
 
-    if (configArray.length === 0 || driveIndex >= configArray.length) {
-       throw new Error(`Invalid Google Drive connection index ${driveIndex} (${configArray.length} drive(s) connected)`)
+    // --- Route actions ---
+    if (action === 'get_quota') {
+      const quotaRes = await fetch('https://www.googleapis.com/drive/v3/about?fields=storageQuota', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      const quotaData = await quotaRes.json()
+      return new Response(JSON.stringify({ quota: quotaData.storageQuota }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    const { refresh_token, folder_id } = configArray[driveIndex]
+    if (action === 'delete_file') {
+      const { fileId } = body
+      if (!fileId) throw new Error('fileId required for deletion')
+      // Use PATCH to move it to trash (safer than hard DELETE)
+      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ trashed: true })
+      })
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
-    // ── 3. Get a fresh access token ──────────────────────────────────────────
-    const accessToken = await getAccessToken(refresh_token)
-
-    // ════════════════════════════════════════════════════════════════════════
-    // ACTION: create_folder
-    // Creates a named subfolder inside the school's root GDrive folder.
-    // Returns: { success, id, link }
-    // ════════════════════════════════════════════════════════════════════════
     if (action === 'create_folder') {
-      const folderName = body.folderName
-      if (!folderName) throw new Error('Missing folderName')
+      const { folderName } = body
+      if (!folderName) throw new Error('folderName required')
 
-      const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
+      const folderRes = await fetch('https://www.googleapis.com/drive/v3/files', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name:     folderName,
+          name: folderName,
           mimeType: 'application/vnd.google-apps.folder',
-          parents:  [folder_id],
-        }),
+          parents: [targetDrive.folder_id]
+        })
+      })
+      const folderData = await folderRes.json()
+      if (!folderData.id) throw new Error('Failed to create folder: ' + JSON.stringify(folderData))
+      
+      // Make folder public
+      await fetch(`https://www.googleapis.com/drive/v3/files/${folderData.id}/permissions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: 'reader', type: 'anyone' }),
       })
 
-      const createData = await createResponse.json()
-      if (!createResponse.ok) throw new Error(`Drive folder creation failed: ${JSON.stringify(createData)}`)
-
-      // Make folder publicly accessible
-      await makePublic(createData.id, accessToken)
-
-      // Fetch the shareable webViewLink
-      const fileResponse = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${createData.id}?fields=webViewLink`,
-        { headers: { 'Authorization': `Bearer ${accessToken}` } }
-      )
-      const fileData = await fileResponse.json()
-
-      return new Response(JSON.stringify({
-        success: true,
-        id:      createData.id,
-        link:    fileData.webViewLink,
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+      return new Response(JSON.stringify({ id: folderData.id, link: `https://drive.google.com/drive/folders/${folderData.id}` }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // ACTION: upload_file
-    // Uploads a single file (sent as base64) directly into a specific GDrive
-    // folder (parentFolderId). Used for multi-photo gallery uploads.
-    // Returns: { success, id, thumbnailLink, webViewLink }
-    // ════════════════════════════════════════════════════════════════════════
     if (action === 'upload_file') {
-      const { fileName, mimeType, fileBase64, parentFolderId } = body
-
-      if (!fileName)        throw new Error('Missing fileName')
-      if (!fileBase64)      throw new Error('Missing fileBase64')
-      if (!parentFolderId)  throw new Error('Missing parentFolderId — files must go into a specific event folder')
-
+      const { parentFolderId, fileName, mimeType, fileBase64 } = body
+      if (!parentFolderId || !fileName || !fileBase64) throw new Error('Missing upload parameters')
+      
       const boundary = '-------SchoolOSGalleryUpload314159'
       const delimiter    = `\r\n--${boundary}\r\n`
       const closeDelim   = `\r\n--${boundary}--`
 
       const metadata = {
         name:    fileName,
-        parents: [parentFolderId],  // ← uploads into the specific event subfolder
+        parents: [parentFolderId],
       }
 
       const multipartBody =
@@ -174,11 +179,16 @@ serve(async (req) => {
       const uploadData = await uploadResponse.json()
       if (!uploadResponse.ok) throw new Error(`Drive upload failed: ${JSON.stringify(uploadData)}`)
 
-      // Make the file publicly viewable
-      await makePublic(uploadData.id, accessToken)
+      // Make the individual file public just in case
+      await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}/permissions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+      })
 
-      // thumbnailLink is available for images; videos may only have webViewLink
-      // Strip the size suffix from thumbnailLink (e.g. =s220) to get a larger preview
       const thumbnailLink = uploadData.thumbnailLink
         ? uploadData.thumbnailLink.replace(/=s\d+$/, '=s800')
         : null
@@ -192,42 +202,13 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // ACTION: get_quota
-    // ════════════════════════════════════════════════════════════════════════
-    if (action === 'get_quota') {
-       const aboutResponse = await fetch('https://www.googleapis.com/drive/v3/about?fields=storageQuota', {
-         headers: { 'Authorization': `Bearer ${accessToken}` }
-       });
-       const aboutData = await aboutResponse.json();
-       if (!aboutResponse.ok) throw new Error(`Quota fetch failed: ${JSON.stringify(aboutData)}`);
-       return new Response(JSON.stringify({ success: true, quota: aboutData.storageQuota }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // ACTION: delete_file
-    // ════════════════════════════════════════════════════════════════════════
-    if (action === 'delete_file') {
-       const fileId = body.fileId;
-       if (!fileId) throw new Error('Missing fileId');
-       const delResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-         method: 'DELETE',
-         headers: { 'Authorization': `Bearer ${accessToken}` }
-       });
-       if (!delResponse.ok) {
-          const err = await delResponse.json();
-          throw new Error('Failed to delete file: ' + JSON.stringify(err));
-       }
-       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-    }
-
-    throw new Error(`Unknown action: "${action}". Valid actions: create_folder, upload_file, get_quota, delete_file`)
+    throw new Error('Unknown action: ' + action)
 
   } catch (error) {
-    console.error('gdrive-upload Edge Function Error:', error)
+    console.error("gdrive-upload error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
 })
