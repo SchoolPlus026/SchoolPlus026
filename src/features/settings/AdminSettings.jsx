@@ -714,10 +714,18 @@ export default function AdminSettings() {
       </div>
 
       {/* ── 7. APP VERSION ── */}
-      <div style={{ textAlign: 'center', marginTop: '32px', marginBottom: '16px' }}>
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-          SchoolOS+ App Version: {appVersion || 'Loading...'}
-        </span>
+      <div style={{ textAlign: 'center', marginTop: '32px', marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 700 }}>
+            ✅ SchoolOS+ {appVersion || 'Loading...'}
+          </span>
+          <span style={{
+            fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
+            background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+            color: 'white', padding: '2px 7px', borderRadius: '999px'
+          }}>Latest</span>
+        </div>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Silent in-app updates enabled 🚀</span>
       </div>
 
       {/* ── RESET MODAL ── */}
