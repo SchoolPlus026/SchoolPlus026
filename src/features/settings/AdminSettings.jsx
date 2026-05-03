@@ -177,7 +177,10 @@ export default function AdminSettings() {
     if (Capacitor.isNativePlatform()) {
       App.getInfo().then(info => setAppVersion(`v${info.version}`));
     } else {
-      setAppVersion(`v${import.meta.env.VITE_APP_VERSION_NAME || '1.0.0'} (Web)`);
+      // VITE_APP_VERSION_NAME from CI includes 'v' prefix (e.g. v1.0.28) — strip it
+      const raw = import.meta.env.VITE_APP_VERSION_NAME || '1.0.0';
+      const clean = raw.replace(/^v/, '');
+      setAppVersion(`v${clean} (Web)`);
     }
 
     return () => {
@@ -717,7 +720,7 @@ export default function AdminSettings() {
       <div style={{ textAlign: 'center', marginTop: '32px', marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 700 }}>
-            ✅ SchoolOS+ {appVersion || 'Loading...'}
+            SchoolOS+ {appVersion || 'Loading...'}
           </span>
           <span style={{
             fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
@@ -725,7 +728,7 @@ export default function AdminSettings() {
             color: 'white', padding: '2px 7px', borderRadius: '999px'
           }}>Latest</span>
         </div>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Silent in-app updates enabled 🚀</span>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Silent in-app updates enabled</span>
       </div>
 
       {/* ── RESET MODAL ── */}

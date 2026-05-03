@@ -146,6 +146,18 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
+      - name: 🔖 Patch versionCode and versionName from Git Tag
+        # Makes the native App.getInfo().version always return the correct
+        # semver regardless of what is committed in build.gradle.
+        run: |
+          TAG="${{ github.ref_name }}"
+          # Strip leading 'v': v1.0.28 -> 1.0.28
+          VERSION_NAME="${TAG#v}"
+          VERSION_CODE="${{ github.run_number }}"
+          sed -i "s/versionCode .*/versionCode $VERSION_CODE/" android/app/build.gradle
+          sed -i "s/versionName .*/versionName \"$VERSION_NAME\"/" android/app/build.gradle
+          echo "Patched -> versionCode=$VERSION_CODE, versionName=$VERSION_NAME"
+
       - name: ⚙️ Compile Signed Release APK
         # assembleRelease uses the keystore configured above.
         # --no-daemon: prevents Gradle daemon issues in CI environments
@@ -203,7 +215,21 @@ jobs:
           # Generate the PUBLIC download URL (no auth needed — bucket is public)
           APK_URL="${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/public/${BUCKET}/${APK_FILE}"
           echo "APK_URL=$APK_URL" >> $GITHUB_ENV
-          echo "✅ APK uploaded to Supabase Storage: $APK_URL"
+          echo "APK uploaded to Supabase Storage: $APK_URL"
+
+      - name: 🏷️ Create GitHub Release (updates Latest label)
+        # Keeps the GitHub Releases page current. APK is NOT served from here
+        # (we use Supabase Storage), but this ensures the 'Latest' release
+        # label is always updated so the history is browsable.
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION_TAG }}
+          name: "SchoolOS+ ${{ env.VERSION_TAG }}"
+          body: "Automated release. APK is served via Supabase Storage for silent in-app updates."
+          generate_release_notes: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📝 Register Version in Supabase
         # Stores the PUBLIC Supabase Storage URL in app_versions.
@@ -225,5 +251,17 @@ jobs:
               \"release_notes\": \"Automated CI/CD release $VERSION_NAME (hosted on Supabase Storage).\",
               \"is_critical\": false
             }"
-          echo "✅ Version $VERSION_NAME (code: $VERSION_CODE) registered in Supabase."
-          echo "📥 Direct APK URL: $APK_URL"
+          echo "Version $VERSION_NAME (code: $VERSION_CODE) registered in Supabase."
+          echo "APK URL: $APK_URL"
+
+      - name: 🔔 Notify All Devices via FCM
+        # Calls notify-update Edge Function which fans out FCM push notifications
+        # to every device_token row. Users learn about the update without opening app.
+        run: |
+          HTTP_STATUS=$(curl -sS -o /tmp/notify_response.txt -w "%{http_code}" \
+            -X POST "${{ secrets.VITE_SUPABASE_URL }}/functions/v1/notify-update" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"version_name\": \"${{ env.VERSION_TAG }}\", \"release_notes\": \"SchoolOS+ ${{ env.VERSION_TAG }} is now available. Open the app to install it.\"}")
+          echo "Notify HTTP status: $HTTP_STATUS"
+          cat /tmp/notify_response.txt

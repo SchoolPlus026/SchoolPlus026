@@ -214,9 +214,9 @@ function UpdateModal({ version, onDismiss, onDownload, isDownloading, downloadPr
             >
               {downloadStarted ? (
                 <>
-                  <span style={{ fontSize: '16px' }}>✅</span>
+                  <span style={{ fontSize: '16px' }}>📦</span>
                   <span>
-                    <div style={{ fontSize: '13px', fontWeight: 800 }}>Opening Installer!</div>
+                    <div style={{ fontSize: '13px', fontWeight: 800 }}>Opening Installer...</div>
                     <div style={{ fontSize: '10px', fontWeight: 600, opacity: 0.85, marginTop: '2px' }}>
                       Please approve the installation.
                     </div>
@@ -325,7 +325,6 @@ export default function VersionChecker() {
         path: fileName,
         directory: Directory.Cache,
         recursive: true,
-        // Native progress callback
         onProgress: (progress) => {
           if (progress.contentLength > 0) {
             const percent = Math.round((progress.bytes / progress.contentLength) * 100);
@@ -334,27 +333,20 @@ export default function VersionChecker() {
         },
       });
 
-      console.info('[VersionChecker] Download complete. Internal path:', downloadResult.path);
+      console.info('[VersionChecker] Download complete. Path:', downloadResult.path);
 
-      // ── Step 2: Convert internal path → FileProvider content:// URI ──
-      // Android 7+ blocks direct file:// URIs between apps. We must use
-      // FileProvider (declared in AndroidManifest + file_paths.xml) to get
-      // a safe content:// URI the Package Installer can read.
-      const uriResult = await Filesystem.getUri({
-        path: fileName,
-        directory: Directory.Cache,
-      });
+      if (!downloadResult.path) throw new Error('Download succeeded but path is empty.');
 
-      const contentUri = uriResult.uri;
-      console.info('[VersionChecker] FileProvider URI:', contentUri);
-
-      // ── Step 3: Trigger Android Package Installer via FileOpener ──
+      // ── Step 2: Trigger Android Package Installer via FileOpener ──
+      // Pass the raw native path — @capawesome FileOpener internally calls
+      // FileProvider.getUriForFile() to produce a safe content:// URI.
+      // DO NOT pass a file:// URI — it bypasses FileProvider and crashes on API 24+.
       setDownloadProgress(100);
       setIsDownloading(false);
       setDownloadStarted(true);
 
       await FileOpener.openFile({
-        path: contentUri,
+        path: downloadResult.path,
         mimeType: 'application/vnd.android.package-archive',
       });
 
