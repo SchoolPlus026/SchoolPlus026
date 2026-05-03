@@ -26,33 +26,16 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { Directory } from '@capacitor/filesystem';
+import { FileOpener } from '@capawesome-team/capacitor-file-opener';
 import { supabase } from '../config/supabaseClient';
 
-// ─── VERSION: Injected by CI/CD at build time via VITE_APP_VERSION_CODE env var ──
-// In build-apk.yml, set:  VITE_APP_VERSION_CODE: ${{ github.run_number }}
-// This keeps VersionChecker in sync with the database automatically.
-// Fallback to 1 for local development builds.
 const APP_VERSION_CODE = parseInt(import.meta.env.VITE_APP_VERSION_CODE || '1', 10);
 const APP_VERSION_NAME = import.meta.env.VITE_APP_VERSION_NAME || '1.0.0';
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ── Open APK URL via Android system intent ────────────────────────────────────
-// window.open(url, '_system') bypasses Capacitor's Custom Tab and hands the URL
-// directly to Android's Intent resolver. Android routes .apk URLs to the system
-// DownloadManager — users see the standard download notification in the status bar.
-// Falls back to window.open(url, '_blank') on web (where this is never called).
-function openAPKDownload(url) {
-  try {
-    // '_system' is the Capacitor/Cordova convention for a true system browser intent
-    window.open(url, '_system');
-  } catch {
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
-}
 
 // ── Glassmorphic Update Modal ─────────────────────────────────────────────────
-function UpdateModal({ version, onDismiss, onDownload, isDownloading, downloadStarted }) {
+function UpdateModal({ version, onDismiss, onDownload, isDownloading, downloadProgress, downloadStarted }) {
   const isCritical = version.is_critical;
 
   return (
@@ -189,51 +172,61 @@ function UpdateModal({ version, onDismiss, onDownload, isDownloading, downloadSt
         {/* ── Action buttons ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {/* Primary: Download & Update */}
-          <button
-            id="btn-download-update"
-            onClick={onDownload}
-            disabled={isDownloading || downloadStarted}
-            style={{
-              width: '100%', padding: '15px', borderRadius: '14px',
-              background: downloadStarted
-                ? 'linear-gradient(135deg, #166534 0%, #15803d 100%)'
-                : isDownloading
-                  ? 'rgba(79,70,229,0.5)'
-                  : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-              border: 'none', cursor: (isDownloading || downloadStarted) ? 'default' : 'pointer',
-              color: 'white', fontSize: '14px', fontWeight: 800,
-              letterSpacing: '0.02em',
-              boxShadow: downloadStarted
-                ? '0 8px 24px rgba(22,101,52,0.4)'
-                : isDownloading ? 'none' : '0 8px 24px rgba(79,70,229,0.4)',
-              transition: 'all 0.3s ease',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-            }}
-          >
-            {downloadStarted ? (
-              <>
-                <span style={{ fontSize: '16px' }}>✅</span>
-                <span>
-                  <div style={{ fontSize: '13px', fontWeight: 800 }}>Download Started!</div>
-                  <div style={{ fontSize: '10px', fontWeight: 600, opacity: 0.85, marginTop: '2px' }}>
-                    Check notification bar ↓
-                  </div>
-                </span>
-              </>
-            ) : isDownloading ? (
-              <>
-                <span style={{
-                  display: 'inline-block', width: '14px', height: '14px',
-                  border: '2px solid rgba(255,255,255,0.3)',
-                  borderTopColor: 'white', borderRadius: '50%',
-                  animation: 'spin 0.7s linear infinite',
+          {isDownloading ? (
+            <div style={{
+               background: 'rgba(79,70,229,0.15)',
+               borderRadius: '14px',
+               padding: '16px',
+               border: '1px solid rgba(99,102,241,0.3)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: '#c7d2fe' }}>
+                <span>Downloading Update...</span>
+                <span>{downloadProgress}%</span>
+              </div>
+              <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '999px', overflow: 'hidden' }}>
+                <div style={{ 
+                  height: '100%', 
+                  background: 'linear-gradient(90deg, #4f46e5, #7c3aed)', 
+                  width: `${downloadProgress}%`,
+                  transition: 'width 0.2s ease-out'
                 }} />
-                Starting download…
-              </>
-            ) : (
-              <>⬇️ Download &amp; Update</>
-            )}
-          </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              id="btn-download-update"
+              onClick={onDownload}
+              disabled={downloadStarted}
+              style={{
+                width: '100%', padding: '15px', borderRadius: '14px',
+                background: downloadStarted
+                  ? 'linear-gradient(135deg, #166534 0%, #15803d 100%)'
+                  : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                border: 'none', cursor: downloadStarted ? 'default' : 'pointer',
+                color: 'white', fontSize: '14px', fontWeight: 800,
+                letterSpacing: '0.02em',
+                boxShadow: downloadStarted
+                  ? '0 8px 24px rgba(22,101,52,0.4)'
+                  : '0 8px 24px rgba(79,70,229,0.4)',
+                transition: 'all 0.3s ease',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              {downloadStarted ? (
+                <>
+                  <span style={{ fontSize: '16px' }}>✅</span>
+                  <span>
+                    <div style={{ fontSize: '13px', fontWeight: 800 }}>Opening Installer!</div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, opacity: 0.85, marginTop: '2px' }}>
+                      Please approve the installation.
+                    </div>
+                  </span>
+                </>
+              ) : (
+                <>⬇️ Download &amp; Install Update</>
+              )}
+            </button>
+          )}
 
           {/* Secondary: Later (only for non-critical) */}
           {!isCritical && (
@@ -278,7 +271,8 @@ export default function VersionChecker() {
   const [updateInfo, setUpdateInfo]       = useState(null);
   const [dismissed, setDismissed]         = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadStarted, setDownloadStarted] = useState(false); // post-click feedback
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadStarted, setDownloadStarted] = useState(false); // post-download feedback
 
   useEffect(() => {
     // Only run on native Android (web builds are always "latest")
@@ -315,19 +309,53 @@ export default function VersionChecker() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (!updateInfo?.apk_url) return;
     setIsDownloading(true);
+    setDownloadProgress(0);
+    
+    let progressListener = null;
+
     try {
-      // _system intent: hands URL to Android's DownloadManager — NOT a Custom Tab.
-      // The user will see a standard Android download notification in the status bar.
-      openAPKDownload(updateInfo.apk_url);
-      // Immediately show success feedback — download is async in the OS
-      setDownloadStarted(true);
+      const fileName = `SchoolOS_Update_v${updateInfo.version_name}.apk`;
+
+      // Listen to progress specifically for this download
+      progressListener = await CapacitorHttp.addListener('progress', (e) => {
+        if (e.url === updateInfo.apk_url && e.contentLength > 0) {
+           const percent = Math.round((e.bytes / e.contentLength) * 100);
+           setDownloadProgress(percent);
+        }
+      });
+
+      // 1. Download directly to Cache Directory
+      const response = await CapacitorHttp.downloadFile({
+        url: updateInfo.apk_url,
+        filePath: fileName,
+        fileDirectory: Directory.Cache,
+        progress: true,
+      });
+
+      // 2. Open / Install via Native FileOpener Intent
+      if (response.path) {
+        setDownloadProgress(100);
+        setIsDownloading(false);
+        setDownloadStarted(true);
+
+        await FileOpener.openFile({
+          path: response.path,
+          // Mime-type forces the Android Package Installer intent
+          mimeType: 'application/vnd.android.package-archive',
+        });
+      }
+
     } catch (err) {
-      console.error('[VersionChecker] Failed to open download URL:', err);
-    } finally {
+      console.error('[VersionChecker] Download/Install Failed:', err);
+      alert('Failed to install update. Please try again later.');
       setIsDownloading(false);
+    } finally {
+      if (progressListener) {
+        progressListener.remove();
+      }
     }
   }, [updateInfo]);
 
@@ -348,6 +376,7 @@ export default function VersionChecker() {
       onDismiss={handleDismiss}
       onDownload={handleDownload}
       isDownloading={isDownloading}
+      downloadProgress={downloadProgress}
       downloadStarted={downloadStarted}
     />
   );

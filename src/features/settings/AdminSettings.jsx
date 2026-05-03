@@ -11,6 +11,7 @@ import { logAuditAction } from '../../utils/auditLogger';
 import { usePlan } from '../../hooks/usePlan';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
+import { App } from '@capacitor/app';
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
@@ -143,6 +144,9 @@ export default function AdminSettings() {
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [legalTab, setLegalTab] = useState(null); // 'about' | 'terms' | null
 
+  /* ── App Version ── */
+  const [appVersion, setAppVersion] = useState('');
+
   React.useEffect(() => {
     const code = searchParams.get('code');
     if (code && !connectingDrive) {
@@ -168,6 +172,12 @@ export default function AdminSettings() {
           setConnectingDrive(false);
         }
       });
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      App.getInfo().then(info => setAppVersion(`v${info.version}`));
+    } else {
+      setAppVersion(`v${import.meta.env.VITE_APP_VERSION_NAME || '1.0.0'} (Web)`);
     }
 
     return () => {
@@ -701,6 +711,13 @@ export default function AdminSettings() {
         <button className="btn danger w-full" onClick={() => setShowResetModal(true)}>
           <Trash2 size={16} /> {t.resetAll}
         </button>
+      </div>
+
+      {/* ── 7. APP VERSION ── */}
+      <div style={{ textAlign: 'center', marginTop: '32px', marginBottom: '16px' }}>
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+          SchoolOS+ App Version: {appVersion || 'Loading...'}
+        </span>
       </div>
 
       {/* ── RESET MODAL ── */}
