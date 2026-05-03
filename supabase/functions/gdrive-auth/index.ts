@@ -118,7 +118,7 @@ serve(async (req) => {
                <p style="color:#94a3b8;margin:0;line-height:1.5;">Your Google Drive is now linked.<br/>You can close this window and return to the app.</p>
             </div>
             </body></html>`,
-           { headers: { 'Content-Type': 'text/html' } }
+           { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
          )
       } catch (err: any) {
          return new Response(
@@ -132,7 +132,7 @@ serve(async (req) => {
                <p style="color:#94a3b8;margin:0;line-height:1.5;">${err.message}<br/><br/>You can close this window and try again.</p>
             </div>
             </body></html>`,
-           { headers: { 'Content-Type': 'text/html' } }
+           { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
          )
       }
     }
