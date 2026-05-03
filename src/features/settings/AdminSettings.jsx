@@ -123,7 +123,7 @@ const T = {
 const TABLES_EXPORT = ['users', 'notices', 'attendance', 'fees', 'fees_payments', 'leaves', 'gallery', 'timetable', 'calendar_events'];
 
 export default function AdminSettings() {
-  const { user, schoolSettings, setSchoolSettings, oauthCode, setOauthCode } = useAppStore();
+  const { user, schoolSettings, setSchoolSettings } = useAppStore();
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -144,9 +144,8 @@ export default function AdminSettings() {
   const [legalTab, setLegalTab] = useState(null); // 'about' | 'terms' | null
 
   React.useEffect(() => {
-    const code = searchParams.get('code') || oauthCode;
+    const code = searchParams.get('code');
     if (code && !connectingDrive) {
-      if (oauthCode) setOauthCode(null);
       handleDriveCallback(code);
     }
     
@@ -156,7 +155,27 @@ export default function AdminSettings() {
       if (data) setPlatformSettings(data);
     };
     fetchPlatformInfo();
-  }, [searchParams, oauthCode, connectingDrive, setOauthCode]);
+
+    let browserListener = null;
+    if (Capacitor.isNativePlatform()) {
+      browserListener = Browser.addListener('browserFinished', async () => {
+        // When the user closes the Capacitor Browser, refresh the Google Drive connection status
+        setConnectingDrive(true);
+        try {
+          const { data: newSettings } = await supabase.from('school_settings').select('*').eq('school_id', schoolSettings.school_id).single();
+          if (newSettings) setSchoolSettings(newSettings);
+        } finally {
+          setConnectingDrive(false);
+        }
+      });
+    }
+
+    return () => {
+      if (browserListener) {
+        browserListener.then(l => l.remove());
+      }
+    };
+  }, [searchParams, connectingDrive, schoolSettings.school_id, setSchoolSettings]);
 
   const handleSubmitTicket = async (e) => {
     e.preventDefault();
@@ -198,8 +217,8 @@ export default function AdminSettings() {
 
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     const isNative = Capacitor.isNativePlatform();
-    const redirectUri = isNative ? 'https://schoolpro-d95a8.web.app/admin/settings' : window.location.origin + window.location.pathname;
-    const stateParam = isNative ? '&state=capacitor_mobile' : '';
+    const redirectUri = isNative ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-auth` : window.location.origin + window.location.pathname;
+    const stateParam = isNative ? `&state=${schoolSettings.school_id}` : '';
     
     if (!clientId) {
       return alert('Google Client ID is missing in environment variables.');

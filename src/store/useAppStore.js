@@ -15,10 +15,6 @@ export const useAppStore = create((set) => ({
   // Background Uploads (Gallery)
   backgroundUploads: [],
   
-  // Global OAuth State
-  oauthCode: null,
-  setOauthCode: (code) => set({ oauthCode: code }),
-  
   // Actions
   setUserAndRole: (user, role) => set({ user, role }),
   setSchoolSettings: (settings) => set({ schoolSettings: settings }),

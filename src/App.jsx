@@ -68,32 +68,8 @@ import FeatureGuard from './components/FeatureGuard';
 export default function App() {
   const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
   const [isInitializing, setIsInitializing] = useState(true);
-  const [isBouncing, setIsBouncing] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('state') === 'capacitor_mobile' && params.get('code')) {
-      setIsBouncing(true);
-      const targetUrl = 'schoolos://oauth2redirect' + window.location.search;
-      setTimeout(() => {
-        window.location.href = targetUrl;
-      }, 1000);
-      return;
-    }
-
-    if (Capacitor.isNativePlatform()) {
-      CapacitorApp.addListener('appUrlOpen', (data) => {
-        if (data.url.includes('schoolos://oauth2redirect')) {
-          Browser.close().catch(() => {});
-          const urlParams = new URL(data.url).searchParams;
-          const code = urlParams.get('code');
-          if (code) {
-            useAppStore.getState().setOauthCode(code);
-          }
-        }
-      });
-    }
-
     async function initializeApp() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -168,22 +144,6 @@ export default function App() {
             Loading...
           </p>
         </div>
-      </div>
-    );
-  }
-
-  if (isBouncing) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)', flexDirection: 'column', gap: '16px' }}>
-         <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-         <p style={{ fontWeight: 600 }}>Returning to app...</p>
-         <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>You can close this tab if it doesn't close automatically.</p>
-         <button 
-            onClick={() => window.location.href = 'schoolos://oauth2redirect' + window.location.search}
-            style={{ marginTop: '20px', padding: '10px 20px', background: 'var(--primary)', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}
-         >
-           Click here if you are not redirected automatically
-         </button>
       </div>
     );
   }
