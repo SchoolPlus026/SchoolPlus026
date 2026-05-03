@@ -127,10 +127,6 @@ export default function AdminSettings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isFree } = usePlan();
 
-  /* ── Google Drive State ── */
-  const [connectingDrive, setConnectingDrive] = useState(false);
-  const [disconnectingDrive, setDisconnectingDrive] = useState(false);
-
   /* ── Platform Settings & Legal ── */
   const [platformSettings, setPlatformSettings] = useState(null);
 
@@ -142,11 +138,6 @@ export default function AdminSettings() {
   const [legalTab, setLegalTab] = useState(null); // 'about' | 'terms' | null
 
   React.useEffect(() => {
-    const code = searchParams.get('code');
-    if (code && !connectingDrive) {
-      handleDriveCallback(code);
-    }
-    
     // Fetch Platform Legal Info
     const fetchPlatformInfo = async () => {
       const { data } = await supabase.from('platform_settings').select('*').single();
@@ -181,81 +172,6 @@ export default function AdminSettings() {
       alert('Error submitting ticket: ' + err.message);
     } finally {
       setSubmittingTicket(false);
-    }
-  };
-
-  const handleConnectDrive = () => {
-    const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
-    if (isFree && drives.length >= 1) {
-       if (window.confirm('The Free plan is strictly limited to 1 Google Drive connection. Upgrade to Premium to connect multiple drives. Go to Billing now?')) {
-          window.location.href = '/admin/billing';
-       }
-       return;
-    }
-
-    // We redirect to Google's OAuth consent screen
-    // Note: The Client ID and Redirect URI must match the Google Cloud Console
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = window.location.origin + window.location.pathname; // Should be /admin/settings
-    
-    if (!clientId) {
-      return alert('Google Client ID is missing in environment variables.');
-    }
-    
-    const scope = 'https://www.googleapis.com/auth/drive.file';
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-    
-    window.location.href = authUrl;
-  };
-
-  const handleDriveCallback = async (code) => {
-    setConnectingDrive(true);
-    // Clear code from URL
-    searchParams.delete('code');
-    setSearchParams(searchParams, { replace: true });
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('gdrive-auth', {
-        body: { 
-          code, 
-          school_id: schoolSettings.school_id,
-          redirect_uri: window.location.origin + window.location.pathname
-        }
-      });
-      
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
-      
-      alert('Google Drive connected successfully!');
-      
-      // Update local state
-      const { data: newSettings } = await supabase.from('school_settings').select('*').eq('school_id', schoolSettings.school_id).single();
-      setSchoolSettings(newSettings);
-    } catch (err) {
-      alert('Error connecting drive: ' + err.message);
-    } finally {
-      setConnectingDrive(false);
-    }
-  };
-
-  const handleDisconnectDrive = async (index) => {
-    if (!window.confirm('Are you sure you want to disconnect this Google Drive? New gallery images will fall back to Supabase Storage or external links.')) return;
-    setDisconnectingDrive(true);
-    try {
-      const drives = Array.isArray(schoolSettings?.gdrive_config) ? [...schoolSettings.gdrive_config] : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
-      drives.splice(index, 1);
-      const newConfig = drives.length > 0 ? drives : null;
-
-      const { error } = await supabase.from('school_settings').update({ gdrive_config: newConfig }).eq('school_id', schoolSettings.school_id);
-      if (error) throw error;
-      
-      const { data: newSettings } = await supabase.from('school_settings').select('*').eq('school_id', schoolSettings.school_id).single();
-      setSchoolSettings(newSettings);
-      alert('Google Drive disconnected.');
-    } catch (err) {
-      alert('Error disconnecting: ' + err.message);
-    } finally {
-      setDisconnectingDrive(false);
     }
   };
 
@@ -566,59 +482,7 @@ export default function AdminSettings() {
         </button>
       </div>
 
-      {/* ── 5.5 GOOGLE DRIVE STORAGE ── */}
-      <div className="card">
-        <div className="settings-header">
-          <div className="icon-box"><HardDrive size={20} /></div>
-          <div className="text-content">
-            <h4>Google Drive Storage</h4>
-            <p>Connect Google Drive for zero-cost gallery storage.</p>
-          </div>
-        </div>
-        
-        {(() => {
-          const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
-          return (
-            <div className="flex flex-col gap-3 mt-4">
-              {drives.map((drive, idx) => (
-                 <div key={drive.id || idx} className="p-4 border border-green-500/30 bg-green-500/10 rounded-xl flex items-center justify-between">
-                   <div className="text-sm">
-                     <div className="font-bold text-green-600">Connected</div>
-                     <div className="text-slate-500 text-[10px] mt-1 break-all">
-                        {drive.email ? <strong>{drive.email}</strong> : `Folder ID: ${drive.folder_id}`}
-                     </div>
-                     {drive.storageQuota && (
-                        <div className="text-slate-500 text-[10px] mt-2 flex items-center gap-2">
-                           <div className="w-32 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                              <div className="h-full bg-green-500" style={{ width: `${Math.min(100, (drive.storageQuota.usage / Math.max(1, drive.storageQuota.limit)) * 100)}%` }}></div>
-                           </div>
-                           <span>{Math.round((drive.storageQuota.usage || 0)/1024/1024/1024)}GB / {Math.round((drive.storageQuota.limit || 0)/1024/1024/1024)}GB</span>
-                        </div>
-                     )}
-                   </div>
-                   <button 
-                     onClick={() => handleDisconnectDrive(idx)} 
-                     disabled={disconnectingDrive}
-                     className="btn danger"
-                     style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }}
-                   >
-                     {disconnectingDrive ? 'Disconnecting...' : 'Disconnect'}
-                   </button>
-                 </div>
-              ))}
-              
-              <button 
-                onClick={handleConnectDrive} 
-                disabled={connectingDrive} 
-                className="btn outline w-full flex justify-center items-center gap-2 mt-2"
-              >
-                {connectingDrive ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} 
-                {drives.length > 0 ? 'Add Another Drive' : 'Connect School Google Drive'}
-              </button>
-            </div>
-          )
-        })()}
-      </div>
+
 
       {/* ── 5.6 HELP & SUPPORT ── */}
       <div className="card">
