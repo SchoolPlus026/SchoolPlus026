@@ -176,31 +176,33 @@ jobs:
           echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
           echo "✅ APK ready: $APK_DEST"
 
-      - name: 🚀 Create GitHub Release with APK
-        # This creates a PUBLIC GitHub Release with the APK as a downloadable asset.
-        # The direct download URL will be:
-        # https://github.com/<owner>/<repo>/releases/download/<tag>/SchoolOS_Plus_<tag>.apk
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.VERSION_TAG }}
-          name: "SchoolOS+ ${{ env.VERSION_TAG }}"
-          body: "🚀 Automated release from GitHub Actions CI/CD pipeline.\n\nInstall the APK directly from the assets below. Users with the previous version can update without uninstalling."
-          files: ${{ env.APK_FILE }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 🚀 Upload APK to Supabase Storage
+        # Uploads the APK to a PUBLIC Supabase bucket called 'app-updates'.
+        # This bypasses GitHub's private repository authentication requirements for downloads.
+        run: |
+          APK_FILE="${{ env.APK_FILE }}"
+          BUCKET="app-updates"
+          
+          # Upload via Supabase Storage API
+          # x-upsert: true allows overwriting if the same tag is re-built
+          curl -sS -X POST "${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/${BUCKET}/${APK_FILE}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "x-upsert: true" \
+            -F "file=@${APK_FILE}"
+          
+          # Generate the PUBLIC download URL
+          APK_URL="${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/public/${BUCKET}/${APK_FILE}"
+          echo "APK_URL=$APK_URL" >> $GITHUB_ENV
+          echo "✅ APK uploaded to Supabase Storage: $APK_URL"
 
       - name: 📝 Register Version in Supabase
-        # Stores the DIRECT APK download URL (not the webpage URL) in app_versions.
-        # VersionChecker.jsx uses this URL to open the APK in the system browser.
+        # Stores the PUBLIC Supabase Storage URL in app_versions.
+        # VersionChecker.jsx uses this URL to download the APK natively.
         run: |
           VERSION_CODE="${{ github.run_number }}"
           VERSION_NAME="${{ env.VERSION_TAG }}"
-          REPO="${{ github.repository }}"
-          APK_FILE="${{ env.APK_FILE }}"
-          
-          # Direct download URL — no login required, works in Capacitor Browser plugin
-          APK_URL="https://github.com/${REPO}/releases/download/${VERSION_NAME}/${APK_FILE}"
+          APK_URL="${{ env.APK_URL }}"
           
           curl -sS -X POST "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/app_versions" \
             -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
@@ -211,7 +213,7 @@ jobs:
               \"version_code\": $VERSION_CODE,
               \"version_name\": \"$VERSION_NAME\",
               \"apk_url\": \"$APK_URL\",
-              \"release_notes\": \"Automated CI/CD release $VERSION_NAME from GitHub Actions.\",
+              \"release_notes\": \"Automated CI/CD release $VERSION_NAME (hosted on Supabase Storage).\",
               \"is_critical\": false
             }"
           echo "✅ Version $VERSION_NAME (code: $VERSION_CODE) registered in Supabase."
