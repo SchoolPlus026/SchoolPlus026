@@ -8,6 +8,7 @@ import Login from './features/auth/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationProvider from './components/NotificationProvider';
 import VersionChecker from './components/VersionChecker';
+import GlobalUploadToasts from './components/GlobalUploadToasts';
 
 // Layout Wrappers
 import AdminLayout from './layouts/AdminLayout';
@@ -157,6 +158,7 @@ export default function App() {
           Renders null on web. Must be outside <Routes> so it isn't unmounted
           on route transitions. */}
       {user && <VersionChecker />}
+      {user && <GlobalUploadToasts />}
 
       <Routes>
       <Route path="/" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />

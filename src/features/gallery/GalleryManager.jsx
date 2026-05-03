@@ -14,7 +14,7 @@ function readFileAsBase64(file) {
 }
 
 export default function GalleryManager() {
-  const { role, schoolSettings } = useAppStore();
+  const { role, schoolSettings, addBackgroundUpload, updateBackgroundUpload, removeBackgroundUpload } = useAppStore();
   const queryClient = useQueryClient();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const isMountedRef = useRef(true);
@@ -33,8 +33,6 @@ export default function GalleryManager() {
   const [selectedDriveIndex, setSelectedDriveIndex] = useState(0);
   const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
   const gdriveConnected = drives.length > 0;
-
-  const [backgroundUploads, setBackgroundUploads] = useState([]);
 
   const { data: driveQuotas } = useQuery({
     queryKey: ['driveQuotas', drives.length],
@@ -115,7 +113,7 @@ export default function GalleryManager() {
       resetForm();
       
       const uploadId = Date.now().toString();
-      setBackgroundUploads(prev => [...prev, { id: uploadId, title: eventTitle, total: filesToUpload.length, current: 0, status: 'Creating folder...' }]);
+      addBackgroundUpload({ id: uploadId, title: eventTitle, total: filesToUpload.length, current: 0, status: 'Creating folder...' });
 
       (async () => {
          try {
@@ -137,9 +135,7 @@ export default function GalleryManager() {
                const file = filesToUpload[i];
                const fileBase64 = await readFileAsBase64(file);
                
-               if (isMountedRef.current) {
-                  setBackgroundUploads(prev => prev.map(p => p.id === uploadId ? { ...p, current: i + 1, status: `Uploading ${file.name}...` } : p));
-               }
+               updateBackgroundUpload(uploadId, { current: i + 1, status: `Uploading ${file.name}...` });
 
                const { data: uploadData, error: uploadError } = await supabase.functions.invoke('gdrive-upload', {
                  body: {
@@ -173,11 +169,11 @@ export default function GalleryManager() {
               photo_urls: photoUrls,
             });
 
-            if (isMountedRef.current) setBackgroundUploads(prev => prev.filter(p => p.id !== uploadId));
+            removeBackgroundUpload(uploadId);
             const msg = failedCount > 0 ? `⚠️ "${eventTitle}" saved, but ${failedCount} files failed to upload.` : `✅ "${eventTitle}" uploaded successfully!`;
             alert(msg);
          } catch(err) {
-            if (isMountedRef.current) setBackgroundUploads(prev => prev.filter(p => p.id !== uploadId));
+            removeBackgroundUpload(uploadId);
             alert(`Upload failed for "${eventTitle}": ${err.message}`);
          }
       })();
@@ -204,23 +200,6 @@ export default function GalleryManager() {
           </button>
         )}
       </div>
-
-      {backgroundUploads.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
-           {backgroundUploads.map(upload => (
-              <div key={upload.id} className="bg-slate-900 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-4 w-80 animate-in slide-in-from-right">
-                 <Loader2 size={24} className="text-primary animate-spin shrink-0" />
-                 <div className="flex-1 overflow-hidden">
-                    <div className="text-sm font-bold truncate">{upload.title}</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5 truncate">{upload.status} ({upload.current}/{upload.total})</div>
-                    <div className="w-full h-1.5 bg-slate-700 rounded-full mt-2 overflow-hidden">
-                       <div className="h-full bg-primary transition-all duration-300" style={{ width: `${(upload.current / Math.max(1, upload.total)) * 100}%` }}></div>
-                    </div>
-                 </div>
-              </div>
-           ))}
-        </div>
-      )}
 
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>

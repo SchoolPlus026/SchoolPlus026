@@ -12,6 +12,9 @@ export const useAppStore = create((set) => ({
   isImpersonating: false,
   originalSession: null, // Stores { user, role, schoolSettings } of the Platform Admin
   
+  // Background Uploads (Gallery)
+  backgroundUploads: [],
+  
   // Actions
   setUserAndRole: (user, role) => set({ user, role }),
   setSchoolSettings: (settings) => set({ schoolSettings: settings }),
@@ -39,6 +42,15 @@ export const useAppStore = create((set) => ({
     schoolSettings: { ...state.schoolSettings, classes: newClasses }
   })),
   
+  // Background Upload Actions
+  addBackgroundUpload: (upload) => set((state) => ({ backgroundUploads: [...state.backgroundUploads, upload] })),
+  updateBackgroundUpload: (id, updates) => set((state) => ({
+    backgroundUploads: state.backgroundUploads.map((u) => (u.id === id ? { ...u, ...updates } : u))
+  })),
+  removeBackgroundUpload: (id) => set((state) => ({
+    backgroundUploads: state.backgroundUploads.filter((u) => u.id !== id)
+  })),
+  
   // Logout action resets everything
-  clearSession: () => set({ user: null, role: null, schoolSettings: null, isImpersonating: false, originalSession: null }),
+  clearSession: () => set({ user: null, role: null, schoolSettings: null, isImpersonating: false, originalSession: null, backgroundUploads: [] }),
 }));
