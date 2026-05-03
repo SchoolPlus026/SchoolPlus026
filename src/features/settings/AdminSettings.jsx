@@ -154,7 +154,7 @@ export default function AdminSettings() {
     let listener = null;
     if (Capacitor.isNativePlatform()) {
       listener = CapacitorApp.addListener('appUrlOpen', (data) => {
-        if (data.url.includes('schoolpro-d95a8.web.app/admin/settings')) {
+        if (data.url.includes('schoolos://oauth2redirect')) {
           const urlParams = new URL(data.url).searchParams;
           const authCode = urlParams.get('code');
           if (authCode && !connectingDrive) {
@@ -220,13 +220,14 @@ export default function AdminSettings() {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     const isNative = Capacitor.isNativePlatform();
     const redirectUri = isNative ? 'https://schoolpro-d95a8.web.app/admin/settings' : window.location.origin + window.location.pathname;
+    const stateParam = isNative ? '&state=capacitor_mobile' : '';
     
     if (!clientId) {
       return alert('Google Client ID is missing in environment variables.');
     }
     
     const scope = 'https://www.googleapis.com/auth/drive.file';
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent${stateParam}`;
     
     if (isNative) {
        await Browser.open({ url: authUrl });

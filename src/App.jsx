@@ -65,8 +65,16 @@ import FeatureGuard from './components/FeatureGuard';
 export default function App() {
   const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isBouncing, setIsBouncing] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('state') === 'capacitor_mobile' && params.get('code')) {
+      setIsBouncing(true);
+      window.location.href = 'schoolos://oauth2redirect' + window.location.search;
+      return;
+    }
+
     async function initializeApp() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -141,6 +149,16 @@ export default function App() {
             Loading...
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (isBouncing) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)', flexDirection: 'column', gap: '16px' }}>
+         <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+         <p style={{ fontWeight: 600 }}>Returning to app...</p>
+         <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>You can close this tab if it doesn't close automatically.</p>
       </div>
     );
   }
