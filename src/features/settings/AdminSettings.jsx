@@ -9,6 +9,9 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { logAuditAction } from '../../utils/auditLogger';
 import { usePlan } from '../../hooks/usePlan';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+import { App as CapacitorApp } from '@capacitor/app';
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
@@ -147,13 +150,34 @@ export default function AdminSettings() {
       handleDriveCallback(code);
     }
     
+    // Native callback listener for Capacitor
+    let listener = null;
+    if (Capacitor.isNativePlatform()) {
+      listener = CapacitorApp.addListener('appUrlOpen', (data) => {
+        if (data.url.includes('schoolos://oauth2redirect')) {
+          const urlParams = new URL(data.url).searchParams;
+          const authCode = urlParams.get('code');
+          if (authCode && !connectingDrive) {
+             Browser.close().catch(() => {});
+             handleDriveCallback(authCode);
+          }
+        }
+      });
+    }
+    
     // Fetch Platform Legal Info
     const fetchPlatformInfo = async () => {
       const { data } = await supabase.from('platform_settings').select('*').single();
       if (data) setPlatformSettings(data);
     };
     fetchPlatformInfo();
-  }, [searchParams]);
+
+    return () => {
+      if (listener) {
+        listener.then(l => l.remove());
+      }
+    };
+  }, [searchParams, connectingDrive]);
 
   const handleSubmitTicket = async (e) => {
     e.preventDefault();
@@ -184,7 +208,7 @@ export default function AdminSettings() {
     }
   };
 
-  const handleConnectDrive = () => {
+  const handleConnectDrive = async () => {
     const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
     if (isFree && drives.length >= 1) {
        if (window.confirm('The Free plan is strictly limited to 1 Google Drive connection. Upgrade to Premium to connect multiple drives. Go to Billing now?')) {
@@ -194,7 +218,8 @@ export default function AdminSettings() {
     }
 
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = window.location.origin + window.location.pathname;
+    const isNative = Capacitor.isNativePlatform();
+    const redirectUri = isNative ? 'schoolos://oauth2redirect' : window.location.origin + window.location.pathname;
     
     if (!clientId) {
       return alert('Google Client ID is missing in environment variables.');
@@ -203,7 +228,11 @@ export default function AdminSettings() {
     const scope = 'https://www.googleapis.com/auth/drive.file';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
     
-    window.location.href = authUrl;
+    if (isNative) {
+       await Browser.open({ url: authUrl });
+    } else {
+       window.location.href = authUrl;
+    }
   };
 
   const handleDriveCallback = async (code) => {
