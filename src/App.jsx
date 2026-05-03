@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 
 // Core Flow Components
 import Login from './features/auth/Login';
@@ -71,8 +74,24 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('state') === 'capacitor_mobile' && params.get('code')) {
       setIsBouncing(true);
-      window.location.href = 'schoolos://oauth2redirect' + window.location.search;
+      const targetUrl = 'schoolos://oauth2redirect' + window.location.search;
+      setTimeout(() => {
+        window.location.href = targetUrl;
+      }, 1000);
       return;
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('appUrlOpen', (data) => {
+        if (data.url.includes('schoolos://oauth2redirect')) {
+          Browser.close().catch(() => {});
+          const urlParams = new URL(data.url).searchParams;
+          const code = urlParams.get('code');
+          if (code) {
+            useAppStore.getState().setOauthCode(code);
+          }
+        }
+      });
     }
 
     async function initializeApp() {
@@ -159,6 +178,12 @@ export default function App() {
          <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
          <p style={{ fontWeight: 600 }}>Returning to app...</p>
          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>You can close this tab if it doesn't close automatically.</p>
+         <button 
+            onClick={() => window.location.href = 'schoolos://oauth2redirect' + window.location.search}
+            style={{ marginTop: '20px', padding: '10px 20px', background: 'var(--primary)', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}
+         >
+           Click here if you are not redirected automatically
+         </button>
       </div>
     );
   }

@@ -11,7 +11,6 @@ import { logAuditAction } from '../../utils/auditLogger';
 import { usePlan } from '../../hooks/usePlan';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { App as CapacitorApp } from '@capacitor/app';
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
@@ -124,7 +123,7 @@ const T = {
 const TABLES_EXPORT = ['users', 'notices', 'attendance', 'fees', 'fees_payments', 'leaves', 'gallery', 'timetable', 'calendar_events'];
 
 export default function AdminSettings() {
-  const { user, schoolSettings, setSchoolSettings } = useAppStore();
+  const { user, schoolSettings, setSchoolSettings, oauthCode, setOauthCode } = useAppStore();
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -145,24 +144,10 @@ export default function AdminSettings() {
   const [legalTab, setLegalTab] = useState(null); // 'about' | 'terms' | null
 
   React.useEffect(() => {
-    const code = searchParams.get('code');
+    const code = searchParams.get('code') || oauthCode;
     if (code && !connectingDrive) {
+      if (oauthCode) setOauthCode(null);
       handleDriveCallback(code);
-    }
-    
-    // Native callback listener for Capacitor
-    let listener = null;
-    if (Capacitor.isNativePlatform()) {
-      listener = CapacitorApp.addListener('appUrlOpen', (data) => {
-        if (data.url.includes('schoolos://oauth2redirect')) {
-          const urlParams = new URL(data.url).searchParams;
-          const authCode = urlParams.get('code');
-          if (authCode && !connectingDrive) {
-             Browser.close().catch(() => {});
-             handleDriveCallback(authCode);
-          }
-        }
-      });
     }
     
     // Fetch Platform Legal Info
@@ -171,13 +156,7 @@ export default function AdminSettings() {
       if (data) setPlatformSettings(data);
     };
     fetchPlatformInfo();
-
-    return () => {
-      if (listener) {
-        listener.then(l => l.remove());
-      }
-    };
-  }, [searchParams, connectingDrive]);
+  }, [searchParams, oauthCode, connectingDrive, setOauthCode]);
 
   const handleSubmitTicket = async (e) => {
     e.preventDefault();
