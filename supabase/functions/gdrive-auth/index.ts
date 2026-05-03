@@ -98,7 +98,12 @@ serve(async (req) => {
       if (!code || !state) return new Response('Missing code or state parameters.', { status: 400 })
       
       const school_id = state
-      const redirect_uri = `${url.origin}/functions/v1/gdrive-auth`
+      
+      // Use SUPABASE_URL env var to guarantee it exactly matches what the frontend used
+      // (url.origin can sometimes evaluate to http:// instead of https:// behind the Supabase Kong API gateway)
+      let supabaseUrl = Deno.env.get('SUPABASE_URL') || url.origin;
+      if (supabaseUrl.endsWith('/')) supabaseUrl = supabaseUrl.slice(0, -1);
+      const redirect_uri = `${supabaseUrl}/functions/v1/gdrive-auth`
 
       try {
          await processDriveAuth(code, school_id, redirect_uri)
