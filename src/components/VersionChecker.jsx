@@ -27,15 +27,13 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { FileOpener } from '@capawesome-team/capacitor-file-opener';
 import { supabase } from '../config/supabaseClient';
 
 const APP_VERSION_CODE = parseInt(import.meta.env.VITE_APP_VERSION_CODE || '1', 10);
 const APP_VERSION_NAME = import.meta.env.VITE_APP_VERSION_NAME || '1.0.0';
 
 // ── Glassmorphic Update Modal ─────────────────────────────────────────────────
-function UpdateModal({ version, onDismiss, onDownload, isDownloading, downloadProgress, downloadStarted }) {
+function UpdateModal({ version, onDismiss, onDownload }) {
   const isCritical = version.is_critical;
 
   return (
@@ -172,61 +170,22 @@ function UpdateModal({ version, onDismiss, onDownload, isDownloading, downloadPr
         {/* ── Action buttons ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {/* Primary: Download & Update */}
-          {isDownloading ? (
-            <div style={{
-               background: 'rgba(79,70,229,0.15)',
-               borderRadius: '14px',
-               padding: '16px',
-               border: '1px solid rgba(99,102,241,0.3)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: '#c7d2fe' }}>
-                <span>Downloading Update...</span>
-                <span>{downloadProgress}%</span>
-              </div>
-              <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '999px', overflow: 'hidden' }}>
-                <div style={{ 
-                  height: '100%', 
-                  background: 'linear-gradient(90deg, #4f46e5, #7c3aed)', 
-                  width: `${downloadProgress}%`,
-                  transition: 'width 0.2s ease-out'
-                }} />
-              </div>
-            </div>
-          ) : (
-            <button
-              id="btn-download-update"
-              onClick={onDownload}
-              disabled={downloadStarted}
-              style={{
-                width: '100%', padding: '15px', borderRadius: '14px',
-                background: downloadStarted
-                  ? 'linear-gradient(135deg, #166534 0%, #15803d 100%)'
-                  : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                border: 'none', cursor: downloadStarted ? 'default' : 'pointer',
-                color: 'white', fontSize: '14px', fontWeight: 800,
-                letterSpacing: '0.02em',
-                boxShadow: downloadStarted
-                  ? '0 8px 24px rgba(22,101,52,0.4)'
-                  : '0 8px 24px rgba(79,70,229,0.4)',
-                transition: 'all 0.3s ease',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              }}
-            >
-              {downloadStarted ? (
-                <>
-                  <span style={{ fontSize: '16px' }}>📦</span>
-                  <span>
-                    <div style={{ fontSize: '13px', fontWeight: 800 }}>Opening Installer...</div>
-                    <div style={{ fontSize: '10px', fontWeight: 600, opacity: 0.85, marginTop: '2px' }}>
-                      Please approve the installation.
-                    </div>
-                  </span>
-                </>
-              ) : (
-                <>⬇️ Download &amp; Install Update</>
-              )}
-            </button>
-          )}
+          <button
+            id="btn-download-update"
+            onClick={onDownload}
+            style={{
+              width: '100%', padding: '15px', borderRadius: '14px',
+              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+              border: 'none', cursor: 'pointer',
+              color: 'white', fontSize: '14px', fontWeight: 800,
+              letterSpacing: '0.02em',
+              boxShadow: '0 8px 24px rgba(79,70,229,0.4)',
+              transition: 'all 0.3s ease',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            }}
+          >
+            ⬇️ Download &amp; Install Update
+          </button>
 
           {/* Secondary: Later (only for non-critical) */}
           {!isCritical && (
@@ -260,7 +219,6 @@ function UpdateModal({ version, onDismiss, onDownload, isDownloading, downloadPr
       <style>{`
         @keyframes fcmFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp   { from { opacity: 0; transform: translateY(32px) scale(0.96) } to { opacity: 1; transform: translateY(0) scale(1) } }
-        @keyframes spin      { to { transform: rotate(360deg) } }
       `}</style>
     </div>
   );
@@ -270,9 +228,6 @@ function UpdateModal({ version, onDismiss, onDownload, isDownloading, downloadPr
 export default function VersionChecker() {
   const [updateInfo, setUpdateInfo]       = useState(null);
   const [dismissed, setDismissed]         = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [downloadStarted, setDownloadStarted] = useState(false); // post-download feedback
 
   useEffect(() => {
     // Only run on native Android (web builds are always "latest")
@@ -309,55 +264,9 @@ export default function VersionChecker() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleDownload = useCallback(async () => {
+  const handleDownload = useCallback(() => {
     if (!updateInfo?.apk_url) return;
-    setIsDownloading(true);
-    setDownloadProgress(0);
-
-    const fileName = `SchoolOS_Update_v${updateInfo.version_name}.apk`;
-
-    try {
-      // ── Step 1: Download APK using Filesystem (supports onProgress) ──
-      console.info('[VersionChecker] Starting download to Cache dir:', fileName);
-
-      const downloadResult = await Filesystem.downloadFile({
-        url: updateInfo.apk_url,
-        path: fileName,
-        directory: Directory.Cache,
-        recursive: true,
-        onProgress: (progress) => {
-          if (progress.contentLength > 0) {
-            const percent = Math.round((progress.bytes / progress.contentLength) * 100);
-            setDownloadProgress(percent);
-          }
-        },
-      });
-
-      console.info('[VersionChecker] Download complete. Path:', downloadResult.path);
-
-      if (!downloadResult.path) throw new Error('Download succeeded but path is empty.');
-
-      // ── Step 2: Trigger Android Package Installer via FileOpener ──
-      // Pass the raw native path — @capawesome FileOpener internally calls
-      // FileProvider.getUriForFile() to produce a safe content:// URI.
-      // DO NOT pass a file:// URI — it bypasses FileProvider and crashes on API 24+.
-      setDownloadProgress(100);
-      setIsDownloading(false);
-      setDownloadStarted(true);
-
-      await FileOpener.openFile({
-        path: downloadResult.path,
-        mimeType: 'application/vnd.android.package-archive',
-      });
-
-    } catch (err) {
-      // Show the EXACT native error — critical for debugging on-device
-      const errorMsg = err?.message || JSON.stringify(err) || 'Unknown error';
-      console.error('[VersionChecker] Download/Install Failed:', errorMsg, err);
-      alert(`Update failed:\n${errorMsg}`);
-      setIsDownloading(false);
-      setDownloadProgress(0);
-    }
+    window.open(updateInfo.apk_url, '_system');
   }, [updateInfo]);
 
   const handleDismiss = useCallback(() => {
@@ -376,9 +285,6 @@ export default function VersionChecker() {
       version={updateInfo}
       onDismiss={handleDismiss}
       onDownload={handleDownload}
-      isDownloading={isDownloading}
-      downloadProgress={downloadProgress}
-      downloadStarted={downloadStarted}
     />
   );
 }

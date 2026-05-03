@@ -179,13 +179,8 @@ export default function SharedSettings() {
 
       {/* Toast notification */}
       {toastMsg && (
-        <div style={{
-          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 9999, background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-          borderRadius: '12px', padding: '10px 20px', fontWeight: 600, fontSize: '14px',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.3)', color: 'var(--text-main)'
-        }}>
-          ✅ {toastMsg}
+        <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '10px 20px', borderRadius: '30px', fontWeight: 600, fontSize: '14px', zIndex: 1000, boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
+          {toastMsg}
         </div>
       )}
 

@@ -170,7 +170,7 @@ export default function GalleryManager() {
             });
 
             removeBackgroundUpload(uploadId);
-            const msg = failedCount > 0 ? `⚠️ "${eventTitle}" saved, but ${failedCount} files failed to upload.` : `✅ "${eventTitle}" uploaded successfully!`;
+            const msg = failedCount > 0 ? `⚠️ "${eventTitle}" saved, but ${failedCount} files failed to upload.` : `"${eventTitle}" uploaded successfully!`;
             alert(msg);
          } catch(err) {
             removeBackgroundUpload(uploadId);

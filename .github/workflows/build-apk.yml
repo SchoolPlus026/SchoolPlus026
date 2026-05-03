@@ -188,56 +188,32 @@ jobs:
           echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
           echo "✅ APK ready: $APK_DEST"
 
-      - name: 🚀 Upload APK to Supabase Storage
-        # Uploads the APK to a PUBLIC Supabase bucket called 'app-updates'.
-        # Uses raw binary body (--data-binary) — Supabase Storage REST API requires this.
-        # Multipart (-F) is NOT supported and returns 400.
-        run: |
-          APK_FILE="${{ env.APK_FILE }}"
-          BUCKET="app-updates"
-          
-          HTTP_STATUS=$(curl -sS -o /tmp/upload_response.txt -w "%{http_code}" \
-            -X POST "${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/${BUCKET}/${APK_FILE}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-            -H "Content-Type: application/octet-stream" \
-            -H "x-upsert: true" \
-            --data-binary "@${APK_FILE}")
-          
-          echo "📡 Supabase upload HTTP status: $HTTP_STATUS"
-          cat /tmp/upload_response.txt
-          
-          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
-            echo "❌ Upload failed with status $HTTP_STATUS"
-            exit 1
-          fi
-          
-          # Generate the PUBLIC download URL (no auth needed — bucket is public)
-          APK_URL="${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/public/${BUCKET}/${APK_FILE}"
-          echo "APK_URL=$APK_URL" >> $GITHUB_ENV
-          echo "APK uploaded to Supabase Storage: $APK_URL"
-
-      - name: 🏷️ Create GitHub Release (updates Latest label)
-        # Keeps the GitHub Releases page current. APK is NOT served from here
-        # (we use Supabase Storage), but this ensures the 'Latest' release
-        # label is always updated so the history is browsable.
+      - name: 🚀 Create GitHub Release with APK
+        # This creates a PUBLIC GitHub Release with the APK as a downloadable asset.
+        # The direct download URL will be:
+        # https://github.com/<owner>/<repo>/releases/download/<tag>/SchoolOS_Plus_<tag>.apk
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION_TAG }}
           name: "SchoolOS+ ${{ env.VERSION_TAG }}"
-          body: "Automated release. APK is served via Supabase Storage for silent in-app updates."
+          body: "🚀 Automated release from GitHub Actions CI/CD pipeline.\n\nInstall the APK directly from the assets below. Users with the previous version can update without uninstalling."
+          files: ${{ env.APK_FILE }}
           generate_release_notes: true
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📝 Register Version in Supabase
-        # Stores the PUBLIC Supabase Storage URL in app_versions.
-        # VersionChecker.jsx uses this URL to download the APK natively.
+        # Stores the DIRECT APK download URL (not the webpage URL) in app_versions.
+        # VersionChecker.jsx uses this URL to open the APK in the system browser.
         run: |
           VERSION_CODE="${{ github.run_number }}"
           VERSION_NAME="${{ env.VERSION_TAG }}"
-          APK_URL="${{ env.APK_URL }}"
+          REPO="${{ github.repository }}"
+          APK_FILE="${{ env.APK_FILE }}"
+          
+          # Direct download URL — no login required, works in Capacitor Browser plugin
+          APK_URL="https://github.com/${REPO}/releases/download/${VERSION_NAME}/${APK_FILE}"
           
           curl -sS -X POST "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/app_versions" \
             -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
@@ -248,11 +224,11 @@ jobs:
               \"version_code\": $VERSION_CODE,
               \"version_name\": \"$VERSION_NAME\",
               \"apk_url\": \"$APK_URL\",
-              \"release_notes\": \"Automated CI/CD release $VERSION_NAME (hosted on Supabase Storage).\",
+              \"release_notes\": \"Automated CI/CD release $VERSION_NAME from GitHub Actions.\",
               \"is_critical\": false
             }"
           echo "Version $VERSION_NAME (code: $VERSION_CODE) registered in Supabase."
-          echo "APK URL: $APK_URL"
+          echo "Direct APK URL: $APK_URL"
 
       - name: 🔔 Notify All Devices via FCM
         # Calls notify-update Edge Function which fans out FCM push notifications

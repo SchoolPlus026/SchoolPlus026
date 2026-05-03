@@ -368,7 +368,7 @@ export default function ManageSubscription() {
       .limit(1)
       .single()
       .then(({ data }) => setPendingRequest(data || null));
-    showToast('✅ Payment request submitted! The Platform Admin will review it shortly.');
+    showToast('Payment request submitted! The Platform Admin will review it shortly.');
   };
 
   const isCurrentlyPremium = isPremium && !isTrial;

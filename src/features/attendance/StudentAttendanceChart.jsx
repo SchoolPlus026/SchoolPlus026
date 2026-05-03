@@ -168,9 +168,9 @@ function StatRow({ icon, color, bg, label, value, total, animated }) {
 /* ─── Hero Summary Pills ─────────────────────────────────────────── */
 function HeroPills({ present, absent, leave, total, animated }) {
   const pills = [
-    { label: 'Present', value: present, color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.3)', icon: '✅' },
-    { label: 'Absent',  value: absent,  color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.3)', icon: '❌' },
-    { label: 'On Leave', value: leave,  color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.3)', icon: '🕐' },
+    { label: 'Present', value: present, color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.3)', icon: 'P' },
+    { label: 'Absent', value: absent, color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)', icon: 'A' },
+    { label: 'Leave', value: leave, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', icon: 'L' },
   ];
   return (
     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
@@ -235,9 +235,9 @@ function MonthlySummary({ attendance }) {
             <div key={month}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                 <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>{month}</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  ✅ {counts.Present || 0} &nbsp;|&nbsp; ❌ {counts.Absent || 0} &nbsp;|&nbsp; 🕐 {counts.Leave || 0}
-                </span>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  P: {counts.Present || 0} &nbsp;|&nbsp; A: {counts.Absent || 0} &nbsp;|&nbsp; L: {counts.Leave || 0}
+                </div>
               </div>
               <div style={{ height: '5px', borderRadius: '999px', background: 'var(--card-border)', overflow: 'hidden' }}>
                 <div style={{
