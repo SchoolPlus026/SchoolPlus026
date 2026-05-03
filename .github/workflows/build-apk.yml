@@ -55,6 +55,35 @@ jobs:
           npx cap add android || true
           npx cap sync android
 
+      - name: 🪄 Inject Gradle Mirror Repos (bypass GitHub Actions Maven 403)
+        # GitHub Actions IPs are intermittently blocked by Maven Central CDN (403 Forbidden).
+        # An init.gradle script globally injects fallback mirrors BEFORE Gradle resolves
+        # any dependencies. This runs after cap sync so the android/ dir exists.
+        run: |
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle << 'INITEOF'
+          allprojects {
+            buildscript {
+              repositories {
+                maven { url 'https://maven.google.com' }
+                maven { url 'https://jcenter.bintray.com' }
+                maven { url 'https://plugins.gradle.org/m2/' }
+                google()
+                mavenCentral()
+              }
+            }
+            repositories {
+              maven { url 'https://maven.google.com' }
+              maven { url 'https://jcenter.bintray.com' }
+              maven { url 'https://plugins.gradle.org/m2/' }
+              google()
+              mavenCentral()
+            }
+          }
+          INITEOF
+          echo "✅ init.gradle written to ~/.gradle/init.gradle"
+          cat ~/.gradle/init.gradle
+
       - name: 🔔 Patch AndroidManifest.xml — Add FCM Permissions
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
@@ -119,11 +148,11 @@ jobs:
 
       - name: ⚙️ Compile Signed Release APK
         # assembleRelease uses the keystore configured above.
-        # Produces: android/app/build/outputs/apk/release/app-release-unsigned.apk
-        # (Gradle will auto-sign it with the configured keystore)
+        # --no-daemon: prevents Gradle daemon issues in CI environments
+        # --stacktrace: surfaces real error if 403 or resolution fails
         run: |
           cd android
-          ./gradlew assembleRelease \
+          ./gradlew assembleRelease --no-daemon --stacktrace \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/schoolos.jks \
             -Pandroid.injected.signing.store.password=${{ secrets.STORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
