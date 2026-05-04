@@ -34,8 +34,8 @@ serve(async (req) => {
 
     const payload = JSON.parse(rawBody);
     
-    // We only care about order.paid
-    if (payload.event !== 'order.paid') {
+    // We care about order.paid and payment.captured
+    if (payload.event !== 'order.paid' && payload.event !== 'payment.captured') {
       return new Response('Event ignored', { status: 200 });
     }
 
@@ -108,8 +108,7 @@ serve(async (req) => {
       .from('school_settings')
       .update({
         subscription_end_date: newEndDate.toISOString(),
-        current_plan_id: transaction.plan_id,
-        subscription_tier: 'Premium', // Automatically upgrade to premium upon successful payment
+        current_plan_id: transaction.plan_id
       })
       .eq('school_id', transaction.school_id);
 

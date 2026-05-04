@@ -92,6 +92,11 @@ serve(async (req) => {
         amount: plan.amount_paise,
         currency: 'INR',
         receipt: `receipt_${school_id.substring(0, 8)}_${Date.now()}`,
+        notes: {
+          school_id: school_id,
+          plan_id: plan_id,
+          tenant_id: school_id // For standard SaaS tracing
+        }
       }),
     });
 

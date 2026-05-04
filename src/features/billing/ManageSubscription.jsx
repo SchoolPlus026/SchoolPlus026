@@ -52,6 +52,8 @@ export default function ManageSubscription() {
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [processingPlanId, setProcessingPlanId] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [loadingTx, setLoadingTx] = useState(true);
   const [toast, setToast] = useState({ msg: '', type: 'success' });
 
   const showToast = (msg, type = 'success') => {
@@ -84,8 +86,24 @@ export default function ManageSubscription() {
       setLoadingPlans(false);
     };
 
+    const fetchTransactions = async () => {
+      if (!schoolSettings?.school_id) return;
+      setLoadingTx(true);
+      const { data, error } = await supabase
+        .from('subscription_transactions')
+        .select('*, subscription_plans(name)')
+        .eq('school_id', schoolSettings.school_id)
+        .order('created_at', { ascending: false });
+        
+      if (!error && data) {
+        setTransactions(data);
+      }
+      setLoadingTx(false);
+    };
+
     fetchPlans();
-  }, []);
+    fetchTransactions();
+  }, [schoolSettings?.school_id]);
 
   const handleBuyPlan = async (plan) => {
     if (!window.Razorpay) {
@@ -128,13 +146,8 @@ export default function ManageSubscription() {
         },
         config: {
           display: {
-            blocks: {
-              upi: {
-                name: 'Pay via UPI',
-                instruments: [{ method: 'upi' }]
-              }
-            },
-            sequence: ['block.upi', 'block.other']
+            hide: [{ method: 'emi' }, { method: 'paylater' }],
+            preferences: { show_default_blocks: true }
           }
         }
       };
@@ -284,6 +297,55 @@ export default function ManageSubscription() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Transaction History Section */}
+      <div className="mt-12">
+        <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px' }}>
+          Transaction & Subscription History
+        </div>
+        <div className="sp-card" style={{ padding: 0, overflow: 'hidden' }}>
+          {loadingTx ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px' }}>
+              <Loader2 size={24} style={{ color: '#818cf8', animation: 'spin 1s linear infinite' }} />
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-8 text-muted" style={{ fontSize: '13px' }}>No transactions found.</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--card-border)' }}>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>DATE</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>PLAN</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>AMOUNT</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>ORDER ID</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map(tx => (
+                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
+                      <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>{fmtDate(new Date(tx.created_at))}</td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 600 }}>{tx.subscription_plans?.name || 'Unknown'}</td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>₹{(tx.amount_paise / 100).toFixed(2)}</td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{tx.razorpay_order_id}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{
+                          padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 800,
+                          background: tx.status === 'SUCCESSFUL' ? 'rgba(52,211,153,0.1)' : tx.status === 'FAILED' ? 'rgba(248,113,113,0.1)' : 'rgba(251,191,36,0.1)',
+                          color: tx.status === 'SUCCESSFUL' ? '#34d399' : tx.status === 'FAILED' ? '#f87171' : '#fbbf24'
+                        }}>
+                          {tx.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       <Toast msg={toast.msg} type={toast.type} />

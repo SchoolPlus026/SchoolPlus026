@@ -90,6 +90,11 @@ export default function PlatformAdminDashboard() {
   const [editPlanValidity, setEditPlanValidity] = useState('');
   const [editPlanActive, setEditPlanActive] = useState(true);
 
+  // Transactions State
+  const [transactions, setTransactions] = useState([]);
+  const [loadingTx, setLoadingTx] = useState(false);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+
   useEffect(() => {
     fetchSchools();
     fetchPlatformSettings();
@@ -99,6 +104,7 @@ export default function PlatformAdminDashboard() {
     fetchAuditLogs();
     fetchPaymentRequests();
     fetchPlans();
+    fetchAllTransactions();
   }, []);
 
   const fetchPlans = async () => {
@@ -109,6 +115,20 @@ export default function PlatformAdminDashboard() {
       .order('amount_paise', { ascending: true });
     if (!error && data) setPlans(data);
     setLoadingPlans(false);
+  };
+
+  const fetchAllTransactions = async () => {
+    setLoadingTx(true);
+    const { data, error } = await supabase
+      .from('subscription_transactions')
+      .select('*, school_settings(name), subscription_plans(name)')
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      setTransactions(data);
+      const revenue = data.filter(t => t.status === 'SUCCESSFUL').reduce((sum, t) => sum + t.amount_paise, 0);
+      setTotalRevenue(revenue);
+    }
+    setLoadingTx(false);
   };
 
   const fetchAnalytics = async () => {
@@ -443,6 +463,7 @@ export default function PlatformAdminDashboard() {
         <div className={`tab ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>Analytics</div>
         <div className={`tab ${activeTab === 'schools' ? 'active' : ''}`} onClick={() => setActiveTab('schools')}>Tenant Schools</div>
         <div className={`tab ${activeTab === 'plans' ? 'active' : ''}`} onClick={() => setActiveTab('plans')}>Subscription Plans</div>
+        <div className={`tab ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>Transactions</div>
         <div className={`tab ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')} style={{ position: 'relative' }}>
           Pending Payments
           {paymentRequests.filter(p => p.status === 'Pending').length > 0 && (
@@ -467,7 +488,11 @@ export default function PlatformAdminDashboard() {
               <p>Real-time overview of your SaaS growth</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
+            <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col items-center justify-center text-center hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] transition-shadow">
+              <div className="text-3xl font-black text-amber-400 mb-1">₹{(totalRevenue / 100).toFixed(0)}</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-amber-300">Total Revenue</div>
+            </div>
             <div className="p-6 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex flex-col items-center justify-center text-center hover:shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-shadow">
               <div className="text-3xl font-black text-indigo-400 mb-1">{analytics?.total_schools || 0}</div>
               <div className="text-xs font-bold uppercase tracking-widest text-indigo-300">Total Schools</div>
@@ -541,6 +566,57 @@ export default function PlatformAdminDashboard() {
                         }}>
                           Edit
                         </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── SECTION: TRANSACTIONS ── */}
+      {activeTab === 'transactions' && (
+        <div className="card fade-in">
+          <div className="settings-header flex justify-between items-center">
+            <div className="flex gap-4 items-center">
+              <div className="icon-box"><CreditCard size={20} /></div>
+              <div className="text-content">
+                <h4>Global Transactions</h4>
+                <p>Track all payments across tenant schools.</p>
+              </div>
+            </div>
+          </div>
+          <div className="table-responsive overflow-x-auto mt-6 border border-slate-700/50 rounded-xl overflow-hidden">
+            <table className="legacy-table">
+              <thead>
+                <tr className="bg-slate-800/50">
+                  <th>Date</th>
+                  <th>School</th>
+                  <th>Plan</th>
+                  <th>Amount</th>
+                  <th>Order ID</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingTx ? (
+                  <tr><td colSpan="6" className="text-center py-6 text-muted">Loading transactions...</td></tr>
+                ) : transactions.length === 0 ? (
+                  <tr><td colSpan="6" className="text-center py-6 text-muted">No transactions found.</td></tr>
+                ) : (
+                  transactions.map(tx => (
+                    <tr key={tx.id}>
+                      <td className="text-[10px] text-slate-400">{new Date(tx.created_at).toLocaleString()}</td>
+                      <td className="font-semibold text-white">{tx.school_settings?.name || 'Unknown'}</td>
+                      <td className="text-xs text-slate-300">{tx.subscription_plans?.name || 'Unknown'}</td>
+                      <td>₹{(tx.amount_paise / 100).toFixed(2)}</td>
+                      <td className="text-xs font-mono text-slate-500">{tx.razorpay_order_id}</td>
+                      <td>
+                        <span className={`badge ${tx.status === 'SUCCESSFUL' ? 'badge-success' : tx.status === 'FAILED' ? 'badge-danger' : 'badge-warn'}`}>
+                          {tx.status}
+                        </span>
                       </td>
                     </tr>
                   ))
