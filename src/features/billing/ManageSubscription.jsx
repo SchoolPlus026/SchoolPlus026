@@ -125,6 +125,17 @@ export default function ManageSubscription() {
         },
         theme: {
           color: '#4f46e5'
+        },
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: 'Pay via UPI',
+                instruments: [{ method: 'upi' }]
+              }
+            },
+            sequence: ['block.upi', 'block.other']
+          }
         }
       };
 
