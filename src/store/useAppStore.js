@@ -1,6 +1,9 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-export const useAppStore = create((set) => ({
+export const useAppStore = create(
+  persist(
+    (set) => ({
   // Auth state
   user: null,
   role: null, // 'admin', 'teacher', 'student', or 'platform_admin'
@@ -53,4 +56,16 @@ export const useAppStore = create((set) => ({
   
   // Logout action resets everything
   clearSession: () => set({ user: null, role: null, schoolSettings: null, isImpersonating: false, originalSession: null, backgroundUploads: [] }),
-}));
+    }),
+    {
+      name: 'school-os-storage',
+      // We don't need to persist backgroundUploads or impersonation state ideally,
+      // but for simplicity we can persist the whole store or use partialize.
+      partialize: (state) => ({
+        user: state.user,
+        role: state.role,
+        schoolSettings: state.schoolSettings,
+      }),
+    }
+  )
+);

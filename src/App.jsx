@@ -67,12 +67,25 @@ import FeatureGuard from './components/FeatureGuard';
 
 export default function App() {
   const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(!user);
 
   useEffect(() => {
     async function initializeApp() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.user) {
+          useAppStore.getState().clearSession();
+          setIsInitializing(false);
+          return;
+        }
+
+        // If we already have the user in Zustand cache, we unblock the UI instantly 
+        // and let the rest of the verification happen silently in the background.
+        if (user) {
+          setIsInitializing(false);
+        }
+
         if (session?.user) {
           const { data: profile, error: profileError } = await supabase
             .from('users')
