@@ -91,7 +91,7 @@ serve(async (req) => {
       throw new Error('School not found');
     }
 
-    const validityDays = transaction.subscription_plans.validity_days;
+    const validityDays = transaction.subscription_plans?.validity_days || 30;
     let newEndDate = new Date();
 
     if (schoolSettings.subscription_end_date) {
@@ -108,7 +108,9 @@ serve(async (req) => {
       .from('school_settings')
       .update({
         subscription_end_date: newEndDate.toISOString(),
-        current_plan_id: transaction.plan_id
+        plan_type: 'premium',
+        subscription_tier: 'Premium',
+        billing_cycle: validityDays >= 365 ? 'yearly' : 'monthly'
       })
       .eq('school_id', transaction.school_id);
 

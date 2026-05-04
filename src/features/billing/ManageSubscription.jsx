@@ -144,10 +144,23 @@ export default function ManageSubscription() {
         theme: {
           color: '#4f46e5'
         },
+        upi: {
+          flow: 'collect'
+        },
         config: {
           display: {
+            blocks: {
+              upi: {
+                name: 'Pay via UPI',
+                instruments: [{ method: 'upi' }]
+              },
+              other: {
+                name: 'Other Payment Modes',
+                instruments: [{ method: 'card' }, { method: 'netbanking' }, { method: 'wallet' }]
+              }
+            },
             hide: [{ method: 'emi' }, { method: 'paylater' }],
-            preferences: { show_default_blocks: true }
+            sequence: ['block.upi', 'block.other']
           }
         }
       };

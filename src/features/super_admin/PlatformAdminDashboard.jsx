@@ -9,7 +9,7 @@ export default function PlatformAdminDashboard() {
   const { user, setImpersonation } = useAppStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('schools');
-  
+
   // Schools State
   const [schools, setSchools] = useState([]);
   const [loadingSchools, setLoadingSchools] = useState(true);
@@ -63,7 +63,7 @@ export default function PlatformAdminDashboard() {
 
   // Analytics State
   const [analytics, setAnalytics] = useState(null);
-  
+
   // Audit Logs State
   const [auditLogs, setAuditLogs] = useState([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
@@ -121,8 +121,11 @@ export default function PlatformAdminDashboard() {
     setLoadingTx(true);
     const { data, error } = await supabase
       .from('subscription_transactions')
-      .select('*, school_settings(name), subscription_plans(name)')
+      .select('*, subscription_plans(name)')
       .order('created_at', { ascending: false });
+    if (error) {
+      console.error("Error fetching transactions:", error);
+    }
     if (!error && data) {
       setTransactions(data);
       const revenue = data.filter(t => t.status === 'SUCCESSFUL').reduce((sum, t) => sum + t.amount_paise, 0);
@@ -202,7 +205,7 @@ export default function PlatformAdminDashboard() {
     setLoadingSchools(true);
     // Fetch schools and their admins
     const { data: schoolData, error } = await supabase.from('school_settings').select('*').order('created_at', { ascending: false });
-    
+
     if (!error && schoolData) {
       // In a real app we'd join users where role='admin' to get the email, but for now we'll just mock the email or show N/A
       setSchools(schoolData);
@@ -216,25 +219,25 @@ export default function PlatformAdminDashboard() {
     if (!newAdminEmail.trim() || !newAdminPassword || !newAdminUsername.trim()) return;
     setAddingSchool(true);
     setAddSchoolError('');
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('platform-create-school', {
         body: {
-          school_name:       newSchoolName.trim(),
-          school_code:       newSchoolCode.trim().toUpperCase(),
+          school_name: newSchoolName.trim(),
+          school_code: newSchoolCode.trim().toUpperCase(),
           subscription_tier: newSchoolTier,
-          plan_type:         newPlanType,
-          billing_cycle:     (newPlanType === 'premium') ? newBillingCycle : null,
-          admin_name:        newAdminName.trim(),
-          admin_username:    newAdminUsername.trim(),
-          admin_email:       newAdminEmail.trim(),
-          admin_password:    newAdminPassword,
+          plan_type: newPlanType,
+          billing_cycle: (newPlanType === 'premium') ? newBillingCycle : null,
+          admin_name: newAdminName.trim(),
+          admin_username: newAdminUsername.trim(),
+          admin_email: newAdminEmail.trim(),
+          admin_password: newAdminPassword,
         }
       });
-      
+
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
-      
+
       alert(`âœ… ${data.message}`);
       setShowAddSchool(false);
       setNewSchoolName(''); setNewSchoolCode(''); setNewSchoolTier('Free');
@@ -256,9 +259,9 @@ export default function PlatformAdminDashboard() {
     try {
       const now = new Date();
       const updateData = {
-        name:          editName.trim(),
-        school_code:   editCode.trim().toUpperCase(),
-        plan_type:     editPlanType,
+        name: editName.trim(),
+        school_code: editCode.trim().toUpperCase(),
+        plan_type: editPlanType,
         billing_cycle: editPlanType === 'premium' ? editBillingCycle : null,
         subscription_tier: editPlanType === 'premium' ? 'Premium' : editPlanType === 'trial' ? 'Trial' : 'Free',
       };
@@ -392,13 +395,13 @@ export default function PlatformAdminDashboard() {
 
   const handleSavePlatform = async () => {
     setSavingPlatform(true);
-    const { error } = await supabase.from('platform_settings').update({ 
+    const { error } = await supabase.from('platform_settings').update({
       app_name: platformName,
       logo_url: platformLogo,
       terms_conditions: termsConditions,
       about_app: aboutApp
     }).neq('id', '00000000-0000-0000-0000-000000000000'); // Update all (there's only 1 row)
-    
+
     setSavingPlatform(false);
     if (error) alert('Error saving: ' + error.message);
     else alert('Platform settings saved successfully. Refresh to see changes on login screen.');
@@ -408,7 +411,7 @@ export default function PlatformAdminDashboard() {
     e.preventDefault();
     if (!bMessage.trim()) return alert('Message cannot be empty');
     setSendingBroadcast(true);
-    
+
     const { error } = await supabase.from('announcements').insert([{
       message: bMessage.trim(),
       target_role: bTargetRole,
@@ -432,7 +435,7 @@ export default function PlatformAdminDashboard() {
         <h3 className="text-xl">Platform Dashboard</h3>
         <div className="badge badge-success px-3 py-1">v2.0 Active</div>
       </div>
-      
+
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="card flex items-center gap-4">
@@ -528,7 +531,7 @@ export default function PlatformAdminDashboard() {
               <Plus size={16} /> Add Plan
             </button>
           </div>
-          
+
           <div className="table-responsive overflow-x-auto mt-4 border border-slate-700/50 rounded-xl overflow-hidden">
             <table className="legacy-table">
               <thead>
@@ -609,7 +612,9 @@ export default function PlatformAdminDashboard() {
                   transactions.map(tx => (
                     <tr key={tx.id}>
                       <td className="text-[10px] text-slate-400">{new Date(tx.created_at).toLocaleString()}</td>
-                      <td className="font-semibold text-white">{tx.school_settings?.name || 'Unknown'}</td>
+                      <td className="font-semibold text-white">
+                        {schools.find(s => s.school_id === tx.school_id)?.name || tx.school_id}
+                      </td>
                       <td className="text-xs text-slate-300">{tx.subscription_plans?.name || 'Unknown'}</td>
                       <td>₹{(tx.amount_paise / 100).toFixed(2)}</td>
                       <td className="text-xs font-mono text-slate-500">{tx.razorpay_order_id}</td>
@@ -642,7 +647,7 @@ export default function PlatformAdminDashboard() {
               <Plus size={16} /> Add School
             </button>
           </div>
-          
+
           <div className="table-responsive overflow-x-auto mt-4 border border-slate-700/50 rounded-xl overflow-hidden">
             <table className="legacy-table">
               <thead>
@@ -724,7 +729,7 @@ export default function PlatformAdminDashboard() {
           <form onSubmit={handleSendBroadcast} className="space-y-4 mt-6">
             <div>
               <label className="muted small block mb-2 font-semibold">Message</label>
-              <textarea 
+              <textarea
                 required
                 rows={3}
                 className="sp-input"
@@ -733,7 +738,7 @@ export default function PlatformAdminDashboard() {
                 onChange={e => setBMessage(e.target.value)}
               />
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="muted small block mb-2 font-semibold">Target Role</label>
@@ -831,7 +836,7 @@ export default function PlatformAdminDashboard() {
                     <span className={`badge ${t.status === 'Resolved' ? 'badge-success' : 'badge-warn'}`}>{t.status}</span>
                   </div>
                   <div className="text-sm text-slate-300 mt-3 whitespace-pre-wrap">{t.message}</div>
-                  
+
                   {t.status !== 'Resolved' && (
                     <div className="mt-4 pt-4 border-t border-slate-700/50">
                       {replyingTo === t.id ? (
@@ -890,11 +895,10 @@ export default function PlatformAdminDashboard() {
               <div className="text-center py-6 text-muted">No payment requests submitted yet.</div>
             ) : (
               paymentRequests.map(pr => (
-                <div key={pr.id} className={`border rounded-xl p-4 ${
-                  pr.status === 'Approved' ? 'border-emerald-700/50 bg-emerald-900/10'
-                  : pr.status === 'Rejected' ? 'border-red-700/50 bg-red-900/10'
-                  : 'border-amber-700/50 bg-amber-900/10'
-                }`}>
+                <div key={pr.id} className={`border rounded-xl p-4 ${pr.status === 'Approved' ? 'border-emerald-700/50 bg-emerald-900/10'
+                    : pr.status === 'Rejected' ? 'border-red-700/50 bg-red-900/10'
+                      : 'border-amber-700/50 bg-amber-900/10'
+                  }`}>
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h5 className="font-bold flex items-center gap-2">
@@ -907,11 +911,10 @@ export default function PlatformAdminDashboard() {
                         {' '} â€¢ {new Date(pr.created_at).toLocaleString()}
                       </div>
                     </div>
-                    <span className={`badge ${
-                      pr.status === 'Approved' ? 'badge-success'
-                      : pr.status === 'Rejected' ? 'badge-danger'
-                      : 'badge-warn'
-                    }`}>{pr.status}</span>
+                    <span className={`badge ${pr.status === 'Approved' ? 'badge-success'
+                        : pr.status === 'Rejected' ? 'badge-danger'
+                          : 'badge-warn'
+                      }`}>{pr.status}</span>
                   </div>
                   {pr.screenshot_url && (
                     <a href={pr.screenshot_url} target="_blank" rel="noopener noreferrer"
@@ -1002,18 +1005,18 @@ export default function PlatformAdminDashboard() {
           <div className="space-y-4 mt-6">
             <div>
               <label className="muted small block mb-2 font-semibold">Platform Name</label>
-              <input 
-                type="text" 
-                className="sp-input" 
-                value={platformName} 
-                onChange={e => setPlatformName(e.target.value)} 
+              <input
+                type="text"
+                className="sp-input"
+                value={platformName}
+                onChange={e => setPlatformName(e.target.value)}
                 placeholder="e.g. SchoolOS+"
               />
             </div>
 
             <div>
               <label className="muted small block mb-2 font-semibold">Terms & Conditions</label>
-              <textarea 
+              <textarea
                 rows={4}
                 className="sp-input"
                 placeholder="Platform usage terms..."
@@ -1024,7 +1027,7 @@ export default function PlatformAdminDashboard() {
 
             <div>
               <label className="muted small block mb-2 font-semibold">About This App</label>
-              <textarea 
+              <textarea
                 rows={4}
                 className="sp-input"
                 placeholder="Description shown on login/about page..."
@@ -1045,20 +1048,20 @@ export default function PlatformAdminDashboard() {
           <div className="card" style={{ width: '100%', maxWidth: '480px', margin: 'auto' }}>
             <h3 style={{ marginBottom: '4px' }}>Add New School</h3>
             <p className="muted small" style={{ marginBottom: '20px' }}>Creates the school workspace AND the first admin user in one secure operation.</p>
-            
+
             {addSchoolError && (
               <div style={{ padding: '12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '16px', color: '#f87171', fontSize: '13px' }}>
                 âš ï¸ {addSchoolError}
               </div>
             )}
-            
+
             <form onSubmit={handleAddSchool}>
               <p className="muted small" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px', marginTop: '4px' }}>School Details</p>
-              
+
               <label className="muted small block" style={{ marginBottom: '6px' }}>School Name</label>
               <input type="text" required value={newSchoolName} onChange={e => setNewSchoolName(e.target.value)} placeholder="e.g. Lincoln High School" className="sp-input block w-full mb-4" />
-              
-              <label className="muted small block" style={{ marginBottom: '6px' }}>School Code <span style={{color:'var(--text-faint)'}}>(unique login identifier)</span></label>
+
+              <label className="muted small block" style={{ marginBottom: '6px' }}>School Code <span style={{ color: 'var(--text-faint)' }}>(unique login identifier)</span></label>
               <input type="text" required value={newSchoolCode} onChange={e => setNewSchoolCode(e.target.value.toUpperCase())} placeholder="e.g. LNC01" className="sp-input block w-full mb-4" style={{ textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 700 }} />
 
               <label className="muted small block" style={{ marginBottom: '6px' }}>Plan</label>
@@ -1080,23 +1083,23 @@ export default function PlatformAdminDashboard() {
                   </select>
                 </>
               )}
-              
+
               <div style={{ height: '1px', background: 'var(--card-border)', margin: '4px 0 16px' }} />
-              
+
               <p className="muted small" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>First Admin Account</p>
 
               <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Full Name</label>
               <input type="text" required value={newAdminName} onChange={e => setNewAdminName(e.target.value)} placeholder="e.g. Ravi Sharma" className="sp-input block w-full mb-4" />
-              
-              <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Username <span style={{color:'var(--text-faint)'}}>(used at login)</span></label>
+
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Username <span style={{ color: 'var(--text-faint)' }}>(used at login)</span></label>
               <input type="text" required value={newAdminUsername} onChange={e => setNewAdminUsername(e.target.value)} placeholder="e.g. admin_lnc" className="sp-input block w-full mb-4" />
-              
+
               <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Email</label>
               <input type="email" required value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)} placeholder="e.g. admin@lincolnhigh.edu" className="sp-input block w-full mb-4" />
-              
-              <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Password <span style={{color:'var(--text-faint)'}}>(min 6 chars)</span></label>
+
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Password <span style={{ color: 'var(--text-faint)' }}>(min 6 chars)</span></label>
               <input type="password" required minLength={6} value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="sp-input block w-full mb-6" />
-              
+
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setShowAddSchool(false); setAddSchoolError(''); }}>Cancel</button>
                 <button type="submit" disabled={addingSchool} className="btn accent" style={{ flex: 2 }}>
@@ -1110,21 +1113,21 @@ export default function PlatformAdminDashboard() {
 
       {/* â”€â”€ EDIT SCHOOL MODAL â”€â”€ */}
       {editingSchool && (
-        <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.8)', padding:'16px', overflowY:'auto' }}>
-          <div className="card" style={{ width:'100%', maxWidth:'440px', margin:'auto' }}>
-            <h3 style={{ marginBottom:'4px' }}>Edit School</h3>
-            <p className="muted small" style={{ marginBottom:'20px' }}>Update school details and plan assignment.</p>
-            <form onSubmit={handleEditSchool} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: '16px', overflowY: 'auto' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '440px', margin: 'auto' }}>
+            <h3 style={{ marginBottom: '4px' }}>Edit School</h3>
+            <p className="muted small" style={{ marginBottom: '20px' }}>Update school details and plan assignment.</p>
+            <form onSubmit={handleEditSchool} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
-                <label className="muted small block" style={{ marginBottom:'6px' }}>School Name</label>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>School Name</label>
                 <input required className="sp-input block w-full" value={editName} onChange={e => setEditName(e.target.value)} />
               </div>
               <div>
-                <label className="muted small block" style={{ marginBottom:'6px' }}>School Code</label>
-                <input required className="sp-input block w-full" value={editCode} onChange={e => setEditCode(e.target.value.toUpperCase())} style={{ textTransform:'uppercase', letterSpacing:'0.15em', fontWeight:700 }} />
+                <label className="muted small block" style={{ marginBottom: '6px' }}>School Code</label>
+                <input required className="sp-input block w-full" value={editCode} onChange={e => setEditCode(e.target.value.toUpperCase())} style={{ textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 700 }} />
               </div>
               <div>
-                <label className="muted small block" style={{ marginBottom:'6px' }}>Plan</label>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Plan</label>
                 <select className="sp-input block w-full" value={editPlanType} onChange={e => setEditPlanType(e.target.value)}>
                   <option value="free">Free</option>
                   <option value="trial">28-Day Free Trial (starts now)</option>
@@ -1133,16 +1136,16 @@ export default function PlatformAdminDashboard() {
               </div>
               {editPlanType === 'premium' && (
                 <div>
-                  <label className="muted small block" style={{ marginBottom:'6px' }}>Billing Cycle</label>
+                  <label className="muted small block" style={{ marginBottom: '6px' }}>Billing Cycle</label>
                   <select className="sp-input block w-full" value={editBillingCycle} onChange={e => setEditBillingCycle(e.target.value)}>
                     <option value="monthly">Monthly (28 days from now)</option>
                     <option value="yearly">Yearly (365 days from now)</option>
                   </select>
                 </div>
               )}
-              <div style={{ display:'flex', gap:'10px', marginTop:'8px' }}>
-                <button type="button" className="btn outline" style={{ flex:1 }} onClick={() => setEditingSchool(null)}>Cancel</button>
-                <button type="submit" disabled={savingEdit} className="btn accent" style={{ flex:2 }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => setEditingSchool(null)}>Cancel</button>
+                <button type="submit" disabled={savingEdit} className="btn accent" style={{ flex: 2 }}>
                   {savingEdit ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
@@ -1153,20 +1156,20 @@ export default function PlatformAdminDashboard() {
 
       {/* â”€â”€ DELETE SCHOOL MODAL â”€â”€ */}
       {deletingSchool && (
-        <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.85)', padding:'16px' }}>
-          <div className="card" style={{ width:'100%', maxWidth:'440px', borderLeft:'4px solid #ef4444' }}>
-            <h3 style={{ marginBottom:'4px', color:'#f87171' }}>âš ï¸ Delete School</h3>
-            <p className="muted small" style={{ marginBottom:'16px', fontSize:'13px', lineHeight:1.6 }}>
-              You are about to <strong style={{ color:'#f87171' }}>permanently delete</strong> <strong>{deletingSchool.name}</strong> and ALL its data â€” users, attendance, fees, gallery, notices, timetable, and leaves. <strong>This cannot be undone.</strong>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '440px', borderLeft: '4px solid #ef4444' }}>
+            <h3 style={{ marginBottom: '4px', color: '#f87171' }}>âš ï¸ Delete School</h3>
+            <p className="muted small" style={{ marginBottom: '16px', fontSize: '13px', lineHeight: 1.6 }}>
+              You are about to <strong style={{ color: '#f87171' }}>permanently delete</strong> <strong>{deletingSchool.name}</strong> and ALL its data â€” users, attendance, fees, gallery, notices, timetable, and leaves. <strong>This cannot be undone.</strong>
             </p>
             {deleteError && (
-              <div style={{ padding:'10px 14px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'10px', marginBottom:'14px', color:'#f87171', fontSize:'13px' }}>
+              <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '14px', color: '#f87171', fontSize: '13px' }}>
                 âš ï¸ {deleteError}
               </div>
             )}
-            <form onSubmit={handleDeleteSchool} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+            <form onSubmit={handleDeleteSchool} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
-                <label className="muted small block" style={{ marginBottom:'6px', color:'#f87171', fontWeight:700 }}>
+                <label className="muted small block" style={{ marginBottom: '6px', color: '#f87171', fontWeight: 700 }}>
                   Enter your Platform Admin password to confirm:
                 </label>
                 <input
@@ -1176,12 +1179,12 @@ export default function PlatformAdminDashboard() {
                   placeholder="Your password"
                   value={deletePassword}
                   onChange={e => setDeletePassword(e.target.value)}
-                  style={{ borderColor:'rgba(239,68,68,0.4)' }}
+                  style={{ borderColor: 'rgba(239,68,68,0.4)' }}
                 />
               </div>
-              <div style={{ display:'flex', gap:'10px' }}>
-                <button type="button" className="btn outline" style={{ flex:1 }} onClick={() => { setDeletingSchool(null); setDeleteError(''); }}>Cancel</button>
-                <button type="submit" disabled={deleteLoading || !deletePassword.trim()} className="btn outline" style={{ flex:2, color:'#f87171', borderColor:'#ef4444' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setDeletingSchool(null); setDeleteError(''); }}>Cancel</button>
+                <button type="submit" disabled={deleteLoading || !deletePassword.trim()} className="btn outline" style={{ flex: 2, color: '#f87171', borderColor: '#ef4444' }}>
                   {deleteLoading ? 'Deleting...' : 'ðŸ—‘ï¸ Delete Permanently'}
                 </button>
               </div>
@@ -1189,77 +1192,77 @@ export default function PlatformAdminDashboard() {
           </div>
         </div>
       )}
-    {/* ── ADD PLAN MODAL ── */}
-    {showAddPlan && (
-      <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.8)', padding:'16px' }}>
-        <div className="card" style={{ width:'100%', maxWidth:'440px' }}>
-          <h3 style={{ marginBottom:'4px' }}>Add Subscription Plan</h3>
-          <p className="muted small" style={{ marginBottom:'20px' }}>Create a new pricing tier for schools.</p>
-          <form onSubmit={handleAddPlan} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
-            <div>
-              <label className="muted small block" style={{ marginBottom:'6px' }}>Plan Name</label>
-              <input required type="text" className="sp-input block w-full" placeholder="e.g. Pro Annual" value={newPlanName} onChange={e => setNewPlanName(e.target.value)} />
-            </div>
-            <div>
-              <label className="muted small block" style={{ marginBottom:'6px' }}>Amount (₹)</label>
-              <input required type="number" min="1" step="0.01" className="sp-input block w-full" placeholder="e.g. 999.00" value={newPlanAmount} onChange={e => setNewPlanAmount(e.target.value)} />
-            </div>
-            <div>
-              <label className="muted small block" style={{ marginBottom:'6px' }}>Validity (Days)</label>
-              <input required type="number" min="1" className="sp-input block w-full" placeholder="e.g. 365" value={newPlanValidity} onChange={e => setNewPlanValidity(e.target.value)} />
-            </div>
-            <div style={{ display:'flex', gap:'10px', marginTop:'8px' }}>
-              <button type="button" className="btn outline" style={{ flex:1 }} onClick={() => setShowAddPlan(false)}>Cancel</button>
-              <button type="submit" disabled={savingPlan} className="btn accent" style={{ flex:2 }}>
-                {savingPlan ? 'Saving...' : 'Create Plan'}
-              </button>
-            </div>
-          </form>
+      {/* ── ADD PLAN MODAL ── */}
+      {showAddPlan && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '440px' }}>
+            <h3 style={{ marginBottom: '4px' }}>Add Subscription Plan</h3>
+            <p className="muted small" style={{ marginBottom: '20px' }}>Create a new pricing tier for schools.</p>
+            <form onSubmit={handleAddPlan} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Plan Name</label>
+                <input required type="text" className="sp-input block w-full" placeholder="e.g. Pro Annual" value={newPlanName} onChange={e => setNewPlanName(e.target.value)} />
+              </div>
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Amount (₹)</label>
+                <input required type="number" min="1" step="0.01" className="sp-input block w-full" placeholder="e.g. 999.00" value={newPlanAmount} onChange={e => setNewPlanAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Validity (Days)</label>
+                <input required type="number" min="1" className="sp-input block w-full" placeholder="e.g. 365" value={newPlanValidity} onChange={e => setNewPlanValidity(e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => setShowAddPlan(false)}>Cancel</button>
+                <button type="submit" disabled={savingPlan} className="btn accent" style={{ flex: 2 }}>
+                  {savingPlan ? 'Saving...' : 'Create Plan'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
-    {/* ── EDIT PLAN MODAL ── */}
-    {editingPlan && (
-      <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.8)', padding:'16px' }}>
-        <div className="card" style={{ width:'100%', maxWidth:'440px' }}>
-          <h3 style={{ marginBottom:'4px' }}>Edit Plan</h3>
-          <p className="muted small" style={{ marginBottom:'20px' }}>Update plan details or disable it.</p>
-          <form onSubmit={handleEditPlan} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
-            <div>
-              <label className="muted small block" style={{ marginBottom:'6px' }}>Plan Name</label>
-              <input required type="text" className="sp-input block w-full" value={editPlanName} onChange={e => setEditPlanName(e.target.value)} />
-            </div>
-            <div>
-              <label className="muted small block" style={{ marginBottom:'6px' }}>Amount (₹)</label>
-              <input required type="number" min="1" step="0.01" className="sp-input block w-full" value={editPlanAmount} onChange={e => setEditPlanAmount(e.target.value)} />
-            </div>
-            <div>
-              <label className="muted small block" style={{ marginBottom:'6px' }}>Validity (Days)</label>
-              <input required type="number" min="1" className="sp-input block w-full" value={editPlanValidity} onChange={e => setEditPlanValidity(e.target.value)} />
-            </div>
-            <div className="flex items-center gap-3 mt-2 mb-2 p-3 rounded-lg border border-slate-700/50 bg-slate-800/30">
-              <input 
-                type="checkbox" 
-                id="editPlanActive" 
-                checked={editPlanActive} 
-                onChange={e => setEditPlanActive(e.target.checked)} 
-                style={{ width: '18px', height: '18px', accentColor: 'var(--accent)' }} 
-              />
-              <label htmlFor="editPlanActive" className="text-sm font-semibold cursor-pointer">
-                Plan is Active (Visible to schools)
-              </label>
-            </div>
-            <div style={{ display:'flex', gap:'10px', marginTop:'8px' }}>
-              <button type="button" className="btn outline" style={{ flex:1 }} onClick={() => setEditingPlan(null)}>Cancel</button>
-              <button type="submit" disabled={savingPlan} className="btn accent" style={{ flex:2 }}>
-                {savingPlan ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
+      {/* ── EDIT PLAN MODAL ── */}
+      {editingPlan && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '440px' }}>
+            <h3 style={{ marginBottom: '4px' }}>Edit Plan</h3>
+            <p className="muted small" style={{ marginBottom: '20px' }}>Update plan details or disable it.</p>
+            <form onSubmit={handleEditPlan} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Plan Name</label>
+                <input required type="text" className="sp-input block w-full" value={editPlanName} onChange={e => setEditPlanName(e.target.value)} />
+              </div>
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Amount (₹)</label>
+                <input required type="number" min="1" step="0.01" className="sp-input block w-full" value={editPlanAmount} onChange={e => setEditPlanAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Validity (Days)</label>
+                <input required type="number" min="1" className="sp-input block w-full" value={editPlanValidity} onChange={e => setEditPlanValidity(e.target.value)} />
+              </div>
+              <div className="flex items-center gap-3 mt-2 mb-2 p-3 rounded-lg border border-slate-700/50 bg-slate-800/30">
+                <input
+                  type="checkbox"
+                  id="editPlanActive"
+                  checked={editPlanActive}
+                  onChange={e => setEditPlanActive(e.target.checked)}
+                  style={{ width: '18px', height: '18px', accentColor: 'var(--accent)' }}
+                />
+                <label htmlFor="editPlanActive" className="text-sm font-semibold cursor-pointer">
+                  Plan is Active (Visible to schools)
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => setEditingPlan(null)}>Cancel</button>
+                <button type="submit" disabled={savingPlan} className="btn accent" style={{ flex: 2 }}>
+                  {savingPlan ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
     </div>
   );
