@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { HmacSha256 } from 'https://deno.land/std@0.160.0/hash/sha256.ts';
 
 const corsHeaders = {

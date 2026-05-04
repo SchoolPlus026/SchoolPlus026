@@ -7,7 +7,7 @@
  * so users learn about the update without needing to open the app.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const FIREBASE_SERVER_KEY = Deno.env.get('FIREBASE_SERVER_KEY') ?? '';
 const SUPABASE_URL        = Deno.env.get('SUPABASE_URL') ?? '';
