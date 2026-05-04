@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus } from 'lucide-react';
@@ -76,6 +76,20 @@ export default function PlatformAdminDashboard() {
   const [replyingTo, setReplyingTo] = useState(null); // ticket id
   const [replyText, setReplyText] = useState('');
 
+  // Plans State
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [showAddPlan, setShowAddPlan] = useState(false);
+  const [newPlanName, setNewPlanName] = useState('');
+  const [newPlanAmount, setNewPlanAmount] = useState('');
+  const [newPlanValidity, setNewPlanValidity] = useState('');
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [editPlanName, setEditPlanName] = useState('');
+  const [editPlanAmount, setEditPlanAmount] = useState('');
+  const [editPlanValidity, setEditPlanValidity] = useState('');
+  const [editPlanActive, setEditPlanActive] = useState(true);
+
   useEffect(() => {
     fetchSchools();
     fetchPlatformSettings();
@@ -84,7 +98,18 @@ export default function PlatformAdminDashboard() {
     fetchAnalytics();
     fetchAuditLogs();
     fetchPaymentRequests();
+    fetchPlans();
   }, []);
+
+  const fetchPlans = async () => {
+    setLoadingPlans(true);
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .order('amount_paise', { ascending: true });
+    if (!error && data) setPlans(data);
+    setLoadingPlans(false);
+  };
 
   const fetchAnalytics = async () => {
     const { data, error } = await supabase.rpc('get_platform_analytics');
@@ -260,6 +285,51 @@ export default function PlatformAdminDashboard() {
     }
   };
 
+  const handleAddPlan = async (e) => {
+    e.preventDefault();
+    if (!newPlanName || !newPlanAmount || !newPlanValidity) return;
+    setSavingPlan(true);
+    try {
+      const { error } = await supabase.from('subscription_plans').insert({
+        name: newPlanName.trim(),
+        amount_paise: Math.round(parseFloat(newPlanAmount) * 100),
+        validity_days: parseInt(newPlanValidity, 10),
+        is_active: true
+      });
+      if (error) throw error;
+      setShowAddPlan(false);
+      setNewPlanName('');
+      setNewPlanAmount('');
+      setNewPlanValidity('');
+      fetchPlans();
+    } catch (err) {
+      alert('Error adding plan: ' + err.message);
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const handleEditPlan = async (e) => {
+    e.preventDefault();
+    if (!editingPlan) return;
+    setSavingPlan(true);
+    try {
+      const { error } = await supabase.from('subscription_plans').update({
+        name: editPlanName.trim(),
+        amount_paise: Math.round(parseFloat(editPlanAmount) * 100),
+        validity_days: parseInt(editPlanValidity, 10),
+        is_active: editPlanActive
+      }).eq('id', editingPlan.id);
+      if (error) throw error;
+      setEditingPlan(null);
+      fetchPlans();
+    } catch (err) {
+      alert('Error updating plan: ' + err.message);
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
   const fetchPlatformSettings = async () => {
     const { data } = await supabase.from('platform_settings').select('*').single();
     if (data) {
@@ -372,6 +442,7 @@ export default function PlatformAdminDashboard() {
       <div className="tabs" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
         <div className={`tab ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>Analytics</div>
         <div className={`tab ${activeTab === 'schools' ? 'active' : ''}`} onClick={() => setActiveTab('schools')}>Tenant Schools</div>
+        <div className={`tab ${activeTab === 'plans' ? 'active' : ''}`} onClick={() => setActiveTab('plans')}>Subscription Plans</div>
         <div className={`tab ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')} style={{ position: 'relative' }}>
           Pending Payments
           {paymentRequests.filter(p => p.status === 'Pending').length > 0 && (
@@ -417,7 +488,70 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* Ã¢â€â‚¬Ã¢â€â‚¬ SECTION 1: TENANT SCHOOLS Ã¢â€â‚¬Ã¢â€â‚¬ */}
+      {/* ── SECTION: SUBSCRIPTION PLANS ── */}
+      {activeTab === 'plans' && (
+        <div className="card fade-in">
+          <div className="settings-header flex justify-between items-center">
+            <div className="flex gap-4 items-center">
+              <div className="icon-box"><CreditCard size={20} /></div>
+              <div className="text-content">
+                <h4>Subscription Plans</h4>
+                <p>Manage dynamic SaaS pricing plans</p>
+              </div>
+            </div>
+            <button className="btn accent" onClick={() => setShowAddPlan(true)}>
+              <Plus size={16} /> Add Plan
+            </button>
+          </div>
+          
+          <div className="table-responsive overflow-x-auto mt-4 border border-slate-700/50 rounded-xl overflow-hidden">
+            <table className="legacy-table">
+              <thead>
+                <tr className="bg-slate-800/50">
+                  <th>Plan Name</th>
+                  <th>Amount</th>
+                  <th>Validity</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingPlans ? (
+                  <tr><td colSpan="5" className="text-center py-6 text-muted">Loading plans...</td></tr>
+                ) : plans.length === 0 ? (
+                  <tr><td colSpan="5" className="text-center py-6 text-muted">No subscription plans found.</td></tr>
+                ) : (
+                  plans.map(plan => (
+                    <tr key={plan.id}>
+                      <td className="font-semibold text-white">{plan.name}</td>
+                      <td>₹{(plan.amount_paise / 100).toFixed(2)}</td>
+                      <td>{plan.validity_days} Days</td>
+                      <td>
+                        <span className={`badge ${plan.is_active ? 'badge-success' : 'badge-danger'}`}>
+                          {plan.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td>
+                        <button className="btn outline sm" onClick={() => {
+                          setEditingPlan(plan);
+                          setEditPlanName(plan.name);
+                          setEditPlanAmount((plan.amount_paise / 100).toString());
+                          setEditPlanValidity(plan.validity_days.toString());
+                          setEditPlanActive(plan.is_active);
+                        }}>
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── SECTION 1: TENANT SCHOOLS ── */}
       {activeTab === 'schools' && (
         <div className="card fade-in">
           <div className="settings-header flex justify-between items-center">
@@ -979,6 +1113,77 @@ export default function PlatformAdminDashboard() {
           </div>
         </div>
       )}
+    {/* ── ADD PLAN MODAL ── */}
+    {showAddPlan && (
+      <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.8)', padding:'16px' }}>
+        <div className="card" style={{ width:'100%', maxWidth:'440px' }}>
+          <h3 style={{ marginBottom:'4px' }}>Add Subscription Plan</h3>
+          <p className="muted small" style={{ marginBottom:'20px' }}>Create a new pricing tier for schools.</p>
+          <form onSubmit={handleAddPlan} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+            <div>
+              <label className="muted small block" style={{ marginBottom:'6px' }}>Plan Name</label>
+              <input required type="text" className="sp-input block w-full" placeholder="e.g. Pro Annual" value={newPlanName} onChange={e => setNewPlanName(e.target.value)} />
+            </div>
+            <div>
+              <label className="muted small block" style={{ marginBottom:'6px' }}>Amount (₹)</label>
+              <input required type="number" min="1" step="0.01" className="sp-input block w-full" placeholder="e.g. 999.00" value={newPlanAmount} onChange={e => setNewPlanAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="muted small block" style={{ marginBottom:'6px' }}>Validity (Days)</label>
+              <input required type="number" min="1" className="sp-input block w-full" placeholder="e.g. 365" value={newPlanValidity} onChange={e => setNewPlanValidity(e.target.value)} />
+            </div>
+            <div style={{ display:'flex', gap:'10px', marginTop:'8px' }}>
+              <button type="button" className="btn outline" style={{ flex:1 }} onClick={() => setShowAddPlan(false)}>Cancel</button>
+              <button type="submit" disabled={savingPlan} className="btn accent" style={{ flex:2 }}>
+                {savingPlan ? 'Saving...' : 'Create Plan'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    {/* ── EDIT PLAN MODAL ── */}
+    {editingPlan && (
+      <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.8)', padding:'16px' }}>
+        <div className="card" style={{ width:'100%', maxWidth:'440px' }}>
+          <h3 style={{ marginBottom:'4px' }}>Edit Plan</h3>
+          <p className="muted small" style={{ marginBottom:'20px' }}>Update plan details or disable it.</p>
+          <form onSubmit={handleEditPlan} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+            <div>
+              <label className="muted small block" style={{ marginBottom:'6px' }}>Plan Name</label>
+              <input required type="text" className="sp-input block w-full" value={editPlanName} onChange={e => setEditPlanName(e.target.value)} />
+            </div>
+            <div>
+              <label className="muted small block" style={{ marginBottom:'6px' }}>Amount (₹)</label>
+              <input required type="number" min="1" step="0.01" className="sp-input block w-full" value={editPlanAmount} onChange={e => setEditPlanAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="muted small block" style={{ marginBottom:'6px' }}>Validity (Days)</label>
+              <input required type="number" min="1" className="sp-input block w-full" value={editPlanValidity} onChange={e => setEditPlanValidity(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-3 mt-2 mb-2 p-3 rounded-lg border border-slate-700/50 bg-slate-800/30">
+              <input 
+                type="checkbox" 
+                id="editPlanActive" 
+                checked={editPlanActive} 
+                onChange={e => setEditPlanActive(e.target.checked)} 
+                style={{ width: '18px', height: '18px', accentColor: 'var(--accent)' }} 
+              />
+              <label htmlFor="editPlanActive" className="text-sm font-semibold cursor-pointer">
+                Plan is Active (Visible to schools)
+              </label>
+            </div>
+            <div style={{ display:'flex', gap:'10px', marginTop:'8px' }}>
+              <button type="button" className="btn outline" style={{ flex:1 }} onClick={() => setEditingPlan(null)}>Cancel</button>
+              <button type="submit" disabled={savingPlan} className="btn accent" style={{ flex:2 }}>
+                {savingPlan ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
 
     </div>
   );
