@@ -45,7 +45,6 @@ export default function Login() {
         .eq('school_code', schoolCode.toUpperCase())
         .single();
       if (fetchError || !data) throw new Error('Invalid School Code. Please check and try again.');
-      if (data.subscription_status === 'Expired') throw new Error('This school subscription has expired. Please contact support.');
       setSchoolSettings(data);
       setStep(2);
     } catch (err) {

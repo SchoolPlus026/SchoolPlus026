@@ -98,11 +98,12 @@ export default function App() {
               .eq('school_id', profile.school_id)
               .single();
 
-            if (settings && settings.subscription_status !== 'Expired') {
+            if (settings) {
               setSchoolSettings(settings);
               setUserAndRole(session.user, profile.role);
             } else {
-              await supabase.auth.signOut();
+              // Sign out asynchronously without awaiting to prevent Capacitor freeze
+              supabase.auth.signOut().catch(console.error);
             }
           }
         }

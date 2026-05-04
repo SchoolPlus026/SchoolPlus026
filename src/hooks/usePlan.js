@@ -29,9 +29,9 @@ export function usePlan() {
     subDaysLeft = Math.max(0, Math.ceil(msLeft / 86400000));
   }
 
-  const isPremium = planType === 'premium' || planType === 'trial';
   const isTrial   = planType === 'trial';
   const isFree    = planType === 'free';
+  const isPremium = (planType === 'premium' && subDaysLeft > 0) || (isTrial && trialDaysLeft > 0);
 
   return {
     planType,
