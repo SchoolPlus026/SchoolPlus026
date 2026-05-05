@@ -7,6 +7,8 @@ name: Build Android APK (SchoolOS+)
 # ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'           # Only fire on version tags: v1.0.0, v1.0.5, v2.0.0, etc.
   workflow_dispatch:   # Also allows manual "Run workflow" click from GitHub UI
@@ -28,7 +30,7 @@ jobs:
           node-version: '20'
 
       - name: 📥 Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: 🔐 Create .env file from GitHub Secrets
         # Belt-and-suspenders: write a .env file so Vite picks up all vars

@@ -31,5 +31,6 @@ CREATE POLICY "App managers can view all transactions"
     (auth.jwt() -> 'user_metadata' ->> 'role') = 'app_manager'
   );
 
+
 -- Note: INSERT / UPDATE are handled exclusively by secure Supabase Edge Functions 
 -- using the service_role key, so no frontend mutating policies are required.
