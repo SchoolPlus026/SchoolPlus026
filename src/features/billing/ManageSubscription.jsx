@@ -11,7 +11,6 @@ import {
   Loader2, Zap
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { Checkout } from 'capacitor-razorpay';
 
 const fmtDate = (d) => d
   ? `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`
@@ -172,13 +171,19 @@ export default function ManageSubscription() {
       };
 
       // 3. Open Razorpay Checkout Modal
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && window.RazorpayCheckout) {
         try {
-          const result = await Checkout.open(options);
-          // On success, manually trigger our polling handler
-          options.handler(result);
+          window.RazorpayCheckout.open(options, 
+            function(successResponse) {
+              // On success, manually trigger our polling handler
+              options.handler(successResponse);
+            }, 
+            function(errorResponse) {
+              showToast(`Payment Failed or Cancelled: ${errorResponse.description || errorResponse.message || 'User Closed'}`, 'error');
+            }
+          );
         } catch (nativeErr) {
-          showToast(`Payment Failed or Cancelled: ${nativeErr.description || nativeErr.message || 'User Closed'}`, 'error');
+          showToast(`Plugin Error: ${nativeErr.message || nativeErr}`, 'error');
         }
       } else {
         const rzp = new window.Razorpay(options);
