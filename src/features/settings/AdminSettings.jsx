@@ -4,7 +4,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { 
   Building, Sun, Globe, Lock, Database, ShieldAlert, 
-  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus
+  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus, X
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { logAuditAction } from '../../utils/auditLogger';
@@ -686,18 +686,26 @@ export default function AdminSettings() {
             <p>Platform information and terms of service</p>
           </div>
         </div>
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 flex flex-col gap-2">
           {platformSettings?.about_app && (
-            <div>
-              <h5 className="font-bold text-sm text-slate-700 mb-1">About App</h5>
-              <div className="text-xs text-slate-500 whitespace-pre-wrap bg-slate-50 p-3 rounded-xl border border-slate-100">{platformSettings.about_app}</div>
-            </div>
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('about')}>
+              <FileText size={16} /> About App
+            </button>
           )}
           {platformSettings?.terms_conditions && (
-            <div>
-              <h5 className="font-bold text-sm text-slate-700 mb-1">Terms & Conditions</h5>
-              <div className="text-xs text-slate-500 whitespace-pre-wrap bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-40 overflow-y-auto">{platformSettings.terms_conditions}</div>
-            </div>
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('terms')}>
+              <FileText size={16} /> Terms & Conditions
+            </button>
+          )}
+          {platformSettings?.refund_policy && (
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('refund')}>
+              <FileText size={16} /> Refund Policy
+            </button>
+          )}
+          {platformSettings?.privacy_policy && (
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('privacy')}>
+              <FileText size={16} /> Privacy Policy
+            </button>
           )}
         </div>
       </div>
@@ -768,6 +776,31 @@ export default function AdminSettings() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ── LEGAL MODAL ── */}
+      {legalTab && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card flex flex-col" style={{ width: '100%', maxWidth: '600px', maxHeight: '80vh' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="m-0">
+                {legalTab === 'about' ? 'About App' : 
+                 legalTab === 'terms' ? 'Terms & Conditions' : 
+                 legalTab === 'refund' ? 'Refund Policy' : 
+                 'Privacy Policy'}
+              </h3>
+              <button onClick={() => setLegalTab(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-600 whitespace-pre-wrap flex-1">
+              {legalTab === 'about' ? platformSettings?.about_app : 
+               legalTab === 'terms' ? platformSettings?.terms_conditions : 
+               legalTab === 'refund' ? platformSettings?.refund_policy : 
+               platformSettings?.privacy_policy}
+            </div>
+            <button onClick={() => setLegalTab(null)} className="btn outline w-full mt-4">Close</button>
           </div>
         </div>
       )}

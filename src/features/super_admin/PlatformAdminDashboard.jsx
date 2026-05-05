@@ -47,6 +47,9 @@ export default function PlatformAdminDashboard() {
   const [platformLogo, setPlatformLogo] = useState('');
   const [termsConditions, setTermsConditions] = useState('');
   const [aboutApp, setAboutApp] = useState('');
+  const [refundPolicy, setRefundPolicy] = useState('');
+  const [privacyPolicy, setPrivacyPolicy] = useState('');
+  const [supportEmail, setSupportEmail] = useState('');
   const [savingPlatform, setSavingPlatform] = useState(false);
 
   // Broadcast State
@@ -360,6 +363,9 @@ export default function PlatformAdminDashboard() {
       setPlatformLogo(data.logo_url || '');
       setTermsConditions(data.terms_conditions || '');
       setAboutApp(data.about_app || '');
+      setRefundPolicy(data.refund_policy || '');
+      setPrivacyPolicy(data.privacy_policy || '');
+      setSupportEmail(data.support_email || 'schoolpro026@gmail.com');
     }
   };
 
@@ -399,7 +405,10 @@ export default function PlatformAdminDashboard() {
       app_name: platformName,
       logo_url: platformLogo,
       terms_conditions: termsConditions,
-      about_app: aboutApp
+      about_app: aboutApp,
+      refund_policy: refundPolicy,
+      privacy_policy: privacyPolicy,
+      support_email: supportEmail
     }).neq('id', '00000000-0000-0000-0000-000000000000'); // Update all (there's only 1 row)
 
     setSavingPlatform(false);
@@ -1033,6 +1042,39 @@ export default function PlatformAdminDashboard() {
                 placeholder="Description shown on login/about page..."
                 value={aboutApp}
                 onChange={e => setAboutApp(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="muted small block mb-2 font-semibold">Refund Policy</label>
+              <textarea
+                rows={4}
+                className="sp-input"
+                placeholder="Platform refund policy..."
+                value={refundPolicy}
+                onChange={e => setRefundPolicy(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="muted small block mb-2 font-semibold">Privacy Policy</label>
+              <textarea
+                rows={4}
+                className="sp-input"
+                placeholder="Platform privacy policy..."
+                value={privacyPolicy}
+                onChange={e => setPrivacyPolicy(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="muted small block mb-2 font-semibold">Support Email</label>
+              <input
+                type="email"
+                className="sp-input"
+                placeholder="e.g. support@schoolos.com"
+                value={supportEmail}
+                onChange={e => setSupportEmail(e.target.value)}
               />
             </div>
 
