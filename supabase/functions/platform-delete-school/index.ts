@@ -23,8 +23,20 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseAnon.auth.getUser();
     if (authError || !user) throw new Error('Unauthorized');
 
-    const callerRole = user.user_metadata?.role;
-    if (callerRole !== 'platform_admin') throw new Error('Forbidden: Only platform admins can delete schools');
+    // ── 1.5. Check role in public.users (don't rely on JWT metadata which may be stale) ──
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const { data: dbUser, error: dbError } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (dbError || !dbUser) throw new Error('Could not verify user role in database');
+    if (dbUser.role !== 'platform_admin') throw new Error('Forbidden: Only platform admins can delete schools');
 
     // ── 2. Parse body ─────────────────────────────────────────────────────────
     const { school_id, platform_admin_password } = await req.json();
@@ -41,10 +53,7 @@ serve(async (req) => {
     if (reAuthError) throw new Error('Password confirmation failed — deletion aborted');
 
     // ── 4. Use service role for destructive operations ────────────────────────
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    // (supabaseAdmin already initialized above)
 
     // ── 5. Collect auth user IDs before deleting the profiles ─────────────────
     const { data: userProfiles } = await supabaseAdmin
