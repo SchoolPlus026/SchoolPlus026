@@ -147,12 +147,15 @@ jobs:
           EOF
 
       - name: 🔖 Patch versionCode and versionName from Git Tag
-        # Makes the native App.getInfo().version always return the correct
-        # semver regardless of what is committed in build.gradle.
         run: |
           TAG="${{ github.ref_name }}"
-          # Strip leading 'v': v1.0.28 -> 1.0.28
-          VERSION_NAME="${TAG#v}"
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ] || [ "$TAG" = "refs/heads/main" ]; then
+            VERSION_NAME="1.0.${{ github.run_number }}-${SHORT_SHA}"
+            TAG="v$VERSION_NAME"
+          else
+            VERSION_NAME="${TAG#v}"
+          fi
           VERSION_CODE="${{ github.run_number }}"
           sed -i "s/versionCode .*/versionCode $VERSION_CODE/" android/app/build.gradle
           sed -i "s/versionName .*/versionName \"$VERSION_NAME\"/" android/app/build.gradle
@@ -173,9 +176,10 @@ jobs:
       - name: 📦 Rename APK for Release
         run: |
           VERSION_TAG="${{ github.ref_name }}"
+          SHORT_SHA=$(git rev-parse --short HEAD)
           # Fallback for manual dispatch (no tag)
-          if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "refs/heads/main" ]; then
-            VERSION_TAG="v1.0.${{ github.run_number }}"
+          if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "main" ] || [ "$VERSION_TAG" = "refs/heads/main" ]; then
+            VERSION_TAG="v1.0.${{ github.run_number }}-${SHORT_SHA}"
           fi
           APK_SRC="android/app/build/outputs/apk/release/app-release.apk"
           APK_DEST="SchoolOS_Plus_${VERSION_TAG}.apk"
