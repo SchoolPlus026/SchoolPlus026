@@ -130,6 +130,10 @@ export default function ManageSubscription() {
         name: 'SchoolOS+',
         description: `${plan.name} Subscription`,
         order_id: data.order_id,
+        notes: {
+          school_id: schoolSettings.school_id,
+          plan_type: plan.name
+        },
         handler: async function (response) {
           showToast('Payment Processing... Activating Premium.', 'success');
           
@@ -162,23 +166,6 @@ export default function ManageSubscription() {
         },
         theme: {
           color: '#4f46e5'
-        },
-        // We use default UPI flow (Intent on mobile, QR on desktop)
-        config: {
-          display: {
-            blocks: {
-              upi: {
-                name: 'Pay via UPI',
-                instruments: [{ method: 'upi' }]
-              },
-              other: {
-                name: 'Other Payment Modes',
-                instruments: [{ method: 'card' }, { method: 'netbanking' }, { method: 'wallet' }]
-              }
-            },
-            hide: [{ method: 'emi' }, { method: 'paylater' }],
-            sequence: ['block.upi', 'block.other']
-          }
         }
       };
 
