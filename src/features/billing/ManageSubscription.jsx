@@ -131,12 +131,31 @@ export default function ManageSubscription() {
         description: `${plan.name} Subscription`,
         order_id: data.order_id,
         handler: async function (response) {
-          // Razorpay returns razorpay_payment_id, razorpay_order_id, razorpay_signature
-          showToast('Payment Successful! Activating Premium...', 'success');
-          // Webhook handles the actual database update, but we refresh frontend settings
-          setTimeout(async () => {
-            if (fetchSettings) await fetchSettings();
-          }, 3000);
+          showToast('Payment Processing... Activating Premium.', 'success');
+          
+          // Poll database to confirm webhook processed the payment
+          let attempts = 0;
+          const pollInterval = setInterval(async () => {
+            attempts++;
+            const { data, error } = await supabase
+              .from('school_settings')
+              .select('*')
+              .eq('school_id', schoolSettings.school_id)
+              .single();
+              
+            if (!error && data && data.subscription_tier === 'Premium') {
+              clearInterval(pollInterval);
+              useAppStore.getState().setSchoolSettings(data);
+              showToast('✨ Premium Activated Successfully!', 'success');
+              // Give it a moment, then refresh to re-render all Premium components
+              setTimeout(() => window.location.reload(), 1500);
+            }
+            
+            if (attempts >= 8) { // 16 seconds timeout
+              clearInterval(pollInterval);
+              showToast('Taking longer than expected. Please refresh the page in a minute.', 'error');
+            }
+          }, 2000);
         },
         prefill: {
           name: schoolSettings.name,
@@ -144,9 +163,7 @@ export default function ManageSubscription() {
         theme: {
           color: '#4f46e5'
         },
-        upi: {
-          flow: 'collect'
-        },
+        // We use default UPI flow (Intent on mobile, QR on desktop)
         config: {
           display: {
             blocks: {

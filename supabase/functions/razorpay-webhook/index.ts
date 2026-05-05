@@ -108,6 +108,7 @@ serve(async (req) => {
       .from('school_settings')
       .update({
         subscription_end_date: newEndDate.toISOString(),
+        current_plan_id: transaction.plan_id,
         plan_type: 'premium',
         subscription_tier: 'Premium',
         billing_cycle: validityDays >= 365 ? 'yearly' : 'monthly'
