@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus } from 'lucide-react';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -1084,7 +1084,7 @@ export default function PlatformAdminDashboard() {
           </div>
         </div>
       )}
-      {/* â”€â”€ ADD SCHOOL MODAL â”€â”€ */}
+      {/* —— ADD SCHOOL MODAL —— */}
       {showAddSchool && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: '16px', overflowY: 'auto' }}>
           <div className="card" style={{ width: '100%', maxWidth: '480px', margin: 'auto' }}>
@@ -1092,8 +1092,8 @@ export default function PlatformAdminDashboard() {
             <p className="muted small" style={{ marginBottom: '20px' }}>Creates the school workspace AND the first admin user in one secure operation.</p>
 
             {addSchoolError && (
-              <div style={{ padding: '12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '16px', color: '#f87171', fontSize: '13px' }}>
-                âš ï¸ {addSchoolError}
+              <div style={{ padding: '12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '16px', color: '#f87171', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={16} /> {addSchoolError}
               </div>
             )}
 
@@ -1140,7 +1140,7 @@ export default function PlatformAdminDashboard() {
               <input type="email" required value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)} placeholder="e.g. admin@lincolnhigh.edu" className="sp-input block w-full mb-4" />
 
               <label className="muted small block" style={{ marginBottom: '6px' }}>Admin Password <span style={{ color: 'var(--text-faint)' }}>(min 6 chars)</span></label>
-              <input type="password" required minLength={6} value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="sp-input block w-full mb-6" />
+              <input type="password" required minLength={6} value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} placeholder="••••••••" className="sp-input block w-full mb-6" />
 
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setShowAddSchool(false); setAddSchoolError(''); }}>Cancel</button>
@@ -1153,7 +1153,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* â”€â”€ EDIT SCHOOL MODAL â”€â”€ */}
+      {/* —— EDIT SCHOOL MODAL —— */}
       {editingSchool && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: '16px', overflowY: 'auto' }}>
           <div className="card" style={{ width: '100%', maxWidth: '440px', margin: 'auto' }}>
@@ -1196,17 +1196,17 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* â”€â”€ DELETE SCHOOL MODAL â”€â”€ */}
+      {/* —— DELETE SCHOOL MODAL —— */}
       {deletingSchool && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', padding: '16px' }}>
           <div className="card" style={{ width: '100%', maxWidth: '440px', borderLeft: '4px solid #ef4444' }}>
-            <h3 style={{ marginBottom: '4px', color: '#f87171' }}>âš ï¸ Delete School</h3>
+            <h3 style={{ marginBottom: '4px', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}><AlertTriangle size={20} /> Delete School</h3>
             <p className="muted small" style={{ marginBottom: '16px', fontSize: '13px', lineHeight: 1.6 }}>
-              You are about to <strong style={{ color: '#f87171' }}>permanently delete</strong> <strong>{deletingSchool.name}</strong> and ALL its data â€” users, attendance, fees, gallery, notices, timetable, and leaves. <strong>This cannot be undone.</strong>
+              You are about to <strong style={{ color: '#f87171' }}>permanently delete</strong> <strong>{deletingSchool.name}</strong> and ALL its data — users, attendance, fees, gallery, notices, timetable, and leaves. <strong>This cannot be undone.</strong>
             </p>
             {deleteError && (
-              <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '14px', color: '#f87171', fontSize: '13px' }}>
-                âš ï¸ {deleteError}
+              <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '14px', color: '#f87171', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={16} /> {deleteError}
               </div>
             )}
             <form onSubmit={handleDeleteSchool} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1226,8 +1226,8 @@ export default function PlatformAdminDashboard() {
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setDeletingSchool(null); setDeleteError(''); }}>Cancel</button>
-                <button type="submit" disabled={deleteLoading || !deletePassword.trim()} className="btn outline" style={{ flex: 2, color: '#f87171', borderColor: '#ef4444' }}>
-                  {deleteLoading ? 'Deleting...' : 'ðŸ—‘ï¸ Delete Permanently'}
+                <button type="submit" disabled={deleteLoading || !deletePassword.trim()} className="btn outline" style={{ flex: 2, color: '#f87171', borderColor: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  {deleteLoading ? 'Deleting...' : <><Trash2 size={16} /> Delete Permanently</>}
                 </button>
               </div>
             </form>

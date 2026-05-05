@@ -81,7 +81,7 @@ serve(async (req) => {
   } catch (err) {
     console.error('platform-delete-school error:', err.message);
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
+      status: 200, // Changed from 400 so supabase client parses JSON body instead of throwing generic error
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
