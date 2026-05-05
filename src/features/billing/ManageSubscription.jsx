@@ -10,6 +10,8 @@ import {
   Crown, CheckCircle, Clock, CreditCard, AlertTriangle,
   Loader2, Zap
 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Checkout } from 'capacitor-razorpay';
 
 const fmtDate = (d) => d
   ? `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`
@@ -170,11 +172,21 @@ export default function ManageSubscription() {
       };
 
       // 3. Open Razorpay Checkout Modal
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function (response) {
-        showToast(`Payment Failed: ${response.error.description}`, 'error');
-      });
-      rzp.open();
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const result = await Checkout.open(options);
+          // On success, manually trigger our polling handler
+          options.handler(result);
+        } catch (nativeErr) {
+          showToast(`Payment Failed or Cancelled: ${nativeErr.description || nativeErr.message || 'User Closed'}`, 'error');
+        }
+      } else {
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', function (response) {
+          showToast(`Payment Failed: ${response.error.description}`, 'error');
+        });
+        rzp.open();
+      }
 
     } catch (err) {
       showToast(err.message, 'error');
