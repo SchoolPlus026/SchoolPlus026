@@ -47,8 +47,8 @@ jobs:
         run: |
           npx supabase functions deploy gdrive-auth --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
           npx supabase functions deploy gdrive-upload --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-          npx supabase functions deploy process-notification-queue --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-          npx supabase functions deploy send-notice-notification --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          npx supabase functions deploy process-notification-queue --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          npx supabase functions deploy send-notice-notification --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
           npx supabase functions deploy notify-update --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
           npx supabase functions deploy create-razorpay-order --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
           npx supabase functions deploy razorpay-webhook --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
