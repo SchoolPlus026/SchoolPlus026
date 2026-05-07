@@ -484,7 +484,7 @@ export default function PlatformAdminDashboard() {
         <div className={`tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Platform Settings</div>
       </div>
 
-      {/* Ã¢â€â‚¬Ã¢â€â‚¬ SECTION 0: ANALYTICS Ã¢â€â‚¬Ã¢â€â‚¬ */}
+      {/* ---- SECTION 0: ANALYTICS ---- */}
       {activeTab === 'analytics' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -718,7 +718,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* Ã¢â€â‚¬Ã¢â€â‚¬ SECTION 2: BROADCAST CENTER Ã¢â€â‚¬Ã¢â€â‚¬ */}
+      {/* ---- SECTION 2: BROADCAST CENTER ---- */}
       {activeTab === 'broadcast' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -842,7 +842,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* â”€â”€ SECTION 3: SUPPORT TICKETS â”€â”€ */}
+      {/* ---- SECTION 3: SUPPORT TICKETS ---- */}
       {activeTab === 'tickets' && (
         <div className="card fade-in">
           <div className="settings-header">
@@ -864,7 +864,7 @@ export default function PlatformAdminDashboard() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h5 className="font-bold">{t.subject}</h5>
-                      <div className="text-xs text-slate-400 mt-1">{t.school_settings?.name || 'Unknown School'} â€¢ {new Date(t.created_at).toLocaleDateString()}</div>
+                      <div className="text-xs text-slate-400 mt-1">{t.school_settings?.name || 'Unknown School'} • {new Date(t.created_at).toLocaleDateString()}</div>
                     </div>
                     <span className={`badge ${t.status === 'Resolved' ? 'badge-success' : 'badge-warn'}`}>{t.status}</span>
                   </div>
@@ -911,10 +911,7 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-        </div>
-      )}
-
-      {/* â”€â”€ SECTION 4: AUDIT LOGS â”€â”€ */}
+      {/* ---- SECTION 4: AUDIT LOGS ---- */}
       {activeTab === 'audit' && (
         <div className="card fade-in">
           <div className="settings-header flex justify-between items-center">
