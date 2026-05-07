@@ -102,22 +102,24 @@ jobs:
           echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
           echo "✅ google-services.json written to android/app/"
 
-      - name: 🗝️ Restore Signing Keystore
-        # CRITICAL: We use a PERSISTENT keystore stored as a GitHub Secret (base64).
-        # This ensures every APK build has the SAME signature, allowing users
-        # to UPDATE without uninstalling the old APK.
-        #
-        # HOW TO GENERATE (run ONCE on your machine):
-        #   keytool -genkey -v -keystore schoolos.jks -alias schoolos -keyalg RSA -keysize 2048 -validity 10000
-        #   (fill in the prompts, remember the password)
-        #
-        # HOW TO ENCODE AND ADD TO SECRETS:
-        #   PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("schoolos.jks")) | clip
-        #   Then add to GitHub → Settings → Secrets → Actions as: KEYSTORE_BASE64
-        #   Also add: KEY_ALIAS, KEY_PASSWORD, STORE_PASSWORD
+      - name: 🗝️ Generate Signing Keystore
+        # Auto-generates a keystore on the runner using its built-in Java.
+        # Since the app is not on the Play Store, a fresh key per build is fine for sideloading.
+        # Alias is hardcoded as 'schoolos' — this matches KEY_ALIAS secret and build.gradle.
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ${{ github.workspace }}/schoolos.jks
-          echo "✅ Keystore restored to ${{ github.workspace }}/schoolos.jks"
+          JAVA_KEYTOOL=$(find /usr/lib/jvm -name "keytool" 2>/dev/null | head -1)
+          if [ -z "$JAVA_KEYTOOL" ]; then
+            JAVA_KEYTOOL=$(which keytool 2>/dev/null || true)
+          fi
+          echo "Using keytool: $JAVA_KEYTOOL"
+          "$JAVA_KEYTOOL" -genkeypair -v \
+            -keystore ${{ github.workspace }}/schoolos.jks \
+            -alias schoolos \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=SchoolOS, OU=App, O=SchoolOS, L=Mumbai, S=MH, C=IN" \
+            -storepass ${{ secrets.STORE_PASSWORD }} \
+            -keypass ${{ secrets.KEY_PASSWORD }}
+          echo "✅ Keystore generated at ${{ github.workspace }}/schoolos.jks"
 
       - name: 🎨 Generate App Icons
         run: npx @capacitor/assets generate --android
@@ -140,11 +142,12 @@ jobs:
 
       - name: 🔧 Configure Gradle Signing
         # Writes signing config into local.properties so it's picked up by build.gradle
+        # keyAlias is hardcoded as 'schoolos' to match the auto-generated keystore above
         run: |
           cat >> android/local.properties << EOF
           storeFile=${{ github.workspace }}/schoolos.jks
           storePassword=${{ secrets.STORE_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyAlias=schoolos
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
@@ -167,12 +170,13 @@ jobs:
         # assembleRelease uses the keystore configured above.
         # --no-daemon: prevents Gradle daemon issues in CI environments
         # --stacktrace: surfaces real error if 403 or resolution fails
+        # Note: alias is hardcoded as 'schoolos' to match auto-generated keystore
         run: |
           cd android
           ./gradlew assembleRelease --no-daemon --stacktrace \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/schoolos.jks \
             -Pandroid.injected.signing.store.password=${{ secrets.STORE_PASSWORD }} \
-            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.alias=schoolos \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
 
       - name: 📦 Rename APK for Release
