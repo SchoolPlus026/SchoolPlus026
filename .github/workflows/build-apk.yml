@@ -102,24 +102,44 @@ jobs:
           echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
           echo "✅ google-services.json written to android/app/"
 
-      - name: 🗝️ Generate Signing Keystore
-        # Auto-generates a keystore on the runner using its built-in Java.
-        # Since the app is not on the Play Store, a fresh key per build is fine for sideloading.
-        # Alias is hardcoded as 'schoolos' — this matches KEY_ALIAS secret and build.gradle.
+      - name: 🗝️ Restore or Generate Signing Keystore
+        # STRATEGY: Restore from KEYSTORE_BASE64 secret if set (ensures same signature every
+        # build so users can do OTA updates). If secret is empty/unset, auto-generate once
+        # and print the base64 — save that value as KEYSTORE_BASE64 secret for future builds.
+        # Alias is ALWAYS 'schoolos' — hardcoded to prevent KEY_ALIAS mismatch.
         run: |
-          JAVA_KEYTOOL=$(find /usr/lib/jvm -name "keytool" 2>/dev/null | head -1)
-          if [ -z "$JAVA_KEYTOOL" ]; then
-            JAVA_KEYTOOL=$(which keytool 2>/dev/null || true)
+          KEYSTORE_PATH="${{ github.workspace }}/schoolos.jks"
+          B64="${{ secrets.KEYSTORE_BASE64 }}"
+
+          if [ -n "$B64" ] && [ "$B64" != "" ]; then
+            echo "🔑 Restoring keystore from KEYSTORE_BASE64 secret..."
+            echo "$B64" | base64 --decode > "$KEYSTORE_PATH"
+            echo "✅ Keystore restored: $(ls -lh $KEYSTORE_PATH | awk '{print $5}')"
+          else
+            echo "⚠️  KEYSTORE_BASE64 secret not set — generating a new keystore..."
+            JAVA_KEYTOOL=$(find /usr/lib/jvm -name "keytool" 2>/dev/null | head -1)
+            if [ -z "$JAVA_KEYTOOL" ]; then
+              JAVA_KEYTOOL=$(which keytool 2>/dev/null || true)
+            fi
+            "$JAVA_KEYTOOL" -genkeypair -v \
+              -keystore "$KEYSTORE_PATH" \
+              -alias schoolos \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=SchoolOS, OU=App, O=SchoolOS, L=Mumbai, S=MH, C=IN" \
+              -storepass ${{ secrets.STORE_PASSWORD }} \
+              -keypass ${{ secrets.KEY_PASSWORD }}
+            echo ""
+            echo "════════════════════════════════════════════════════"
+            echo "ACTION REQUIRED: Copy the base64 below and save it"
+            echo "as GitHub Secret: KEYSTORE_BASE64"
+            echo "This ensures the same key is used for all future APK"
+            echo "builds, allowing users to install updates over old APKs."
+            echo "════════════════════════════════════════════════════"
+            base64 -w 0 "$KEYSTORE_PATH"
+            echo ""
+            echo "════════════════════════════════════════════════════"
+            echo "✅ Keystore generated at $KEYSTORE_PATH"
           fi
-          echo "Using keytool: $JAVA_KEYTOOL"
-          "$JAVA_KEYTOOL" -genkeypair -v \
-            -keystore ${{ github.workspace }}/schoolos.jks \
-            -alias schoolos \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=SchoolOS, OU=App, O=SchoolOS, L=Mumbai, S=MH, C=IN" \
-            -storepass ${{ secrets.STORE_PASSWORD }} \
-            -keypass ${{ secrets.KEY_PASSWORD }}
-          echo "✅ Keystore generated at ${{ github.workspace }}/schoolos.jks"
 
       - name: 🎨 Generate App Icons
         run: npx @capacitor/assets generate --android
