@@ -8,6 +8,7 @@ import { Browser } from '@capacitor/browser';
 
 // Core Flow Components
 import Login from './features/auth/Login';
+import RegisterSchool from './features/auth/RegisterSchool';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationProvider from './components/NotificationProvider';
 import VersionChecker from './components/VersionChecker';
@@ -183,6 +184,7 @@ export default function App() {
       <Routes>
       <Route path="/" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />
       <Route path="/login" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Login />} />
+      <Route path="/register" element={<RegisterSchool />} />
 
       {/* ──────────────── ADMIN ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>

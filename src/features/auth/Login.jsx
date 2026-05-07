@@ -295,7 +295,15 @@ export default function Login() {
       </div>
 
       {/* Footer */}
-      <div className="relative z-10 text-center mt-8">
+      <div className="relative z-10 text-center mt-8 space-y-3">
+        <div>
+          <Link
+            to="/register"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2 rounded-full border border-indigo-500/20"
+          >
+            🏫 Register Your School — Get Started Free
+          </Link>
+        </div>
         <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
           Developed by Shubham Arun Hajare — 9022761401
         </p>

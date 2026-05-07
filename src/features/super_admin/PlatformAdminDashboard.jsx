@@ -5,6 +5,7 @@ import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image
 
 import { useNavigate } from 'react-router-dom';
 import PlatformKnowledgeBaseManager from '../knowledge-base/PlatformKnowledgeBaseManager';
+import RegistrationsInbox from './RegistrationsInbox';
 
 export default function PlatformAdminDashboard() {
   const { user, setImpersonation } = useAppStore();
@@ -102,6 +103,9 @@ export default function PlatformAdminDashboard() {
   const [loadingTx, setLoadingTx] = useState(false);
   const [totalRevenue, setTotalRevenue] = useState(0);
 
+  // Registrations State — pending count for badge
+  const [pendingRegCount, setPendingRegCount] = useState(0);
+
   useEffect(() => {
     fetchSchools();
     fetchPlatformSettings();
@@ -111,7 +115,16 @@ export default function PlatformAdminDashboard() {
     fetchAuditLogs();
     fetchPlans();
     fetchAllTransactions();
+    fetchPendingRegCount();
   }, []);
+
+  const fetchPendingRegCount = async () => {
+    const { count } = await supabase
+      .from('school_registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    if (count !== null) setPendingRegCount(count);
+  };
 
   const fetchPlans = async () => {
     setLoadingPlans(true);
@@ -461,6 +474,12 @@ export default function PlatformAdminDashboard() {
         <div className={`tab ${activeTab === 'broadcast' ? 'active' : ''}`} onClick={() => setActiveTab('broadcast')}>Broadcast Center</div>
         <div className={`tab ${activeTab === 'tickets' ? 'active' : ''}`} onClick={() => setActiveTab('tickets')}>Support Tickets</div>
         <div className={`tab ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>Audit Logs</div>
+        <div className={`tab ${activeTab === 'registrations' ? 'active' : ''}`} onClick={() => { setActiveTab('registrations'); fetchPendingRegCount(); }} style={{ position: 'relative' }}>
+          Registrations
+          {pendingRegCount > 0 && (
+            <span style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, borderRadius: '50%', background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{pendingRegCount}</span>
+          )}
+        </div>
         <div className={`tab ${activeTab === 'kb' ? 'active' : ''}`} onClick={() => setActiveTab('kb')}>Knowledge Base</div>
         <div className={`tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Platform Settings</div>
       </div>
@@ -941,6 +960,9 @@ export default function PlatformAdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* ── SECTION: REGISTRATIONS ── */}
+      {activeTab === 'registrations' && <RegistrationsInbox />}
 
       {/* ── SECTION: KNOWLEDGE BASE ── */}
       {activeTab === 'kb' && <PlatformKnowledgeBaseManager />}
