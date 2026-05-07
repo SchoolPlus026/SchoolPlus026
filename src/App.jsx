@@ -61,6 +61,9 @@ import Contact from './features/contact/Contact';
 // Calendar Events
 import CalendarEvents from './features/calendar/CalendarEvents';
 
+// Knowledge Base
+import KnowledgeBase from './features/knowledge-base/KnowledgeBase';
+
 // Subscription / Billing
 import ManageSubscription from './features/billing/ManageSubscription';
 import FeatureGuard from './components/FeatureGuard';
@@ -198,6 +201,7 @@ export default function App() {
           <Route path="reports"     element={<FeatureGuard feature="reports"><Reports /></FeatureGuard>} />
           <Route path="contact"     element={<Contact />} />
           <Route path="billing"     element={<ManageSubscription />} />
+          <Route path="knowledge-base" element={<KnowledgeBase />} />
           <Route path="settings"    element={<AdminSettings />} />
         </Route>
       </Route>
@@ -216,6 +220,7 @@ export default function App() {
           <Route path="leaves"           element={<LeavesManager />} />
           <Route path="gallery"          element={<GalleryManager />} />
           <Route path="reports"          element={<Reports />} />
+          <Route path="knowledge-base"   element={<KnowledgeBase />} />
           <Route path="contact"          element={<Contact />} />
           <Route path="settings"         element={<SharedSettings />} />
         </Route>
@@ -233,6 +238,7 @@ export default function App() {
           <Route path="notices"    element={<NoticeBoard />} />
           <Route path="leaves"     element={<LeavesManager />} />
           <Route path="gallery"    element={<GalleryManager />} />
+          <Route path="knowledge-base" element={<KnowledgeBase />} />
           <Route path="contact"    element={<Contact />} />
           <Route path="settings"   element={<SharedSettings />} />
         </Route>

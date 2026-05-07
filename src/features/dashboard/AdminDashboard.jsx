@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Users, ClipboardList, DollarSign, Clock, CalendarHeart,
-  Image, Bell, Calendar, LineChart, Settings, CalendarX, Phone, Lock, CreditCard
+  Image, Bell, Calendar, LineChart, Settings, CalendarX, Phone, Lock, CreditCard, BookOpen
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import PlanStatusBanner from '../../components/PlanStatusBanner';
@@ -21,8 +21,9 @@ const MODULES = [
   { name: 'Leaves',       path: '/admin/leaves',       icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133'  },
   { name: 'Reports',      path: '/admin/reports',      icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238'   },
   { name: 'Contact',      path: '/admin/contact',      icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184'  },
-  { name: 'Billing',      path: '/admin/billing',      icon: <CreditCard size={26} />,    colorHex: '#a78bfa', bgRgb: '167,139,250'  },
-  { name: 'Settings',     path: '/admin/settings',     icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184'  },
+  { name: 'Billing',         path: '/admin/billing',         icon: <CreditCard size={26} />,    colorHex: '#a78bfa', bgRgb: '167,139,250'  },
+  { name: 'Knowledge Base',  path: '/admin/knowledge-base',  icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248'   },
+  { name: 'Settings',        path: '/admin/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184'  },
 ];
 
 // Locked for Free plan — clicking redirects to /admin/billing

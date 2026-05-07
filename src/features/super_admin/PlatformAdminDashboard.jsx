@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
+import PlatformKnowledgeBaseManager from '../knowledge-base/PlatformKnowledgeBaseManager';
 
 export default function PlatformAdminDashboard() {
   const { user, setImpersonation } = useAppStore();
@@ -460,6 +461,7 @@ export default function PlatformAdminDashboard() {
         <div className={`tab ${activeTab === 'broadcast' ? 'active' : ''}`} onClick={() => setActiveTab('broadcast')}>Broadcast Center</div>
         <div className={`tab ${activeTab === 'tickets' ? 'active' : ''}`} onClick={() => setActiveTab('tickets')}>Support Tickets</div>
         <div className={`tab ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>Audit Logs</div>
+        <div className={`tab ${activeTab === 'kb' ? 'active' : ''}`} onClick={() => setActiveTab('kb')}>Knowledge Base</div>
         <div className={`tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Platform Settings</div>
       </div>
 
@@ -940,7 +942,10 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* Ã¢â€â‚¬Ã¢â€â‚¬ SECTION 5: PLATFORM SETTINGS Ã¢â€â‚¬Ã¢â€â‚¬ */}
+      {/* ── SECTION: KNOWLEDGE BASE ── */}
+      {activeTab === 'kb' && <PlatformKnowledgeBaseManager />}
+
+      {/* ── SECTION 5: PLATFORM SETTINGS ── */}
       {activeTab === 'settings' && (
         <div className="card fade-in">
           <div className="settings-header">
