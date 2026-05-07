@@ -34,9 +34,21 @@ serve(async (req) => {
       });
     }
 
-    // Verify caller role from user_metadata
-    const callerRole = user.user_metadata?.role;
-    if (callerRole !== 'platform_admin' && callerRole !== 'app_manager') {
+    // ── 3. Service Role client (hoisted — needed for role check below) ——————————
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    // Verify caller role from DB — authoritative source.
+    // DO NOT use user.user_metadata?.role — it is set at signup time and can be stale.
+    const { data: callerProfile } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (callerProfile?.role !== 'platform_admin') {
       return new Response(JSON.stringify({ error: 'Forbidden: Only platform admins can create schools.' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -69,12 +81,6 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-
-    // ── 3. Service Role client — bypasses RLS for admin operations ────────────
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
 
     // ── 4. Check for duplicate school_code ────────────────────────────────────
     const { data: existingSchool } = await supabaseAdmin

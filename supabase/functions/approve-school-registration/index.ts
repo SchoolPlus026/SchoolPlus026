@@ -106,8 +106,21 @@ serve(async (req) => {
     const { data: { user }, error: authErr } = await supabaseAnon.auth.getUser();
     if (authErr || !user) throw new Error('Unauthorized');
 
-    const callerRole = user.user_metadata?.role;
-    if (callerRole !== 'platform_admin' && callerRole !== 'app_manager') {
+    // 3. Service role client — hoisted here so it can be used for role verification below
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    // Verify caller is platform_admin via DB (authoritative) — NOT JWT user_metadata
+    // JWT user_metadata.role is set at signup and can be stale or absent.
+    const { data: callerProfile } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (callerProfile?.role !== 'platform_admin') {
       return new Response(JSON.stringify({ error: 'Forbidden: Only platform admins can approve registrations.' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -127,12 +140,6 @@ serve(async (req) => {
     if (!registration_id || !action) throw new Error('registration_id and action are required');
     if (!['approve', 'reject'].includes(action)) throw new Error('action must be approve or reject');
     if (action === 'reject' && !rejection_reason?.trim()) throw new Error('rejection_reason is required for rejection');
-
-    // 3. Service role client
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
 
     // 4. Fetch the registration
     const { data: reg, error: regErr } = await supabaseAdmin

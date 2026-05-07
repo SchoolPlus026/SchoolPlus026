@@ -53,27 +53,55 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
 
-    // Extract school_id safely (accept body.school_id or user.user_metadata)
-    const targetSchoolId = school_id || user.user_metadata?.school_id
-    if (!targetSchoolId) throw new Error('Missing school_id')
-
     // --- 2. Fetch config securely using Admin key (Bypass RLS) ---
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { data: schoolData } = await supabaseAdmin
-      .from('school_settings')
-      .select('gdrive_config')
-      .eq('school_id', targetSchoolId)
+    // Determine caller role from DB (authoritative)
+    const { data: callerProfile } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
       .single()
+    const isPlatformAdmin = callerProfile?.role === 'platform_admin'
 
-    const configArray = Array.isArray(schoolData?.gdrive_config) ? schoolData.gdrive_config : []
-    const targetDrive = configArray[driveIndex ?? 0]
-    
-    if (!targetDrive || !targetDrive.refresh_token) {
-      throw new Error(`Google Drive configuration not found for index ${driveIndex ?? 0}.`)
+    let targetDrive: any
+
+    if (isPlatformAdmin) {
+      // Platform Admin: read from platform_settings.pa_gdrive_config
+      const { data: platData } = await supabaseAdmin
+        .from('platform_settings')
+        .select('pa_gdrive_config')
+        .limit(1)
+        .single()
+
+      const paConfigArray = Array.isArray(platData?.pa_gdrive_config)
+        ? platData.pa_gdrive_config.filter(Boolean)
+        : []
+      targetDrive = paConfigArray[driveIndex ?? 0]
+
+      if (!targetDrive || !targetDrive.refresh_token) {
+        throw new Error(`Platform Admin Drive config not found for index ${driveIndex ?? 0}. Connect a Drive account first.`)
+      }
+    } else {
+      // School user: read from school_settings.gdrive_config
+      const targetSchoolId = school_id || user.user_metadata?.school_id
+      if (!targetSchoolId) throw new Error('Missing school_id')
+
+      const { data: schoolData } = await supabaseAdmin
+        .from('school_settings')
+        .select('gdrive_config')
+        .eq('school_id', targetSchoolId)
+        .single()
+
+      const configArray = Array.isArray(schoolData?.gdrive_config) ? schoolData.gdrive_config : []
+      targetDrive = configArray[driveIndex ?? 0]
+
+      if (!targetDrive || !targetDrive.refresh_token) {
+        throw new Error(`Google Drive configuration not found for index ${driveIndex ?? 0}.`)
+      }
     }
 
     // --- 3. Get fresh Access Token ---
