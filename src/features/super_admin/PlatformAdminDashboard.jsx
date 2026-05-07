@@ -71,9 +71,12 @@ export default function PlatformAdminDashboard() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
 
-  // Payment Requests State
-  const [paymentRequests, setPaymentRequests] = useState([]);
-  const [loadingPayments, setLoadingPayments] = useState(false);
+  // Broadcast scheduling & edit state
+  const [bStartDate, setBStartDate] = useState('');
+  const [bExpiryDate, setBExpiryDate] = useState('');
+  const [editingBroadcast, setEditingBroadcast] = useState(null);
+  const [editBMessage, setEditBMessage] = useState('');
+  const [editBExpiryDate, setEditBExpiryDate] = useState('');
 
   // Ticket inline reply state
   const [replyingTo, setReplyingTo] = useState(null); // ticket id
@@ -105,7 +108,6 @@ export default function PlatformAdminDashboard() {
     fetchTickets();
     fetchAnalytics();
     fetchAuditLogs();
-    fetchPaymentRequests();
     fetchPlans();
     fetchAllTransactions();
   }, []);
@@ -153,43 +155,19 @@ export default function PlatformAdminDashboard() {
     setLoadingAudit(false);
   };
 
-  const fetchPaymentRequests = async () => {
-    setLoadingPayments(true);
-    const { data, error } = await supabase
-      .from('payment_requests')
-      .select(`*, school_settings(name)`)
-      .order('created_at', { ascending: false });
-    if (!error && data) setPaymentRequests(data);
-    setLoadingPayments(false);
-  };
-
-  const handleApprovePayment = async (request) => {
-    if (!window.confirm(`Approve payment from "${request.school_settings?.name}" and upgrade to Premium?`)) return;
-    // 1. Update payment request status
-    const { error: reqError } = await supabase
-      .from('payment_requests')
-      .update({ status: 'Approved', reviewed_at: new Date().toISOString() })
-      .eq('id', request.id);
-    if (reqError) { alert('Error: ' + reqError.message); return; }
-    // 2. Upgrade school tier
-    const { error: tierError } = await supabase
-      .from('school_settings')
-      .update({ subscription_tier: 'Premium' })
-      .eq('school_id', request.school_id);
-    if (tierError) { alert('Error upgrading tier: ' + tierError.message); return; }
-    alert(`âœ… ${request.school_settings?.name} has been upgraded to Premium!`);
-    fetchPaymentRequests();
-    fetchSchools();
-  };
-
-  const handleRejectPayment = async (request) => {
-    if (!window.confirm('Reject this payment request?')) return;
+  const handleUpdateBroadcast = async (e) => {
+    e.preventDefault();
+    if (!editingBroadcast) return;
     const { error } = await supabase
-      .from('payment_requests')
-      .update({ status: 'Rejected', reviewed_at: new Date().toISOString() })
-      .eq('id', request.id);
-    if (error) { alert('Error: ' + error.message); return; }
-    fetchPaymentRequests();
+      .from('announcements')
+      .update({
+        message: editBMessage.trim(),
+        expiry_date: editBExpiryDate ? new Date(editBExpiryDate).toISOString() : null,
+      })
+      .eq('id', editingBroadcast.id);
+    if (error) { alert('Error updating broadcast: ' + error.message); return; }
+    setEditingBroadcast(null);
+    fetchAnnouncements();
   };
 
   const handleResolveTicket = async (ticketId) => {
@@ -425,14 +403,17 @@ export default function PlatformAdminDashboard() {
       message: bMessage.trim(),
       target_role: bTargetRole,
       target_schools: 'all',
-      type_style: bStyle
+      type_style: bStyle,
+      start_date: bStartDate ? new Date(bStartDate).toISOString() : new Date().toISOString(),
+      expiry_date: bExpiryDate ? new Date(bExpiryDate).toISOString() : null,
     }]);
 
     if (error) {
       alert('Error: ' + error.message);
     } else {
-      alert('Broadcast sent successfully!');
       setBMessage('');
+      setBStartDate('');
+      setBExpiryDate('');
       fetchAnnouncements();
     }
     setSendingBroadcast(false);
@@ -476,14 +457,6 @@ export default function PlatformAdminDashboard() {
         <div className={`tab ${activeTab === 'schools' ? 'active' : ''}`} onClick={() => setActiveTab('schools')}>Tenant Schools</div>
         <div className={`tab ${activeTab === 'plans' ? 'active' : ''}`} onClick={() => setActiveTab('plans')}>Subscription Plans</div>
         <div className={`tab ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>Transactions</div>
-        <div className={`tab ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')} style={{ position: 'relative' }}>
-          Pending Payments
-          {paymentRequests.filter(p => p.status === 'Pending').length > 0 && (
-            <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
-              {paymentRequests.filter(p => p.status === 'Pending').length}
-            </span>
-          )}
-        </div>
         <div className={`tab ${activeTab === 'broadcast' ? 'active' : ''}`} onClick={() => setActiveTab('broadcast')}>Broadcast Center</div>
         <div className={`tab ${activeTab === 'tickets' ? 'active' : ''}`} onClick={() => setActiveTab('tickets')}>Support Tickets</div>
         <div className={`tab ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>Audit Logs</div>
@@ -759,7 +732,7 @@ export default function PlatformAdminDashboard() {
                 </select>
               </div>
               <div>
-                <label className="muted small block mb-2 font-semibold">Notification Style</label>
+                <label className="muted small block mb-2 font-semibold">Style</label>
                 <select className="sp-input" value={bStyle} onChange={e => setBStyle(e.target.value)}>
                   <option value="info">Info (Blue)</option>
                   <option value="success">Success (Green)</option>
@@ -768,7 +741,18 @@ export default function PlatformAdminDashboard() {
               </div>
             </div>
 
-            <button type="submit" disabled={sendingBroadcast} className="btn accent w-full mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="muted small block mb-2 font-semibold">Start Date <span style={{color:'var(--text-faint)'}}>(optional, default: now)</span></label>
+                <input type="datetime-local" className="sp-input" value={bStartDate} onChange={e => setBStartDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="muted small block mb-2 font-semibold">Expiry Date <span style={{color:'var(--text-faint)'}}>(optional, leave blank = permanent)</span></label>
+                <input type="datetime-local" className="sp-input" value={bExpiryDate} onChange={e => setBExpiryDate(e.target.value)} />
+              </div>
+            </div>
+
+            <button type="submit" disabled={sendingBroadcast} className="btn accent w-full mt-2">
               <Send size={16} /> {sendingBroadcast ? 'Sending...' : 'Send Broadcast'}
             </button>
           </form>
@@ -784,32 +768,51 @@ export default function PlatformAdminDashboard() {
                     <th>Message</th>
                     <th>Role</th>
                     <th>Style</th>
-                    <th>Action</th>
+                    <th>Expiry</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loadingBroadcasts ? (
-                    <tr><td colSpan="5" className="text-center py-4 text-muted">Loading history...</td></tr>
+                    <tr><td colSpan="7" className="text-center py-4 text-muted">Loading history...</td></tr>
                   ) : broadcasts.length === 0 ? (
-                    <tr><td colSpan="5" className="text-center py-4 text-muted">No past broadcasts.</td></tr>
+                    <tr><td colSpan="7" className="text-center py-4 text-muted">No past broadcasts.</td></tr>
                   ) : (
-                    broadcasts.map(b => (
-                      <tr key={b.id}>
-                        <td className="text-[10px] text-slate-500">{new Date(b.created_at).toLocaleDateString()}</td>
-                        <td className="text-xs max-w-xs truncate">{b.message}</td>
-                        <td><span className="badge">{b.target_role}</span></td>
-                        <td>
-                          <span className={`badge ${b.type_style === 'warning' ? 'badge-danger' : b.type_style === 'success' ? 'badge-success' : 'badge-info'}`}>
-                            {b.type_style}
-                          </span>
-                        </td>
-                        <td>
-                          <button className="text-red-400 hover:text-red-300 transition-colors" onClick={() => deleteAnnouncement(b.id)}>
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    broadcasts.map(b => {
+                      const isExpired = b.expiry_date && new Date(b.expiry_date) < new Date();
+                      return (
+                        <tr key={b.id} style={{ opacity: isExpired ? 0.55 : 1 }}>
+                          <td className="text-[10px] text-slate-500">{new Date(b.created_at).toLocaleDateString()}</td>
+                          <td className="text-xs max-w-xs truncate">{b.message}</td>
+                          <td><span className="badge">{b.target_role}</span></td>
+                          <td>
+                            <span className={`badge ${b.type_style === 'warning' ? 'badge-danger' : b.type_style === 'success' ? 'badge-success' : 'badge-info'}`}>
+                              {b.type_style}
+                            </span>
+                          </td>
+                          <td className="text-[10px] text-slate-500">
+                            {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : <span className="text-emerald-500 font-bold">Permanent</span>}
+                          </td>
+                          <td>
+                            <span className={`badge ${isExpired ? 'badge-danger' : 'badge-success'}`}>
+                              {isExpired ? 'Expired' : 'Active'}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <button
+                                className="text-indigo-400 hover:text-indigo-300 transition-colors text-xs font-semibold"
+                                onClick={() => { setEditingBroadcast(b); setEditBMessage(b.message); setEditBExpiryDate(b.expiry_date ? new Date(b.expiry_date).toISOString().slice(0,16) : ''); }}
+                              >Edit</button>
+                              <button className="text-red-400 hover:text-red-300 transition-colors text-xs font-semibold" onClick={() => deleteAnnouncement(b.id)}>
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -887,69 +890,6 @@ export default function PlatformAdminDashboard() {
         </div>
       )}
 
-      {/* â”€â”€ SECTION 3b: PENDING PAYMENTS â”€â”€ */}
-      {activeTab === 'payments' && (
-        <div className="card fade-in">
-          <div className="settings-header">
-            <div className="icon-box"><CreditCard size={20} /></div>
-            <div className="text-content">
-              <h4>Pending Payment Requests</h4>
-              <p>Review UPI payments and approve Premium upgrades instantly.</p>
-            </div>
-          </div>
-          <div className="mt-6 space-y-4">
-            {loadingPayments ? (
-              <div className="text-center py-6 text-muted">Loading payment requests...</div>
-            ) : paymentRequests.length === 0 ? (
-              <div className="text-center py-6 text-muted">No payment requests submitted yet.</div>
-            ) : (
-              paymentRequests.map(pr => (
-                <div key={pr.id} className={`border rounded-xl p-4 ${pr.status === 'Approved' ? 'border-emerald-700/50 bg-emerald-900/10'
-                    : pr.status === 'Rejected' ? 'border-red-700/50 bg-red-900/10'
-                      : 'border-amber-700/50 bg-amber-900/10'
-                  }`}>
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h5 className="font-bold flex items-center gap-2">
-                        <Crown size={15} className="text-amber-400" />
-                        {pr.school_settings?.name || 'Unknown School'}
-                      </h5>
-                      <div className="text-xs text-slate-400 mt-1">
-                        UTR: <span className="font-mono font-bold text-slate-200">{pr.utr_number}</span>
-                        {pr.amount && <> â€¢ â‚¹{pr.amount}</>}
-                        {' '} â€¢ {new Date(pr.created_at).toLocaleString()}
-                      </div>
-                    </div>
-                    <span className={`badge ${pr.status === 'Approved' ? 'badge-success'
-                        : pr.status === 'Rejected' ? 'badge-danger'
-                          : 'badge-warn'
-                      }`}>{pr.status}</span>
-                  </div>
-                  {pr.screenshot_url && (
-                    <a href={pr.screenshot_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 mb-3 transition-colors"
-                    >
-                      <ExternalLink size={12} /> View Payment Screenshot
-                    </a>
-                  )}
-                  {pr.status === 'Pending' && (
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                      <button type="button" className="btn outline"
-                        style={{ flex: 1, padding: '6px 12px', fontSize: '12px', width: 'auto', color: '#ef4444', borderColor: '#ef4444' }}
-                        onClick={() => handleRejectPayment(pr)}>
-                        <X size={13} /> Reject
-                      </button>
-                      <button type="button" className="btn accent"
-                        style={{ flex: 2, padding: '6px 12px', fontSize: '12px', width: 'auto' }}
-                        onClick={() => handleApprovePayment(pr)}>
-                        <CheckCircle size={13} /> Approve &amp; Upgrade to Premium
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
         </div>
       )}
 
@@ -1300,6 +1240,40 @@ export default function PlatformAdminDashboard() {
                 <button type="submit" disabled={savingPlan} className="btn accent" style={{ flex: 2 }}>
                   {savingPlan ? 'Saving...' : 'Save Changes'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* —— EDIT BROADCAST MODAL —— */}
+      {editingBroadcast && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '480px' }}>
+            <h3 style={{ marginBottom: '4px' }}>Edit Broadcast</h3>
+            <p className="muted small" style={{ marginBottom: '20px' }}>Update the message or change the expiry window.</p>
+            <form onSubmit={handleUpdateBroadcast} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px', fontWeight: 700 }}>Message</label>
+                <textarea
+                  required rows={4} className="sp-input block w-full"
+                  value={editBMessage}
+                  onChange={e => setEditBMessage(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px', fontWeight: 700 }}>
+                  Expiry Date <span style={{ color: 'var(--text-faint)' }}>(clear to make permanent)</span>
+                </label>
+                <input
+                  type="datetime-local" className="sp-input block w-full"
+                  value={editBExpiryDate}
+                  onChange={e => setEditBExpiryDate(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => setEditingBroadcast(null)}>Cancel</button>
+                <button type="submit" className="btn accent" style={{ flex: 2 }}>Save Changes</button>
               </div>
             </form>
           </div>

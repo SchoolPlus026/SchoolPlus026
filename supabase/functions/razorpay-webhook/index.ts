@@ -79,10 +79,12 @@ serve(async (req) => {
       throw new Error('Failed to update transaction');
     }
 
-    // 3. Extend Subscription End Date
+    // 3. Extend Subscription End Date — STACKING FIX
+    // We fetch both subscription_end_date AND trial_start_date so we can
+    // stack on top of whichever date is furthest in the future.
     const { data: schoolSettings, error: schoolError } = await supabaseAdmin
       .from('school_settings')
-      .select('subscription_end_date')
+      .select('subscription_end_date, trial_start_date, plan_type')
       .eq('school_id', transaction.school_id)
       .single();
 
@@ -92,17 +94,35 @@ serve(async (req) => {
     }
 
     const validityDays = transaction.subscription_plans?.validity_days || 30;
-    let newEndDate = new Date();
+    const now = new Date();
 
+    // Start from today as the baseline
+    let baseDate = now;
+
+    // If there's an existing active subscription in the future, use that
     if (schoolSettings.subscription_end_date) {
-      const currentEnd = new Date(schoolSettings.subscription_end_date);
-      if (currentEnd > newEndDate) {
-        newEndDate = currentEnd;
+      const existingEnd = new Date(schoolSettings.subscription_end_date);
+      if (existingEnd > baseDate) {
+        baseDate = existingEnd;
+        console.log(`[Webhook] Stacking on existing subscription ending: ${existingEnd.toISOString()}`);
       }
     }
-    
-    // Add validity days
+
+    // If the school is on a trial, stack on top of remaining trial days too
+    if (schoolSettings.plan_type === 'trial' && schoolSettings.trial_start_date) {
+      // Standard trial is 14 days
+      const trialEnd = new Date(schoolSettings.trial_start_date);
+      trialEnd.setDate(trialEnd.getDate() + 14);
+      if (trialEnd > baseDate) {
+        baseDate = trialEnd;
+        console.log(`[Webhook] Stacking on remaining trial days ending: ${trialEnd.toISOString()}`);
+      }
+    }
+
+    // Add the new plan's validity on top of the furthest future date
+    let newEndDate = new Date(baseDate);
     newEndDate.setDate(newEndDate.getDate() + validityDays);
+    console.log(`[Webhook] New subscription end date: ${newEndDate.toISOString()} (+${validityDays} days from ${baseDate.toISOString()})`);
 
     const { error: updateSchoolError } = await supabaseAdmin
       .from('school_settings')
