@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
-import { BookOpen, Plus, Trash2, Edit2, X, Play, Save, ChevronDown, ChevronUp, Youtube, HardDrive } from 'lucide-react';
+import { BookOpen, Plus, Trash2, Edit2, X, Play, Save, ChevronDown, ChevronUp, Youtube, HardDrive, Loader2 } from 'lucide-react';
 
 function extractYouTubeThumbnail(url) {
   const m = url?.match(/(?:youtu\.be\/|v=|embed\/)([^?&]+)/);
@@ -52,22 +52,47 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
   const [videoUrl, setVideoUrl]       = useState(initial.video_url || '');
   const [sortOrder, setSortOrder]     = useState(initial.sort_order ?? 0);
   const [isPublished, setIsPublished] = useState(initial.is_published !== false);
+  const [uploading, setUploading]     = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileRef = React.useRef(null);
 
-  // Auto-generate YouTube thumbnail preview
   const ytThumb = videoType === 'youtube' ? extractYouTubeThumbnail(videoUrl) : null;
+
+  async function handleDriveUpload(file) {
+    if (!file) return;
+    setUploading(true); setUploadError('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = { Authorization: `Bearer ${session?.access_token}` };
+
+      const { data: folderData, error: folderErr } = await supabase.functions.invoke('gdrive-upload', {
+        body: { action: 'create_folder', folderName: 'SchoolOS_KnowledgeBase', driveIndex: 0 }, headers,
+      });
+      if (folderErr || folderData?.error) throw new Error(folderData?.error || 'Could not create Drive folder');
+
+      const reader = new FileReader();
+      const fileBase64 = await new Promise((res, rej) => {
+        reader.onload = () => res(reader.result.split(',')[1]);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+
+      const { data: uploadData, error: uploadErr } = await supabase.functions.invoke('gdrive-upload', {
+        body: {
+          action: 'upload_file', parentFolderId: folderData.id,
+          fileName: `kb_${Date.now()}_${file.name}`,
+          mimeType: file.type || 'video/mp4', fileBase64,
+        }, headers,
+      });
+      if (uploadErr || uploadData?.error) throw new Error(uploadData?.error || 'Upload failed');
+      setVideoUrl(`https://drive.google.com/file/d/${uploadData.id}/preview`);
+    } catch (err) { setUploadError(err.message); }
+    finally { setUploading(false); }
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({
-      category_id:   categoryId,
-      title:         title.trim(),
-      description:   description.trim(),
-      video_type:    videoType,
-      video_url:     videoUrl.trim(),
-      thumbnail_url: ytThumb || null,
-      sort_order:    Number(sortOrder),
-      is_published:  isPublished,
-    });
+    onSave({ category_id: categoryId, title: title.trim(), description: description.trim(), video_type: videoType, video_url: videoUrl.trim(), thumbnail_url: ytThumb || null, sort_order: Number(sortOrder), is_published: isPublished });
   };
 
   return (
@@ -81,7 +106,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
         </div>
         <div>
           <label className="muted small block mb-1 font-semibold">Video Type *</label>
-          <select required className="sp-input block w-full" value={videoType} onChange={e => setVideoType(e.target.value)}>
+          <select required className="sp-input block w-full" value={videoType} onChange={e => { setVideoType(e.target.value); setVideoUrl(''); }}>
             <option value="youtube">YouTube</option>
             <option value="gdrive">Google Drive</option>
           </select>
@@ -95,24 +120,43 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
 
       <div>
         <label className="muted small block mb-1 font-semibold">Description (optional)</label>
-        <input className="sp-input block w-full" placeholder="Brief description of what this tutorial covers" value={description} onChange={e => setDescription(e.target.value)} />
+        <input className="sp-input block w-full" placeholder="Brief description" value={description} onChange={e => setDescription(e.target.value)} />
       </div>
 
       <div>
         <label className="muted small block mb-1 font-semibold">
-          {videoType === 'youtube' ? 'YouTube URL *' : 'Google Drive Video URL *'}
+          {videoType === 'youtube' ? 'YouTube URL *' : 'Google Drive Video'}
         </label>
-        <div className="flex gap-2 items-center">
-          {videoType === 'youtube'
-            ? <Youtube size={18} className="text-red-400 flex-shrink-0" />
-            : <HardDrive size={18} className="text-blue-400 flex-shrink-0" />}
-          <input
-            required className="sp-input block w-full"
-            placeholder={videoType === 'youtube' ? 'https://youtu.be/...' : 'https://drive.google.com/file/d/...'}
-            value={videoUrl}
-            onChange={e => setVideoUrl(e.target.value)}
-          />
-        </div>
+        {videoType === 'youtube' ? (
+          <div className="flex gap-2 items-center">
+            <Youtube size={18} className="text-red-400 flex-shrink-0" />
+            <input required className="sp-input block w-full" placeholder="https://youtu.be/..." value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
+          </div>
+        ) : (
+          <div>
+            <input type="hidden" ref={fileRef} />
+            {videoUrl ? (
+              <div className="flex items-center gap-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-xl">
+                <HardDrive size={18} className="text-blue-400 flex-shrink-0" />
+                <span className="text-sm text-blue-300 flex-1 truncate">{videoUrl}</span>
+                <button type="button" onClick={() => setVideoUrl('')} className="text-red-400 hover:text-red-300"><X size={14} /></button>
+              </div>
+            ) : (
+              <div
+                onClick={() => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'video/*'; inp.onchange = e => handleDriveUpload(e.target.files[0]); inp.click(); }}
+                style={{ border: '2px dashed rgba(59,130,246,0.4)', borderRadius: 12, padding: '24px 16px', textAlign: 'center', cursor: uploading ? 'wait' : 'pointer', background: 'rgba(59,130,246,0.05)' }}>
+                {uploading ? (
+                  <><Loader2 size={24} className="animate-spin text-blue-400 mx-auto mb-2" /><div className="text-sm text-blue-300">Uploading to Google Drive...</div></>
+                ) : (
+                  <><HardDrive size={24} className="text-blue-400 mx-auto mb-2" /><div className="text-sm text-slate-300 font-semibold">Click to upload video to Google Drive</div><div className="text-xs text-slate-500 mt-1">MP4, MOV, AVI supported</div></>
+                )}
+              </div>
+            )}
+            {uploadError && <div className="text-red-400 text-xs mt-2">{uploadError}</div>}
+            <div className="text-xs text-slate-500 mt-2">Or paste a Drive URL directly:</div>
+            <input className="sp-input block w-full mt-1" placeholder="https://drive.google.com/file/d/..." value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
+          </div>
+        )}
         {ytThumb && (
           <div className="mt-2 rounded-xl overflow-hidden border border-slate-700/50" style={{ maxWidth: 240 }}>
             <img src={ytThumb} alt="Thumbnail preview" className="w-full" />
@@ -127,8 +171,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
           <input type="number" min="0" className="sp-input block w-full" value={sortOrder} onChange={e => setSortOrder(e.target.value)} />
         </div>
         <div className="flex items-center gap-2 mt-5">
-          <input type="checkbox" id="isPublished" checked={isPublished} onChange={e => setIsPublished(e.target.checked)}
-            style={{ width: 18, height: 18, accentColor: 'var(--accent)' }} />
+          <input type="checkbox" id="isPublished" checked={isPublished} onChange={e => setIsPublished(e.target.checked)} style={{ width: 18, height: 18, accentColor: 'var(--accent)' }} />
           <label htmlFor="isPublished" className="text-sm font-semibold cursor-pointer">Published (visible to all users)</label>
         </div>
       </div>
@@ -142,6 +185,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
     </form>
   );
 }
+
 
 // ─── Main Panel ─────────────────────────────────────────────────────────────
 export default function PlatformKnowledgeBaseManager() {

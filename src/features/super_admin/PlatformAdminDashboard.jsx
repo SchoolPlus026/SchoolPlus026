@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2 } from 'lucide-react';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import PlatformKnowledgeBaseManager from '../knowledge-base/PlatformKnowledgeBaseManager';
@@ -53,6 +53,9 @@ export default function PlatformAdminDashboard() {
   const [privacyPolicy, setPrivacyPolicy] = useState('');
   const [supportEmail, setSupportEmail] = useState('');
   const [savingPlatform, setSavingPlatform] = useState(false);
+  const [paGdriveConfig, setPaGdriveConfig] = useState([]);
+  const [connectingDrive, setConnectingDrive] = useState(false);
+  const [disconnectingDrive, setDisconnectingDrive] = useState(false);
 
   // Broadcast State
   const [bMessage, setBMessage] = useState('');
@@ -358,6 +361,8 @@ export default function PlatformAdminDashboard() {
       setRefundPolicy(data.refund_policy || '');
       setPrivacyPolicy(data.privacy_policy || '');
       setSupportEmail(data.support_email || 'schoolpro026@gmail.com');
+      const gd = Array.isArray(data.pa_gdrive_config) ? data.pa_gdrive_config : (data.pa_gdrive_config ? [data.pa_gdrive_config] : []);
+      setPaGdriveConfig(gd);
     }
   };
 
@@ -1045,6 +1050,55 @@ export default function PlatformAdminDashboard() {
             <button onClick={handleSavePlatform} disabled={savingPlatform} className="btn accent w-full mt-4">
               <Save size={16} /> {savingPlatform ? 'Saving...' : 'Save Settings'}
             </button>
+          </div>
+
+          {/* ---- PLATFORM GDRIVE ---- */}
+          <div className="mt-6" style={{ borderTop: '1px solid var(--card-border)', paddingTop: 24 }}>
+            <div className="settings-header">
+              <div className="icon-box"><HardDrive size={20} /></div>
+              <div className="text-content">
+                <h4>Platform Google Drive</h4>
+                <p>Connect P.A. Google Drive for Knowledge Base video uploads.</p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {paGdriveConfig.map((drive, idx) => (
+                <div key={drive.id || idx} className="p-4 border border-green-500/30 bg-green-500/10 rounded-xl flex items-center gap-3">
+                  <div className="flex-1 text-sm">
+                    <div className="font-bold text-green-400">✓ Drive Connected</div>
+                    <div className="text-slate-400 text-xs mt-0.5">{drive.email || `Folder: ${drive.folder_id}`}</div>
+                  </div>
+                  <button className="btn outline" style={{ padding: '6px 12px', fontSize: 12 }}
+                    disabled={disconnectingDrive}
+                    onClick={async () => {
+                      if (!window.confirm('Disconnect this Drive?')) return;
+                      setDisconnectingDrive(true);
+                      const updated = [...paGdriveConfig];
+                      updated.splice(idx, 1);
+                      await supabase.from('platform_settings').update({ pa_gdrive_config: updated }).eq('id', 1);
+                      setPaGdriveConfig(updated);
+                      setDisconnectingDrive(false);
+                    }}>
+                    {disconnectingDrive ? 'Disconnecting...' : 'Disconnect'}
+                  </button>
+                </div>
+              ))}
+              <button
+                className="btn accent w-full"
+                disabled={connectingDrive}
+                onClick={async () => {
+                  setConnectingDrive(true);
+                  const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-auth`;
+                  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+                  const state = JSON.stringify({ school_id: 'platform_admin', drive_index: paGdriveConfig.length });
+                  const scope = 'https://www.googleapis.com/auth/drive.file';
+                  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
+                  window.open(authUrl, '_blank');
+                  setConnectingDrive(false);
+                }}>
+                {connectingDrive ? <><Loader2 size={16} className="animate-spin" /> Connecting...</> : <><Plus size={16} /> {paGdriveConfig.length > 0 ? 'Add Another Drive' : 'Connect Platform Google Drive'}</>}
+              </button>
+            </div>
           </div>
         </div>
       )}
