@@ -1,3 +1,4 @@
+// approve-school-registration — v1.0.37
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -167,7 +168,6 @@ serve(async (req) => {
     const tempPassword      = override_admin_password || generateTempPassword();
 
     // 5. Invoke platform-create-school (reuse existing provisioning logic)
-    const { data: { session: callerSession } } = await supabaseAnon.auth.getSession();
     const provisionRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/platform-create-school`, {
       method: 'POST',
       headers: {

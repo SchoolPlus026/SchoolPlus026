@@ -41,7 +41,7 @@ jobs:
           # Note: platform-create-school DOES verify JWT (called by authenticated UI users)
           # Note: notification functions skip JWT verification (called by pg_net server triggers)
           FUNCTIONS_NO_JWT=("send-notice-notification" "process-notification-queue" "cron-notification-scheduler")
-          FUNCTIONS_WITH_JWT=("platform-create-school" "platform-delete-school" "school-self-upgrade" "gdrive-upload" "gdrive-auth")
+          FUNCTIONS_WITH_JWT=("platform-create-school" "platform-delete-school" "approve-school-registration" "school-self-upgrade" "gdrive-upload" "gdrive-auth")
           
           for func in "${FUNCTIONS_NO_JWT[@]}"; do
             if [ -d "supabase/functions/$func" ]; then
