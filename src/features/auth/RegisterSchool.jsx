@@ -179,7 +179,7 @@ export default function RegisterSchool() {
       if (!form.admin_email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.admin_email)) return 'Valid admin email is required.';
       if (!form.admin_username.trim() || form.admin_username.length < 4) return 'Username must be at least 4 characters.';
       if (!/^[a-z0-9_]+$/.test(form.admin_username)) return 'Username: lowercase, numbers, underscores only.';
-      if (!form.admin_password || form.admin_password.length !== 6) return 'Password must be exactly 6 characters.';
+      if (!form.admin_password || form.admin_password.length < 6) return 'Password must be at least 6 characters.';
       if (form.admin_password !== form.admin_confirm_password) return 'Passwords do not match.';
     }
     if (step === 2) {
@@ -188,7 +188,8 @@ export default function RegisterSchool() {
     return null;
   };
 
-  const next = () => { const e = validateStep(); if (e) { setError(e); return; } setStep(s => s + 1); };
+  // Free navigation — Next never blocks. Validation fires on Submit only.
+  const next = () => { setError(''); setStep(s => s + 1); };
   const prev = () => { setStep(s => s - 1); setError(''); };
 
   const handleSubmit = async (e) => {

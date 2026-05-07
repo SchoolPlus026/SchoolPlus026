@@ -8,13 +8,19 @@ import { useAppStore } from '../../store/useAppStore';
 import { usePlan } from '../../hooks/usePlan';
 import {
   Crown, CheckCircle, Clock, CreditCard, AlertTriangle,
-  Loader2, Zap
+  Loader2, Zap, ChevronDown, ChevronUp, Trash2,
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 
 const fmtDate = (d) => d
   ? `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`
   : '—';
+
+const fmtDateTime = (s) => {
+  if (!s) return '—';
+  const d = new Date(s);
+  return `${fmtDate(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+};
 
 const PREMIUM_FEATURES = [
   '💰 Fees & Payment Management',
@@ -46,8 +52,92 @@ function Toast({ msg, type }) {
   );
 }
 
+/* ── Accordion Transaction Row ── */
+function TransactionRow({ tx, isLast, onDelete }) {
+  const [expanded, setExpanded] = useState(false);
+  const statusColor = tx.status === 'SUCCESSFUL'
+    ? { bg: 'rgba(52,211,153,0.1)', fg: '#34d399' }
+    : tx.status === 'FAILED'
+      ? { bg: 'rgba(248,113,113,0.1)', fg: '#f87171' }
+      : { bg: 'rgba(251,191,36,0.1)', fg: '#fbbf24' };
+
+  return (
+    <div style={{ borderBottom: isLast ? 'none' : '1px solid var(--card-border)' }}>
+      {/* Collapsed row — click to expand */}
+      <div
+        onClick={() => setExpanded(v => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '14px 16px', cursor: 'pointer',
+          background: expanded ? 'rgba(79,70,229,0.04)' : 'transparent',
+          transition: 'background 0.15s',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+              {tx.subscription_plans?.name || 'Subscription'}
+            </span>
+            <span style={{
+              padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 800,
+              background: statusColor.bg, color: statusColor.fg,
+            }}>
+              {tx.status}
+            </span>
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {fmtDate(new Date(tx.created_at))} &nbsp;·&nbsp; ₹{(tx.amount_paise / 100).toFixed(2)}
+          </div>
+        </div>
+        {expanded ? <ChevronUp size={16} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
+                  : <ChevronDown size={16} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />}
+      </div>
+
+      {/* Expanded detail panel */}
+      {expanded && (
+        <div style={{
+          padding: '0 16px 16px',
+          background: 'rgba(79,70,229,0.03)',
+          borderTop: '1px solid var(--card-border)',
+          animation: 'fcmFadeIn 0.15s ease',
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '12px', marginBottom: '14px' }}>
+            {[
+              ['Plan', tx.subscription_plans?.name || '—'],
+              ['Amount', `₹${(tx.amount_paise / 100).toFixed(2)}`],
+              ['Status', tx.status],
+              ['Date & Time', fmtDateTime(tx.created_at)],
+              ['Razorpay Order ID', tx.razorpay_order_id || '—'],
+              ['Payment ID', tx.razorpay_payment_id || '—'],
+            ].map(([label, value]) => (
+              <div key={label} style={{ padding: '10px 12px', borderRadius: '10px', background: 'var(--glass)', border: '1px solid var(--card-border)' }}>
+                <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>{label}</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', fontFamily: label.includes('ID') ? 'monospace' : 'inherit', wordBreak: 'break-all' }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(tx.id); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '8px 16px', borderRadius: '10px',
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+              color: '#f87171', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+          >
+            <Trash2 size={13} /> Delete Record
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ManageSubscription() {
-  const { schoolSettings, fetchSettings } = useAppStore();
+  const { schoolSettings } = useAppStore();
   const { planType, isTrial, isFree, isPremium, billingCycle, trialDaysLeft, subDaysLeft, subEnd, trialStart } = usePlan();
 
   const [plans, setPlans] = useState([]);
@@ -72,7 +162,6 @@ export default function ManageSubscription() {
       window.document.body.appendChild(script);
     }
 
-    // Fetch active subscription plans
     const fetchPlans = async () => {
       setLoadingPlans(true);
       const { data, error } = await supabase
@@ -80,10 +169,7 @@ export default function ManageSubscription() {
         .select('*')
         .eq('is_active', true)
         .order('amount_paise', { ascending: true });
-        
-      if (!error && data) {
-        setPlans(data);
-      }
+      if (!error && data) setPlans(data);
       setLoadingPlans(false);
     };
 
@@ -95,16 +181,24 @@ export default function ManageSubscription() {
         .select('*, subscription_plans(name)')
         .eq('school_id', schoolSettings.school_id)
         .order('created_at', { ascending: false });
-        
-      if (!error && data) {
-        setTransactions(data);
-      }
+      if (!error && data) setTransactions(data);
       setLoadingTx(false);
     };
 
     fetchPlans();
     fetchTransactions();
   }, [schoolSettings?.school_id]);
+
+  const handleDeleteTransaction = async (id) => {
+    if (!window.confirm('Delete this transaction record? This cannot be undone.')) return;
+    const { error } = await supabase
+      .from('subscription_transactions')
+      .delete()
+      .eq('id', id);
+    if (error) { showToast('Delete failed: ' + error.message, 'error'); return; }
+    setTransactions(prev => prev.filter(t => t.id !== id));
+    showToast('Transaction deleted.', 'success');
+  };
 
   const handleBuyPlan = async (plan) => {
     if (!window.Razorpay) {
@@ -115,7 +209,6 @@ export default function ManageSubscription() {
     setProcessingPlanId(plan.id);
 
     try {
-      // 1. Call Edge Function to create order
       const { data, error } = await supabase.functions.invoke('create-razorpay-order', {
         body: { plan_id: plan.id, school_id: schoolSettings.school_id }
       });
@@ -123,7 +216,6 @@ export default function ManageSubscription() {
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
 
-      // 2. Configure Razorpay Options
       const options = {
         key: data.key_id,
         amount: data.amount,
@@ -131,68 +223,47 @@ export default function ManageSubscription() {
         name: 'SchoolOS+',
         description: `${plan.name} Subscription`,
         order_id: data.order_id,
-        notes: {
-          school_id: schoolSettings.school_id,
-          plan_type: plan.name
-        },
-        handler: async function (response) {
+        notes: { school_id: schoolSettings.school_id, plan_type: plan.name },
+        handler: async function () {
           showToast('Payment Processing... Activating Premium.', 'success');
-          
-          // Poll database to confirm webhook processed the payment
           let attempts = 0;
           const pollInterval = setInterval(async () => {
             attempts++;
-            const { data, error } = await supabase
+            const { data: s } = await supabase
               .from('school_settings')
               .select('*')
               .eq('school_id', schoolSettings.school_id)
               .single();
-              
-            if (!error && data && data.subscription_tier === 'Premium') {
+            if (s?.subscription_tier === 'Premium') {
               clearInterval(pollInterval);
-              useAppStore.getState().setSchoolSettings(data);
+              useAppStore.getState().setSchoolSettings(s);
               showToast('✨ Premium Activated Successfully!', 'success');
-              // Give it a moment, then refresh to re-render all Premium components
               setTimeout(() => window.location.reload(), 1500);
             }
-            
-            if (attempts >= 8) { // 16 seconds timeout
+            if (attempts >= 8) {
               clearInterval(pollInterval);
-              showToast('Taking longer than expected. Please refresh the page in a minute.', 'error');
+              showToast('Taking longer than expected. Please refresh in a minute.', 'error');
             }
           }, 2000);
         },
-        prefill: {
-          name: schoolSettings.name,
-        },
-        theme: {
-          color: '#4f46e5'
-        }
+        prefill: { name: schoolSettings.name },
+        theme: { color: '#4f46e5' },
       };
 
-      // 3. Open Razorpay Checkout Modal
       if (Capacitor.isNativePlatform() && window.RazorpayCheckout) {
         try {
-          window.RazorpayCheckout.open(options, 
-            function(successResponse) {
-              // On success, manually trigger our polling handler
-              options.handler(successResponse);
-            }, 
-            function(errorResponse) {
-              showToast(`Payment Failed or Cancelled: ${errorResponse.description || errorResponse.message || 'User Closed'}`, 'error');
-            }
+          window.RazorpayCheckout.open(options,
+            (successResponse) => options.handler(successResponse),
+            (errorResponse) => showToast(`Payment Failed: ${errorResponse.description || 'User Closed'}`, 'error')
           );
         } catch (nativeErr) {
           showToast(`Plugin Error: ${nativeErr.message || nativeErr}`, 'error');
         }
       } else {
         const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', function (response) {
-          showToast(`Payment Failed: ${response.error.description}`, 'error');
-        });
+        rzp.on('payment.failed', (response) => showToast(`Payment Failed: ${response.error.description}`, 'error'));
         rzp.open();
       }
-
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -260,7 +331,6 @@ export default function ManageSubscription() {
           {isCurrentlyPremium ? 'Renew / Change Plan' : 'Upgrade to Premium'}
         </div>
 
-        {/* Feature list globally */}
         <div className="sp-card mb-6" style={{ background: 'linear-gradient(145deg,rgba(79,70,229,0.05),rgba(124,58,237,0.03))' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '10px' }}>
             {PREMIUM_FEATURES.map(f => (
@@ -272,7 +342,6 @@ export default function ManageSubscription() {
           </div>
         </div>
 
-        {/* Plans Grid */}
         {loadingPlans ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px' }}>
             <Loader2 size={24} style={{ color: '#818cf8', animation: 'spin 1s linear infinite' }} />
@@ -301,7 +370,7 @@ export default function ManageSubscription() {
                     <Crown size={20} color="#818cf8" />
                   </div>
                 </div>
-                
+
                 <div style={{ fontSize: '32px', fontWeight: 900, color: 'white', marginBottom: '24px' }}>
                   <span style={{ fontSize: '16px', color: '#64748b', marginRight: '4px' }}>₹</span>
                   {(plan.amount_paise / 100).toFixed(0)}
@@ -320,11 +389,10 @@ export default function ManageSubscription() {
                       opacity: processingPlanId === plan.id ? 0.7 : 1,
                     }}
                   >
-                    {processingPlanId === plan.id ? (
-                      <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Processing...</>
-                    ) : (
-                      <><Zap size={16} /> Buy Now</>
-                    )}
+                    {processingPlanId === plan.id
+                      ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Processing...</>
+                      : <><Zap size={16} /> Buy Now</>
+                    }
                   </button>
                 </div>
               </div>
@@ -333,10 +401,10 @@ export default function ManageSubscription() {
         )}
       </div>
 
-      {/* Transaction History Section */}
+      {/* Transaction History — Accordion */}
       <div className="mt-12">
         <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px' }}>
-          Transaction & Subscription History
+          Transaction &amp; Subscription History
         </div>
         <div className="sp-card" style={{ padding: 0, overflow: 'hidden' }}>
           {loadingTx ? (
@@ -346,37 +414,15 @@ export default function ManageSubscription() {
           ) : transactions.length === 0 ? (
             <div className="text-center py-8 text-muted" style={{ fontSize: '13px' }}>No transactions found.</div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--card-border)' }}>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>DATE</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>PLAN</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>AMOUNT</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>ORDER ID</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 700 }}>STATUS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map(tx => (
-                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>{fmtDate(new Date(tx.created_at))}</td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 600 }}>{tx.subscription_plans?.name || 'Unknown'}</td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>₹{(tx.amount_paise / 100).toFixed(2)}</td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{tx.razorpay_order_id}</td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <span style={{
-                          padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 800,
-                          background: tx.status === 'SUCCESSFUL' ? 'rgba(52,211,153,0.1)' : tx.status === 'FAILED' ? 'rgba(248,113,113,0.1)' : 'rgba(251,191,36,0.1)',
-                          color: tx.status === 'SUCCESSFUL' ? '#34d399' : tx.status === 'FAILED' ? '#f87171' : '#fbbf24'
-                        }}>
-                          {tx.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div>
+              {transactions.map((tx, idx) => (
+                <TransactionRow
+                  key={tx.id}
+                  tx={tx}
+                  isLast={idx === transactions.length - 1}
+                  onDelete={handleDeleteTransaction}
+                />
+              ))}
             </div>
           )}
         </div>

@@ -225,6 +225,12 @@ function UpdateModal({ version, onDismiss, onDownload }) {
   );
 }
 
+// Module-level singleton: prevents re-checking on component remount.
+// App.jsx renders {user && <VersionChecker />} which unmounts/remounts on
+// background auth refreshes. This flag ensures the Supabase query fires once
+// per app session regardless of how many times the component mounts.
+let versionCheckDone = false;
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VersionChecker() {
   const [updateInfo, setUpdateInfo]       = useState(null);
@@ -233,7 +239,9 @@ export default function VersionChecker() {
   useEffect(() => {
     // Only run on native Android (web builds are always "latest")
     if (!Capacitor.isNativePlatform()) return;
-
+    // Singleton guard: if this module already ran the check this session, skip.
+    if (versionCheckDone) return;
+    versionCheckDone = true;
     let cancelled = false;
 
     async function checkVersion() {
