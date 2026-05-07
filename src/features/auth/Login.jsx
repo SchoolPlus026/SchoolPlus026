@@ -17,17 +17,21 @@ export default function Login() {
   const { setUserAndRole, setSchoolSettings, schoolSettings } = useAppStore();
   const navigate = useNavigate();
 
+  // Fetch global branding once on mount only
   useEffect(() => {
-    // Fetch global branding
     supabase.from('platform_settings').select('app_name, logo_url').single()
       .then(({ data }) => {
         if (data) setGlobalApp({ name: data.app_name || 'SchoolOS+', logo: data.logo_url });
       }).catch(console.error);
-      
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If persisted school settings exist on mount (e.g., user already at step 1 from previous visit),
+  // advance to step 2 automatically. Only fires once when schoolSettings first becomes truthy.
+  useEffect(() => {
     if (schoolSettings?.school_id && step === 1) {
       setStep(2);
     }
-  }, [schoolSettings, step]);
+  }, [schoolSettings?.school_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleIdentifySchool = async (e) => {
     e.preventDefault();

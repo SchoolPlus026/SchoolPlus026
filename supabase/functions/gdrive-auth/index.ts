@@ -59,27 +59,67 @@ async function processDriveAuth(code: string, school_id: string, redirect_uri: s
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   )
 
-  const { data: currentSettings } = await supabaseAdmin.from('school_settings').select('gdrive_config').eq('school_id', school_id).single();
-
-  let existingConfig = currentSettings?.gdrive_config || [];
-  if (!Array.isArray(existingConfig)) existingConfig = [existingConfig];
-  existingConfig = existingConfig.filter(Boolean);
-
-  if (existingConfig.some((d: any) => d.email === email)) {
-    throw new Error(`Google account ${email} is already connected.`)
-  }
-
-  existingConfig.push({
+  const newEntry = {
     id: crypto.randomUUID(),
     email,
     refresh_token,
     folder_id: folderData.id,
     storageQuota,
     connected_at: new Date().toISOString()
-  });
+  };
 
-  const { error: dbError } = await supabaseAdmin.from('school_settings').update({ gdrive_config: existingConfig }).eq('school_id', school_id)
-  if (dbError) throw dbError
+  // ── BRANCH: Platform Admin saves to platform_settings.pa_gdrive_config ──
+  // ──         School users save to school_settings.gdrive_config ──────────
+  if (school_id === 'platform_admin') {
+    const { data: platData } = await supabaseAdmin
+      .from('platform_settings')
+      .select('pa_gdrive_config')
+      .limit(1)
+      .single();
+
+    let existingConfig: any[] = Array.isArray(platData?.pa_gdrive_config)
+      ? platData.pa_gdrive_config
+      : (platData?.pa_gdrive_config ? [platData.pa_gdrive_config] : []);
+    existingConfig = existingConfig.filter(Boolean);
+
+    if (existingConfig.some((d: any) => d.email === email)) {
+      throw new Error(`Google account ${email} is already connected.`)
+    }
+
+    existingConfig.push(newEntry);
+
+    const { error: dbError } = await supabaseAdmin
+      .from('platform_settings')
+      .update({ pa_gdrive_config: existingConfig })
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Matches the single row
+
+    if (dbError) throw dbError;
+  } else {
+    // Normal school flow — save to school_settings
+    const { data: currentSettings } = await supabaseAdmin
+      .from('school_settings')
+      .select('gdrive_config')
+      .eq('school_id', school_id)
+      .single();
+
+    let existingConfig: any[] = Array.isArray(currentSettings?.gdrive_config)
+      ? currentSettings.gdrive_config
+      : (currentSettings?.gdrive_config ? [currentSettings.gdrive_config] : []);
+    existingConfig = existingConfig.filter(Boolean);
+
+    if (existingConfig.some((d: any) => d.email === email)) {
+      throw new Error(`Google account ${email} is already connected.`)
+    }
+
+    existingConfig.push(newEntry);
+
+    const { error: dbError } = await supabaseAdmin
+      .from('school_settings')
+      .update({ gdrive_config: existingConfig })
+      .eq('school_id', school_id);
+
+    if (dbError) throw dbError;
+  }
 
   return { folder_id: folderData.id, email }
 }
@@ -99,8 +139,6 @@ serve(async (req) => {
       
       const school_id = state
       
-      // Use SUPABASE_URL env var to guarantee it exactly matches what the frontend used
-      // (url.origin can sometimes evaluate to http:// instead of https:// behind the Supabase Kong API gateway)
       let supabaseUrl = Deno.env.get('SUPABASE_URL') || url.origin;
       if (supabaseUrl.endsWith('/')) supabaseUrl = supabaseUrl.slice(0, -1);
       const redirect_uri = `${supabaseUrl}/functions/v1/gdrive-auth`

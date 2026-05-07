@@ -1195,8 +1195,12 @@ export default function PlatformAdminDashboard() {
                       setDisconnectingDrive(true);
                       const updated = [...paGdriveConfig];
                       updated.splice(idx, 1);
-                      await supabase.from('platform_settings').update({ pa_gdrive_config: updated }).eq('id', 1);
-                      setPaGdriveConfig(updated);
+                      const { error: discErr } = await supabase
+                        .from('platform_settings')
+                        .update({ pa_gdrive_config: updated })
+                        .neq('id', '00000000-0000-0000-0000-000000000000');
+                      if (discErr) { alert('Error disconnecting: ' + discErr.message); }
+                      else { setPaGdriveConfig(updated); }
                       setDisconnectingDrive(false);
                     }}>
                     {disconnectingDrive ? 'Disconnecting...' : 'Disconnect'}
@@ -1216,11 +1220,12 @@ export default function PlatformAdminDashboard() {
                   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent${state}`;
                   
                   if (isNative) {
-                     await Browser.open({ url: authUrl });
+                     // On native, Browser.open() is non-blocking. Keep spinner ON.
+                     // browserFinished listener (in useEffect) will call fetchPlatformSettings and setConnectingDrive(false).
+                     Browser.open({ url: authUrl });
                   } else {
                      window.location.href = authUrl;
                   }
-                  setConnectingDrive(false);
                 }}>
                 {connectingDrive ? <><Loader2 size={16} className="animate-spin" /> Connecting...</> : <><Plus size={16} /> {paGdriveConfig.length > 0 ? 'Add Another Drive' : 'Connect Platform Google Drive'}</>}
               </button>
