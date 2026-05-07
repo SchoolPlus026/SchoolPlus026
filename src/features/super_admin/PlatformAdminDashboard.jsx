@@ -3,14 +3,30 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2 } from 'lucide-react';
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import PlatformKnowledgeBaseManager from '../knowledge-base/PlatformKnowledgeBaseManager';
 import RegistrationsInbox from './RegistrationsInbox';
 
 export default function PlatformAdminDashboard() {
   const { user, setImpersonation } = useAppStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('schools');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  const PA_MODULES = [
+    { id: 'analytics',     name: 'Analytics',       icon: <Activity size={26} />,      colorHex: '#22d3ee', bgRgb: '34,211,238' },
+    { id: 'schools',       name: 'Tenant Schools',  icon: <Building size={26} />,      colorHex: '#60a5fa', bgRgb: '96,165,250' },
+    { id: 'registrations', name: 'Registrations',   icon: <Users size={26} />,         colorHex: '#fb7185', bgRgb: '251,113,133', badge: true },
+    { id: 'plans',         name: 'Pricing Plans',   icon: <CreditCard size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153' },
+    { id: 'transactions',  name: 'Transactions',    icon: <DollarSign size={26} />,    colorHex: '#818cf8', bgRgb: '129,140,248' },
+    { id: 'broadcast',     name: 'Broadcasts',      icon: <Megaphone size={26} />,     colorHex: '#fbbf24', bgRgb: '251,191,36' },
+    { id: 'tickets',       name: 'Support Tickets', icon: <HelpCircle size={26} />,    colorHex: '#c084fc', bgRgb: '192,132,252' },
+    { id: 'kb',            name: 'Knowledge Base',  icon: <BookOpen size={26} />,      colorHex: '#f472b6', bgRgb: '244,114,182' },
+    { id: 'audit',         name: 'Audit Logs',      icon: <Shield size={26} />,        colorHex: '#2dd4bf', bgRgb: '45,212,191' },
+    { id: 'settings',      name: 'Settings',        icon: <SettingsIcon size={26} />,  colorHex: '#94a3b8', bgRgb: '148,163,184' },
+  ];
 
   // Schools State
   const [schools, setSchools] = useState([]);
@@ -119,7 +135,62 @@ export default function PlatformAdminDashboard() {
     fetchPlans();
     fetchAllTransactions();
     fetchPendingRegCount();
-  }, []);
+
+    // Handle web OAuth callback
+    const code = searchParams.get('code');
+    if (code && !connectingDrive) {
+      handleDriveCallback(code);
+    }
+
+    let browserListener = null;
+    if (Capacitor.isNativePlatform()) {
+      browserListener = Browser.addListener('browserFinished', async () => {
+        setConnectingDrive(true);
+        try {
+           await fetchPlatformSettings();
+        } finally {
+           setConnectingDrive(false);
+        }
+      });
+    }
+
+    return () => {
+      if (browserListener) {
+        browserListener.then(l => l.remove());
+      }
+    };
+  }, [searchParams, connectingDrive]);
+
+  const handleDriveCallback = async (code) => {
+    setConnectingDrive(true);
+    searchParams.delete('code');
+    setSearchParams(searchParams, { replace: true });
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.functions.invoke('gdrive-auth', {
+        body: { 
+          code, 
+          school_id: 'platform_admin',
+          redirect_uri: window.location.origin + window.location.pathname
+        },
+        headers: {
+           Authorization: `Bearer ${session?.access_token}`
+        }
+      });
+      
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      
+      alert('Platform Google Drive connected successfully!');
+      await fetchPlatformSettings();
+    } catch (err) {
+      alert('Error connecting platform drive: ' + err.message);
+    } finally {
+      setConnectingDrive(false);
+    }
+  };
 
   const fetchPendingRegCount = async () => {
     const { count } = await supabase
@@ -445,49 +516,84 @@ export default function PlatformAdminDashboard() {
         <div className="badge badge-success px-3 py-1">v2.0 Active</div>
       </div>
 
-      {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="card flex items-center gap-4">
-          <div className="icon-box"><Building size={20} /></div>
-          <div>
-            <div className="text-2xl font-bold">{schools.length}</div>
-            <div className="text-xs text-muted uppercase tracking-wider">Active Schools</div>
-          </div>
-        </div>
-        <div className="card flex items-center gap-4">
-          <div className="icon-box"><Users size={20} /></div>
-          <div>
-            <div className="text-2xl font-bold">Live</div>
-            <div className="text-xs text-muted uppercase tracking-wider">Platform Status</div>
-          </div>
-        </div>
-        <div className="card flex items-center gap-4">
-          <div className="icon-box"><Megaphone size={20} /></div>
-          <div>
-            <div className="text-2xl font-bold">Active</div>
-            <div className="text-xs text-muted uppercase tracking-wider">Broadcast System</div>
-          </div>
-        </div>
-      </div>
+      {activeTab !== 'dashboard' && (
+        <button onClick={() => setActiveTab('dashboard')} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white mb-6 bg-slate-800/50 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-glass transition-all">
+           <ChevronLeft size={14} /> Back to Dashboard
+        </button>
+      )}
 
-      {/* Tabs */}
-      <div className="tabs" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
-        <div className={`tab ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>Analytics</div>
-        <div className={`tab ${activeTab === 'schools' ? 'active' : ''}`} onClick={() => setActiveTab('schools')}>Tenant Schools</div>
-        <div className={`tab ${activeTab === 'plans' ? 'active' : ''}`} onClick={() => setActiveTab('plans')}>Subscription Plans</div>
-        <div className={`tab ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>Transactions</div>
-        <div className={`tab ${activeTab === 'broadcast' ? 'active' : ''}`} onClick={() => setActiveTab('broadcast')}>Broadcast Center</div>
-        <div className={`tab ${activeTab === 'tickets' ? 'active' : ''}`} onClick={() => setActiveTab('tickets')}>Support Tickets</div>
-        <div className={`tab ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>Audit Logs</div>
-        <div className={`tab ${activeTab === 'registrations' ? 'active' : ''}`} onClick={() => { setActiveTab('registrations'); fetchPendingRegCount(); }} style={{ position: 'relative' }}>
-          Registrations
-          {pendingRegCount > 0 && (
-            <span style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, borderRadius: '50%', background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{pendingRegCount}</span>
-          )}
+      {activeTab === 'dashboard' && (
+        <div>
+          {/* Top Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="card flex items-center gap-4">
+              <div className="icon-box"><Building size={20} /></div>
+              <div>
+                <div className="text-2xl font-bold">{schools.length}</div>
+                <div className="text-xs text-muted uppercase tracking-wider">Active Schools</div>
+              </div>
+            </div>
+            <div className="card flex items-center gap-4">
+              <div className="icon-box"><Users size={20} /></div>
+              <div>
+                <div className="text-2xl font-bold">Live</div>
+                <div className="text-xs text-muted uppercase tracking-wider">Platform Status</div>
+              </div>
+            </div>
+            <div className="card flex items-center gap-4">
+              <div className="icon-box"><Megaphone size={20} /></div>
+              <div>
+                <div className="text-2xl font-bold">Active</div>
+                <div className="text-xs text-muted uppercase tracking-wider">Broadcast System</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ width: '3px', height: '22px', borderRadius: '999px', background: 'linear-gradient(180deg,#4f46e5,#7c3aed)', flexShrink: 0 }} />
+            <h3 style={{ margin: 0, fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Platform Modules
+            </h3>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '14px' }}>
+            {PA_MODULES.map((mod) => (
+              <button
+                key={mod.id}
+                onClick={() => { setActiveTab(mod.id); if (mod.id === 'registrations') fetchPendingRegCount(); }}
+                className="module-card text-left"
+                style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative', border: 'none', background: 'var(--card-bg)', width: '100%', cursor: 'pointer' }}
+              >
+                {mod.badge && pendingRegCount > 0 && (
+                  <div style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '2px 6px', borderRadius: '999px', boxShadow: '0 4px 10px rgba(239,68,68,0.5)', zIndex: 10 }}>
+                    {pendingRegCount} New
+                  </div>
+                )}
+                <div
+                  style={{
+                    width: '54px', height: '54px', borderRadius: '16px',
+                    background: `rgba(${mod.bgRgb},0.12)`,
+                    border: `1px solid rgba(${mod.bgRgb},0.2)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: mod.colorHex, margin: '0 auto 12px',
+                    transition: 'transform 0.25s ease',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  {mod.icon}
+                </div>
+                <span style={{
+                  display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase',
+                  letterSpacing: '0.06em', color: 'var(--text-main)', textAlign: 'center', lineHeight: 1.3,
+                }}>
+                  {mod.name}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
-        <div className={`tab ${activeTab === 'kb' ? 'active' : ''}`} onClick={() => setActiveTab('kb')}>Knowledge Base</div>
-        <div className={`tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Platform Settings</div>
-      </div>
+      )}
 
       {/* ---- SECTION 0: ANALYTICS ---- */}
       {activeTab === 'analytics' && (
@@ -1088,12 +1194,18 @@ export default function PlatformAdminDashboard() {
                 disabled={connectingDrive}
                 onClick={async () => {
                   setConnectingDrive(true);
-                  const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-auth`;
+                  const isNative = Capacitor.isNativePlatform();
+                  const redirectUri = isNative ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-auth` : window.location.origin + window.location.pathname;
                   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-                  const state = JSON.stringify({ school_id: 'platform_admin', drive_index: paGdriveConfig.length });
+                  const state = isNative ? `&state=platform_admin` : '';
                   const scope = 'https://www.googleapis.com/auth/drive.file';
-                  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
-                  window.open(authUrl, '_blank');
+                  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent${state}`;
+                  
+                  if (isNative) {
+                     await Browser.open({ url: authUrl });
+                  } else {
+                     window.location.href = authUrl;
+                  }
                   setConnectingDrive(false);
                 }}>
                 {connectingDrive ? <><Loader2 size={16} className="animate-spin" /> Connecting...</> : <><Plus size={16} /> {paGdriveConfig.length > 0 ? 'Add Another Drive' : 'Connect Platform Google Drive'}</>}

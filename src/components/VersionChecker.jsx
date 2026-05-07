@@ -27,6 +27,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from '../config/supabaseClient';
 
 const APP_VERSION_CODE = parseInt(import.meta.env.VITE_APP_VERSION_CODE || '1', 10);
@@ -237,6 +238,9 @@ export default function VersionChecker() {
 
     async function checkVersion() {
       try {
+        const info = await CapacitorApp.getInfo();
+        const localVersionCode = parseInt(info.build, 10);
+
         const { data, error } = await supabase
           .from('app_versions')
           .select('version_code, version_name, apk_url, release_notes, is_critical')
@@ -246,9 +250,9 @@ export default function VersionChecker() {
 
         if (error || !data || cancelled) return;
 
-        if (data.version_code > APP_VERSION_CODE) {
+        if (data.version_code > localVersionCode) {
           console.info(
-            `[VersionChecker] Update available: v${data.version_name} (code ${data.version_code}) > installed (code ${APP_VERSION_CODE})`
+            `[VersionChecker] Update available: v${data.version_name} (code ${data.version_code}) > installed (code ${localVersionCode})`
           );
           setUpdateInfo(data);
         } else {

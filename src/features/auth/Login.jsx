@@ -38,13 +38,24 @@ export default function Login() {
     }
     setLoading(true);
     setError('');
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Connection timed out. Please check your internet and try again.')), 10000)
+    );
+
     try {
-      const { data, error: fetchError } = await supabase
+      const fetchPromise = supabase
         .from('school_settings')
         .select('*')
         .eq('school_code', schoolCode.toUpperCase())
-        .single();
-      if (fetchError || !data) throw new Error('Invalid School Code. Please check and try again.');
+        .limit(1)
+        .maybeSingle();
+
+      const { data, error: fetchError } = await Promise.race([fetchPromise, timeoutPromise]);
+      
+      if (fetchError) throw new Error(fetchError.message);
+      if (!data) throw new Error('Invalid School Code. Please check and try again.');
+      
       setSchoolSettings(data);
       setStep(2);
     } catch (err) {

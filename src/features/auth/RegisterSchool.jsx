@@ -143,10 +143,13 @@ export default function RegisterSchool() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [appName, setAppName]   = useState('SchoolOS+');
 
+  const [platformLegal, setPlatformLegal] = useState({ terms: '', privacy: '' });
+
   useEffect(() => {
     supabase.from('platform_settings').select('app_name,terms_conditions,privacy_policy').single()
       .then(({ data }) => {
         if (data?.app_name) setAppName(data.app_name);
+        if (data) setPlatformLegal({ terms: data.terms_conditions || '', privacy: data.privacy_policy || '' });
       });
   }, []);
 
@@ -176,7 +179,7 @@ export default function RegisterSchool() {
       if (!form.admin_email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.admin_email)) return 'Valid admin email is required.';
       if (!form.admin_username.trim() || form.admin_username.length < 4) return 'Username must be at least 4 characters.';
       if (!/^[a-z0-9_]+$/.test(form.admin_username)) return 'Username: lowercase, numbers, underscores only.';
-      if (!form.admin_password || form.admin_password.length < 8) return 'Password must be at least 8 characters.';
+      if (!form.admin_password || form.admin_password.length < 6) return 'Password must be at least 6 characters.';
       if (form.admin_password !== form.admin_confirm_password) return 'Passwords do not match.';
     }
     if (step === 2) {
@@ -244,8 +247,8 @@ export default function RegisterSchool() {
 
   return (
     <div style={pageStyle}>
-      {showTerms && <PolicyModal title="Terms & Conditions" content={TERMS_TEXT} onClose={() => setShowTerms(false)} />}
-      {showPrivacy && <PolicyModal title="Privacy Policy" content={PRIVACY_TEXT} onClose={() => setShowPrivacy(false)} />}
+      {showTerms && <PolicyModal title="Terms & Conditions" content={platformLegal.terms || TERMS_TEXT} onClose={() => setShowTerms(false)} />}
+      {showPrivacy && <PolicyModal title="Privacy Policy" content={platformLegal.privacy || PRIVACY_TEXT} onClose={() => setShowPrivacy(false)} />}
 
       <div style={cardStyle}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
