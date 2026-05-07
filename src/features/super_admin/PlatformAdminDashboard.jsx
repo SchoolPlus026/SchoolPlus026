@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2 } from 'lucide-react';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft } from 'lucide-react';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -125,6 +125,11 @@ export default function PlatformAdminDashboard() {
   // Registrations State — pending count for badge
   const [pendingRegCount, setPendingRegCount] = useState(0);
 
+  // Ref guard: ensures the OAuth code from the URL is consumed exactly once,
+  // regardless of how many times searchParams or any state changes trigger re-renders.
+  const codeHandledRef = useRef(false);
+
+  // ── Effect 1: Initial data load — fires ONCE on mount only ──────────────────
   useEffect(() => {
     fetchSchools();
     fetchPlatformSettings();
@@ -136,20 +141,17 @@ export default function PlatformAdminDashboard() {
     fetchAllTransactions();
     fetchPendingRegCount();
 
-    // Handle web OAuth callback
-    const code = searchParams.get('code');
-    if (code && !connectingDrive) {
-      handleDriveCallback(code);
-    }
-
+    // Capacitor: listen for browser close after native OAuth redirect.
+    // When the in-app browser finishes, re-fetch settings to pick up the
+    // newly saved gdrive_config without any page reload.
     let browserListener = null;
     if (Capacitor.isNativePlatform()) {
       browserListener = Browser.addListener('browserFinished', async () => {
         setConnectingDrive(true);
         try {
-           await fetchPlatformSettings();
+          await fetchPlatformSettings();
         } finally {
-           setConnectingDrive(false);
+          setConnectingDrive(false);
         }
       });
     }
@@ -159,7 +161,19 @@ export default function PlatformAdminDashboard() {
         browserListener.then(l => l.remove());
       }
     };
-  }, [searchParams, connectingDrive]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Effect 2: Web OAuth callback — fires when URL gains a ?code= param ───────
+  // Uses codeHandledRef so the callback runs AT MOST ONCE per page load,
+  // even if searchParams changes again (e.g., after we delete the code param).
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (!code || codeHandledRef.current) return;
+
+    // Mark as handled immediately to prevent any re-entry
+    codeHandledRef.current = true;
+    handleDriveCallback(code);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDriveCallback = async (code) => {
     setConnectingDrive(true);
