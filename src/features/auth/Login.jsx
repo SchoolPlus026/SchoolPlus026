@@ -11,7 +11,9 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const [globalApp, setGlobalApp] = useState({ name: 'SchoolOS+', logo: null });
   const { setUserAndRole, setSchoolSettings, schoolSettings } = useAppStore();
@@ -140,6 +142,38 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!username) {
+      setError('Please enter your username first.');
+      return;
+    }
+    setForgotLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      // 1. Resolve email
+      const { data: email, error: lookupError } = await supabase
+        .rpc('get_email_by_username', { p_username: username.trim() });
+
+      if (lookupError || !email) {
+        throw new Error('Could not find an email associated with this username. Please contact support.');
+      }
+
+      // 2. Trigger Supabase Reset
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (resetError) throw resetError;
+
+      setSuccess(`A password reset link has been sent to ${email.replace(/(.{2})(.*)(?=@)/, "$1***")}. Please check your inbox.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
       style={{ background: 'radial-gradient(800px 400px at 30% 20%, rgba(124, 58, 237, 0.15), transparent), linear-gradient(180deg, #0b1020 0%, #061233 100%)' }}
@@ -242,6 +276,13 @@ export default function Login() {
               </div>
             )}
 
+            {success && (
+              <div className="mb-5 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3">
+                <div className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5">✓</div>
+                <p className="text-sm text-emerald-300 font-semibold">{success}</p>
+              </div>
+            )}
+
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Username</label>
@@ -287,6 +328,16 @@ export default function Login() {
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <div className="flex justify-end mt-2">
+                  <button
+                    type="button"
+                    disabled={forgotLoading}
+                    onClick={handleForgotPassword}
+                    className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {forgotLoading ? 'Sending...' : 'Forgot Password?'}
                   </button>
                 </div>
               </div>

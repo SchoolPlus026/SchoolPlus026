@@ -4,7 +4,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import {
   Users, Search, UserPlus, Filter, Loader2, Phone, BookOpen,
-  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo
+  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock
 } from 'lucide-react';
 
 const EField = ({ label, field, type = 'text', options = null, editForm, setEditForm }) => (
@@ -31,11 +31,15 @@ const EField = ({ label, field, type = 'text', options = null, editForm, setEdit
 );
 
 export default function UserManagement() {
-  const { schoolSettings } = useAppStore();
-  const [activeTab, setActiveTab] = useState('teacher');
+  const { schoolSettings, user: currentUser, role: currentRole } = useAppStore();
+  const [activeTab, setActiveTab] = useState(currentRole === 'teacher' ? 'student' : 'teacher');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedClass, setSelectedClass] = useState(currentRole === 'teacher' ? (schoolSettings?.classes?.includes(currentUser?.user_metadata?.class) ? currentUser?.user_metadata?.class : '') : '');
   const queryClient = useQueryClient();
+
+  /* ── Password Reset State ── */
+  const [resettingUser, setResettingUser] = useState(null);
+  const [newPass, setNewPass] = useState('');
 
   /* ── Add User Modal State ── */
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -126,6 +130,21 @@ export default function UserManagement() {
     },
     onError: (err) => alert('Error: ' + err.message),
   });
+  const resetPasswordMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        body: { targetUserId: resettingUser.id, newPassword: newPass }
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      setResettingUser(null);
+      setNewPass('');
+      alert('Password reset successfully!');
+    },
+    onError: (err) => alert('Error resetting password: ' + err.message),
+  });
 
   const openEditPanel = (user) => {
     setEditingUser(user);
@@ -136,17 +155,19 @@ export default function UserManagement() {
     <div className="space-y-6 animate-in fade-in duration-500">
 
       {/* Tab Switcher */}
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-200 shadow-inner overflow-x-auto">
-        {[['teacher', 'Teachers', BookOpen], ['student', 'Students', Users], ['staff', 'Staff', Users]].map(([tab, label, Icon]) => (
-          <button
-            key={tab}
-            onClick={() => { setActiveTab(tab); setSelectedClass(''); setEditingUser(null); }}
-            className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === tab ? 'bg-white text-primary shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            <Icon size={18} /> {label}
-          </button>
-        ))}
-      </div>
+      {currentRole === 'admin' && (
+        <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-200 shadow-inner overflow-x-auto">
+          {[['teacher', 'Teachers', BookOpen], ['student', 'Students', Users], ['staff', 'Staff', Users]].map(([tab, label, Icon]) => (
+            <button
+              key={tab}
+              onClick={() => { setActiveTab(tab); setSelectedClass(''); setEditingUser(null); }}
+              className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === tab ? 'bg-white text-primary shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <Icon size={18} /> {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Control Bar */}
       <div className="flex flex-col lg:flex-row gap-4">
@@ -177,12 +198,14 @@ export default function UserManagement() {
             </select>
           </div>
         )}
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95"
-        >
-          <UserPlus size={20} /> Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-        </button>
+        {currentRole === 'admin' && (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95"
+          >
+            <UserPlus size={20} /> Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+          </button>
+        )}
       </div>
 
       {/* User Table */}
@@ -233,12 +256,23 @@ export default function UserManagement() {
                       </span>
                     </td>
                     <td className="px-6 py-5 text-right">
-                      <button
-                        onClick={() => openEditPanel(user)}
-                        className="px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-xs font-black text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all uppercase tracking-widest shadow-sm"
-                      >
-                        Edit Profile
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {activeTab === 'student' && (
+                          <button
+                            onClick={() => setResettingUser(user)}
+                            className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-600 hover:bg-amber-600 hover:text-white transition-all shadow-sm"
+                            title="Reset Password"
+                          >
+                            <Lock size={14} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => openEditPanel(user)}
+                          className="px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-xs font-black text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all uppercase tracking-widest shadow-sm"
+                        >
+                          Edit Profile
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -422,6 +456,53 @@ export default function UserManagement() {
                 {createUserMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
                 Save User
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── RESET PASSWORD MODAL ── */}
+      {resettingUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white border border-border rounded-3xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
+                <Lock size={24} />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-800 tracking-tight">Reset Password</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Target: {resettingUser.name}</p>
+              </div>
+            </div>
+            
+            <p className="text-sm text-slate-500 mb-6 font-medium">Set a new password for this user. Minimum 6 characters required.</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase font-black text-slate-400 tracking-widest block mb-1.5">New Password</label>
+                <input
+                  type="text"
+                  value={newPass}
+                  onChange={e => setNewPass(e.target.value)}
+                  placeholder="Enter new password..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-amber-300 font-bold"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setResettingUser(null); setNewPass(''); }}
+                  className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => resetPasswordMutation.mutate()}
+                  disabled={resetPasswordMutation.isPending || newPass.length < 6}
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl disabled:opacity-50 transition-all shadow-lg shadow-amber-200"
+                >
+                  {resetPasswordMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : 'Reset'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

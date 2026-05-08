@@ -9,6 +9,7 @@ import { Browser } from '@capacitor/browser';
 // Core Flow Components
 import Login from './features/auth/Login';
 import RegisterSchool from './features/auth/RegisterSchool';
+import ResetPassword from './features/auth/ResetPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationProvider from './components/NotificationProvider';
 import VersionChecker from './components/VersionChecker';
@@ -185,6 +186,7 @@ export default function App() {
       <Route path="/" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />
       <Route path="/login" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Login />} />
       <Route path="/register" element={<RegisterSchool />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* ──────────────── ADMIN ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
@@ -216,6 +218,7 @@ export default function App() {
           <Route path="profile"          element={<UserProfile />} />
           <Route path="self-attendance"  element={<TeacherSelfAttendance />} />
           <Route path="attendance"       element={<MarkAttendance />} />
+          <Route path="users"            element={<UserManagement />} />
           <Route path="timetable"        element={<TimetableViewer />} />
           <Route path="off-classes"      element={<OffClasses />} />
           <Route path="notices"          element={<NoticeManager />} />

@@ -20,6 +20,7 @@ const MODULES = [
   { name: 'Leaves',             path: '/teacher/leaves',           icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133'  },
   { name: 'Gallery',            path: '/teacher/gallery',          icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182'  },
   { name: 'Reports',            path: '/teacher/reports',           icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238'   },
+  { name: 'Student Directory',   path: '/teacher/users',             icon: <Users size={26} />,         colorHex: '#6366f1', bgRgb: '99,102,241'   },
   { name: 'Contact',            path: '/teacher/contact',           icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184'  },
   { name: 'Knowledge Base',     path: '/teacher/knowledge-base',    icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248'   },
   { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184'  },

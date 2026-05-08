@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { BookOpen, Plus, Trash2, Edit2, X, Play, Save, ChevronDown, ChevronUp, Youtube, HardDrive, Loader2 } from 'lucide-react';
@@ -54,13 +54,17 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
   const [isPublished, setIsPublished] = useState(initial.is_published !== false);
   const [uploading, setUploading]     = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const fileRef = React.useRef(null);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const fileRef = useRef(null);
 
   const ytThumb = videoType === 'youtube' ? extractYouTubeThumbnail(videoUrl) : null;
 
-  async function handleDriveUpload(file) {
-    if (!file) return;
+  async function handleDriveUpload(files) {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
     setUploading(true); setUploadError('');
+    setUploadProgress({ current: 0, total: fileArray.length });
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const headers = { Authorization: `Bearer ${session?.access_token}` };
@@ -70,24 +74,49 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
       });
       if (folderErr || folderData?.error) throw new Error(folderData?.error || 'Could not create Drive folder');
 
-      const reader = new FileReader();
-      const fileBase64 = await new Promise((res, rej) => {
-        reader.onload = () => res(reader.result.split(',')[1]);
-        reader.onerror = rej;
-        reader.readAsDataURL(file);
-      });
+      const uploadedUrls = [];
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        setUploadProgress({ current: i + 1, total: fileArray.length });
+        
+        const reader = new FileReader();
+        const fileBase64 = await new Promise((res, rej) => {
+          reader.onload = () => res(reader.result.split(',')[1]);
+          reader.onerror = rej;
+          reader.readAsDataURL(file);
+        });
 
-      const { data: uploadData, error: uploadErr } = await supabase.functions.invoke('gdrive-upload', {
-        body: {
-          action: 'upload_file', parentFolderId: folderData.id,
-          fileName: `kb_${Date.now()}_${file.name}`,
-          mimeType: file.type || 'video/mp4', fileBase64,
-        }, headers,
-      });
-      if (uploadErr || uploadData?.error) throw new Error(uploadData?.error || 'Upload failed');
-      setVideoUrl(`https://drive.google.com/file/d/${uploadData.id}/preview`);
+        const { data: uploadData, error: uploadErr } = await supabase.functions.invoke('gdrive-upload', {
+          body: {
+            action: 'upload_file', parentFolderId: folderData.id,
+            fileName: `kb_${Date.now()}_${file.name}`,
+            mimeType: file.type || 'video/mp4', fileBase64,
+          }, headers,
+        });
+        if (uploadErr || uploadData?.error) throw new Error(uploadData?.error || 'Upload failed');
+        uploadedUrls.push({ 
+          url: `https://drive.google.com/file/d/${uploadData.id}/preview`,
+          name: file.name.replace(/\.[^/.]+$/, "") 
+        });
+      }
+
+      if (uploadedUrls.length === 1) {
+        setVideoUrl(uploadedUrls[0].url);
+        if (!title) setTitle(uploadedUrls[0].name);
+      } else {
+        // Bulk add
+        onSave(uploadedUrls.map(item => ({
+          category_id: categoryId,
+          title: item.name,
+          description: '',
+          video_type: 'gdrive',
+          video_url: item.url,
+          is_published: false,
+          sort_order: 0
+        })), true); // Pass true for isBulk
+      }
     } catch (err) { setUploadError(err.message); }
-    finally { setUploading(false); }
+    finally { setUploading(false); setUploadProgress({ current: 0, total: 0 }); }
   }
 
   const handleSubmit = (e) => {
@@ -134,7 +163,14 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
           </div>
         ) : (
           <div>
-            <input type="hidden" ref={fileRef} />
+            <input 
+              type="file" 
+              ref={fileRef} 
+              style={{ display: 'none' }} 
+              accept="video/*,image/*" 
+              multiple 
+              onChange={e => handleDriveUpload(e.target.files)} 
+            />
             {videoUrl ? (
               <div className="flex items-center gap-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-xl">
                 <HardDrive size={18} className="text-blue-400 flex-shrink-0" />
@@ -143,12 +179,21 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
               </div>
             ) : (
               <div
-                onClick={() => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'video/*'; inp.onchange = e => handleDriveUpload(e.target.files[0]); inp.click(); }}
+                onClick={() => { 
+                  if (uploading) return;
+                  fileRef.current?.click();
+                }}
                 style={{ border: '2px dashed rgba(59,130,246,0.4)', borderRadius: 12, padding: '24px 16px', textAlign: 'center', cursor: uploading ? 'wait' : 'pointer', background: 'rgba(59,130,246,0.05)' }}>
                 {uploading ? (
-                  <><Loader2 size={24} className="animate-spin text-blue-400 mx-auto mb-2" /><div className="text-sm text-blue-300">Uploading to Google Drive...</div></>
+                  <>
+                    <Loader2 size={24} className="animate-spin text-blue-400 mx-auto mb-2" />
+                    <div className="text-sm text-blue-300 font-bold">Uploading ({uploadProgress.current}/{uploadProgress.total})</div>
+                    <div className="w-full bg-blue-900/20 h-1.5 rounded-full mt-3 max-w-[200px] mx-auto overflow-hidden">
+                      <div className="bg-blue-500 h-full transition-all duration-300" style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }} />
+                    </div>
+                  </>
                 ) : (
-                  <><HardDrive size={24} className="text-blue-400 mx-auto mb-2" /><div className="text-sm text-slate-300 font-semibold">Click to upload video to Google Drive</div><div className="text-xs text-slate-500 mt-1">MP4, MOV, AVI supported</div></>
+                  <><HardDrive size={24} className="text-blue-400 mx-auto mb-2" /><div className="text-sm text-slate-300 font-semibold">Click to upload video to Google Drive</div><div className="text-xs text-slate-500 mt-1">Multi-select supported (MP4, MOV, Image)</div></>
                 )}
               </div>
             )}
@@ -255,9 +300,16 @@ export default function PlatformKnowledgeBaseManager() {
   };
 
   // ── Article CRUD ────────────────────────────────────────────────────────────
-  const handleAddArticle = async (payload) => {
+  const handleAddArticle = async (payload, isBulk = false) => {
     setSaving(true);
-    const { error } = await supabase.from('kb_articles').insert({ ...payload, category_id: showAddArticle });
+    let error;
+    if (isBulk && Array.from(payload)) {
+      const { error: bulkErr } = await supabase.from('kb_articles').insert(payload);
+      error = bulkErr;
+    } else {
+      const { error: singleErr } = await supabase.from('kb_articles').insert({ ...payload, category_id: showAddArticle });
+      error = singleErr;
+    }
     setSaving(false);
     if (error) return alert('Error: ' + error.message);
     setShowAddArticle(null);
