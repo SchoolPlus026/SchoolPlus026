@@ -34,7 +34,7 @@ export default function UserManagement() {
   const { schoolSettings, user: currentUser, role: currentRole } = useAppStore();
   const [activeTab, setActiveTab] = useState(currentRole === 'teacher' ? 'student' : 'teacher');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClass, setSelectedClass] = useState(currentRole === 'teacher' ? (schoolSettings?.classes?.includes(currentUser?.user_metadata?.class) ? currentUser?.user_metadata?.class : '') : '');
+  const [selectedClass, setSelectedClass] = useState(currentRole === 'teacher' ? (currentUser?.user_metadata?.class || '') : '');
   const queryClient = useQueryClient();
 
   /* ── Password Reset State ── */
@@ -257,13 +257,13 @@ export default function UserManagement() {
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {activeTab === 'student' && (
+                        {(currentRole === 'admin' || (currentRole === 'teacher' && activeTab === 'student')) && (
                           <button
                             onClick={() => setResettingUser(user)}
-                            className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-600 hover:bg-amber-600 hover:text-white transition-all shadow-sm"
-                            title="Reset Password"
+                            className="px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] font-black text-amber-600 hover:bg-amber-600 hover:text-white hover:border-amber-600 transition-all uppercase tracking-widest shadow-sm flex items-center gap-1.5"
+                            title="Manage Password"
                           >
-                            <Lock size={14} />
+                            <Lock size={12} /> Manage Password
                           </button>
                         )}
                         <button
@@ -463,44 +463,44 @@ export default function UserManagement() {
       {/* ── RESET PASSWORD MODAL ── */}
       {resettingUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-white border border-border rounded-3xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
-                <Lock size={24} />
+          <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
+                <Lock size={20} />
               </div>
-              <div>
-                <h3 className="font-black text-slate-800 tracking-tight">Reset Password</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Target: {resettingUser.name}</p>
+              <div className="min-w-0">
+                <h3 className="font-black text-slate-800 tracking-tight text-base">Manage Password</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Target: {resettingUser.name}</p>
               </div>
             </div>
             
-            <p className="text-sm text-slate-500 mb-6 font-medium">Set a new password for this user. Minimum 6 characters required.</p>
+            <p className="text-[11px] text-slate-500 mb-4 font-medium leading-relaxed">Set a new password for this user. Minimum 6 characters required.</p>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="text-[10px] uppercase font-black text-slate-400 tracking-widest block mb-1.5">New Password</label>
+                <label className="text-[10px] uppercase font-black text-slate-400 tracking-widest block mb-1">New Password</label>
                 <input
                   type="text"
                   value={newPass}
                   onChange={e => setNewPass(e.target.value)}
                   placeholder="Enter new password..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-amber-300 font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-amber-300 font-bold"
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => { setResettingUser(null); setNewPass(''); }}
-                  className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all"
+                  className="flex-1 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => resetPasswordMutation.mutate()}
                   disabled={resetPasswordMutation.isPending || newPass.length < 6}
-                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl disabled:opacity-50 transition-all shadow-lg shadow-amber-200"
+                  className="flex-[1.5] py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl disabled:opacity-50 transition-all shadow-md shadow-amber-200 flex items-center justify-center gap-1.5"
                 >
-                  {resetPasswordMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : 'Reset'}
+                  {resetPasswordMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <><Lock size={12} /> Manage Password</>}
                 </button>
               </div>
             </div>

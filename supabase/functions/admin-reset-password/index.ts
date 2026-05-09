@@ -48,7 +48,7 @@ serve(async (req) => {
 
     if (targetError || !targetProfile) throw new Error('Target user not found')
 
-    if (targetProfile.school_id !== callerProfile.school_id) {
+    if (callerProfile.role !== 'platform_admin' && targetProfile.school_id !== callerProfile.school_id) {
       throw new Error('Target user belongs to a different school')
     }
 

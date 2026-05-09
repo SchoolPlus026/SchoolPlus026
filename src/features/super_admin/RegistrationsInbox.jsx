@@ -274,17 +274,7 @@ export default function RegistrationsInbox() {
         ))
       )}
 
-      {/* Registration Link Footer */}
-      <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, fontSize: 12, color: '#475569', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span>📋 Public registration link:</span>
-        <code style={{ color: '#818cf8', background: 'rgba(79,70,229,0.1)', padding: '2px 8px', borderRadius: 6 }}>
-          {window.location.origin}/register
-        </code>
-        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/register`); showToast('Link copied!'); }}
-          style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: 'rgba(79,70,229,0.15)', color: '#818cf8', border: 'none', cursor: 'pointer' }}>
-          Copy
-        </button>
-      </div>
+
     </div>
   );
 }

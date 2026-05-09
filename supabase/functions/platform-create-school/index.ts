@@ -20,39 +20,47 @@ serve(async (req) => {
       });
     }
 
-    // Use anon client to verify the calling user's JWT
-    const supabaseAnon = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const isServiceRole = authHeader === `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`;
 
-    const { data: { user }, error: authError } = await supabaseAnon.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (!isServiceRole) {
+      // Use anon client to verify the calling user's JWT
+      const supabaseAnon = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: { user }, error: authError } = await supabaseAnon.auth.getUser();
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // ── 3. Service Role client (hoisted — needed for role check below) ——————————
+      const supabaseAdminCheck = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+
+      // Verify caller role from DB — authoritative source.
+      const { data: callerProfile } = await supabaseAdminCheck
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (callerProfile?.role !== 'platform_admin') {
+        return new Response(JSON.stringify({ error: 'Forbidden: Only platform admins can create schools.' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
-    // ── 3. Service Role client (hoisted — needed for role check below) ——————————
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
-
-    // Verify caller role from DB — authoritative source.
-    // DO NOT use user.user_metadata?.role — it is set at signup time and can be stale.
-    const { data: callerProfile } = await supabaseAdmin
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (callerProfile?.role !== 'platform_admin') {
-      return new Response(JSON.stringify({ error: 'Forbidden: Only platform admins can create schools.' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
 
     // ── 2. Parse request body ─────────────────────────────────────────────────
     const {

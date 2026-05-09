@@ -151,22 +151,30 @@ export default function Login() {
     setError('');
     setSuccess('');
     try {
-      // 1. Resolve email
-      const { data: email, error: lookupError } = await supabase
-        .rpc('get_email_by_username', { p_username: username.trim() });
+      // 1. Resolve profile to check role
+      const { data: profile, error: lookupError } = await supabase
+        .from('users')
+        .select('email, role')
+        .eq('username', username.trim())
+        .single();
 
-      if (lookupError || !email) {
-        throw new Error('Could not find an email associated with this username. Please contact support.');
+      if (lookupError || !profile) {
+        throw new Error('No account found for this username. Please contact your administrator.');
       }
 
-      // 2. Trigger Supabase Reset
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      if (profile.role === 'student') {
+        setSuccess('Please contact your class teacher to reset your password.');
+        return;
+      }
+
+      // 2. Trigger Supabase Reset for Staff/Teacher/Admin
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(profile.email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (resetError) throw resetError;
 
-      setSuccess(`A password reset link has been sent to ${email.replace(/(.{2})(.*)(?=@)/, "$1***")}. Please check your inbox.`);
+      setSuccess("Recovery email sent. If you don't receive it, please contact your School Admin (Headmaster).");
     } catch (err) {
       setError(err.message);
     } finally {

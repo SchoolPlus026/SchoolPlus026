@@ -17,7 +17,7 @@ export default function PlatformAdminDashboard() {
 
   const PA_MODULES = [
     { id: 'analytics',     name: 'Analytics',       icon: <Activity size={26} />,      colorHex: '#22d3ee', bgRgb: '34,211,238' },
-    { id: 'schools',       name: 'Tenant Schools',  icon: <Building size={26} />,      colorHex: '#60a5fa', bgRgb: '96,165,250' },
+    { id: 'schools',       name: 'Manage Schools',  icon: <Building size={26} />,      colorHex: '#60a5fa', bgRgb: '96,165,250' },
     { id: 'registrations', name: 'Registrations',   icon: <Users size={26} />,         colorHex: '#fb7185', bgRgb: '251,113,133', badge: true },
     { id: 'plans',         name: 'Pricing Plans',   icon: <CreditCard size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153' },
     { id: 'transactions',  name: 'Transactions',    icon: <DollarSign size={26} />,    colorHex: '#818cf8', bgRgb: '129,140,248' },
@@ -121,6 +121,11 @@ export default function PlatformAdminDashboard() {
   const [transactions, setTransactions] = useState([]);
   const [loadingTx, setLoadingTx] = useState(false);
   const [totalRevenue, setTotalRevenue] = useState(0);
+
+  const [resettingUser, setResettingUser] = useState(null);
+  const [resetTab, setResetTab] = useState('schools');
+  const [newPass, setNewPass] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   // Registrations State — pending count for badge
   const [pendingRegCount, setPendingRegCount] = useState(0);
@@ -822,6 +827,25 @@ export default function PlatformAdminDashboard() {
                           <button
                             className="btn outline"
                             style={{ padding: '4px 10px', fontSize: '11px', width: 'auto' }}
+                            onClick={async () => {
+                              // Resetting School Admin Password
+                              const { data: adminUser } = await supabase
+                                .from('users')
+                                .select('id, name')
+                                .eq('school_id', s.school_id)
+                                .eq('role', 'admin')
+                                .single();
+                              if (adminUser) {
+                                setResettingUser(adminUser);
+                                setResetTab('schools');
+                              } else {
+                                alert('Could not find an admin for this school.');
+                              }
+                            }}
+                          ><Lock size={12} className="inline mr-1" /> Pass</button>
+                          <button
+                            className="btn outline"
+                            style={{ padding: '4px 10px', fontSize: '11px', width: 'auto' }}
                             onClick={() => {
                               setImpersonation(s);
                               navigate('/admin/dashboard');
@@ -1485,6 +1509,68 @@ export default function PlatformAdminDashboard() {
                 <button type="submit" className="btn accent" style={{ flex: 2 }}>Save Changes</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* —— RESET PASSWORD MODAL —— */}
+      {resettingUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="bg-slate-900 border border-slate-700/50 rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-500">
+                <Lock size={24} />
+              </div>
+              <div>
+                <h3 className="font-black text-white tracking-tight">Manage Password</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate max-w-[200px]">Admin: {resettingUser.name}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest block mb-1.5">New Admin Password</label>
+                <input
+                  type="text"
+                  value={newPass}
+                  onChange={e => setNewPass(e.target.value)}
+                  placeholder="Minimum 6 characters..."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white leading-normal focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setResettingUser(null); setNewPass(''); }}
+                  className="flex-1 py-3 text-sm font-bold text-slate-400 hover:text-white transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (newPass.length < 6) return alert('Min 6 chars');
+                    setResetting(true);
+                    try {
+                      const { error } = await supabase.functions.invoke('admin-reset-password', {
+                        body: { targetUserId: resettingUser.id, newPassword: newPass }
+                      });
+                      if (error) throw error;
+                      alert('Password updated successfully!');
+                      setResettingUser(null);
+                      setNewPass('');
+                    } catch (err) {
+                      alert('Error: ' + err.message);
+                    } finally {
+                      setResetting(false);
+                    }
+                  }}
+                  disabled={resetting || newPass.length < 6}
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-black text-sm rounded-xl disabled:opacity-50 transition-all shadow-lg shadow-amber-900/20"
+                >
+                  {resetting ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Update Pass'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -175,12 +175,13 @@ serve(async (req) => {
     const tempPassword      = override_admin_password || generateTempPassword();
 
     // 5. Invoke platform-create-school (reuse existing provisioning logic)
+    // Use service_role to ensure completely bypassing RLS during provisioning
     const provisionRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/platform-create-school`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader,
-        'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       },
       body: JSON.stringify({
         school_name:       reg.school_name,
