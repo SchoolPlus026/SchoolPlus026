@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import { usePending } from '../../hooks/usePending';
 import { CalendarHeart, Loader2, Plus, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 export default function LeavesManager() {
   const { user, role, schoolSettings } = useAppStore();
+  const { isPending } = usePending();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState(() => role === 'admin' ? 'history' : 'apply');
 
@@ -67,6 +69,7 @@ export default function LeavesManager() {
 
   const handleApply = (e) => {
     e.preventDefault();
+    if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
     applyMutation.mutate({
       school_id: schoolSettings.school_id,
       user_id: user.id,
@@ -169,13 +172,19 @@ export default function LeavesManager() {
                     {role === 'admin' && leave.status === 'pending' && (
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => statusMutation.mutate({ id: leave.id, status: 'Approved' })}
+                          onClick={() => {
+                            if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                            statusMutation.mutate({ id: leave.id, status: 'Approved' });
+                          }}
                           className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 shadow-sm"
                         >
                           <CheckCircle2 size={14} /> Approve
                         </button>
                         <button
-                          onClick={() => statusMutation.mutate({ id: leave.id, status: 'Rejected' })}
+                          onClick={() => {
+                            if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                            statusMutation.mutate({ id: leave.id, status: 'Rejected' });
+                          }}
                           className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 shadow-sm"
                         >
                           <XCircle size={14} /> Reject

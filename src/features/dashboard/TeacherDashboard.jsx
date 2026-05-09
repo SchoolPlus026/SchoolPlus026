@@ -37,10 +37,6 @@ function TeacherDashboardContent() {
   const { isPending } = usePending();
 
   const handleModuleClick = (e, mod) => {
-    if (isPending) {
-      e.preventDefault();
-      return;
-    }
     if (isFree && PREMIUM_MODULES.includes(mod.name)) {
       e.preventDefault();
       setShowUpgradeModal(true);
@@ -69,7 +65,7 @@ function TeacherDashboardContent() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '14px' }}>
           {MODULES.map((mod) => {
-            const isLocked = (isFree && PREMIUM_MODULES.includes(mod.name)) || isPending;
+            const isLocked = (isFree && PREMIUM_MODULES.includes(mod.name));
             return (
               <Link
                 key={mod.name}

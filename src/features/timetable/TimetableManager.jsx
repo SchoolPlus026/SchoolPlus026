@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import { usePending } from '../../hooks/usePending';
 import { Loader2, PlusCircle, Clock, CalendarDays } from 'lucide-react';
 import TimetableViewer from './TimetableViewer';
 
 export default function TimetableManager() {
   const { schoolSettings } = useAppStore();
+  const { isPending } = usePending();
   const queryClient = useQueryClient();
 
   const [day, setDay] = useState('Monday');
@@ -70,6 +72,7 @@ export default function TimetableManager() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
     if (!targetClass || !selectedTeacher || !subject || !startTime || !endTime) return;
     
     // Formatting time (e.g. 09:00 -> 09:00 AM)

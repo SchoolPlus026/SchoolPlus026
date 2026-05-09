@@ -36,10 +36,6 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   const handleModuleClick = (e, mod) => {
-    if (isPending) {
-      e.preventDefault();
-      return; // banner already explains why
-    }
     if (isFree && PREMIUM_MODULES.includes(mod.name)) {
       e.preventDefault();
       navigate('/admin/billing');
@@ -62,7 +58,7 @@ export default function AdminDashboard() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '14px' }}>
           {MODULES.map((mod) => {
-            const isLocked = (isFree && PREMIUM_MODULES.includes(mod.name)) || isPending;
+            const isLocked = (isFree && PREMIUM_MODULES.includes(mod.name));
             return (
               <Link
                 key={mod.name}

@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import { usePending } from '../../hooks/usePending';
 import { triggerFCMNotification } from '../../utils/notifications';
 import { Loader2, Send, PenTool, Image as ImageIcon, CloudOff, X, Folder } from 'lucide-react';
 import NoticeBoard from './NoticeBoard';
@@ -17,6 +18,7 @@ function readFileAsBase64(file) {
 
 export default function NoticeManager() {
   const { schoolSettings, role } = useAppStore();
+  const { isPending } = usePending();
   const queryClient = useQueryClient();
 
   const [title, setTitle]           = useState('');
@@ -119,6 +121,7 @@ export default function NoticeManager() {
 
   const handleBroadcast = async (e) => {
     e.preventDefault();
+    if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
     if (!title.trim() || !content.trim()) return;
 
     let photoUrl = null;

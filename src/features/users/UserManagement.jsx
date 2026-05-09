@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import { usePending } from '../../hooks/usePending';
 import {
   Users, Search, UserPlus, Filter, Loader2, Phone, BookOpen,
   CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock
@@ -32,6 +33,7 @@ const EField = ({ label, field, type = 'text', options = null, editForm, setEdit
 
 export default function UserManagement() {
   const { schoolSettings, user: currentUser, role: currentRole } = useAppStore();
+  const { isPending } = usePending();
   const [activeTab, setActiveTab] = useState(currentRole === 'teacher' ? 'student' : 'teacher');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState(currentRole === 'teacher' ? (currentUser?.user_metadata?.class || '') : '');
@@ -147,6 +149,7 @@ export default function UserManagement() {
   });
 
   const openEditPanel = (user) => {
+    if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
     setEditingUser(user);
     setEditForm({ ...user });
   };
@@ -200,7 +203,10 @@ export default function UserManagement() {
         )}
         {currentRole === 'admin' && (
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+              setIsAddModalOpen(true);
+            }}
             className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95"
           >
             <UserPlus size={20} /> Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
@@ -259,7 +265,10 @@ export default function UserManagement() {
                       <div className="flex items-center justify-end gap-2">
                         {(currentRole === 'admin' || (currentRole === 'teacher' && activeTab === 'student')) && (
                           <button
-                            onClick={() => setResettingUser(user)}
+                            onClick={() => {
+                              if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                              setResettingUser(user);
+                            }}
                             className="px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] font-black text-amber-600 hover:bg-amber-600 hover:text-white hover:border-amber-600 transition-all uppercase tracking-widest shadow-sm flex items-center gap-1.5"
                             title="Manage Password"
                           >

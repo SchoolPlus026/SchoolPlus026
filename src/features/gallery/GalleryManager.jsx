@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import { usePending } from '../../hooks/usePending';
 import { Image as ImageIcon, Plus, Loader2, X, ExternalLink, Folder, CloudOff, HardDrive } from 'lucide-react';
 
 function readFileAsBase64(file) {
@@ -15,6 +16,7 @@ function readFileAsBase64(file) {
 
 export default function GalleryManager() {
   const { role, schoolSettings, addBackgroundUpload, updateBackgroundUpload, removeBackgroundUpload } = useAppStore();
+  const { isPending } = usePending();
   const queryClient = useQueryClient();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const isMountedRef = useRef(true);
@@ -105,6 +107,7 @@ export default function GalleryManager() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
 
     if (gdriveConnected) {
       if (coverFiles.length === 0) return alert('Please select at least one photo to upload.');

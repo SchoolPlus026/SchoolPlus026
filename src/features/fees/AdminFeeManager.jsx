@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import { usePending } from '../../hooks/usePending';
 import { Loader2, IndianRupee, Calendar, ChevronLeft, CreditCard, History, CheckCircle } from 'lucide-react';
 
 export default function AdminFeeManager() {
   const { schoolSettings } = useAppStore();
+  const { isPending } = usePending();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
   
@@ -215,7 +217,10 @@ export default function AdminFeeManager() {
                        />
                     </div>
                     <button 
-                      onClick={() => updateFeeMutation.mutate({ student_id: selectedStudent.id, total: Number(feeTotal), last_year_pending: Number(feePending) })}
+                      onClick={() => {
+                        if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                        updateFeeMutation.mutate({ student_id: selectedStudent.id, total: Number(feeTotal), last_year_pending: Number(feePending) });
+                      }}
                       disabled={updateFeeMutation.isPending}
                       className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-3 rounded-xl transition-all flex justify-center items-center gap-2"
                     >
@@ -272,7 +277,10 @@ export default function AdminFeeManager() {
                        </div>
                     </div>
                     <button 
-                      onClick={() => recordPaymentMutation.mutate({ fee_id: activeStudentData.feeRecordId, amount: Number(paymentAmount), method: paymentMethod, payment_date: paymentDate })}
+                      onClick={() => {
+                        if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                        recordPaymentMutation.mutate({ fee_id: activeStudentData.feeRecordId, amount: Number(paymentAmount), method: paymentMethod, payment_date: paymentDate });
+                      }}
                       disabled={recordPaymentMutation.isPending || !paymentAmount || !activeStudentData.feeRecordId}
                       className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
                     >
