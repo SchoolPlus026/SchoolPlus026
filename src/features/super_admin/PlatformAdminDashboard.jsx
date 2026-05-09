@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft } from 'lucide-react';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft, Lock } from 'lucide-react';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
