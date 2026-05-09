@@ -7,7 +7,6 @@ import {
 import DashboardHero from '../../components/DashboardHero';
 import PlanStatusBanner from '../../components/PlanStatusBanner';
 import { usePlan } from '../../hooks/usePlan';
-import { useAppStore } from '../../store/useAppStore';
 
 const MODULES = [
   { name: 'Users',        path: '/admin/users',        icon: <Users size={26} />,         colorHex: '#60a5fa', bgRgb: '96,165,250'   },
@@ -30,7 +29,6 @@ const MODULES = [
 const PREMIUM_MODULES = ['Fees', 'Timetable', 'Leaves', 'Reports'];
 
 export default function AdminDashboard() {
-  const { schoolSettings } = useAppStore();
   const { isFree } = usePlan();
   const navigate = useNavigate();
 

@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-import { SMTPClient } from "https://deno.land/x/smtp/mod.ts";
+import nodemailer from 'npm:nodemailer';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,27 +16,23 @@ async function sendEmail(opts: { to: string, subject: string, html: string }) {
   }
 
   try {
-    const client = new SMTPClient({
-      connection: {
-        hostname: "smtp.gmail.com",
-        port: 465,
-        tls: true,
-        auth: {
-          username: "schoolpro026@gmail.com",
-          password: gmailPassword,
-        },
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true, // TLS
+      auth: {
+        user: 'schoolpro026@gmail.com',
+        pass: gmailPassword,
       },
     });
 
-    await client.send({
-      from: "SchoolOS+ <schoolpro026@gmail.com>",
+    await transporter.sendMail({
+      from: 'SchoolOS+ <schoolpro026@gmail.com>',
       to: opts.to,
       subject: opts.subject,
-      content: "Auto-generated email",
       html: opts.html,
     });
 
-    await client.close();
     console.log('[approve-school-registration] Email sent successfully to', opts.to);
   } catch (err) {
     console.error('[approve-school-registration] Email send failed:', err);
