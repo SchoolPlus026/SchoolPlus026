@@ -1,33 +1,45 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+import { SMTPClient } from "https://deno.land/x/smtp/mod.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 async function sendEmail(opts: { to: string, subject: string, html: string }) {
-  const resendKey = Deno.env.get('RESEND_API_KEY');
-  if (!resendKey) {
-    console.log('[approve-school-registration] RESEND_API_KEY not set — skipping email');
+  const gmailPassword = Deno.env.get('GMAIL_APP_PASSWORD');
+  if (!gmailPassword) {
+    console.log('[approve-school-registration] GMAIL_APP_PASSWORD not set — skipping email');
     return;
   }
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${resendKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: 'onboarding@resend.dev',
-      to: [opts.to],
+
+  try {
+    const client = new SMTPClient({
+      connection: {
+        hostname: "smtp.gmail.com",
+        port: 465,
+        tls: true,
+        auth: {
+          username: "schoolpro026@gmail.com",
+          password: gmailPassword,
+        },
+      },
+    });
+
+    await client.send({
+      from: "SchoolOS+ <schoolpro026@gmail.com>",
+      to: opts.to,
       subject: opts.subject,
+      content: "Auto-generated email",
       html: opts.html,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    console.error('[approve-school-registration] Email send failed:', res.status, body);
+    });
+
+    await client.close();
+    console.log('[approve-school-registration] Email sent successfully to', opts.to);
+  } catch (err) {
+    console.error('[approve-school-registration] Email send failed:', err);
   }
 }
 

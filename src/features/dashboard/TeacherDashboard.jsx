@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
+import { usePlan } from '../../hooks/usePlan';
 
 // Exact legacy module list for Teacher role:
 // My Profile, Mark My Attendance, Class Attendance, Timetable, Off Classes,
@@ -29,13 +30,11 @@ const MODULES = [
 const PREMIUM_MODULES = ['Timetable', 'Gallery'];
 
 function TeacherDashboardContent() {
-  const { schoolSettings } = useAppStore();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  
-  const isPremium = schoolSettings?.subscription_tier === 'Premium';
+  const { isFree } = usePlan();
 
   const handleModuleClick = (e, mod) => {
-    if (!isPremium && PREMIUM_MODULES.includes(mod.name)) {
+    if (isFree && PREMIUM_MODULES.includes(mod.name)) {
       e.preventDefault();
       setShowUpgradeModal(true);
     }
@@ -62,7 +61,7 @@ function TeacherDashboardContent() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '14px' }}>
           {MODULES.map((mod) => {
-            const isLocked = !isPremium && PREMIUM_MODULES.includes(mod.name);
+            const isLocked = isFree && PREMIUM_MODULES.includes(mod.name);
             return (
               <Link
                 key={mod.name}

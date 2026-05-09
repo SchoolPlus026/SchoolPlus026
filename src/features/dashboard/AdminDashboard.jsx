@@ -31,11 +31,11 @@ const PREMIUM_MODULES = ['Fees', 'Timetable', 'Leaves', 'Reports'];
 
 export default function AdminDashboard() {
   const { schoolSettings } = useAppStore();
-  const { isPremium } = usePlan();
+  const { isFree } = usePlan();
   const navigate = useNavigate();
 
   const handleModuleClick = (e, mod) => {
-    if (!isPremium && PREMIUM_MODULES.includes(mod.name)) {
+    if (isFree && PREMIUM_MODULES.includes(mod.name)) {
       e.preventDefault();
       navigate('/admin/billing');
     }
@@ -56,7 +56,7 @@ export default function AdminDashboard() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '14px' }}>
           {MODULES.map((mod) => {
-            const isLocked = !isPremium && PREMIUM_MODULES.includes(mod.name);
+            const isLocked = isFree && PREMIUM_MODULES.includes(mod.name);
             return (
               <Link
                 key={mod.name}
