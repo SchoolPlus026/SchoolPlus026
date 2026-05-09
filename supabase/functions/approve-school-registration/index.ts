@@ -33,6 +33,7 @@ async function sendEmail(opts: { to: string, subject: string, html: string }) {
       html: opts.html,
     });
 
+    transporter.close();
     console.log('[approve-school-registration] Email sent successfully to', opts.to);
   } catch (err) {
     console.error('[approve-school-registration] Email send failed:', err);

@@ -194,6 +194,10 @@ export default function RegisterSchool() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (form.admin_password !== form.admin_confirm_password) {
+      setError('Passwords do not match!');
+      return;
+    }
     const err = validateStep();
     if (err) { setError(err); return; }
     setLoading(true); setError('');
