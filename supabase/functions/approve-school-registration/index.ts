@@ -231,8 +231,9 @@ serve(async (req) => {
 
   } catch (err) {
     console.error('[approve-school-registration] Error:', err.message);
+    // Return 400 so the client receives the JSON body, as 500s are obscured by FunctionsHttpError
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });

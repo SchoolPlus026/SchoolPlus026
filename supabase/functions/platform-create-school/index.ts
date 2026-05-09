@@ -147,7 +147,7 @@ serve(async (req) => {
 
     if (schoolError) {
       return new Response(JSON.stringify({ error: `Failed to create school: ${schoolError.message}` }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -168,7 +168,7 @@ serve(async (req) => {
       // Rollback: delete the school we just created
       await supabaseAdmin.from('school_settings').delete().eq('school_id', newSchoolId);
       return new Response(JSON.stringify({ error: `Failed to create admin user: ${createUserError.message}` }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -190,7 +190,7 @@ serve(async (req) => {
       await supabaseAdmin.auth.admin.deleteUser(newUserId);
       await supabaseAdmin.from('school_settings').delete().eq('school_id', newSchoolId);
       return new Response(JSON.stringify({ error: `Failed to create user profile: ${profileError.message}` }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -207,7 +207,7 @@ serve(async (req) => {
 
   } catch (err) {
     return new Response(JSON.stringify({ error: `Unexpected error: ${err.message}` }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
