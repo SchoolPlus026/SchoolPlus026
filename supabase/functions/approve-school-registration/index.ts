@@ -248,9 +248,21 @@ serve(async (req) => {
       }),
     });
 
-    const provisionData = await provisionRes.json();
+    let provisionData;
+    try {
+      const respText = await provisionRes.text();
+      try {
+        provisionData = JSON.parse(respText);
+      } catch (e) {
+        throw new Error(`Provisioning failed (${provisionRes.status}). Response was not JSON: ${respText.slice(0, 200)}`);
+      }
+    } catch (e) {
+      if (e.message.includes('Provisioning failed')) throw e;
+      throw new Error(`Failed to read provisioning response: ${e.message}`);
+    }
+
     if (!provisionRes.ok || provisionData.error) {
-      throw new Error(provisionData.error || 'Provisioning failed');
+      throw new Error(provisionData.error || `Provisioning failed with HTTP ${provisionRes.status}`);
     }
 
     // 6. Mark registration as approved and clear the plaintext password
