@@ -281,21 +281,3 @@ export default function RegistrationsInbox() {
   );
 }
 
-// ── Shared micro-styles ───────────────────────────────────────────────────────
-const labelStyle = { fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' };
-const miniInputStyle = {
-  width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: 8, padding: '8px 10px', color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box',
-};
-const cancelBtn = {
-  padding: '8px 16px', borderRadius: 8, background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-};
-function actionBtn(color, outline = false) {
-  return {
-    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    padding: '9px 14px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer',
-    background: outline ? `rgba(${color === '#f87171' ? '248,113,113' : '74,222,128'},0.08)` : `rgba(${color === '#f87171' ? '248,113,113' : '74,222,128'},0.15)`,
-    border: `1px solid ${color}40`, color,
-  };
-}
