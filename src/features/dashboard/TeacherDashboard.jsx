@@ -7,6 +7,8 @@ import {
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
 import { usePlan } from '../../hooks/usePlan';
+import { usePending } from '../../hooks/usePending';
+import PendingBanner from '../../components/PendingBanner';
 
 // Exact legacy module list for Teacher role:
 // My Profile, Mark My Attendance, Class Attendance, Timetable, Off Classes,
@@ -32,8 +34,13 @@ const PREMIUM_MODULES = ['Timetable', 'Gallery'];
 function TeacherDashboardContent() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { isFree } = usePlan();
+  const { isPending } = usePending();
 
   const handleModuleClick = (e, mod) => {
+    if (isPending) {
+      e.preventDefault();
+      return;
+    }
     if (isFree && PREMIUM_MODULES.includes(mod.name)) {
       e.preventDefault();
       setShowUpgradeModal(true);
@@ -43,6 +50,7 @@ function TeacherDashboardContent() {
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
       <DashboardHero />
+      <PendingBanner />
 
       <div>
         {/* Legacy exact title: "Teacher — Class Tools" */}
@@ -61,7 +69,7 @@ function TeacherDashboardContent() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '14px' }}>
           {MODULES.map((mod) => {
-            const isLocked = isFree && PREMIUM_MODULES.includes(mod.name);
+            const isLocked = (isFree && PREMIUM_MODULES.includes(mod.name)) || isPending;
             return (
               <Link
                 key={mod.name}

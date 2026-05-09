@@ -202,27 +202,34 @@ export default function RegisterSchool() {
     if (err) { setError(err); return; }
     setLoading(true); setError('');
     try {
-      const { error: insertError } = await supabase.from('school_registrations').insert({
-        school_name: form.school_name.trim(),
-        school_code: form.school_code.trim().toUpperCase(),
-        city: form.city.trim() || null,
-        state: form.state || null,
-        board: form.board || null,
-        school_type: form.school_type,
-        student_strength: form.student_strength ? parseInt(form.student_strength, 10) : null,
-        admin_name: form.admin_name.trim(),
-        admin_email: form.admin_email.trim().toLowerCase(),
-        admin_phone: form.admin_phone.trim() || null,
-        admin_username: form.admin_username.trim().toLowerCase(),
-        admin_password: form.admin_password,
-        plan_type: form.plan_type,
-        terms_accepted: true,
-        status: 'pending',
+      const { data, error: fnError } = await supabase.functions.invoke('register-school', {
+        body: {
+          school_name:      form.school_name.trim(),
+          school_code:      form.school_code.trim().toUpperCase(),
+          city:             form.city.trim() || null,
+          state:            form.state || null,
+          board:            form.board || null,
+          school_type:      form.school_type,
+          student_strength: form.student_strength || null,
+          admin_name:       form.admin_name.trim(),
+          admin_email:      form.admin_email.trim().toLowerCase(),
+          admin_phone:      form.admin_phone.trim() || null,
+          admin_username:   form.admin_username.trim().toLowerCase(),
+          admin_password:   form.admin_password,
+          plan_type:        form.plan_type,
+        },
       });
-      if (insertError) {
-        if (insertError.code === '23505') throw new Error(`School code "${form.school_code.toUpperCase()}" already has a pending registration.`);
-        throw new Error(insertError.message);
+
+      if (fnError) {
+        let errMsg = fnError.message;
+        try {
+          const body = await fnError.context.json();
+          if (body?.error) errMsg = body.error;
+        } catch (_) { /* use default */ }
+        throw new Error(errMsg);
       }
+      if (data?.error) throw new Error(data.error);
+
       setSubmitted(true);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
@@ -236,13 +243,19 @@ export default function RegisterSchool() {
             <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(52,211,153,0.15)', border: '2px solid rgba(52,211,153,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
               <CheckCircle size={36} color="#34d399" />
             </div>
-            <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Registration Submitted!</h2>
-            <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7, margin: '0 auto 24px', maxWidth: 380 }}>
-              Your application for <strong style={{ color: '#e2e8f0' }}>{form.school_name}</strong> has been received.
-              Our team will review it and send your login credentials to <strong style={{ color: '#e2e8f0' }}>{form.admin_email}</strong> within 24–48 hours.
+            <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Registration Successful!</h2>
+            <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7, margin: '0 auto 16px', maxWidth: 400 }}>
+              Your account for <strong style={{ color: '#e2e8f0' }}>{form.school_name}</strong> has been created.
+              You can now <strong style={{ color: '#a5b4fc' }}>log in immediately</strong> to explore the dashboard.
             </p>
+            <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 12, padding: '12px 16px', marginBottom: 24, textAlign: 'left' }}>
+              <p style={{ color: '#fbbf24', fontSize: 13, fontWeight: 700, margin: '0 0 4px' }}>⏳ Pending Approval</p>
+              <p style={{ color: '#94a3b8', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+                Data entry and core features are disabled until your account is approved by the Platform Admin. Offline features like theme and language settings are available right away.
+              </p>
+            </div>
             <Link to="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#4f46e5', color: '#fff', fontWeight: 700, padding: '12px 28px', borderRadius: 12, textDecoration: 'none', fontSize: 14 }}>
-              Back to Login
+              Login Now
             </Link>
           </div>
         </div>

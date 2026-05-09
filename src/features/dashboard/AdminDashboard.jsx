@@ -6,7 +6,9 @@ import {
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import PlanStatusBanner from '../../components/PlanStatusBanner';
+import PendingBanner from '../../components/PendingBanner';
 import { usePlan } from '../../hooks/usePlan';
+import { usePending } from '../../hooks/usePending';
 
 const MODULES = [
   { name: 'Users',        path: '/admin/users',        icon: <Users size={26} />,         colorHex: '#60a5fa', bgRgb: '96,165,250'   },
@@ -30,9 +32,14 @@ const PREMIUM_MODULES = ['Fees', 'Timetable', 'Leaves', 'Reports'];
 
 export default function AdminDashboard() {
   const { isFree } = usePlan();
+  const { isPending } = usePending();
   const navigate = useNavigate();
 
   const handleModuleClick = (e, mod) => {
+    if (isPending) {
+      e.preventDefault();
+      return; // banner already explains why
+    }
     if (isFree && PREMIUM_MODULES.includes(mod.name)) {
       e.preventDefault();
       navigate('/admin/billing');
@@ -42,6 +49,7 @@ export default function AdminDashboard() {
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
       <DashboardHero />
+      <PendingBanner />
       <PlanStatusBanner />
 
       <div>
@@ -54,7 +62,7 @@ export default function AdminDashboard() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '14px' }}>
           {MODULES.map((mod) => {
-            const isLocked = isFree && PREMIUM_MODULES.includes(mod.name);
+            const isLocked = (isFree && PREMIUM_MODULES.includes(mod.name)) || isPending;
             return (
               <Link
                 key={mod.name}
