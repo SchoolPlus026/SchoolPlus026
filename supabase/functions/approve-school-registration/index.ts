@@ -48,14 +48,10 @@ async function sendWelcomeEmail(opts: {
             <td style="padding:6px 0;color:#64748b;font-size:13px;">Username</td>
             <td style="padding:6px 0;color:#1e293b;font-weight:700;font-family:monospace;font-size:14px;">${opts.admin_username}</td>
           </tr>
-          <tr>
-            <td style="padding:6px 0;color:#64748b;font-size:13px;">Temporary Password</td>
-            <td style="padding:6px 0;color:#4f46e5;font-weight:700;font-family:monospace;font-size:14px;">${opts.admin_password}</td>
-          </tr>
         </table>
       </div>
 
-      <p style="color:#64748b;font-size:13px;">⚠️ Please change your password after your first login for security.</p>
+      <p style="color:#1e293b;font-size:14px;font-weight:600;">Please use the password you created during the registration process to log in.</p>
 
       <a href="${opts.login_url}" style="display:inline-block;margin:16px 0;background:#4f46e5;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;">Login to SchoolOS+ →</a>
 
@@ -85,6 +81,55 @@ async function sendWelcomeEmail(opts: {
     console.error('[approve] Email send failed:', res.status, body);
   } else {
     console.log('[approve] Welcome email sent to', opts.to);
+  }
+}
+
+async function sendRejectionEmail(opts: {
+  to: string;
+  school_name: string;
+}) {
+  const resendKey = Deno.env.get('RESEND_API_KEY');
+  if (!resendKey) {
+    console.log('[approve] RESEND_API_KEY not set — skipping rejection email');
+    return;
+  }
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:sans-serif;background:#f8fafc;padding:32px 0;">
+  <div style="max-width:600px;margin:auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#f43f5e,#e11d48);padding:32px 40px;">
+      <h1 style="color:#fff;margin:0;font-size:24px;">Registration Declined</h1>
+    </div>
+    <div style="padding:32px 40px;">
+      <p style="color:#374151;font-size:15px;">Your registration request for <strong>${opts.school_name}</strong> was declined.</p>
+      <p style="color:#64748b;font-size:13px;">If you believe this is an error, please contact our support team.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${resendKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: Deno.env.get('EMAIL_FROM') || 'SchoolOS+ <noreply@schoolos.app>',
+      to: [opts.to],
+      subject: `Registration Update: ${opts.school_name}`,
+      html,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error('[approve] Rejection email failed:', res.status, body);
+  } else {
+    console.log('[approve] Rejection email sent to', opts.to);
   }
 }
 
@@ -134,7 +179,6 @@ serve(async (req) => {
       // Optional overrides (P.A. can tweak before approval)
       override_school_code,
       override_plan_type,
-      override_admin_password,
     } = await req.json();
 
     if (!registration_id || !action) throw new Error('registration_id and action are required');
@@ -160,8 +204,15 @@ serve(async (req) => {
           rejection_reason: rejection_reason.trim(),
           reviewed_at: new Date().toISOString(),
           reviewed_by: user.id,
+          admin_password: null, // Clear password on reject
         })
         .eq('id', registration_id);
+
+      try {
+        await sendRejectionEmail({ to: reg.admin_email, school_name: reg.school_name });
+      } catch (emailErr) {
+        console.error('[approve] Failed to send rejection email:', emailErr);
+      }
 
       return new Response(JSON.stringify({ success: true, message: 'Registration rejected.' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -171,8 +222,9 @@ serve(async (req) => {
     // ── APPROVE PATH ─────────────────────────────────────────────────────────
     const finalSchoolCode   = (override_school_code || reg.school_code).toUpperCase();
     const finalPlanType     = override_plan_type    || reg.plan_type || 'trial';
-    // Generate a secure temp password if not overridden
-    const tempPassword      = override_admin_password || generateTempPassword();
+    const actualPassword    = reg.admin_password;
+
+    if (!actualPassword) throw new Error('Original admin password not found in registration record.');
 
     // 5. Invoke platform-create-school (reuse existing provisioning logic)
     // Use service_role to ensure completely bypassing RLS during provisioning
@@ -192,7 +244,7 @@ serve(async (req) => {
         admin_name:        reg.admin_name,
         admin_username:    reg.admin_username,
         admin_email:       reg.admin_email,
-        admin_password:    tempPassword,
+        admin_password:    actualPassword,
       }),
     });
 
@@ -201,32 +253,37 @@ serve(async (req) => {
       throw new Error(provisionData.error || 'Provisioning failed');
     }
 
-    // 6. Mark registration as approved
+    // 6. Mark registration as approved and clear the plaintext password
     await supabaseAdmin
       .from('school_registrations')
       .update({
         status: 'approved',
         reviewed_at: new Date().toISOString(),
         reviewed_by: user.id,
+        admin_password: null,
       })
       .eq('id', registration_id);
 
-    // 7. Send welcome email with credentials
+    // 7. Send welcome email
     const loginUrl = Deno.env.get('APP_LOGIN_URL') || 'https://schoolpro-d95a8.web.app/login';
-    await sendWelcomeEmail({
-      to:             reg.admin_email,
-      school_name:    reg.school_name,
-      school_code:    finalSchoolCode,
-      admin_name:     reg.admin_name,
-      admin_username: reg.admin_username,
-      admin_password: tempPassword,
-      login_url:      loginUrl,
-    });
+    try {
+      await sendWelcomeEmail({
+        to:             reg.admin_email,
+        school_name:    reg.school_name,
+        school_code:    finalSchoolCode,
+        admin_name:     reg.admin_name,
+        admin_username: reg.admin_username,
+        admin_password: '', // Unused in new template
+        login_url:      loginUrl,
+      });
+    } catch (emailErr) {
+      console.error('[approve] Failed to send welcome email:', emailErr);
+    }
 
     return new Response(JSON.stringify({
       success:     true,
       school_id:   provisionData.school_id,
-      message:     `School "${reg.school_name}" approved and provisioned. Welcome email sent to ${reg.admin_email}.`,
+      message:     `School "${reg.school_name}" approved and provisioned.`,
     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (err) {
@@ -238,8 +295,3 @@ serve(async (req) => {
   }
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-}

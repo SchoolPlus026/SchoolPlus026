@@ -14,14 +14,21 @@ const STATUS_CONFIG = {
 
 const PLAN_LABELS = { trial: '28-Day Trial', free: 'Free Plan', premium: 'Premium' };
 
+const actionBtn = (color, isDanger) => ({
+  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
+  background: isDanger ? 'rgba(248,113,113,0.1)' : 'rgba(74,222,128,0.1)', color: color
+});
+const labelStyle = { fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4, display: 'block' };
+const miniInputStyle = { width: '100%', padding: '8px 12px', borderRadius: 8, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 13 };
+const cancelBtn = { padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#94a3b8', cursor: 'pointer' };
+
 function RegistrationCard({ reg, onApprove, onReject, processing }) {
   const [expanded, setExpanded] = useState(false);
   const [showApproveForm, setShowApproveForm]   = useState(false);
   const [showRejectForm, setShowRejectForm]     = useState(false);
-  const [overrideCode, setOverrideCode]         = useState(reg.school_code);
-  const [overridePlan, setOverridePlan]         = useState(reg.plan_type);
-  const [overridePassword, setOverridePassword] = useState('');
-  const [rejectReason, setRejectReason]         = useState('');
+  const [overrideCode, setOverrideCode] = useState(reg.school_code);
+  const [overridePlan, setOverridePlan] = useState(reg.plan_type || 'trial');
+  const [rejectReason, setRejectReason] = useState('');
 
   const sc = STATUS_CONFIG[reg.status] || STATUS_CONFIG.pending;
 
@@ -93,7 +100,7 @@ function RegistrationCard({ reg, onApprove, onReject, processing }) {
               {showApproveForm && (
                 <div style={{ background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: 12, padding: 16 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Confirm Approval</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                     <div>
                       <label style={labelStyle}>School Code</label>
                       <input style={miniInputStyle} value={overrideCode}
@@ -107,16 +114,11 @@ function RegistrationCard({ reg, onApprove, onReject, processing }) {
                         <option value="premium">Premium</option>
                       </select>
                     </div>
-                    <div>
-                      <label style={labelStyle}>Temp Password <span style={{ color: '#475569' }}>(auto if blank)</span></label>
-                      <input style={{ ...miniInputStyle, fontFamily: 'monospace' }} placeholder="Leave blank = auto"
-                        value={overridePassword} onChange={e => setOverridePassword(e.target.value)} />
-                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button onClick={() => setShowApproveForm(false)} style={cancelBtn}>Cancel</button>
                     <button disabled={processing}
-                      onClick={() => onApprove(reg.id, { override_school_code: overrideCode, override_plan_type: overridePlan, override_admin_password: overridePassword || undefined })}
+                      onClick={() => onApprove(reg.id, { override_school_code: overrideCode, override_plan_type: overridePlan })}
                       style={actionBtn('#4ade80')}>
                       {processing ? 'Approving...' : <><CheckCircle size={14} /> Confirm & Provision</>}
                     </button>
