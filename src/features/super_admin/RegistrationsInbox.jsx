@@ -181,11 +181,21 @@ export default function RegistrationsInbox() {
     setProcessing(regId);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await supabase.functions.invoke('approve-school-registration', {
+      const { data, error } = await supabase.functions.invoke('approve-school-registration', {
         body: { registration_id: regId, action: 'approve', ...overrides },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-      if (res.error || res.data?.error) throw new Error(res.data?.error || res.error?.message);
+
+      if (error) {
+        let errMsg = error.message;
+        try {
+          // FunctionsHttpError contains the response body in context
+          const body = await error.context.json();
+          if (body && body.error) errMsg = body.error;
+        } catch (e) { /* use default message */ }
+        throw new Error(errMsg);
+      }
+      if (data?.error) throw new Error(data.error);
       showToast(`✅ School provisioned! Welcome email sent.`, 'success');
       qc.invalidateQueries({ queryKey: ['school_registrations'] });
       qc.invalidateQueries({ queryKey: ['schools'] });
@@ -200,11 +210,20 @@ export default function RegistrationsInbox() {
     setProcessing(regId);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await supabase.functions.invoke('approve-school-registration', {
+      const { data, error } = await supabase.functions.invoke('approve-school-registration', {
         body: { registration_id: regId, action: 'reject', rejection_reason: reason },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-      if (res.error || res.data?.error) throw new Error(res.data?.error || res.error?.message);
+
+      if (error) {
+        let errMsg = error.message;
+        try {
+          const body = await error.context.json();
+          if (body && body.error) errMsg = body.error;
+        } catch (e) { /* use default message */ }
+        throw new Error(errMsg);
+      }
+      if (data?.error) throw new Error(data.error);
       showToast('Registration rejected.', 'success');
       qc.invalidateQueries({ queryKey: ['school_registrations'] });
     } catch (err) {
