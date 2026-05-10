@@ -5,10 +5,13 @@ export default function ModuleGuard({ moduleName, children, inline = false }) {
   const { schoolSettings, role } = useAppStore();
   const activeModules = schoolSettings?.modules_active || [];
 
-  // Platform Admins can see everything regardless of the toggle (or we can enforce it strictly)
-  // Let's enforce it strictly so they see what the school sees, unless they are debugging.
-  // Assuming strict enforcement:
-  const isEnabled = activeModules.includes(moduleName);
+  // Admins and Platform Admins MUST always see everything so they can manage it
+  const isAdmin = role === 'admin' || role === 'platform_admin';
+  
+  // Legacy modules (without a specific moduleId) pass "default" and should always be visible
+  const isDefault = moduleName === 'default';
+
+  const isEnabled = isAdmin || isDefault || activeModules.includes(moduleName);
 
   if (isEnabled) {
     return children;

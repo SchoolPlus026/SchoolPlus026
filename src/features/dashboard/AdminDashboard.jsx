@@ -12,21 +12,21 @@ import { usePlan } from '../../hooks/usePlan';
 import { usePending } from '../../hooks/usePending';
 
 const MODULES = [
-  { name: 'Users',        path: '/admin/users',        icon: <Users size={26} />,         colorHex: '#60a5fa', bgRgb: '96,165,250'   },
-  { name: 'Attendance',   path: '/admin/attendance',   icon: <ClipboardList size={26} />, colorHex: '#818cf8', bgRgb: '129,140,248'  },
-  { name: 'Fees',         path: '/admin/fees',         icon: <DollarSign size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153'   },
-  { name: 'Calendar',     path: '/admin/calendar',     icon: <Calendar size={26} />,      colorHex: '#2dd4bf', bgRgb: '45,212,191'   },
-  { name: 'Notices',      path: '/admin/notices',      icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36'   },
-  { name: 'Gallery',      path: '/admin/gallery',      icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182'  },
-  { name: 'Timetable',    path: '/admin/timetable',    icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252'  },
-  { name: 'Off Classes',  path: '/admin/off-classes',  icon: <CalendarX size={26} />,     colorHex: '#fb923c', bgRgb: '251,146,60'   },
-  { name: 'Leaves',       path: '/admin/leaves',       icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133'  },
-  { name: 'Reports',      path: '/admin/reports',      icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238'   },
-  { name: 'Contact',      path: '/admin/contact',      icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184'  },
-  { name: 'Billing',         path: '/admin/billing',         icon: <CreditCard size={26} />,    colorHex: '#a78bfa', bgRgb: '167,139,250'  },
-  { name: 'Knowledge Base',  path: '/admin/knowledge-base',  icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248'   },
+  { name: 'Users',        path: '/admin/users',        icon: <Users size={26} />,         colorHex: '#60a5fa', bgRgb: '96,165,250', moduleId: 'users'   },
+  { name: 'Attendance',   path: '/admin/attendance',   icon: <ClipboardList size={26} />, colorHex: '#818cf8', bgRgb: '129,140,248', moduleId: 'attendance'  },
+  { name: 'Fees',         path: '/admin/fees',         icon: <DollarSign size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153', moduleId: 'fees'   },
+  { name: 'Calendar',     path: '/admin/calendar',     icon: <Calendar size={26} />,      colorHex: '#2dd4bf', bgRgb: '45,212,191', moduleId: 'calendar'   },
+  { name: 'Notices',      path: '/admin/notices',      icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36', moduleId: 'notices'   },
+  { name: 'Gallery',      path: '/admin/gallery',      icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182', moduleId: 'gallery'  },
+  { name: 'Timetable',    path: '/admin/timetable',    icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252', moduleId: 'timetable'  },
+  { name: 'Off Classes',  path: '/admin/off-classes',  icon: <CalendarX size={26} />,     colorHex: '#fb923c', bgRgb: '251,146,60', moduleId: 'off_classes'   },
+  { name: 'Leaves',       path: '/admin/leaves',       icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133', moduleId: 'leaves'  },
+  { name: 'Reports',      path: '/admin/reports',      icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238', moduleId: 'reports'   },
+  { name: 'Contact',      path: '/admin/contact',      icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'contact'  },
+  { name: 'Billing',         path: '/admin/billing',         icon: <CreditCard size={26} />,    colorHex: '#a78bfa', bgRgb: '167,139,250', moduleId: 'billing'  },
+  { name: 'Knowledge Base',  path: '/admin/knowledge-base',  icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
   { name: "Principal's Desk",path: '/admin/principals-desk', icon: <Phone size={26} />,         colorHex: '#f43f5e', bgRgb: '244,63,94', moduleId: 'principals_desk' },
-  { name: 'Settings',        path: '/admin/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184'  },
+  { name: 'Settings',        path: '/admin/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 
 // Locked for Free plan — clicking redirects to /admin/billing

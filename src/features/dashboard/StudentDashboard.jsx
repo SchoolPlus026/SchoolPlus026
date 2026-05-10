@@ -12,17 +12,17 @@ import ModuleGuard from '../../components/ModuleGuard';
 // Exact legacy module list for Student role:
 // My Profile, Attendance, Fees, Timetable, Notices, Leaves, Gallery, Contact, Settings
 const MODULES = [
-  { name: 'My Profile',  path: '/student/profile',    icon: <User size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250'   },
-  { name: 'Attendance',  path: '/student/attendance', icon: <ClipboardList size={26} />, colorHex: '#818cf8', bgRgb: '129,140,248'  },
-  { name: 'Fees',        path: '/student/fees',       icon: <DollarSign size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153'   },
-  { name: 'Timetable',   path: '/student/timetable',  icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252'  },
-  { name: 'Notices',     path: '/student/notices',    icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36'   },
-  { name: 'Leaves',      path: '/student/leaves',     icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133'  },
-  { name: 'Gallery',        path: '/student/gallery',         icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182'  },
-  { name: 'Contact',        path: '/student/contact',         icon: <Phone size={26} />,         colorHex: '#2dd4bf', bgRgb: '45,212,191'   },
-  { name: 'Knowledge Base', path: '/student/knowledge-base',  icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248'   },
+  { name: 'My Profile',  path: '/student/profile',    icon: <User size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250', moduleId: 'users'   },
+  { name: 'Attendance',  path: '/student/attendance', icon: <ClipboardList size={26} />, colorHex: '#818cf8', bgRgb: '129,140,248', moduleId: 'attendance'  },
+  { name: 'Fees',        path: '/student/fees',       icon: <DollarSign size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153', moduleId: 'fees'   },
+  { name: 'Timetable',   path: '/student/timetable',  icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252', moduleId: 'timetable'  },
+  { name: 'Notices',     path: '/student/notices',    icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36', moduleId: 'notices'   },
+  { name: 'Leaves',      path: '/student/leaves',     icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133', moduleId: 'leaves'  },
+  { name: 'Gallery',        path: '/student/gallery',         icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182', moduleId: 'gallery'  },
+  { name: 'Contact',        path: '/student/contact',         icon: <Phone size={26} />,         colorHex: '#2dd4bf', bgRgb: '45,212,191', moduleId: 'contact'   },
+  { name: 'Knowledge Base', path: '/student/knowledge-base',  icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
   { name: "Principal's Desk",path: '/student/principals-desk', icon: <Phone size={26} />,         colorHex: '#f43f5e', bgRgb: '244,63,94', moduleId: 'principals_desk' },
-  { name: 'Settings',       path: '/student/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184'  },
+  { name: 'Settings',       path: '/student/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 
 function StudentDashboardContent() {

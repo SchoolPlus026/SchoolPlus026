@@ -15,20 +15,20 @@ import ModuleGuard from '../../components/ModuleGuard';
 // My Profile, Mark My Attendance, Class Attendance, Timetable, Off Classes,
 // Notices, Leaves, Gallery, Reports, Settings
 const MODULES = [
-  { name: 'My Profile',         path: '/teacher/profile',          icon: <User size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250'   },
-  { name: 'Mark My Attendance', path: '/teacher/self-attendance',  icon: <ClipboardCheck size={26} />,colorHex: '#818cf8', bgRgb: '129,140,248'  },
-  { name: 'Class Attendance',   path: '/teacher/attendance',       icon: <Users size={26} />,         colorHex: '#a78bfa', bgRgb: '167,139,250'  },
-  { name: 'Manage Students',    path: '/teacher/users',             icon: <Users size={26} />,         colorHex: '#6366f1', bgRgb: '99,102,241'   },
-  { name: 'Timetable',          path: '/teacher/timetable',        icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252'  },
-  { name: 'Off Classes',        path: '/teacher/off-classes',      icon: <CalendarX size={26} />,     colorHex: '#fb923c', bgRgb: '251,146,60'   },
-  { name: 'Notices',            path: '/teacher/notices',          icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36'   },
-  { name: 'Leaves',             path: '/teacher/leaves',           icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133'  },
-  { name: 'Gallery',            path: '/teacher/gallery',          icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182'  },
-  { name: 'Reports',            path: '/teacher/reports',           icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238'   },
-  { name: 'Contact',            path: '/teacher/contact',           icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184'  },
-  { name: 'Knowledge Base',     path: '/teacher/knowledge-base',    icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248'   },
+  { name: 'My Profile',         path: '/teacher/profile',          icon: <User size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250', moduleId: 'users'   },
+  { name: 'Mark My Attendance', path: '/teacher/self-attendance',  icon: <ClipboardCheck size={26} />,colorHex: '#818cf8', bgRgb: '129,140,248', moduleId: 'attendance'  },
+  { name: 'Class Attendance',   path: '/teacher/attendance',       icon: <Users size={26} />,         colorHex: '#a78bfa', bgRgb: '167,139,250', moduleId: 'attendance'  },
+  { name: 'Manage Students',    path: '/teacher/users',             icon: <Users size={26} />,         colorHex: '#6366f1', bgRgb: '99,102,241', moduleId: 'users'   },
+  { name: 'Timetable',          path: '/teacher/timetable',        icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252', moduleId: 'timetable'  },
+  { name: 'Off Classes',        path: '/teacher/off-classes',      icon: <CalendarX size={26} />,     colorHex: '#fb923c', bgRgb: '251,146,60', moduleId: 'off_classes'   },
+  { name: 'Notices',            path: '/teacher/notices',          icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36', moduleId: 'notices'   },
+  { name: 'Leaves',             path: '/teacher/leaves',           icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133', moduleId: 'leaves'  },
+  { name: 'Gallery',            path: '/teacher/gallery',          icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182', moduleId: 'gallery'  },
+  { name: 'Reports',            path: '/teacher/reports',           icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238', moduleId: 'reports'   },
+  { name: 'Contact',            path: '/teacher/contact',           icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'contact'  },
+  { name: 'Knowledge Base',     path: '/teacher/knowledge-base',    icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
   { name: "Principal's Desk",path: '/teacher/principals-desk', icon: <Phone size={26} />,         colorHex: '#f43f5e', bgRgb: '244,63,94', moduleId: 'principals_desk' },
-  { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184'  },
+  { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 
 const PREMIUM_MODULES = ['Timetable', 'Gallery'];

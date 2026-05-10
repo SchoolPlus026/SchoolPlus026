@@ -441,6 +441,18 @@ export default function AdminSettings() {
 
   /* ── Modules Toggle ── */
   const ALL_MODULES = [
+    // Legacy Modules
+    { id: 'attendance', label: "Attendance" },
+    { id: 'fees', label: "Fees" },
+    { id: 'calendar', label: "Calendar" },
+    { id: 'notices', label: "Notices" },
+    { id: 'gallery', label: "Gallery" },
+    { id: 'timetable', label: "Timetable" },
+    { id: 'off_classes', label: "Off Classes" },
+    { id: 'leaves', label: "Leaves" },
+    { id: 'reports', label: "Reports" },
+    
+    // New/Optional Modules
     { id: 'principals_desk', label: "Principal's Desk" },
     { id: 'lost_found', label: "Lost & Found" },
     { id: 'bus_alerts', label: "Bus Alerts" },
