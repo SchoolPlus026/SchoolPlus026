@@ -49,8 +49,9 @@ DECLARE
     caller_role   text;
     caller_school uuid;
 BEGIN
-    caller_role   := (auth.jwt() -> 'user_metadata' ->> 'role');
-    caller_school := (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid;
+    -- Fetch the verified role directly from the database instead of trusting the JWT metadata
+    SELECT role, school_id INTO caller_role, caller_school 
+    FROM public.users WHERE id = auth.uid();
 
     -- FIX: Included 'platform_admin' in the authorization check
     IF caller_role NOT IN ('admin', 'app_manager', 'platform_admin') THEN

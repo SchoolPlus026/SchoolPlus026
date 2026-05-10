@@ -7,7 +7,7 @@ import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck, CheckCircle2
 export default function MarkAttendance() {
   const { user, role, schoolSettings } = useAppStore();
   const queryClient = useQueryClient();
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const selectedDate = new Date().toISOString().split('T')[0];
   const [selectedClass, setSelectedClass] = useState('');
   const [targetRole, setTargetRole] = useState('student'); // 'student' or 'teacher'
   
@@ -157,12 +157,6 @@ export default function MarkAttendance() {
   const handleSave = () => {
     if (!targets || targets.length === 0) return;
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    if (selectedDate > todayStr) {
-      alert("You cannot mark attendance for future dates.");
-      return;
-    }
-
     // If already marked and no edits were made, warn before re-saving
     if (isAlreadyMarked && !hasEdits) {
       const ok = window.confirm('Attendance for this date is already recorded. Do you want to re-save with the same statuses?');
@@ -225,7 +219,7 @@ export default function MarkAttendance() {
                 {classes.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             )}
-            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="sp-input w-[140px]" />
+            <div className="sp-input w-[140px] opacity-70 bg-slate-100 cursor-not-allowed flex items-center justify-center font-bold text-slate-600">{selectedDate}</div>
             <button className="btn-primary flex items-center gap-2" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
               {saveMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {saveMutation.isPending ? 'Saving...' : 'Save Attendance'}
@@ -239,7 +233,7 @@ export default function MarkAttendance() {
             {targetRole === 'student' && (
                <div className="sp-input w-auto min-w-[150px] opacity-70 cursor-not-allowed uppercase text-xs font-bold flex items-center justify-center">CLASS {selectedClass || 'UNASSIGNED'}</div>
             )}
-            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="sp-input w-[140px]" />
+            <div className="sp-input w-[140px] opacity-70 bg-slate-100 cursor-not-allowed flex items-center justify-center font-bold text-slate-600">{selectedDate}</div>
             <button className="btn-primary flex items-center gap-2" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
               {saveMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {saveMutation.isPending ? 'Saving...' : 'Save Attendance'}
