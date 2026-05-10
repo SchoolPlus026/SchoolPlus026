@@ -97,6 +97,33 @@ export default function MarkAttendance() {
         .from('attendance')
         .upsert(upsertRows, { onConflict: 'school_id,user_id,month_year' });
       if (error) throw error;
+
+      // Generate ephemeral notifications ONLY for changed statuses to prevent spam
+      const notifications = [];
+      payload.forEach(item => {
+        const existingRow = existingAttendance?.find(a => a.user_id === item.user_id);
+        const currentStatus = existingRow?.attendance_data?.[date];
+        
+        // If the status has changed (or is newly marked) and it's for a student
+        if (currentStatus !== item.status && item.role === 'student') {
+           notifications.push({
+              school_id: item.school_id,
+              user_id: item.user_id,
+              title: 'Attendance Alert',
+              body: `Attendance marked as ${item.status.toUpperCase()} for ${item.date}.`,
+              route: '/attendance',
+              is_ephemeral: true,
+              status: 'pending'
+           });
+        }
+      });
+
+      if (notifications.length > 0) {
+        const { error: notifErr } = await supabase
+          .from('app_notifications_queue')
+          .insert(notifications);
+        if (notifErr) console.error('Notification queuing failed:', notifErr);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
