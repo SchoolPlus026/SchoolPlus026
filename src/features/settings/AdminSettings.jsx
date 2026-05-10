@@ -4,7 +4,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { 
   Building, Sun, Globe, Lock, Database, ShieldAlert, 
-  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus, X
+  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus, X, ToggleLeft
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { logAuditAction } from '../../utils/auditLogger';
@@ -439,6 +439,40 @@ export default function AdminSettings() {
     }
   };
 
+  /* ── Modules Toggle ── */
+  const ALL_MODULES = [
+    { id: 'principals_desk', label: "Principal's Desk" },
+    { id: 'lost_found', label: "Lost & Found" },
+    { id: 'bus_alerts', label: "Bus Alerts" },
+    { id: 'syllabus', label: "Syllabus Tracker" },
+    { id: 'duty_radar', label: "Duty Radar" },
+    { id: 'exec_briefing', label: "Exec Briefing" },
+    { id: 'mood_note', label: "Mood Note" },
+  ];
+  const [togglingModule, setTogglingModule] = useState(null);
+
+  const handleToggleModule = async (moduleId) => {
+    setTogglingModule(moduleId);
+    try {
+      const currentActive = schoolSettings?.modules_active || [];
+      const newActive = currentActive.includes(moduleId)
+        ? currentActive.filter(id => id !== moduleId)
+        : [...currentActive, moduleId];
+
+      const { error } = await supabase
+        .from('school_settings')
+        .update({ modules_active: newActive })
+        .eq('school_id', schoolSettings.school_id);
+      
+      if (error) throw error;
+      setSchoolSettings({ ...schoolSettings, modules_active: newActive });
+    } catch (err) {
+      alert('Error updating module: ' + err.message);
+    } finally {
+      setTogglingModule(null);
+    }
+  };
+
   /* ──────── RENDER ──────── */
   return (
     <div className="space-y-4 fade-in pb-12 max-w-2xl mx-auto">
@@ -605,6 +639,34 @@ export default function AdminSettings() {
         <button onClick={handleExport} disabled={exporting} className="btn outline w-full">
           <Upload size={16} /> {exporting ? t.exporting : t.exportJson}
         </button>
+      </div>
+
+      {/* ── MODULE SETTINGS ── */}
+      <div className="card">
+        <div className="settings-header">
+          <div className="icon-box"><ToggleLeft size={20} /></div>
+          <div className="text-content">
+            <h4>Active Modules</h4>
+            <p>Turn optional platform features on or off.</p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-3">
+          {ALL_MODULES.map(mod => {
+            const isActive = (schoolSettings?.modules_active || []).includes(mod.id);
+            return (
+              <div key={mod.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl bg-slate-50">
+                <span className="font-semibold text-sm text-slate-700">{mod.label}</span>
+                <button
+                  onClick={() => handleToggleModule(mod.id)}
+                  disabled={togglingModule === mod.id}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isActive ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isActive ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
 

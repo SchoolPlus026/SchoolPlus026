@@ -7,6 +7,7 @@ import {
 import DashboardHero from '../../components/DashboardHero';
 import PlanStatusBanner from '../../components/PlanStatusBanner';
 import PendingBanner from '../../components/PendingBanner';
+import ModuleGuard from '../../components/ModuleGuard';
 import { usePlan } from '../../hooks/usePlan';
 import { usePending } from '../../hooks/usePending';
 
@@ -24,6 +25,7 @@ const MODULES = [
   { name: 'Contact',      path: '/admin/contact',      icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184'  },
   { name: 'Billing',         path: '/admin/billing',         icon: <CreditCard size={26} />,    colorHex: '#a78bfa', bgRgb: '167,139,250'  },
   { name: 'Knowledge Base',  path: '/admin/knowledge-base',  icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248'   },
+  { name: "Principal's Desk",path: '/admin/principals-desk', icon: <Phone size={26} />,         colorHex: '#f43f5e', bgRgb: '244,63,94', moduleId: 'principals_desk' },
   { name: 'Settings',        path: '/admin/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184'  },
 ];
 
@@ -60,40 +62,41 @@ export default function AdminDashboard() {
           {MODULES.map((mod) => {
             const isLocked = (isFree && PREMIUM_MODULES.includes(mod.name));
             return (
-              <Link
-                key={mod.name}
-                to={isLocked ? '#' : mod.path}
-                onClick={(e) => handleModuleClick(e, mod)}
-                className="module-card"
-                style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative', opacity: isLocked ? 0.6 : 1 }}
-              >
-                {isLocked && (
-                  <div style={{ position: 'absolute', top: '10px', right: '10px', color: 'var(--text-faint)' }}>
-                    <Lock size={14} />
-                  </div>
-                )}
-                <div
-                  style={{
-                    width: '54px', height: '54px', borderRadius: '16px',
-                    background: isLocked ? 'var(--glass)' : `rgba(${mod.bgRgb},0.12)`,
-                    border: `1px solid ${isLocked ? 'var(--card-border)' : `rgba(${mod.bgRgb},0.2)`}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: isLocked ? 'var(--text-faint)' : mod.colorHex,
-                    transition: 'transform 0.25s ease',
-                  }}
-                  onMouseEnter={e => !isLocked && (e.currentTarget.style.transform = 'scale(1.12)')}
-                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+              <ModuleGuard key={mod.name} moduleName={mod.moduleId || 'default'} inline={!!mod.moduleId}>
+                <Link
+                  to={isLocked ? '#' : mod.path}
+                  onClick={(e) => handleModuleClick(e, mod)}
+                  className="module-card"
+                  style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative', opacity: isLocked ? 0.6 : 1 }}
                 >
-                  {mod.icon}
-                </div>
-                <span style={{
-                  fontSize: '11px', fontWeight: 800, textTransform: 'uppercase',
-                  letterSpacing: '0.06em', color: isLocked ? 'var(--text-faint)' : 'var(--text-main)',
-                  textAlign: 'center', lineHeight: 1.3,
-                }}>
-                  {mod.name}
-                </span>
-              </Link>
+                  {isLocked && (
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', color: 'var(--text-faint)' }}>
+                      <Lock size={14} />
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      width: '54px', height: '54px', borderRadius: '16px',
+                      background: isLocked ? 'var(--glass)' : `rgba(${mod.bgRgb},0.12)`,
+                      border: `1px solid ${isLocked ? 'var(--card-border)' : `rgba(${mod.bgRgb},0.2)`}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: isLocked ? 'var(--text-faint)' : mod.colorHex,
+                      transition: 'transform 0.25s ease',
+                    }}
+                    onMouseEnter={e => !isLocked && (e.currentTarget.style.transform = 'scale(1.12)')}
+                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                  >
+                    {mod.icon}
+                  </div>
+                  <span style={{
+                    fontSize: '11px', fontWeight: 800, textTransform: 'uppercase',
+                    letterSpacing: '0.06em', color: isLocked ? 'var(--text-faint)' : 'var(--text-main)',
+                    textAlign: 'center', lineHeight: 1.3,
+                  }}>
+                    {mod.name}
+                  </span>
+                </Link>
+              </ModuleGuard>
             );
           })}
         </div>
