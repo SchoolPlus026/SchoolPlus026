@@ -156,6 +156,13 @@ export default function MarkAttendance() {
 
   const handleSave = () => {
     if (!targets || targets.length === 0) return;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (selectedDate > todayStr) {
+      alert("You cannot mark attendance for future dates.");
+      return;
+    }
+
     // If already marked and no edits were made, warn before re-saving
     if (isAlreadyMarked && !hasEdits) {
       const ok = window.confirm('Attendance for this date is already recorded. Do you want to re-save with the same statuses?');
