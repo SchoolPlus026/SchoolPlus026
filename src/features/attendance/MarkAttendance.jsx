@@ -12,6 +12,12 @@ export default function MarkAttendance() {
   const [targetRole, setTargetRole] = useState('student'); // 'student' or 'teacher'
   
   const [attendanceEdits, setAttendanceEdits] = useState({});
+  const [toast, setToast] = useState('');
+
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  }
 
   // 1. Fetch Teacher's Assigned Class if applicable
   useEffect(() => {
@@ -53,10 +59,11 @@ export default function MarkAttendance() {
   const { data: existingAttendance, isLoading: attendanceLoading } = useQuery({
     queryKey: ['attendance', targetRole, selectedClass, selectedDate, schoolSettings?.school_id],
     queryFn: async () => {
+      const monthYear = selectedDate.substring(0, 7);
       const { data, error } = await supabase
         .from('attendance')
         .select('*')
-        .eq('date', selectedDate)
+        .eq('month_year', monthYear)
         .in('user_id', targets?.map(s => s.id) || []);
       if (error) throw error;
       return data || [];
@@ -65,23 +72,39 @@ export default function MarkAttendance() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (updates) => {
-      const userIds = updates.map(u => u.user_id);
-      
-      await supabase.from('attendance')
-        .delete()
-        .eq('date', selectedDate)
-        .in('user_id', userIds);
-        
-      const updatesWithMarkedBy = updates.map(u => ({ ...u, marked_by: user.id }));
+    mutationFn: async (payload) => {
+      if (!payload || payload.length === 0) return;
+      const monthYear = payload[0].month_year;
+      const date = payload[0].date;
 
-      const { error: insertErr } = await supabase.from('attendance').insert(updatesWithMarkedBy);
-      if (insertErr) throw insertErr;
+      const upsertRows = payload.map(item => {
+        // Find existing record to preserve other days in the month
+        const existingRow = existingAttendance?.find(a => a.user_id === item.user_id);
+        const currentData = existingRow?.attendance_data || {};
+        
+        return {
+          school_id: item.school_id,
+          user_id: item.user_id,
+          month_year: item.month_year,
+          attendance_data: {
+            ...currentData,
+            [date]: item.status
+          }
+        };
+      });
+
+      const { error } = await supabase
+        .from('attendance')
+        .upsert(upsertRows, { onConflict: 'school_id,user_id,month_year' });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
       setAttendanceEdits({});
-      alert('Attendance recorded successfully!');
+      showToast('Attendance recorded successfully!');
+    },
+    onError: (err) => {
+      showToast('Error saving: ' + err.message);
     }
   });
 
@@ -95,11 +118,13 @@ export default function MarkAttendance() {
   const currentStatusFor = (targetId) => {
     if (attendanceEdits[targetId]) return attendanceEdits[targetId];
     const record = existingAttendance?.find(a => a.user_id === targetId);
-    return record?.status || 'Present';
+    return record?.attendance_data?.[selectedDate] || 'Present';
   };
 
   // True if attendance has already been submitted for this date/class
-  const isAlreadyMarked = existingAttendance && existingAttendance.length > 0;
+  const isAlreadyMarked = existingAttendance && existingAttendance.some(
+    a => a.attendance_data && typeof a.attendance_data === 'object' && Object.keys(a.attendance_data).includes(selectedDate)
+  );
   const hasEdits = Object.keys(attendanceEdits).length > 0;
 
   const handleSave = () => {
@@ -112,6 +137,7 @@ export default function MarkAttendance() {
     const payload = targets.map(s => ({
       school_id: schoolSettings.school_id,
       user_id: s.id,
+      month_year: selectedDate.substring(0, 7),
       date: selectedDate,
       role: targetRole,
       status: currentStatusFor(s.id),
@@ -140,6 +166,13 @@ export default function MarkAttendance() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {toast && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-6 z-50 bg-slate-900 border border-white/10 text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2">
+          {toast.includes('Error') ? <AlertCircle size={14} className="text-red-400" /> : <CheckCircle2 size={14} className="text-emerald-400" />}
+          {toast}
+        </div>
+      )}
+
       <div className="card">
         <div className="section-title"><h3>{role === 'teacher' ? 'Mark Class Attendance' : 'Attendance Manager'}</h3></div>
       </div>
@@ -159,8 +192,9 @@ export default function MarkAttendance() {
             </select>
             )}
             <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="sp-input w-[140px]" />
-            <button className="btn-primary" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
-              {saveMutation.isPending ? 'Saving...' : 'Load & Save Attendance'}
+            <button className="btn-primary flex items-center gap-2" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
+              {saveMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+              {saveMutation.isPending ? 'Saving...' : 'Save Attendance'}
             </button>
             <button className="btn outline ml-auto" onClick={handleExportCSV} disabled={!targets || targets.length===0}>Export CSV</button>
         </div>
@@ -172,8 +206,9 @@ export default function MarkAttendance() {
                <div className="sp-input w-auto min-w-[150px] opacity-70 cursor-not-allowed uppercase text-xs font-bold flex items-center justify-center">CLASS {selectedClass || 'UNASSIGNED'}</div>
             )}
             <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="sp-input w-[140px]" />
-            <button className="btn-primary" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
-              {saveMutation.isPending ? 'Saving...' : 'Load & Save Attendance'}
+            <button className="btn-primary flex items-center gap-2" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
+              {saveMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+              {saveMutation.isPending ? 'Saving...' : 'Save Attendance'}
             </button>
          </div>
       </div>

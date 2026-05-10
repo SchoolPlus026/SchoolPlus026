@@ -84,13 +84,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const body = await req.json();
-    const record = body?.record;
-
-    if (!record?.id || record.status !== 'pending') {
-      return new Response(JSON.stringify({ ok: true, message: "Ignored" }), { headers: corsHeaders });
-    }
-
     const projectId = Deno.env.get("FCM_PROJECT_ID");
     const serviceAccountRaw = Deno.env.get("FCM_SERVICE_ACCOUNT_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -101,69 +94,100 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-    
-    // Set status to processing
-    await supabase.from("app_notifications_queue").update({ status: 'processing' }).eq("id", record.id);
-
-    let tokensQuery;
-
-    if (record.user_id) {
-      // Target specific user
-      tokensQuery = supabase.from("user_device_tokens").select("id, fcm_token").eq("user_id", record.user_id);
-    } else if (record.target_role === 'all') {
-      // Target all users in school, or global if school_id is null
-      if (record.school_id) {
-        tokensQuery = supabase.from("user_device_tokens").select("id, fcm_token").eq("school_id", record.school_id);
-      } else {
-        tokensQuery = supabase.from("user_device_tokens").select("id, fcm_token");
-      }
-    } else {
-      // Target specific role in school or globally
-      const usersQuery = supabase.from("users").select("id").eq("role", record.target_role);
-      if (record.school_id) usersQuery.eq("school_id", record.school_id);
-      
-      const { data: users, error: usersError } = await usersQuery;
-      if (usersError) throw usersError;
-      
-      const userIds = (users ?? []).map((u: any) => u.id);
-      if (userIds.length === 0) {
-        await supabase.from("app_notifications_queue").update({ status: 'sent', error_log: 'No users found' }).eq("id", record.id);
-        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
-      }
-      tokensQuery = supabase.from("user_device_tokens").select("id, fcm_token").in("user_id", userIds);
-    }
-
-    const { data: tokenRows, error: tokenError } = await tokensQuery;
-    if (tokenError) throw tokenError;
-
-    if (!tokenRows || tokenRows.length === 0) {
-      await supabase.from("app_notifications_queue").update({ status: 'sent', error_log: 'No tokens found' }).eq("id", record.id);
-      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
-    }
-
     const serviceAccountKey = JSON.parse(serviceAccountRaw);
-    const accessToken = await getFCMAccessToken(serviceAccountKey);
-
-    const results = await Promise.all(
-      tokenRows.map((row: any) =>
-        sendFCMMessage(projectId, row.fcm_token, record.title, record.body, record.route || "", accessToken)
-      )
-    );
-
-    const STALE_ERROR_CODES = new Set(["UNREGISTERED", "INVALID_ARGUMENT", "NOT_FOUND"]);
-    const staleTokens = results.filter(r => !r.success && r.errorCode && STALE_ERROR_CODES.has(r.errorCode)).map(r => r.token);
-
-    if (staleTokens.length > 0) {
-      await supabase.from("user_device_tokens").delete().in("fcm_token", staleTokens);
+    let accessToken;
+    try {
+      accessToken = await getFCMAccessToken(serviceAccountKey);
+    } catch (tokenErr) {
+      throw new Error("Could not authenticate with FCM: " + tokenErr.message);
     }
 
-    const failed = results.filter(r => !r.success);
-    const status = failed.length === results.length ? 'failed' : 'sent';
-    const error_log = failed.length > 0 ? JSON.stringify(failed.map(f => f.errorMessage)) : null;
+    // Fetch up to 100 pending notifications
+    const { data: pendingRecords, error: fetchErr } = await supabase
+      .from("app_notifications_queue")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(100);
 
-    await supabase.from("app_notifications_queue").update({ status, error_log }).eq("id", record.id);
+    if (fetchErr) throw fetchErr;
 
-    return new Response(JSON.stringify({ ok: true, sent: results.length - failed.length }), { headers: corsHeaders });
+    if (!pendingRecords || pendingRecords.length === 0) {
+      return new Response(JSON.stringify({ ok: true, message: "No pending notifications" }), { headers: corsHeaders });
+    }
+
+    // Mark all as processing to prevent concurrent cron runs from duplicating work
+    const recordIds = pendingRecords.map(r => r.id);
+    await supabase.from("app_notifications_queue").update({ status: 'processing' }).in("id", recordIds);
+
+    let totalSent = 0;
+    let totalFailed = 0;
+
+    for (const record of pendingRecords) {
+      try {
+        let tokensQuery;
+
+        if (record.user_id) {
+          tokensQuery = supabase.from("user_device_tokens").select("id, fcm_token").eq("user_id", record.user_id);
+        } else if (record.target_role === 'all') {
+          if (record.school_id) {
+            tokensQuery = supabase.from("user_device_tokens").select("id, fcm_token").eq("school_id", record.school_id);
+          } else {
+            tokensQuery = supabase.from("user_device_tokens").select("id, fcm_token");
+          }
+        } else {
+          const usersQuery = supabase.from("users").select("id").eq("role", record.target_role);
+          if (record.school_id) usersQuery.eq("school_id", record.school_id);
+          
+          const { data: users, error: usersError } = await usersQuery;
+          if (usersError) throw usersError;
+          
+          const userIds = (users ?? []).map((u: any) => u.id);
+          if (userIds.length === 0) {
+            await supabase.from("app_notifications_queue").update({ status: 'sent', error_log: 'No users found' }).eq("id", record.id);
+            continue;
+          }
+          tokensQuery = supabase.from("user_device_tokens").select("id, fcm_token").in("user_id", userIds);
+        }
+
+        const { data: tokenRows, error: tokenError } = await tokensQuery;
+        if (tokenError) throw tokenError;
+
+        if (!tokenRows || tokenRows.length === 0) {
+          await supabase.from("app_notifications_queue").update({ status: 'sent', error_log: 'No tokens found' }).eq("id", record.id);
+          continue;
+        }
+
+        const results = await Promise.all(
+          tokenRows.map((row: any) =>
+            sendFCMMessage(projectId, row.fcm_token, record.title, record.body, record.route || "", accessToken)
+          )
+        );
+
+        const STALE_ERROR_CODES = new Set(["UNREGISTERED", "INVALID_ARGUMENT", "NOT_FOUND"]);
+        const staleTokens = results.filter(r => !r.success && r.errorCode && STALE_ERROR_CODES.has(r.errorCode)).map(r => r.token);
+
+        if (staleTokens.length > 0) {
+          await supabase.from("user_device_tokens").delete().in("fcm_token", staleTokens);
+        }
+
+        const failed = results.filter(r => !r.success);
+        const status = failed.length === results.length ? 'failed' : 'sent';
+        const error_log = failed.length > 0 ? JSON.stringify(failed.map(f => f.errorMessage)) : null;
+
+        await supabase.from("app_notifications_queue").update({ status, error_log }).eq("id", record.id);
+        
+        totalSent += (results.length - failed.length);
+        totalFailed += failed.length;
+
+      } catch (innerErr: any) {
+        // Mark this specific record as failed
+        await supabase.from("app_notifications_queue").update({ status: 'failed', error_log: innerErr.message }).eq("id", record.id);
+        totalFailed++;
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, processed: pendingRecords.length, sent: totalSent, failed: totalFailed }), { headers: corsHeaders });
 
   } catch (err: any) {
     console.error(err);

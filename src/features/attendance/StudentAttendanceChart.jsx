@@ -272,10 +272,21 @@ export default function StudentAttendanceChart() {
       const { data, error } = await supabase
         .from('attendance')
         .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false });
+        .eq('user_id', user.id);
       if (error) throw error;
-      return data || [];
+      
+      const flatAttendance = [];
+      data?.forEach(row => {
+        if (row.attendance_data) {
+           Object.entries(row.attendance_data).forEach(([date, status]) => {
+              // Add id just for react key purposes, though not strictly required
+              flatAttendance.push({ id: `${row.id}-${date}`, date, status });
+           });
+        }
+      });
+      // Sort descending by date
+      flatAttendance.sort((a, b) => new Date(b.date) - new Date(a.date));
+      return flatAttendance;
     },
     enabled: !!user?.id && !!schoolSettings?.school_id
   });

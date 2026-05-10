@@ -28,22 +28,22 @@ export default function TeacherSelfAttendance() {
         if (!data) return;
         setUsername(data.username);
         // Check existing record
+        const monthYear = today.substring(0, 7);
         supabase
           .from('attendance')
-          .select('status, marked_by')
+          .select('attendance_data')
           .eq('user_id', user.id)
-          .eq('date', today)
+          .eq('month_year', monthYear)
           .single()
           .then(({ data: rec }) => {
-            if (rec) { 
-              setExisting(rec.status); 
-              setStatus(rec.status); 
-              // Lock if marked by someone else (e.g., an Admin)
-              if (rec.marked_by && rec.marked_by !== user.id) {
-                setLocked(true);
-              }
+            const todayStatus = rec?.attendance_data?.[today];
+            if (todayStatus) { 
+              setExisting(todayStatus); 
+              setStatus(todayStatus); 
+              // Locking feature removed as JSONB schema doesn't natively track marked_by per day
             }
-          });
+          })
+          .catch(() => {}); // Supabase single() throws if no rows found
       });
   }, [user]);
 
@@ -55,17 +55,29 @@ export default function TeacherSelfAttendance() {
   const saveAttendance = async () => {
     if (!username || locked) return;
     setSaving(true);
+    const monthYear = today.substring(0, 7);
+    
+    // Fetch current month data to merge
+    const { data: rec } = await supabase
+      .from('attendance')
+      .select('attendance_data')
+      .eq('user_id', user.id)
+      .eq('month_year', monthYear)
+      .maybeSingle();
+      
+    const currentData = rec?.attendance_data || {};
+    
     const payload = { 
       user_id: user.id, 
       school_id: schoolSettings.school_id, 
-      role: 'Teacher', 
-      date: today, 
-      status,
-      marked_by: user.id 
+      month_year: monthYear,
+      attendance_data: {
+        ...currentData,
+        [today]: status
+      }
     };
-    // Delete then insert (upsert pattern from legacy)
-    await supabase.from('attendance').delete().eq('user_id', user.id).eq('date', today);
-    const { error } = await supabase.from('attendance').insert(payload);
+    
+    const { error } = await supabase.from('attendance').upsert(payload, { onConflict: 'school_id,user_id,month_year' });
     setSaving(false);
     if (error) return showToast('Save failed: ' + error.message);
     setExisting(status);
