@@ -216,6 +216,7 @@ export default function App() {
           <Route path="settings"      element={<AdminSettings />} />
           <Route path="bus-alerts"    element={<BusAlerts />} />
         </Route>
+      </Route>
 
       {/* ──────────────── TEACHER ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
@@ -240,6 +241,7 @@ export default function App() {
           <Route path="bus-alerts"       element={<BusAlerts />} />
           <Route path="mood-note"        element={<MoodNote />} />
         </Route>
+      </Route>
 
       {/* ──────────────── STUDENT ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
@@ -260,6 +262,7 @@ export default function App() {
           <Route path="syllabus"    element={<SyllabusTracker />} />
           <Route path="mood-note"   element={<MoodNote />} />
         </Route>
+      </Route>
 
       {/* ──────────────── PLATFORM ADMIN ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['platform_admin']} />}>
