@@ -21,6 +21,7 @@ import TeacherLayout from './layouts/TeacherLayout';
 import StudentLayout from './layouts/StudentLayout';
 import PlatformAdminLayout from './layouts/PlatformAdminLayout';
 import DriverLayout from './layouts/DriverLayout';
+import StaffLayout from './layouts/StaffLayout';
 
 import PlatformAdminDashboard from './features/super_admin/PlatformAdminDashboard';
 
@@ -28,6 +29,7 @@ import PlatformAdminDashboard from './features/super_admin/PlatformAdminDashboar
 import AdminDashboard from './features/dashboard/AdminDashboard';
 import TeacherDashboard from './features/dashboard/TeacherDashboard';
 import StudentDashboard from './features/dashboard/StudentDashboard';
+import StaffDashboard from './features/dashboard/StaffDashboard';
 
 // Settings
 import AdminSettings from './features/settings/AdminSettings';
@@ -64,6 +66,7 @@ import ComplaintBox from './features/principals_desk/PrincipalsDesk';
 import ManageModules from './features/manage_modules/ManageModules';
 import SyllabusTracker from './features/syllabus/SyllabusTracker';
 import BusAlerts from './features/bus_alerts/BusAlerts';
+import AdminBusMonitor from './features/bus_alerts/AdminBusMonitor';
 import MoodNote from './features/mood_note/MoodNote';
 
 // Calendar Events
@@ -178,6 +181,7 @@ export default function App() {
     if (!role) return '/login';
     if (role === 'platform_admin') return '/platform-admin';
     if (role === 'driver') return '/driver';
+    if (role === 'staff') return '/staff';
     return `/${role}`;
   };
 
@@ -216,7 +220,7 @@ export default function App() {
           <Route path="billing"       element={<ManageSubscription />} />
           <Route path="knowledge-base" element={<KnowledgeBase />} />
           <Route path="settings"      element={<AdminSettings />} />
-          <Route path="bus-alerts"    element={<BusAlerts />} />
+          <Route path="bus-alerts"    element={<AdminBusMonitor />} />
           <Route path="syllabus"      element={<SyllabusTracker />} />
         </Route>
       </Route>
@@ -241,7 +245,6 @@ export default function App() {
           <Route path="complaint-box"    element={<ComplaintBox />} />
           <Route path="settings"         element={<SharedSettings />} />
           <Route path="syllabus"         element={<SyllabusTracker />} />
-          <Route path="bus-alerts"       element={<BusAlerts />} />
           <Route path="mood-note"        element={<MoodNote />} />
         </Route>
       </Route>
@@ -264,6 +267,22 @@ export default function App() {
           <Route path="settings"    element={<SharedSettings />} />
           <Route path="syllabus"    element={<SyllabusTracker />} />
           <Route path="mood-note"   element={<MoodNote />} />
+        </Route>
+      </Route>
+
+      {/* ──────────────── STAFF ──────────────── */}
+      <Route element={<ProtectedRoute allowedRoles={['staff']} />}>
+        <Route path="/staff" element={<NotificationProvider><StaffLayout /></NotificationProvider>}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard"    element={<StaffDashboard />} />
+          <Route path="profile"      element={<UserProfile />} />
+          <Route path="notices"      element={<NoticeBoard />} />
+          <Route path="leaves"       element={<LeavesManager />} />
+          <Route path="gallery"      element={<GalleryManager />} />
+          <Route path="contact"      element={<Contact />} />
+          <Route path="knowledge-base" element={<KnowledgeBase />} />
+          <Route path="complaint-box" element={<ComplaintBox />} />
+          <Route path="settings"     element={<SharedSettings />} />
         </Route>
       </Route>
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, ClipboardCheck, Users, Clock, CalendarX,
-  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare, Book, Bus, HeartPulse
+  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare, Book, HeartPulse
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -29,7 +29,6 @@ const MODULES = [
   { name: 'Contact',            path: '/teacher/contact',           icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'contact'  },
   { name: 'Knowledge Base',     path: '/teacher/knowledge-base',    icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
   { name: 'Complaint Box',      path: '/teacher/complaint-box',     icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
-  { name: 'Bus Alerts',         path: '/teacher/bus-alerts',        icon: <Bus size={26} />,           colorHex: '#fbbf24', bgRgb: '251,191,36',  moduleId: 'bus_alerts' },
   { name: 'Mood Note',          path: '/teacher/mood-note',         icon: <HeartPulse size={26} />,    colorHex: '#ec4899', bgRgb: '236,72,153',  moduleId: 'mood_note' },
   { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];

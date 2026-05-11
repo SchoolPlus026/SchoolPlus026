@@ -178,5 +178,5 @@ export default function StudentDashboard() {
       </div>
     );
   }
-  return <StudentDashboardContent />;
+  return <StudentDashboardContent user={user} schoolSettings={schoolSettings} />;
 }
