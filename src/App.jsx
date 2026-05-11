@@ -61,6 +61,9 @@ import OffClasses from './features/off-classes/OffClasses';
 import Contact from './features/contact/Contact';
 import ComplaintBox from './features/principals_desk/PrincipalsDesk';
 import ManageModules from './features/manage_modules/ManageModules';
+import SyllabusTracker from './features/syllabus/SyllabusTracker';
+import BusAlerts from './features/bus_alerts/BusAlerts';
+import MoodNote from './features/mood_note/MoodNote';
 
 // Calendar Events
 import CalendarEvents from './features/calendar/CalendarEvents';
@@ -211,8 +214,8 @@ export default function App() {
           <Route path="billing"       element={<ManageSubscription />} />
           <Route path="knowledge-base" element={<KnowledgeBase />} />
           <Route path="settings"      element={<AdminSettings />} />
+          <Route path="bus-alerts"    element={<BusAlerts />} />
         </Route>
-      </Route>
 
       {/* ──────────────── TEACHER ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
@@ -233,8 +236,10 @@ export default function App() {
           <Route path="contact"          element={<Contact />} />
           <Route path="complaint-box"    element={<ComplaintBox />} />
           <Route path="settings"         element={<SharedSettings />} />
+          <Route path="syllabus"         element={<SyllabusTracker />} />
+          <Route path="bus-alerts"       element={<BusAlerts />} />
+          <Route path="mood-note"        element={<MoodNote />} />
         </Route>
-      </Route>
 
       {/* ──────────────── STUDENT ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
@@ -252,8 +257,9 @@ export default function App() {
           <Route path="contact"     element={<Contact />} />
           <Route path="complaint-box" element={<ComplaintBox />} />
           <Route path="settings"    element={<SharedSettings />} />
+          <Route path="syllabus"    element={<SyllabusTracker />} />
+          <Route path="mood-note"   element={<MoodNote />} />
         </Route>
-      </Route>
 
       {/* ──────────────── PLATFORM ADMIN ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['platform_admin']} />}>

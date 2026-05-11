@@ -15,23 +15,28 @@ const fmt = (ts) => new Date(ts).toLocaleDateString('en-IN', {
 });
 
 /* ─── Compose Form (Students) ──────────────────────────────────────────────── */
-function StudentCompose({ schoolId, senderId, queryClient }) {
+function StudentCompose({ schoolId, senderId, userClass, queryClient }) {
   const [recipientType, setRecipientType] = useState('admin'); // 'admin' | 'teacher'
   const [recipientId, setRecipientId] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
 
-  // Fetch teachers in the same school
+  // Fetch teachers in the same school (filtered by student's class)
   const { data: teachers = [] } = useQuery({
-    queryKey: ['school-teachers', schoolId],
+    queryKey: ['school-teachers', schoolId, userClass],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from('users')
         .select('id, name')
         .eq('school_id', schoolId)
-        .eq('role', 'teacher')
-        .order('name');
+        .eq('role', 'teacher');
+      
+      if (userClass) {
+        q = q.eq('class', userClass);
+      }
+      
+      const { data } = await q.order('name');
       return data || [];
     },
   });
@@ -167,21 +172,26 @@ function StudentCompose({ schoolId, senderId, queryClient }) {
 }
 
 /* ─── Teacher Compose Form ─────────────────────────────────────────────────── */
-function TeacherCompose({ schoolId, senderId, queryClient }) {
+function TeacherCompose({ schoolId, senderId, userClass, queryClient }) {
   const [recipientId, setRecipientId] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
 
-  // Fetch students in the teacher's school
+  // Fetch students in the teacher's school (filtered by teacher's class)
   const { data: students = [] } = useQuery({
-    queryKey: ['school-students', schoolId],
+    queryKey: ['school-students', schoolId, userClass],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from('users')
         .select('id, name, class')
         .eq('school_id', schoolId)
-        .eq('role', 'student')
-        .order('name');
+        .eq('role', 'student');
+      
+      if (userClass) {
+        q = q.eq('class', userClass);
+      }
+      
+      const { data } = await q.order('name');
       return data || [];
     },
   });
@@ -353,12 +363,12 @@ export default function ComplaintBox() {
         {/* Compose Forms */}
         {isStudent && (
           <div style={{ marginBottom: '24px' }}>
-            <StudentCompose schoolId={schoolSettings.school_id} senderId={user.id} queryClient={queryClient} />
+            <StudentCompose schoolId={schoolSettings.school_id} senderId={user.id} userClass={user?.class} queryClient={queryClient} />
           </div>
         )}
         {isTeacher && (
           <div style={{ marginBottom: '24px' }}>
-            <TeacherCompose schoolId={schoolSettings.school_id} senderId={user.id} queryClient={queryClient} />
+            <TeacherCompose schoolId={schoolSettings.school_id} senderId={user.id} userClass={user?.class} queryClient={queryClient} />
           </div>
         )}
 

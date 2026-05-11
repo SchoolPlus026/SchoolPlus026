@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, ClipboardList, DollarSign, Clock,
-  Bell, CalendarHeart, Image, Phone, Settings, BookOpen, MessageSquare
+  Bell, CalendarHeart, Image, Phone, Settings, BookOpen, MessageSquare, Book, HeartPulse
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -19,9 +19,11 @@ const MODULES = [
   { name: 'Notices',     path: '/student/notices',    icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36', moduleId: 'notices'   },
   { name: 'Leaves',      path: '/student/leaves',     icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133', moduleId: 'leaves'  },
   { name: 'Gallery',        path: '/student/gallery',         icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182', moduleId: 'gallery'  },
+  { name: 'Syllabus Tracker',path: '/student/syllabus',       icon: <Book size={26} />,          colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'syllabus'  },
   { name: 'Contact',        path: '/student/contact',         icon: <Phone size={26} />,         colorHex: '#2dd4bf', bgRgb: '45,212,191', moduleId: 'contact'   },
   { name: 'Knowledge Base', path: '/student/knowledge-base',  icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
-  { name: 'Complaint Box',path: '/student/complaint-box', icon: <MessageSquare size={26} />,   colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
+  { name: 'Complaint Box',  path: '/student/complaint-box',   icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
+  { name: 'Mood Note',      path: '/student/mood-note',       icon: <HeartPulse size={26} />,    colorHex: '#ec4899', bgRgb: '236,72,153', moduleId: 'mood_note' },
   { name: 'Settings',       path: '/student/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 
@@ -53,7 +55,7 @@ function StudentDashboardContent() {
           gap: '14px',
         }}>
           {MODULES.map((mod) => (
-            <ModuleGuard key={mod.name} moduleName={mod.moduleId || 'default'} inline={!!mod.moduleId}>
+            <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
               <Link
                 to={mod.path}
                 className="module-card"
