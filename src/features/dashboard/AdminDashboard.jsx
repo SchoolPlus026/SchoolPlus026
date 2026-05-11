@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Users, ClipboardList, DollarSign, Clock, CalendarHeart,
   Image, Bell, Calendar, LineChart, Settings, CalendarX,
-  Phone, Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus
+  Phone, Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus, Book
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import PlanStatusBanner from '../../components/PlanStatusBanner';
@@ -27,6 +27,7 @@ const MODULES = [
   { name: 'Contact',        path: '/admin/contact',        icon: <Phone size={26} />,          colorHex: '#94a3b8', bgRgb: '148,163,184',  moduleId: 'contact'       },
   { name: 'Complaint Box',  path: '/admin/complaint-box',  icon: <MessageSquare size={26} />,  colorHex: '#f43f5e', bgRgb: '244,63,94',    moduleId: 'complaint_box' },
   { name: 'Bus Alerts',     path: '/admin/bus-alerts',     icon: <Bus size={26} />,            colorHex: '#fbbf24', bgRgb: '251,191,36',   moduleId: 'bus_alerts'    },
+  { name: 'Syllabus Tracker',path: '/admin/syllabus',      icon: <Book size={26} />,           colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'syllabus'      },
   { name: 'Billing',        path: '/admin/billing',        icon: <CreditCard size={26} />,     colorHex: '#a78bfa', bgRgb: '167,139,250',  moduleId: 'billing'       },
   { name: 'Knowledge Base', path: '/admin/knowledge-base', icon: <BookOpen size={26} />,       colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'knowledge_base'},
   { name: 'Settings',       path: '/admin/settings',       icon: <Settings size={26} />,       colorHex: '#94a3b8', bgRgb: '148,163,184',  moduleId: 'settings'      },

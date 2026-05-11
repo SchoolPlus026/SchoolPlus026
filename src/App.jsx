@@ -20,6 +20,7 @@ import AdminLayout from './layouts/AdminLayout';
 import TeacherLayout from './layouts/TeacherLayout';
 import StudentLayout from './layouts/StudentLayout';
 import PlatformAdminLayout from './layouts/PlatformAdminLayout';
+import DriverLayout from './layouts/DriverLayout';
 
 import PlatformAdminDashboard from './features/super_admin/PlatformAdminDashboard';
 
@@ -176,6 +177,7 @@ export default function App() {
   const getRoleRoute = (role) => {
     if (!role) return '/login';
     if (role === 'platform_admin') return '/platform-admin';
+    if (role === 'driver') return '/driver';
     return `/${role}`;
   };
 
@@ -215,6 +217,7 @@ export default function App() {
           <Route path="knowledge-base" element={<KnowledgeBase />} />
           <Route path="settings"      element={<AdminSettings />} />
           <Route path="bus-alerts"    element={<BusAlerts />} />
+          <Route path="syllabus"      element={<SyllabusTracker />} />
         </Route>
       </Route>
 
@@ -261,6 +264,14 @@ export default function App() {
           <Route path="settings"    element={<SharedSettings />} />
           <Route path="syllabus"    element={<SyllabusTracker />} />
           <Route path="mood-note"   element={<MoodNote />} />
+        </Route>
+      </Route>
+
+      {/* ──────────────── DRIVER ──────────────── */}
+      <Route element={<ProtectedRoute allowedRoles={['driver']} />}>
+        <Route path="/driver" element={<NotificationProvider><DriverLayout /></NotificationProvider>}>
+          <Route index element={<Navigate to="bus-alerts" replace />} />
+          <Route path="bus-alerts" element={<BusAlerts />} />
         </Route>
       </Route>
 

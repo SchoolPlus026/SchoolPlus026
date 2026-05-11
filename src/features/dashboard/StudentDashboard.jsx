@@ -7,7 +7,10 @@ import {
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
 
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../config/supabaseClient';
 import ModuleGuard from '../../components/ModuleGuard';
+import { X } from 'lucide-react';
 
 // Exact legacy module list for Student role:
 // My Profile, Attendance, Fees, Timetable, Notices, Leaves, Gallery, Contact, Settings
@@ -27,11 +30,74 @@ const MODULES = [
   { name: 'Settings',       path: '/student/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 
-function StudentDashboardContent() {
+function MorningCheckInBanner({ user, schoolId }) {
+  const navigate = React.useRouter ? React.useRouter().push : null; // we will use Link instead
+  const today = new Date().toISOString().split('T')[0];
+  const monthYear = today.substring(0, 7);
+  const dismissKey = `mood_dismissed_${user.id}_${today}`;
+  const [dismissed, setDismissed] = React.useState(localStorage.getItem(dismissKey) === 'true');
+
+  const { data: record } = useQuery({
+    queryKey: ['mood-note', schoolId, user.id, monthYear],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('health_mood_notes')
+        .select('notes')
+        .eq('school_id', schoolId)
+        .eq('student_id', user.id)
+        .eq('month_year', monthYear)
+        .single();
+      return data || { notes: {} };
+    },
+    enabled: !dismissed,
+  });
+
+  if (dismissed || record?.notes?.[today]) return null;
+
+  return (
+    <ModuleGuard moduleName="mood_note" inline={true}>
+      <div style={{
+        background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)',
+        borderRadius: '16px', padding: '16px 20px', marginBottom: '24px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        border: '1px solid #f9a8d4', boxShadow: '0 4px 12px rgba(236,72,153,0.1)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
+          <div style={{ fontSize: '32px' }}>🌞</div>
+          <div>
+            <h3 style={{ margin: 0, fontWeight: 900, color: '#831843', fontSize: '16px' }}>Good Morning!</h3>
+            <p style={{ margin: '2px 0 0', color: '#9d174d', fontSize: '13px', fontWeight: 600 }}>
+              How are you feeling today?
+            </p>
+          </div>
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Link to="/student/mood-note" style={{ textDecoration: 'none' }}>
+            <button className="btn accent" style={{ background: '#ec4899', color: '#fff', padding: '8px 16px', borderRadius: '12px', fontSize: '13px', border: 'none' }}>
+              Check-in
+            </button>
+          </Link>
+          <button 
+            onClick={() => {
+              localStorage.setItem(dismissKey, 'true');
+              setDismissed(true);
+            }}
+            style={{ background: 'transparent', border: 'none', color: '#be185d', cursor: 'pointer', padding: '4px' }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+      </div>
+    </ModuleGuard>
+  );
+}
+
+function StudentDashboardContent({ user, schoolSettings }) {
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
       <DashboardHero />
-
+      <MorningCheckInBanner user={user} schoolId={schoolSettings.school_id} />
       <div>
         {/* Legacy exact title: "Student Panel" */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>

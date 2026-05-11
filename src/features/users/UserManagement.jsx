@@ -5,7 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { usePending } from '../../hooks/usePending';
 import {
   Users, Search, UserPlus, Filter, Loader2, Phone, BookOpen,
-  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock
+  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus
 } from 'lucide-react';
 
 const EField = ({ label, field, type = 'text', options = null, editForm, setEditForm }) => (
@@ -160,7 +160,7 @@ export default function UserManagement() {
       {/* Tab Switcher */}
       {currentRole === 'admin' && (
         <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-200 shadow-inner overflow-x-auto">
-          {[['teacher', 'Teachers', BookOpen], ['student', 'Students', Users], ['staff', 'Staff', Users]].map(([tab, label, Icon]) => (
+          {[['teacher', 'Teachers', BookOpen], ['student', 'Students', Users], ['staff', 'Staff', Users], ['driver', 'Drivers', Bus]].map(([tab, label, Icon]) => (
             <button
               key={tab}
               onClick={() => { setActiveTab(tab); setSelectedClass(''); setEditingUser(null); }}
