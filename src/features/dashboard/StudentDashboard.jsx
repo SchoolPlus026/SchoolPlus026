@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, ClipboardList, DollarSign, Clock,
-  Bell, CalendarHeart, Image, Phone, Settings, BookOpen
+  Bell, CalendarHeart, Image, Phone, Settings, BookOpen, MessageSquare
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -21,7 +21,7 @@ const MODULES = [
   { name: 'Gallery',        path: '/student/gallery',         icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182', moduleId: 'gallery'  },
   { name: 'Contact',        path: '/student/contact',         icon: <Phone size={26} />,         colorHex: '#2dd4bf', bgRgb: '45,212,191', moduleId: 'contact'   },
   { name: 'Knowledge Base', path: '/student/knowledge-base',  icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
-  { name: "Principal's Desk",path: '/student/principals-desk', icon: <Phone size={26} />,         colorHex: '#f43f5e', bgRgb: '244,63,94', moduleId: 'principals_desk' },
+  { name: 'Complaint Box',path: '/student/complaint-box', icon: <MessageSquare size={26} />,   colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
   { name: 'Settings',       path: '/student/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 

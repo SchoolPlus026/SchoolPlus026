@@ -2,7 +2,8 @@ import React from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
-import { LogOut, LayoutDashboard, Settings, ChevronLeft } from 'lucide-react';
+import { LogOut, LayoutDashboard, Settings, ChevronLeft, RefreshCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
 import GlobalBroadcastBanner from '../components/GlobalBroadcastBanner';
@@ -11,7 +12,15 @@ export default function StudentLayout() {
   const { user, schoolSettings } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = React.useState(false);
   const isDashboard = location.pathname.endsWith('/dashboard') || location.pathname === '/student';
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setTimeout(() => setRefreshing(false), 600);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -47,6 +56,12 @@ export default function StudentLayout() {
             <LayoutDashboard size={18} />
           </Link>
           <ThemeToggle />
+          <button onClick={handleRefresh} title="Refresh data"
+            className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+            style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+          >
+            <RefreshCw size={17} style={{ transition: 'transform 0.5s ease', transform: refreshing ? 'rotate(360deg)' : 'rotate(0deg)' }} />
+          </button>
           <Link to="/student/settings" className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all" title="Settings">
             <Settings size={18} />
           </Link>

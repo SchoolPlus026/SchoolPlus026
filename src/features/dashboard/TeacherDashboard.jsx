@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, ClipboardCheck, Users, Clock, CalendarX,
-  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen
+  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -27,7 +27,7 @@ const MODULES = [
   { name: 'Reports',            path: '/teacher/reports',           icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238', moduleId: 'reports'   },
   { name: 'Contact',            path: '/teacher/contact',           icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'contact'  },
   { name: 'Knowledge Base',     path: '/teacher/knowledge-base',    icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
-  { name: "Principal's Desk",path: '/teacher/principals-desk', icon: <Phone size={26} />,         colorHex: '#f43f5e', bgRgb: '244,63,94', moduleId: 'principals_desk' },
+  { name: 'Complaint Box',  path: '/teacher/complaint-box',  icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
   { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 

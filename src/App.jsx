@@ -59,7 +59,8 @@ import GalleryManager from './features/gallery/GalleryManager';
 import Reports from './features/reports/Reports';
 import OffClasses from './features/off-classes/OffClasses';
 import Contact from './features/contact/Contact';
-import PrincipalsDesk from './features/principals_desk/PrincipalsDesk';
+import ComplaintBox from './features/principals_desk/PrincipalsDesk';
+import ManageModules from './features/manage_modules/ManageModules';
 
 // Calendar Events
 import CalendarEvents from './features/calendar/CalendarEvents';
@@ -193,22 +194,23 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route path="/admin" element={<NotificationProvider><AdminLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard"   element={<AdminDashboard />} />
-          <Route path="users"       element={<UserManagement />} />
-          <Route path="attendance"  element={<MarkAttendance />} />
-          <Route path="fees"        element={<FeatureGuard feature="fees"><AdminFeeManager /></FeatureGuard>} />
-          <Route path="calendar"    element={<CalendarEvents />} />
-          <Route path="notices"     element={<NoticeManager />} />
-          <Route path="gallery"     element={<GalleryManager />} />
-          <Route path="timetable"   element={<FeatureGuard feature="timetable"><TimetableManager /></FeatureGuard>} />
-          <Route path="off-classes" element={<OffClasses />} />
-          <Route path="leaves"      element={<FeatureGuard feature="leaves"><LeavesManager /></FeatureGuard>} />
-          <Route path="reports"     element={<FeatureGuard feature="reports"><Reports /></FeatureGuard>} />
-          <Route path="contact"     element={<Contact />} />
-          <Route path="principals-desk" element={<PrincipalsDesk />} />
-          <Route path="billing"     element={<ManageSubscription />} />
+          <Route path="dashboard"     element={<AdminDashboard />} />
+          <Route path="manage-modules" element={<ManageModules />} />
+          <Route path="users"         element={<UserManagement />} />
+          <Route path="attendance"    element={<MarkAttendance />} />
+          <Route path="fees"          element={<FeatureGuard feature="fees"><AdminFeeManager /></FeatureGuard>} />
+          <Route path="calendar"      element={<CalendarEvents />} />
+          <Route path="notices"       element={<NoticeManager />} />
+          <Route path="gallery"       element={<GalleryManager />} />
+          <Route path="timetable"     element={<FeatureGuard feature="timetable"><TimetableManager /></FeatureGuard>} />
+          <Route path="off-classes"   element={<OffClasses />} />
+          <Route path="leaves"        element={<FeatureGuard feature="leaves"><LeavesManager /></FeatureGuard>} />
+          <Route path="reports"       element={<FeatureGuard feature="reports"><Reports /></FeatureGuard>} />
+          <Route path="contact"       element={<Contact />} />
+          <Route path="complaint-box" element={<ComplaintBox />} />
+          <Route path="billing"       element={<ManageSubscription />} />
           <Route path="knowledge-base" element={<KnowledgeBase />} />
-          <Route path="settings"    element={<AdminSettings />} />
+          <Route path="settings"      element={<AdminSettings />} />
         </Route>
       </Route>
 
@@ -229,7 +231,7 @@ export default function App() {
           <Route path="reports"          element={<Reports />} />
           <Route path="knowledge-base"   element={<KnowledgeBase />} />
           <Route path="contact"          element={<Contact />} />
-          <Route path="principals-desk"  element={<PrincipalsDesk />} />
+          <Route path="complaint-box"    element={<ComplaintBox />} />
           <Route path="settings"         element={<SharedSettings />} />
         </Route>
       </Route>
@@ -238,18 +240,18 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
         <Route path="/student" element={<NotificationProvider><StudentLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard"  element={<StudentDashboard />} />
-          <Route path="profile"    element={<UserProfile />} />
-          <Route path="attendance" element={<StudentAttendanceChart />} />
-          <Route path="fees"       element={<StudentFeeLedger />} />
-          <Route path="timetable"  element={<TimetableViewer />} />
-          <Route path="notices"    element={<NoticeBoard />} />
-          <Route path="leaves"     element={<LeavesManager />} />
-          <Route path="gallery"    element={<GalleryManager />} />
+          <Route path="dashboard"   element={<StudentDashboard />} />
+          <Route path="profile"     element={<UserProfile />} />
+          <Route path="attendance"  element={<StudentAttendanceChart />} />
+          <Route path="fees"        element={<StudentFeeLedger />} />
+          <Route path="timetable"   element={<TimetableViewer />} />
+          <Route path="notices"     element={<NoticeBoard />} />
+          <Route path="leaves"      element={<LeavesManager />} />
+          <Route path="gallery"     element={<GalleryManager />} />
           <Route path="knowledge-base" element={<KnowledgeBase />} />
-          <Route path="contact"    element={<Contact />} />
-          <Route path="principals-desk" element={<PrincipalsDesk />} />
-          <Route path="settings"   element={<SharedSettings />} />
+          <Route path="contact"     element={<Contact />} />
+          <Route path="complaint-box" element={<ComplaintBox />} />
+          <Route path="settings"    element={<SharedSettings />} />
         </Route>
       </Route>
 
