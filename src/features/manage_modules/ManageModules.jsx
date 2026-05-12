@@ -23,6 +23,9 @@ const ALL_MODULES = [
   { id: 'bus_alerts',    label: 'Bus Alerts',       emoji: '🚌', desc: 'Real-time school transport notifications.' },
   { id: 'syllabus',      label: 'Syllabus Tracker', emoji: '📖', desc: 'Track curriculum progress by class and subject.' },
   { id: 'mood_note',     label: 'Mood Note',        emoji: '😊', desc: 'Morning health and mood reporting for students.' },
+  { id: 'emergency',     label: 'Emergency Alerts', emoji: '🚨', desc: 'Trigger global high-priority screen overrides.' },
+  { id: 'duty_radar',    label: 'Staff Pending Duty', emoji: '📡', desc: 'Automated missing attendance tracking.' },
+  { id: 'executive_briefing',label: 'Executive Briefing',emoji:'📋',desc: 'Automated daily summaries for Administration.' },
 ];
 
 // These modules are core infrastructure — cannot be disabled

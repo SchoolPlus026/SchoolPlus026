@@ -14,6 +14,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import NotificationProvider from './components/NotificationProvider';
 import VersionChecker from './components/VersionChecker';
 import GlobalUploadToasts from './components/GlobalUploadToasts';
+import EmergencyOverlay from './components/EmergencyOverlay';
 
 // Layout Wrappers
 import AdminLayout from './layouts/AdminLayout';
@@ -58,13 +59,18 @@ import TimetableViewer from './features/timetable/TimetableViewer';
 
 // Other modules
 import LeavesManager from './features/leaves/LeavesManager';
+import EmergencyManager from './features/emergency/EmergencyManager';
 import GalleryManager from './features/gallery/GalleryManager';
 import Reports from './features/reports/Reports';
 import OffClasses from './features/off-classes/OffClasses';
+import ExecutiveBriefingPage from './pages/ExecutiveBriefingPage';
+import StaffPendingDutyPage from './pages/StaffPendingDutyPage';
+import DriverDashboard from './features/dashboard/DriverDashboard';
 import Contact from './features/contact/Contact';
 import ComplaintBox from './features/principals_desk/PrincipalsDesk';
 import ManageModules from './features/manage_modules/ManageModules';
 import SyllabusTracker from './features/syllabus/SyllabusTracker';
+import LostAndFound from './features/lost_found/LostAndFound';
 import BusAlerts from './features/bus_alerts/BusAlerts';
 import AdminBusMonitor from './features/bus_alerts/AdminBusMonitor';
 import MoodNote from './features/mood_note/MoodNote';
@@ -192,6 +198,7 @@ export default function App() {
           on route transitions. */}
       {user && <VersionChecker />}
       {user && <GlobalUploadToasts />}
+      {user && <EmergencyOverlay />}
 
       <Routes>
       <Route path="/" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />
@@ -222,6 +229,10 @@ export default function App() {
           <Route path="settings"      element={<AdminSettings />} />
           <Route path="bus-alerts"    element={<AdminBusMonitor />} />
           <Route path="syllabus"      element={<SyllabusTracker />} />
+          <Route path="lost-and-found" element={<FeatureGuard feature="lost_found"><LostAndFound /></FeatureGuard>} />
+          <Route path="emergency"     element={<FeatureGuard feature="emergency"><EmergencyManager /></FeatureGuard>} />
+          <Route path="executive-briefing" element={<FeatureGuard feature="executive_briefing"><ExecutiveBriefingPage /></FeatureGuard>} />
+          <Route path="staff-pending-duty" element={<FeatureGuard feature="duty_radar"><StaffPendingDutyPage /></FeatureGuard>} />
         </Route>
       </Route>
 
@@ -244,8 +255,10 @@ export default function App() {
           <Route path="contact"          element={<Contact />} />
           <Route path="complaint-box"    element={<ComplaintBox />} />
           <Route path="settings"         element={<SharedSettings />} />
-          <Route path="syllabus"         element={<SyllabusTracker />} />
-          <Route path="mood-note"        element={<MoodNote />} />
+          <Route path="syllabus"         element={<FeatureGuard feature="syllabus"><SyllabusTracker /></FeatureGuard>} />
+          <Route path="lost-and-found"   element={<FeatureGuard feature="lost_found"><LostAndFound /></FeatureGuard>} />
+          <Route path="mood-note"        element={<FeatureGuard feature="mood_note"><MoodNote /></FeatureGuard>} />
+          <Route path="emergency"        element={<FeatureGuard feature="emergency"><EmergencyManager /></FeatureGuard>} />
         </Route>
       </Route>
 
@@ -265,8 +278,9 @@ export default function App() {
           <Route path="contact"     element={<Contact />} />
           <Route path="complaint-box" element={<ComplaintBox />} />
           <Route path="settings"    element={<SharedSettings />} />
-          <Route path="syllabus"    element={<SyllabusTracker />} />
-          <Route path="mood-note"   element={<MoodNote />} />
+          <Route path="syllabus"    element={<FeatureGuard feature="syllabus"><SyllabusTracker /></FeatureGuard>} />
+          <Route path="lost-and-found" element={<FeatureGuard feature="lost_found"><LostAndFound /></FeatureGuard>} />
+          <Route path="mood-note"   element={<FeatureGuard feature="mood_note"><MoodNote /></FeatureGuard>} />
         </Route>
       </Route>
 
@@ -289,8 +303,10 @@ export default function App() {
       {/* ──────────────── DRIVER ──────────────── */}
       <Route element={<ProtectedRoute allowedRoles={['driver']} />}>
         <Route path="/driver" element={<NotificationProvider><DriverLayout /></NotificationProvider>}>
-          <Route index element={<Navigate to="bus-alerts" replace />} />
+          <Route index element={<DriverDashboard />} />
           <Route path="bus-alerts" element={<BusAlerts />} />
+          <Route path="lost-and-found" element={<LostAndFound />} />
+          <Route path="emergency" element={<EmergencyManager />} />
         </Route>
       </Route>
 

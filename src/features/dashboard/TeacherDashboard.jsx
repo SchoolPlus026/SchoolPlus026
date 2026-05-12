@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, ClipboardCheck, Users, Clock, CalendarX,
-  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare, Book, HeartPulse
+  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare, Book, HeartPulse, Search, AlertTriangle
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -10,6 +10,8 @@ import { usePlan } from '../../hooks/usePlan';
 import { usePending } from '../../hooks/usePending';
 import PendingBanner from '../../components/PendingBanner';
 import ModuleGuard from '../../components/ModuleGuard';
+import TeacherDutyBanner from '../attendance/TeacherDutyBanner';
+import FeatureGuard from '../../components/FeatureGuard';
 
 // Exact legacy module list for Teacher role:
 // My Profile, Mark My Attendance, Class Attendance, Timetable, Off Classes,
@@ -26,10 +28,12 @@ const MODULES = [
   { name: 'Gallery',            path: '/teacher/gallery',          icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182', moduleId: 'gallery'  },
   { name: 'Reports',            path: '/teacher/reports',           icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238', moduleId: 'reports'   },
   { name: 'Syllabus Tracker',   path: '/teacher/syllabus',          icon: <Book size={26} />,          colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'syllabus'  },
+  { name: 'Lost & Found',       path: '/teacher/lost-and-found',    icon: <Search size={26} />,        colorHex: '#10b981', bgRgb: '16,185,129', moduleId: 'lost_found' },
   { name: 'Contact',            path: '/teacher/contact',           icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'contact'  },
   { name: 'Knowledge Base',     path: '/teacher/knowledge-base',    icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
   { name: 'Complaint Box',      path: '/teacher/complaint-box',     icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
   { name: 'Mood Note',          path: '/teacher/mood-note',         icon: <HeartPulse size={26} />,    colorHex: '#ec4899', bgRgb: '236,72,153',  moduleId: 'mood_note' },
+  { name: 'Emergency Alerts',   path: '/teacher/emergency',         icon: <AlertTriangle size={26} />, colorHex: '#ef4444', bgRgb: '239,68,68',   moduleId: 'emergency' },
   { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 
@@ -51,6 +55,10 @@ function TeacherDashboardContent() {
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
       <DashboardHero />
       <PendingBanner />
+
+      <FeatureGuard feature="duty_radar">
+        <TeacherDutyBanner />
+      </FeatureGuard>
 
       <div>
         {/* Legacy exact title: "Teacher — Class Tools" */}

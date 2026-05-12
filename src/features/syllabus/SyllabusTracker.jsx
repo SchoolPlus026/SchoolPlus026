@@ -144,7 +144,7 @@ function TeacherSyllabus({ schoolId, user }) {
                     <input 
                       type="text" defaultValue={ch.title || ''} onBlur={(e) => updateTitle(ch.id, e.target.value)}
                       placeholder="(Optional) Topic name..."
-                      style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 600, color: ch.is_completed ? 'var(--text-faint)' : 'var(--text-main)', textDecoration: ch.is_completed ? 'line-through' : 'none' }}
+                      style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}
                     />
                   </div>
                 </div>
@@ -221,7 +221,7 @@ function StudentSyllabus({ schoolId, userClass }) {
                   {chapters.map(ch => (
                     <div key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {ch.is_completed ? <CheckCircle2 size={18} color="#10b981" /> : <Circle size={18} color="var(--text-faint)" />}
-                      <span style={{ fontSize: '14px', fontWeight: 700, color: ch.is_completed ? 'var(--text-muted)' : 'var(--text-main)', textDecoration: ch.is_completed ? 'line-through' : 'none' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
                         Chapter {ch.id}{ch.title ? `: ${ch.title}` : ''}
                       </span>
                     </div>

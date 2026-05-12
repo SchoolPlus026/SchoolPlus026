@@ -3,12 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Users, ClipboardList, DollarSign, Clock, CalendarHeart,
   Image, Bell, Calendar, LineChart, Settings, CalendarX,
-  Phone, Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus, Book
+  Phone, Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus, Book, AlertTriangle, Search, Target, Radar
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import PlanStatusBanner from '../../components/PlanStatusBanner';
 import PendingBanner from '../../components/PendingBanner';
 import ModuleGuard from '../../components/ModuleGuard';
+import FeatureGuard from '../../components/FeatureGuard';
+import ExecutiveBriefingWidget from './ExecutiveBriefingWidget';
+import PendingAttendanceWidget from '../attendance/PendingAttendanceWidget';
 import { usePlan } from '../../hooks/usePlan';
 import { usePending } from '../../hooks/usePending';
 
@@ -28,8 +31,12 @@ const MODULES = [
   { name: 'Complaint Box',  path: '/admin/complaint-box',  icon: <MessageSquare size={26} />,  colorHex: '#f43f5e', bgRgb: '244,63,94',    moduleId: 'complaint_box' },
   { name: 'Bus Alerts',     path: '/admin/bus-alerts',     icon: <Bus size={26} />,            colorHex: '#fbbf24', bgRgb: '251,191,36',   moduleId: 'bus_alerts'    },
   { name: 'Syllabus Tracker',path: '/admin/syllabus',      icon: <Book size={26} />,           colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'syllabus'      },
+  { name: 'Lost & Found',   path: '/admin/lost-and-found', icon: <Search size={26} />,         colorHex: '#10b981', bgRgb: '16,185,129',   moduleId: 'lost_found'    },
+  { name: 'Emergency Alerts',path: '/admin/emergency',     icon: <AlertTriangle size={26} />,  colorHex: '#ef4444', bgRgb: '239,68,68',    moduleId: 'emergency'     },
   { name: 'Billing',        path: '/admin/billing',        icon: <CreditCard size={26} />,     colorHex: '#a78bfa', bgRgb: '167,139,250',  moduleId: 'billing'       },
   { name: 'Knowledge Base', path: '/admin/knowledge-base', icon: <BookOpen size={26} />,       colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'knowledge_base'},
+  { name: 'Executive Briefing', path: '/admin/executive-briefing',  icon: <Target size={26} />,         colorHex: '#818cf8', bgRgb: '129,140,248',  moduleId: 'executive_briefing'},
+  { name: 'Staff Pending Duty', path: '/admin/staff-pending-duty',  icon: <Radar size={26} />,          colorHex: '#fb7185', bgRgb: '251,113,133',  moduleId: 'duty_radar'},
   { name: 'Settings',       path: '/admin/settings',       icon: <Settings size={26} />,       colorHex: '#94a3b8', bgRgb: '148,163,184',  moduleId: 'settings'      },
 ];
 
@@ -91,6 +98,14 @@ export default function AdminDashboard() {
       <DashboardHero />
       <PendingBanner />
       <PlanStatusBanner />
+
+      <FeatureGuard feature="executive_briefing">
+        <ExecutiveBriefingWidget />
+      </FeatureGuard>
+
+      <FeatureGuard feature="duty_radar">
+        <PendingAttendanceWidget />
+      </FeatureGuard>
 
       <div>
         {/* Section header */}

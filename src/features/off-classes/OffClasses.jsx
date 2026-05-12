@@ -18,39 +18,51 @@ export default function OffClasses() {
 
   async function loadOffClasses() {
     setLoading(true);
-    const today = new Date().toISOString().split('T')[0];
-    const todayDay = new Date().toLocaleString('en-us', { weekday: 'long' });
+    const now = new Date();
+    // Build local YYYY-MM-DD
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
+    const monthYear = `${year}-${month}`;
+    const todayDay = now.toLocaleString('en-us', { weekday: 'long' });
 
-    // Step 1: Get user_ids of teachers marked Absent today
-    const { data: absentRecs, error: attErr } = await supabase
+    // Step 1: Get ALL attendance records for this month
+    const { data: monthAtt, error: attErr } = await supabase
       .from('attendance')
-      .select('user_id')
+      .select('user_id, attendance_data')
       .eq('school_id', schoolSettings.school_id)
-      .eq('role', 'teacher')          // ← lowercase, matches v10 schema
-      .eq('date', today)
-      .eq('status', 'Absent');
+      .eq('month_year', monthYear);
 
     if (attErr) { console.error('OffClasses attendance error:', attErr); setData([]); setLoading(false); return; }
-    if (!absentRecs || absentRecs.length === 0) { setData([]); setLoading(false); return; }
 
-    const absentUserIds = absentRecs.map(a => a.user_id).filter(Boolean);
+    // Filter to find who is absent TODAY
+    const absentUserIds = (monthAtt || [])
+      .filter(a => a.attendance_data && a.attendance_data[today] === 'Absent')
+      .map(a => a.user_id);
 
-    // Step 2: Fetch teacher names for display
+    if (absentUserIds.length === 0) { setData([]); setLoading(false); return; }
+
+    // Step 2: Fetch teacher names and verify they are actually teachers
     const { data: teacherProfiles } = await supabase
       .from('users')
-      .select('id, name')
-      .in('id', absentUserIds);
+      .select('id, name, role')
+      .in('id', absentUserIds)
+      .eq('role', 'teacher');
+
+    if (!teacherProfiles || teacherProfiles.length === 0) { setData([]); setLoading(false); return; }
+
+    const actualTeacherIds = teacherProfiles.map(t => t.id);
 
     // Build a name map: { uuid → name }
     const nameMap = {};
-    (teacherProfiles || []).forEach(t => { nameMap[t.id] = t.name; });
+    teacherProfiles.forEach(t => { nameMap[t.id] = t.name; });
 
     // Step 3: Get timetable periods assigned to these teacher UUIDs today
-    // timetable.teacher stores the UUID (set by TimetableManager)
     const { data: periods, error: ttErr } = await supabase
       .from('timetable')
       .select('*')
-      .in('teacher', absentUserIds)
+      .in('teacher', actualTeacherIds)
       .eq('day', todayDay)
       .order('period_order');
 

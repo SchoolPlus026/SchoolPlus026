@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, Bell, CalendarHeart, Image,
-  Phone, BookOpen, MessageSquare, Settings
+  Phone, BookOpen, MessageSquare, Settings, AlertTriangle
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -19,6 +19,7 @@ const MODULES = [
   { name: 'Contact',       path: '/staff/contact',       icon: <Phone size={26} />,         colorHex: '#2dd4bf', bgRgb: '45,212,191',   moduleId: 'contact'       },
   { name: 'Knowledge Base',path: '/staff/knowledge-base',icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'knowledge_base'},
   { name: 'Complaint Box', path: '/staff/complaint-box', icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',    moduleId: 'complaint_box' },
+  { name: 'Emergency Alerts',path: '/staff/emergency',   icon: <AlertTriangle size={26} />, colorHex: '#ef4444', bgRgb: '239,68,68',    moduleId: 'emergency'     },
   { name: 'Settings',      path: '/staff/settings',      icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184',  moduleId: 'settings'      },
 ];
 
