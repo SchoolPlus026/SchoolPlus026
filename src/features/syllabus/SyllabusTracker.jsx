@@ -80,11 +80,13 @@ function TeacherSyllabus({ schoolId, user }) {
 
   const toggleChapter = (chapterId) => {
     const newChapters = syllabus.chapters.map(c => c.id === chapterId ? { ...c, is_completed: !c.is_completed } : c);
+    queryClient.setQueryData(['syllabus', schoolId, selectedSubject?.class, selectedSubject?.subject], { ...syllabus, chapters: newChapters });
     updateChapterMutation.mutate({ chapters: newChapters });
   };
 
   const updateTitle = (chapterId, title) => {
     const newChapters = syllabus.chapters.map(c => c.id === chapterId ? { ...c, title } : c);
+    queryClient.setQueryData(['syllabus', schoolId, selectedSubject?.class, selectedSubject?.subject], { ...syllabus, chapters: newChapters });
     updateChapterMutation.mutate({ chapters: newChapters });
   };
 
@@ -140,7 +142,7 @@ function TeacherSyllabus({ schoolId, user }) {
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-muted)', minWidth: '80px' }}>Chapter {ch.id}</span>
                     <input 
-                      type="text" value={ch.title || ''} onChange={(e) => updateTitle(ch.id, e.target.value)}
+                      type="text" defaultValue={ch.title || ''} onBlur={(e) => updateTitle(ch.id, e.target.value)}
                       placeholder="(Optional) Topic name..."
                       style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 600, color: ch.is_completed ? 'var(--text-faint)' : 'var(--text-main)', textDecoration: ch.is_completed ? 'line-through' : 'none' }}
                     />
@@ -247,8 +249,16 @@ function AdminSyllabus({ schoolId }) {
     queryFn: async () => {
       const { data } = await supabase.from('timetable').select('class, teacher').eq('school_id', schoolId);
       const classes = [...new Set((data || []).map(d => d.class).filter(Boolean))].sort();
-      const teachers = [...new Set((data || []).map(d => d.teacher).filter(Boolean))].sort();
-      return { classes, teachers };
+      const teacherUUIDs = [...new Set((data || []).map(d => d.teacher).filter(Boolean))];
+      
+      let teacherMap = {};
+      if (teacherUUIDs.length > 0) {
+        const { data: usersData } = await supabase.from('users').select('id, name').in('id', teacherUUIDs);
+        usersData?.forEach(u => { teacherMap[u.id] = u.name; });
+      }
+      
+      const teachers = [...new Set(teacherUUIDs.map(id => teacherMap[id] || id))].sort();
+      return { classes, teachers, teacherMap };
     }
   });
 
@@ -379,7 +389,7 @@ export default function SyllabusTracker() {
 
         {isAdmin ? <AdminSyllabus schoolId={schoolSettings.school_id} /> :
          isTeacher ? <TeacherSyllabus schoolId={schoolSettings.school_id} user={user} /> :
-         <StudentSyllabus schoolId={schoolSettings.school_id} userClass={user?.class} />}
+         <StudentSyllabus schoolId={schoolSettings.school_id} userClass={user?.user_metadata?.class} />}
       </div>
     </ModuleGuard>
   );
