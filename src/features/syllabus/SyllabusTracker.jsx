@@ -31,9 +31,9 @@ function TeacherSyllabus({ schoolId, user }) {
   const queryClient = useQueryClient();
 
   const { data: allocations = [], isLoading: loadingTimetable } = useQuery({
-    queryKey: ['teacher-allocations', schoolId, user.name],
+    queryKey: ['teacher-allocations', schoolId, user.id],
     queryFn: async () => {
-      const { data } = await supabase.from('timetable').select('subject, class').eq('school_id', schoolId).eq('teacher', user.name);
+      const { data } = await supabase.from('timetable').select('subject, class').eq('school_id', schoolId).eq('teacher', user.id);
       const unique = [];
       (data || []).forEach(d => {
         if (!unique.find(u => u.subject === d.subject && u.class === d.class) && d.subject && d.class) unique.push(d);
