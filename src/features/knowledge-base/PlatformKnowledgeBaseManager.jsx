@@ -50,6 +50,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
   const [description, setDescription] = useState(initial.description || '');
   const [videoType, setVideoType]     = useState(initial.video_type || 'youtube');
   const [videoUrl, setVideoUrl]       = useState(initial.video_url || '');
+  const [targetModule, setTargetModule] = useState(initial.target_module || 'none');
   const [sortOrder, setSortOrder]     = useState(initial.sort_order ?? 0);
   const [isPublished, setIsPublished] = useState(initial.is_published !== false);
   const [uploading, setUploading]     = useState(false);
@@ -111,6 +112,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
           description: '',
           video_type: 'gdrive',
           video_url: item.url,
+          target_module: targetModule === 'none' ? null : targetModule,
           is_published: false,
           sort_order: 0
         })), true); // Pass true for isBulk
@@ -121,7 +123,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ category_id: categoryId, title: title.trim(), description: description.trim(), video_type: videoType, video_url: videoUrl.trim(), thumbnail_url: ytThumb || null, sort_order: Number(sortOrder), is_published: isPublished });
+    onSave({ category_id: categoryId, title: title.trim(), description: description.trim(), video_type: videoType, video_url: videoUrl.trim(), thumbnail_url: ytThumb || null, target_module: targetModule === 'none' ? null : targetModule, sort_order: Number(sortOrder), is_published: isPublished });
   };
 
   return (
@@ -150,6 +152,30 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
       <div>
         <label className="muted small block mb-1 font-semibold">Description (optional)</label>
         <input className="sp-input block w-full" placeholder="Brief description" value={description} onChange={e => setDescription(e.target.value)} />
+      </div>
+
+      <div>
+        <label className="muted small block mb-1 font-semibold">Target Module Connection</label>
+        <select className="sp-input block w-full" value={targetModule} onChange={e => setTargetModule(e.target.value)}>
+          <option value="none">None (General Tutorial)</option>
+          <option value="attendance">Attendance</option>
+          <option value="timetable">Timetable</option>
+          <option value="fees">Fees</option>
+          <option value="notices">Notices</option>
+          <option value="users">Manage Users</option>
+          <option value="lost_found">Lost & Found</option>
+          <option value="bus_alerts">Bus Alerts</option>
+          <option value="syllabus">Syllabus Tracker</option>
+          <option value="mood_note">Mood Note</option>
+          <option value="off_classes">Off Classes</option>
+          <option value="leaves">Leaves</option>
+          <option value="reports">Reports</option>
+          <option value="gallery">Gallery</option>
+          <option value="complaint_box">Complaint Box</option>
+          <option value="contact">Contact</option>
+          <option value="settings">Settings</option>
+        </select>
+        <p className="text-[10px] text-slate-500 mt-1">If a user clicks "Help" in this module, they will be auto-routed to this video.</p>
       </div>
 
       <div>

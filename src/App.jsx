@@ -15,6 +15,7 @@ import NotificationProvider from './components/NotificationProvider';
 import VersionChecker from './components/VersionChecker';
 import GlobalUploadToasts from './components/GlobalUploadToasts';
 import EmergencyOverlay from './components/EmergencyOverlay';
+import HelpButton from './components/HelpButton';
 
 // Layout Wrappers
 import AdminLayout from './layouts/AdminLayout';
@@ -199,6 +200,7 @@ export default function App() {
       {user && <VersionChecker />}
       {user && <GlobalUploadToasts />}
       {user && <EmergencyOverlay />}
+      {user && <HelpButton />}
 
       <Routes>
       <Route path="/" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />

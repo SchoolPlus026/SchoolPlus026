@@ -162,7 +162,8 @@ export default function LostAndFound() {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this report completely?")) return;
     const { error } = await supabase.from('lost_and_found').delete().eq('id', id);
-    if (!error) fetchItems();
+    if (error) alert("Failed to delete: " + error.message);
+    else fetchItems();
   };
 
   const canManage = role === 'admin' || role === 'platform_admin';

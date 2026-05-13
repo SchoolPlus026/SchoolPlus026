@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../config/supabaseClient';
-import { BookOpen, Play, ExternalLink, ChevronRight, Loader2, Search } from 'lucide-react';
+import { BookOpen, Play, ExternalLink, ChevronRight, Loader2, Search, HelpCircle } from 'lucide-react';
 
 // ─── YouTube helpers ────────────────────────────────────────────────────────
 function extractYouTubeId(url) {
@@ -29,16 +30,18 @@ function getYouTubeEmbed(url) {
 
 // ─── GDrive helpers ─────────────────────────────────────────────────────────
 function getGDriveEmbed(url) {
-  // Handles both /file/d/ID/view and /open?id=ID formats
-  const idMatch = url.match(/\/d\/([^/]+)/) || url.match(/[?&]id=([^&]+)/);
-  if (!idMatch) return null;
+  if (!url) return null;
+  // Robust extraction of FILE_ID from various Google Drive URL formats
+  // Matches: /file/d/ID/view, /open?id=ID, /uc?id=ID, etc.
+  const idMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || 
+                  url.match(/id=([a-zA-Z0-9_-]+)/) ||
+                  url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (!idMatch) return url; // Fallback to raw URL if we can't parse it
   return `https://drive.google.com/file/d/${idMatch[1]}/preview`;
 }
 
 // ─── Video Player Modal ─────────────────────────────────────────────────────
 function VideoModal({ article, onClose }) {
-  const [gdriveBlocked, setGDriveBlocked] = useState(false);
-
   const embedUrl = article.video_type === 'youtube'
     ? getYouTubeEmbed(article.video_url)
     : getGDriveEmbed(article.video_url);
@@ -65,7 +68,7 @@ function VideoModal({ article, onClose }) {
 
         {/* Video Area */}
         <div className="relative" style={{ paddingTop: '56.25%' }}>
-          {embedUrl && !gdriveBlocked ? (
+          {embedUrl ? (
             <iframe
               src={embedUrl}
               title={article.title}
@@ -73,22 +76,10 @@ function VideoModal({ article, onClose }) {
               frameBorder="0"
               allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen
-              onError={() => article.video_type === 'gdrive' && setGDriveBlocked(true)}
             />
           ) : (
-            /* GDrive blocked fallback */
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-800/60">
-              <p className="text-slate-300 text-sm font-semibold text-center px-6">
-                This video requires Google Drive to open in a new tab.
-              </p>
-              <a
-                href={article.video_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl transition-all text-sm"
-              >
-                <ExternalLink size={16} /> Open in Google Drive
-              </a>
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+              <span className="text-slate-500">Invalid Video URL</span>
             </div>
           )}
         </div>
@@ -99,6 +90,9 @@ function VideoModal({ article, onClose }) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function KnowledgeBase() {
+  const [searchParams] = useSearchParams();
+  const targetModuleAnchor = searchParams.get('module');
+
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [playingArticle, setPlayingArticle]     = useState(null);
   const [search, setSearch]                     = useState('');
@@ -131,8 +125,20 @@ export default function KnowledgeBase() {
     enabled: true,
   });
 
+  // Auto-play the targeted module video if present in URL
+  React.useEffect(() => {
+    if (targetModuleAnchor && articles.length > 0 && !playingArticle) {
+      const match = articles.find(a => a.target_module === targetModuleAnchor);
+      if (match) {
+        setPlayingArticle(match);
+        setSelectedCategory(match.category_id);
+      }
+    }
+  }, [targetModuleAnchor, articles]);
+
   const filtered = articles.filter(a =>
-    !search || a.title.toLowerCase().includes(search.toLowerCase()) || a.description?.toLowerCase().includes(search.toLowerCase())
+    (!search || a.title.toLowerCase().includes(search.toLowerCase()) || a.description?.toLowerCase().includes(search.toLowerCase())) &&
+    (!targetModuleAnchor || playingArticle || a.target_module === targetModuleAnchor || !selectedCategory)
   );
 
   return (
@@ -141,7 +147,7 @@ export default function KnowledgeBase() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <BookOpen size={26} className="text-indigo-400" /> Knowledge Base
+            <HelpCircle size={26} className="text-indigo-400" /> Help & Tutorials
           </h2>
           <p className="text-sm text-slate-400 mt-1">Step-by-step video tutorials for using the app.</p>
         </div>
@@ -235,8 +241,15 @@ export default function KnowledgeBase() {
 
                 {/* Info */}
                 <div className="p-4">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-1">
-                    {article.kb_categories?.name}
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">
+                      {article.kb_categories?.name}
+                    </div>
+                    {article.target_module && (
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-900/40 px-1.5 py-0.5 rounded">
+                        {article.target_module.replace('_', ' ')}
+                      </div>
+                    )}
                   </div>
                   <h4 className="font-bold text-white text-sm leading-snug line-clamp-2 group-hover:text-indigo-300 transition-colors">
                     {article.title}
