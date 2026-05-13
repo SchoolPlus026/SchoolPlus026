@@ -226,8 +226,12 @@ export default function UserManagement() {
             <p className="text-slate-500 font-medium">No {activeTab}s found.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="flex flex-col">
+            <div className="md:hidden flex items-center justify-end px-4 py-3 bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-black tracking-widest text-primary animate-pulse shadow-inner">
+              Swipe left for more actions <span className="ml-2 text-sm">👉</span>
+            </div>
+            <div className="overflow-x-auto relative shadow-[inset_-12px_0_12px_-12px_rgba(0,0,0,0.1)]">
+              <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-border">
                   <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">User Details</th>
@@ -287,6 +291,7 @@ export default function UserManagement() {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Search, Plus, MapPin, CheckCircle, Loader2, Camera, Trash2, User, Eye } from 'lucide-react';
+import { Search, Plus, MapPin, CheckCircle, Loader2, Camera, Trash2, User, Eye, X } from 'lucide-react';
 
 export default function LostAndFound() {
   const { schoolSettings, user, role } = useAppStore();
@@ -17,6 +17,14 @@ export default function LostAndFound() {
   const [targetClass, setTargetClass] = useState('');
   const [file, setFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [viewImage, setViewImage] = useState(null);
+
+  const getDirectImageLink = (url) => {
+    if (!url) return '';
+    const match = url.match(/\/d\/(.*?)\//);
+    if (match && match[1]) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    return url;
+  };
 
   useEffect(() => {
     if (schoolSettings?.school_id) {
@@ -124,7 +132,12 @@ export default function LostAndFound() {
       setItemName(''); setDescription(''); setLocationFound(''); setFile(null); setTargetClass('');
       fetchItems();
     } catch (err) {
-      alert(err.message || "An error occurred during submission.");
+      console.error("Submission Error:", err);
+      let errMsg = err?.message;
+      if (err?.context && typeof err.context.text === 'function') {
+        try { errMsg = await err.context.text(); } catch(e){}
+      }
+      alert(`Error: ${errMsg || JSON.stringify(err)}`);
     } finally {
       setSubmitting(false);
     }
@@ -236,8 +249,11 @@ export default function LostAndFound() {
               )}
               
               <div className="mt-4 flex gap-4">
-                <div className="w-16 h-16 rounded-xl bg-slate-800 flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/5">
-                  {item.photo_url ? <img src={item.photo_url} alt="" className="w-full h-full object-cover" /> : <Search className="text-slate-600" />}
+                <div 
+                  className={`w-16 h-16 rounded-xl bg-slate-800 flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/5 ${item.photo_url ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                  onClick={() => item.photo_url && setViewImage(getDirectImageLink(item.photo_url))}
+                >
+                  {item.photo_url ? <img src={getDirectImageLink(item.photo_url)} alt="" className="w-full h-full object-cover" /> : <Search className="text-slate-600" />}
                 </div>
                 <div className="flex-1">
                   <h4 className="font-bold text-slate-100">{item.item_name}</h4>
@@ -287,6 +303,24 @@ export default function LostAndFound() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Image Lightbox Modal */}
+      {viewImage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 animate-in fade-in" onClick={() => setViewImage(null)}>
+          <button 
+            onClick={() => setViewImage(null)}
+            className="absolute top-4 right-4 md:top-8 md:right-8 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all"
+          >
+            <X size={20} />
+          </button>
+          <img 
+            src={viewImage} 
+            alt="Full size" 
+            className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl shadow-black"
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
