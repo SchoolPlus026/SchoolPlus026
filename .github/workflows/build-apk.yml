@@ -41,7 +41,14 @@ jobs:
           echo "VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}" >> .env
           echo "VITE_APP_VERSION_CODE=${{ github.run_number }}" >> .env
           echo "VITE_APP_VERSION_NAME=${{ github.ref_name }}" >> .env
-          echo "✅ .env file created with all VITE_ variables"
+          echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" >> .env
+          echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" >> .env
+          echo "VITE_FIREBASE_DATABASE_URL=${{ secrets.VITE_FIREBASE_DATABASE_URL }}" >> .env
+          echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}" >> .env
+          echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}" >> .env
+          echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}" >> .env
+          echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}" >> .env
+          echo "✅ .env file created with all VITE_ variables (including Firebase)"
 
       - name: 🏗️ Build React Vite Web Assets
         run: npm run build
@@ -51,6 +58,13 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_APP_VERSION_CODE: ${{ github.run_number }}
           VITE_APP_VERSION_NAME: ${{ github.ref_name || format('1.0.{0}', github.run_number) }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
       - name: 🚀 Add & Sync Capacitor Android Platform
         run: |
@@ -86,16 +100,16 @@ jobs:
           echo "✅ init.gradle written to ~/.gradle/init.gradle"
           cat ~/.gradle/init.gradle
 
-      - name: 🔔 Patch AndroidManifest.xml — Add FCM Permissions
+      - name: 🔔 Patch AndroidManifest.xml — Add FCM & Geolocation Permissions
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ ! -f "$MANIFEST" ]; then
             echo "❌ AndroidManifest.xml not found at $MANIFEST"
             exit 1
           fi
-          sed -i 's|</manifest>|    <!-- FCM: Android 13+ POST_NOTIFICATIONS runtime permission (REQUIRED) -->\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <!-- FCM: Notification vibration support -->\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <!-- FCM: Wake device to deliver messages reliably -->\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <!-- FCM: Re-register token after device reboot -->\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n</manifest>|' "$MANIFEST"
-          echo "✅ FCM permissions patched into AndroidManifest.xml"
-          grep -q "POST_NOTIFICATIONS" "$MANIFEST" && echo "✅ POST_NOTIFICATIONS confirmed" || (echo "❌ Patch FAILED" && exit 1)
+          sed -i 's|</manifest>|    <!-- Geolocation Permissions -->\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />\n    <!-- FCM: Android 13+ POST_NOTIFICATIONS runtime permission (REQUIRED) -->\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <!-- FCM: Notification vibration support -->\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <!-- FCM: Wake device to deliver messages reliably -->\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <!-- FCM: Re-register token after device reboot -->\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n</manifest>|' "$MANIFEST"
+          echo "✅ FCM & Geolocation permissions patched into AndroidManifest.xml"
+          grep -q "ACCESS_FINE_LOCATION" "$MANIFEST" && echo "✅ Geolocation confirmed" || (echo "❌ Patch FAILED" && exit 1)
 
       - name: 🔑 Inject google-services.json for FCM
         run: |
