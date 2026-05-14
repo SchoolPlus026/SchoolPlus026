@@ -12,5 +12,8 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "database": {
+    "rules": "database/firebase_rtdb_rules.json"
   }
 }

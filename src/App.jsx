@@ -74,6 +74,7 @@ import SyllabusTracker from './features/syllabus/SyllabusTracker';
 import LostAndFound from './features/lost_found/LostAndFound';
 import BusAlerts from './features/bus_alerts/BusAlerts';
 import AdminBusMonitor from './features/bus_alerts/AdminBusMonitor';
+import LiveBusTracker from './features/bus_alerts/LiveBusTracker';
 import MoodNote from './features/mood_note/MoodNote';
 
 // Calendar Events
@@ -261,6 +262,7 @@ export default function App() {
           <Route path="lost-and-found"   element={<FeatureGuard feature="lost_found"><LostAndFound /></FeatureGuard>} />
           <Route path="mood-note"        element={<FeatureGuard feature="mood_note"><MoodNote /></FeatureGuard>} />
           <Route path="emergency"        element={<FeatureGuard feature="emergency"><EmergencyManager /></FeatureGuard>} />
+          <Route path="bus-alerts"        element={<FeatureGuard feature="bus_alerts"><LiveBusTracker /></FeatureGuard>} />
         </Route>
       </Route>
 
@@ -283,6 +285,7 @@ export default function App() {
           <Route path="syllabus"    element={<FeatureGuard feature="syllabus"><SyllabusTracker /></FeatureGuard>} />
           <Route path="lost-and-found" element={<FeatureGuard feature="lost_found"><LostAndFound /></FeatureGuard>} />
           <Route path="mood-note"   element={<FeatureGuard feature="mood_note"><MoodNote /></FeatureGuard>} />
+          <Route path="bus-alerts"  element={<FeatureGuard feature="bus_alerts"><LiveBusTracker /></FeatureGuard>} />
         </Route>
       </Route>
 
