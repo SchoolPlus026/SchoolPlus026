@@ -309,9 +309,14 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['driver']} />}>
         <Route path="/driver" element={<NotificationProvider><DriverLayout /></NotificationProvider>}>
           <Route index element={<DriverDashboard />} />
+          <Route path="dashboard" element={<DriverDashboard />} />
           <Route path="bus-alerts" element={<BusAlerts />} />
           <Route path="lost-and-found" element={<LostAndFound />} />
           <Route path="emergency" element={<EmergencyManager />} />
+          <Route path="gallery" element={<GalleryManager />} />
+          <Route path="leaves" element={<LeavesManager />} />
+          <Route path="knowledge-base" element={<KnowledgeBase />} />
+          <Route path="settings" element={<SharedSettings />} />
         </Route>
       </Route>
 

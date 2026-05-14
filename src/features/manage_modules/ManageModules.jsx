@@ -20,7 +20,7 @@ const ALL_MODULES = [
   // ── Optional / New ─────────────────────────────────────────────────────────
   { id: 'complaint_box', label: 'Complaint Box',    emoji: '📮', desc: 'Private messaging between students, teachers, and admin.' },
   { id: 'lost_found',    label: 'Lost & Found',     emoji: '🔍', desc: 'Report and recover lost items on campus.' },
-  { id: 'bus_alerts',    label: 'Bus Alerts',       emoji: '🚌', desc: 'Real-time school transport notifications.' },
+  { id: 'bus_alerts',    label: 'Bus Tracker',      emoji: '🚌', desc: 'Real-time school transport live tracking.' },
   { id: 'syllabus',      label: 'Syllabus Tracker', emoji: '📖', desc: 'Track curriculum progress by class and subject.' },
   { id: 'mood_note',     label: 'Mood Note',        emoji: '😊', desc: 'Morning health and mood reporting for students.' },
   { id: 'emergency',     label: 'Emergency Alerts', emoji: '🚨', desc: 'Trigger global high-priority screen overrides.' },

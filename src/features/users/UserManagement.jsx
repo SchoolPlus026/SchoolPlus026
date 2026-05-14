@@ -50,12 +50,29 @@ export default function UserManagement() {
     userClass: '', dob: '', bloodGroup: '', address: '',
     designation: '', qualification: '', aadharCard: '',
   });
+  // Bus allocation for new driver (only visible when activeTab === 'driver')
+  const [busAlloc, setBusAlloc] = useState({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
 
   /* ── Edit Profile Panel State ── */
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({});
 
   const classes = schoolSettings?.classes || [];
+
+  /* ── Fetch existing bus assignments for the Bus Allocation dropdown ── */
+  const { data: existingBuses = [] } = useQuery({
+    queryKey: ['bus-assignments-admin', schoolSettings?.school_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('bus_assignments')
+        .select('id, bus_number, route_name, driver_id')
+        .eq('school_id', schoolSettings.school_id)
+        .eq('is_active', true)
+        .order('bus_number', { ascending: true });
+      return data || [];
+    },
+    enabled: !!schoolSettings?.school_id && activeTab === 'driver',
+  });
 
   /* ── Data Fetching ── */
   const { data: users, isLoading } = useQuery({
@@ -98,12 +115,43 @@ export default function UserManagement() {
         p_aadhar_card: f.aadharCard || null,
       });
       if (error) throw error;
+
+      // If adding a driver and bus allocation is requested, save to bus_assignments
+      if (activeTab === 'driver' && data) {
+        const newDriverId = data; // RPC returns the new user's UUID
+        const busNumber = busAlloc.mode === 'new'
+          ? busAlloc.newBusNumber.trim()
+          : existingBuses.find(b => b.id === busAlloc.existingBusId)?.bus_number;
+
+        if (busNumber) {
+          if (busAlloc.mode === 'new') {
+            // Insert a brand new bus assignment
+            await supabase.from('bus_assignments').insert({
+              school_id:   schoolSettings.school_id,
+              bus_number:  busNumber,
+              route_name:  busAlloc.newRouteName.trim() || null,
+              driver_id:   newDriverId,
+              driver_name: f.name || f.email,
+              is_active:   true,
+            });
+          } else {
+            // Update existing bus assignment to point to new driver
+            await supabase
+              .from('bus_assignments')
+              .update({ driver_id: newDriverId, driver_name: f.name || f.email })
+              .eq('id', busAlloc.existingBusId);
+          }
+        }
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['bus-assignments-admin'] });
       setIsAddModalOpen(false);
       setAddForm({ email: '', username: '', name: '', password: '', contact: '', userClass: '', dob: '', bloodGroup: '', address: '', designation: '', qualification: '', aadharCard: '' });
+      setBusAlloc({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
       alert('User created successfully!');
     },
     onError: (err) => alert('Error: ' + err.message),
@@ -460,8 +508,76 @@ export default function UserManagement() {
               </div>
             </div>
 
+            {/* ── BUS ALLOCATION (driver only) ─────────────────────────────── */}
+            {activeTab === 'driver' && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Bus size={16} className="text-amber-500" />
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Bus Allocation (Optional)</p>
+                </div>
+
+                {/* Mode toggle */}
+                <div className="flex gap-2 mb-3">
+                  {[['existing', '📋 Assign to Existing Bus'], ['new', '➕ Create New Bus']].map(([m, label]) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setBusAlloc(b => ({ ...b, mode: m }))}
+                      className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${busAlloc.mode === m ? 'bg-amber-500 border-amber-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-amber-300'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {busAlloc.mode === 'existing' ? (
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Select Bus</label>
+                    <select
+                      value={busAlloc.existingBusId}
+                      onChange={e => setBusAlloc(b => ({ ...b, existingBusId: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    >
+                      <option value="">-- Skip / Assign Later --</option>
+                      {existingBuses.map(b => (
+                        <option key={b.id} value={b.id}>
+                          Bus {b.bus_number}{b.route_name ? ` · ${b.route_name}` : ''}{b.driver_id ? ' (has driver)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {existingBuses.length === 0 && (
+                      <p className="text-[11px] text-slate-400 mt-1">No buses created yet. Switch to "Create New Bus" to add one.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Bus Number *</label>
+                      <input
+                        type="text"
+                        value={busAlloc.newBusNumber}
+                        onChange={e => setBusAlloc(b => ({ ...b, newBusNumber: e.target.value }))}
+                        placeholder="e.g. 7"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Route Name</label>
+                      <input
+                        type="text"
+                        value={busAlloc.newRouteName}
+                        onChange={e => setBusAlloc(b => ({ ...b, newRouteName: e.target.value }))}
+                        placeholder="e.g. Morning — Civil Lines"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100 flex-shrink-0">
-              <button onClick={() => setIsAddModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+              <button onClick={() => { setIsAddModalOpen(false); setBusAlloc({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' }); }} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
               <button
                 onClick={() => createUserMutation.mutate()}
                 disabled={createUserMutation.isPending || !addForm.email || !addForm.password || !addForm.name || !addForm.username}

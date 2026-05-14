@@ -1,12 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Bus, Search, AlertTriangle } from 'lucide-react';
+import { Bus, Search, AlertTriangle, Calendar, Image, HelpCircle } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 
 const MODULES = [
   { name: 'Route Control',   path: '/driver/bus-alerts',     icon: <Bus size={26} />,            colorHex: '#fbbf24', bgRgb: '251,191,36' },
   { name: 'Lost & Found',    path: '/driver/lost-and-found', icon: <Search size={26} />,         colorHex: '#10b981', bgRgb: '16,185,129' },
   { name: 'Emergency Alerts',path: '/driver/emergency',      icon: <AlertTriangle size={26} />,  colorHex: '#ef4444', bgRgb: '239,68,68'  },
+  { name: 'Leaves',          path: '/driver/leaves',         icon: <Calendar size={26} />,       colorHex: '#8b5cf6', bgRgb: '139,92,246' },
+  { name: 'Gallery',         path: '/driver/gallery',        icon: <Image size={26} />,          colorHex: '#f43f5e', bgRgb: '244,63,94' },
+  { name: 'Help',            path: '/driver/knowledge-base', icon: <HelpCircle size={26} />,     colorHex: '#3b82f6', bgRgb: '59,130,246' }
 ];
 
 export default function DriverDashboard() {

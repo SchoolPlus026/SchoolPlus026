@@ -29,6 +29,25 @@ const firebaseConfig = {
 // Singleton pattern: prevent re-initialization on hot-module reload
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-export const rtdb   = getDatabase(firebaseApp);
-export const fbAuth = getAuth(firebaseApp);
+// Guard: getDatabase() throws INVALID_ARGUMENT if databaseURL is empty.
+// We wrap it so a missing env var causes a graceful error state in UI,
+// NOT a module-level crash that kills the entire React app.
+let rtdb   = null;
+let fbAuth = null;
+
+try {
+  if (firebaseConfig.databaseURL) {
+    rtdb   = getDatabase(firebaseApp);
+    fbAuth = getAuth(firebaseApp);
+  } else {
+    console.error(
+      '[firebaseClient] VITE_FIREBASE_DATABASE_URL is not set. ' +
+      'Bus Safe Drop live tracking will be unavailable until the env var is configured.'
+    );
+  }
+} catch (e) {
+  console.error('[firebaseClient] Firebase initialization failed:', e.message);
+}
+
+export { rtdb, fbAuth };
 export default firebaseApp;

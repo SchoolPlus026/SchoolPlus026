@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, ClipboardCheck, Users, Clock, CalendarX,
-  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare, Book, HeartPulse, Search, AlertTriangle
+  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare, Book, HeartPulse, Search, AlertTriangle, Bus
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -34,6 +34,7 @@ const MODULES = [
   { name: 'Complaint Box',      path: '/teacher/complaint-box',     icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
   { name: 'Mood Note',          path: '/teacher/mood-note',         icon: <HeartPulse size={26} />,    colorHex: '#ec4899', bgRgb: '236,72,153',  moduleId: 'mood_note' },
   { name: 'Emergency Alerts',   path: '/teacher/emergency',         icon: <AlertTriangle size={26} />, colorHex: '#ef4444', bgRgb: '239,68,68',   moduleId: 'emergency' },
+  { name: 'Bus Tracker',        path: '/teacher/bus-alerts',        icon: <Bus size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36',  moduleId: 'bus_alerts' },
   { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 
