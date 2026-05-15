@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { rtdb, fbAuth } from '../../config/firebaseClient';
 import { ref, onValue, off } from 'firebase/database';
-import { signInWithCustomToken } from 'firebase/auth';
+import { signInAnonymously } from 'firebase/auth';
 import { useAppStore } from '../../store/useAppStore';
 import { Bus, MapPin, School, Clock, Loader2, RefreshCw, Navigation, WifiOff } from 'lucide-react';
 import ModuleGuard from '../../components/ModuleGuard';
 
-const TOKEN_REFRESH_MS = 50 * 60 * 1000;
+// Anonymous auth token never expires on the client — no refresh timer needed.
 
 // ─── MUST match toBusKey() in BusAlerts.jsx exactly ──────────────────────────
 function toBusKey(busNumber) {
@@ -24,7 +24,6 @@ export default function LiveBusTracker() {
   const [isConnecting,  setIsConnecting]  = useState(false);
 
   const listenerUnsubRef = useRef(null);
-  const tokenTimerRef    = useRef(null);
   const schoolId = schoolSettings?.school_id;
 
   // ─── Bus list ─────────────────────────────────────────────────────────────
@@ -46,44 +45,21 @@ export default function LiveBusTracker() {
     retry: 2,
   });
 
-  // ─── Firebase token mint ─────────────────────────────────────────────────
-  const mintToken = useCallback(async () => {
-    const { data: sd, error: se } = await supabase.auth.getSession();
-    if (se || !sd?.session) throw new Error('No active session — please log in again.');
-    const { access_token } = sd.session;
-    console.log('[LiveBusTracker] minting Firebase token...');
-
-    let res;
-    try {
-      res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mint-firebase-token`,
-        { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' } }
-      );
-    } catch (netErr) {
-      throw new Error(`Network error: ${netErr.message}`);
-    }
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`Edge function returned ${res.status}: ${body || 'no detail'}`);
-    }
-    const json = await res.json().catch(() => null);
-    if (!json?.firebase_token) throw new Error('Edge function did not return firebase_token');
-    console.log('[LiveBusTracker] token minted OK');
-    return json.firebase_token;
-  }, []);
-
-  // ─── Firebase auth ───────────────────────────────────────────────────────
+  // ─── Firebase Anonymous Auth ───────────────────────────
   const authFirebase = useCallback(async () => {
     setIsConnecting(true);
     setFbError(null);
     try {
       if (!fbAuth || !rtdb) throw new Error('Firebase env vars (VITE_FIREBASE_*) are not configured.');
-      const token = await mintToken();
-      await signInWithCustomToken(fbAuth, token);
+      if (fbAuth.currentUser) {
+        console.log('[LiveBusTracker] reusing existing Firebase user:', fbAuth.currentUser.uid);
+        setFbReady(true);
+        return;
+      }
+      console.log('[LiveBusTracker] signing in anonymously...');
+      const cred = await signInAnonymously(fbAuth);
+      console.log('[LiveBusTracker] anonymous auth OK, uid:', cred.user.uid);
       setFbReady(true);
-      console.log('[LiveBusTracker] Firebase auth OK');
-      clearTimeout(tokenTimerRef.current);
-      tokenTimerRef.current = setTimeout(authFirebase, TOKEN_REFRESH_MS);
     } catch (err) {
       console.error('[LiveBusTracker] Firebase auth FAILED:', err.message);
       setFbError(err.message);
@@ -144,7 +120,7 @@ export default function LiveBusTracker() {
   useEffect(() => {
     return () => {
       if (listenerUnsubRef.current) listenerUnsubRef.current();
-      clearTimeout(tokenTimerRef.current);
+      // No token timer to clear — using anonymous auth
     };
   }, []);
 
@@ -358,6 +334,29 @@ export default function LiveBusTracker() {
                     )}
                   </div>
                 </div>
+
+                {/* ── OSM Map ── renders the exact street using coordinates from Firebase.
+                    The driver stores lat+lng in the RTDB payload every 30s.
+                    This is 100% free — no API key, no rate limits. */}
+                {trackingData.lat && trackingData.lng && (
+                  <div style={{ marginLeft: '0', marginBottom: '28px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-faint)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <MapPin size={11} />
+                      Live street-level map
+                    </div>
+                    <iframe
+                      key={`map-${trackingData.lat}-${trackingData.lng}`}
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(trackingData.lng) - 0.004},${Number(trackingData.lat) - 0.004},${Number(trackingData.lng) + 0.004},${Number(trackingData.lat) + 0.004}&layer=mapnik&marker=${trackingData.lat},${trackingData.lng}`}
+                      style={{
+                        width: '100%', height: '220px', borderRadius: '14px',
+                        border: '2px solid rgba(251,191,36,0.2)', display: 'block',
+                      }}
+                      title="Bus Live Location"
+                      loading="lazy"
+                      sandbox="allow-scripts allow-same-origin"
+                    />
+                  </div>
+                )}
 
                 {/* Node 3: Destination */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>

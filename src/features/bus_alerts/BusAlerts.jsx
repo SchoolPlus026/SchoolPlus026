@@ -72,6 +72,7 @@ export default function BusAlerts() {
   const [isActive,      setIsActive]      = useState(false);
   const [isStarting,    setIsStarting]    = useState(false);
   const [locationName,  setLocationName]  = useState('Acquiring location...');
+  const [displayCoords, setDisplayCoords] = useState(null); // {lat, lng} for the map iframe
   const [lastUpdated,   setLastUpdated]   = useState(null);
   const [isOnline,      setIsOnline]      = useState(navigator.onLine);
   const [gpsError,      setGpsError]      = useState(null);
@@ -161,11 +162,14 @@ export default function BusAlerts() {
     const locationLabel = name || `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
     setLocationName(locationLabel);
+    setDisplayCoords({ lat, lng }); // update map iframe
     setLastUpdated(new Date());
     await pushToFirebase({
       location_name:   locationLabel,
       status:          'en_route',
       last_updated_ts: Date.now(),
+      lat,   // ← stored so parent can render the map
+      lng,   // ← stored so parent can render the map
       bus_number:      assignment?.bus_number || '',
       driver_name:     assignment?.driver_name || user?.email || '',
     });
@@ -282,6 +286,7 @@ export default function BusAlerts() {
     // 3. Update React state IMMEDIATELY (no await — UI must flip instantly)
     setIsActive(false);
     setLocationName('Acquiring location...');
+    setDisplayCoords(null);
     setLastUpdated(null);
     setGpsError(null);
 
@@ -408,6 +413,21 @@ export default function BusAlerts() {
                 )}
               </div>
             </div>
+
+            {/* ── OSM Mini Map ── free, no API key, renders exact street level */}
+            {displayCoords && (
+              <iframe
+                key={`${displayCoords.lat}-${displayCoords.lng}`}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${displayCoords.lng - 0.004},${displayCoords.lat - 0.004},${displayCoords.lng + 0.004},${displayCoords.lat + 0.004}&layer=mapnik&marker=${displayCoords.lat},${displayCoords.lng}`}
+                style={{
+                  width: '100%', height: '200px', borderRadius: '12px',
+                  border: 'none', marginTop: '14px', display: 'block',
+                }}
+                title="Live Location Map"
+                loading="lazy"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            )}
           </div>
         )}
 
