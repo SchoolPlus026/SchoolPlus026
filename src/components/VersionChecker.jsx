@@ -28,6 +28,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { supabase } from '../config/supabaseClient';
 
 const APP_VERSION_CODE = parseInt(import.meta.env.VITE_APP_VERSION_CODE || '1', 10);
@@ -154,7 +155,7 @@ function UpdateModal({ version, onDismiss, onDownload }) {
             border: '1px solid rgba(99,102,241,0.2)',
           }}>
             <span style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>Installed</span>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>v{APP_VERSION_NAME}</span>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>v{version.installed_name || APP_VERSION_NAME}</span>
           </div>
           <span style={{ fontSize: '14px', color: '#4f46e5' }}>→</span>
           <div style={{
@@ -258,11 +259,11 @@ export default function VersionChecker() {
 
         if (error || !data || cancelled) return;
 
-        if (data.version_code > localVersionCode) {
+        if (Number(data.version_code) > Number(localVersionCode)) {
           console.info(
             `[VersionChecker] Update available: v${data.version_name} (code ${data.version_code}) > installed (code ${localVersionCode})`
           );
-          setUpdateInfo(data);
+          setUpdateInfo({ ...data, installed_name: info.version });
         } else {
           console.info('[VersionChecker] App is up to date.');
         }
@@ -276,9 +277,9 @@ export default function VersionChecker() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (!updateInfo?.apk_url) return;
-    window.open(updateInfo.apk_url, '_system');
+    await Browser.open({ url: updateInfo.apk_url, presentationStyle: 'popover' });
   }, [updateInfo]);
 
   const handleDismiss = useCallback(() => {

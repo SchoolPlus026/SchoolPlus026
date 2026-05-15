@@ -422,6 +422,7 @@ export default function BusAlerts() {
                 style={{
                   width: '100%', height: '200px', borderRadius: '12px',
                   border: 'none', marginTop: '14px', display: 'block',
+                  pointerEvents: 'none'
                 }}
                 title="Live Location Map"
                 loading="lazy"

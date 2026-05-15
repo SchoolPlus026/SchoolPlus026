@@ -5,6 +5,9 @@ import {
   Sun, Moon, Globe, Lock, Database, ShieldAlert, Info,
   Upload, Eye, EyeOff, Trash2
 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 
 /* ─── helpers ─── */
 function toast(msg, setT) {
@@ -78,6 +81,48 @@ export default function SharedSettings() {
   const [isEditingAbout, setIsEditingAbout] = useState(false);
   const [newAbout, setNewAbout] = useState('');
   const [dangerPwd, setDangerPwd] = useState('');
+
+  /* ── App Version & Update Check ── */
+  const [appVersionName, setAppVersionName] = useState(import.meta.env.VITE_APP_VERSION_NAME || '1.0.0');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  React.useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.getInfo().then(info => setAppVersionName(info.version));
+    }
+  }, []);
+
+  const checkForUpdates = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      return toast('Updates are handled automatically on the web.', setToastMsg);
+    }
+    setCheckingUpdate(true);
+    try {
+      const info = await CapacitorApp.getInfo();
+      const localVersionCode = parseInt(info.build, 10);
+      
+      const { data, error } = await supabase
+        .from('app_versions')
+        .select('version_code, version_name, apk_url')
+        .order('version_code', { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (error || !data) {
+        toast('Failed to check for updates.', setToastMsg);
+      } else if (Number(data.version_code) > Number(localVersionCode)) {
+        toast(`Update available: v${data.version_name}. Starting download...`, setToastMsg);
+        if (data.apk_url) {
+          await Browser.open({ url: data.apk_url, presentationStyle: 'popover' });
+        }
+      } else {
+        toast('You are on the latest version.', setToastMsg);
+      }
+    } catch (err) {
+      toast('Error checking for updates.', setToastMsg);
+    }
+    setCheckingUpdate(false);
+  };
 
   React.useEffect(() => {
     supabase.from('app_config').select('value_content').eq('key_name', 'about_text').single()
@@ -347,6 +392,18 @@ export default function SharedSettings() {
             <strong>Hosting:</strong> Netlify
           </p>
         </div>
+      </div>
+
+      {/* ── 7. APP UPDATES & VERSION ── */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px 20px', alignItems: 'center', textAlign: 'center' }}>
+        <p className="muted small" style={{ margin: 0 }}>
+          Current Version: <strong>v{appVersionName}</strong>
+        </p>
+        {Capacitor.isNativePlatform() && (
+          <button onClick={checkForUpdates} disabled={checkingUpdate} className="btn outline" style={{ width: '100%', maxWidth: '250px' }}>
+            {checkingUpdate ? 'Checking...' : 'Check for Updates'}
+          </button>
+        )}
       </div>
 
     </div>

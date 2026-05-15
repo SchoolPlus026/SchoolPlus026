@@ -232,6 +232,18 @@ jobs:
           echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
           echo "✅ APK ready: $APK_DEST"
 
+      - name: 🚀 Create GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION_TAG }}
+          name: "SchoolOS+ ${{ env.VERSION_TAG }}"
+          body: "🚀 Automated release from GitHub Actions CI/CD pipeline.\n\nNote: The primary direct download link for users points to Supabase Storage."
+          files: ${{ env.APK_FILE }}
+          generate_release_notes: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 🚀 Upload APK to Supabase Storage
         # Uploads the APK to a public 'app-updates' bucket in Supabase
         # This avoids the 404 error caused by private GitHub repository release assets.

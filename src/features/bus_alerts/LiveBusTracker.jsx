@@ -318,27 +318,27 @@ export default function LiveBusTracker() {
                   <div style={{ paddingTop: '2px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 900, fontSize: '16px', color: 'var(--text-main)' }}>
-                        {trackingData.location_name || 'En Route'}
+                        {trackingData?.location_name || 'En Route'}
                       </span>
                       <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '20px', padding: '2px 8px' }}>
                         LIVE
                       </span>
                     </div>
-                    {trackingData.last_updated_ts && (
+                    {trackingData?.last_updated_ts ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                         <Clock size={11} color="var(--text-faint)" />
                         <span style={{ fontSize: '11px', color: 'var(--text-faint)' }}>
                           {fmt(trackingData.last_updated_ts)} · {since(trackingData.last_updated_ts)}
                         </span>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
                 {/* ── OSM Map ── renders the exact street using coordinates from Firebase.
                     The driver stores lat+lng in the RTDB payload every 30s.
                     This is 100% free — no API key, no rate limits. */}
-                {trackingData.lat && trackingData.lng && (
+                {trackingData?.lat && trackingData?.lng ? (
                   <div style={{ marginLeft: '0', marginBottom: '28px' }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-faint)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <MapPin size={11} />
@@ -350,13 +350,14 @@ export default function LiveBusTracker() {
                       style={{
                         width: '100%', height: '220px', borderRadius: '14px',
                         border: '2px solid rgba(251,191,36,0.2)', display: 'block',
+                        pointerEvents: 'none'
                       }}
                       title="Bus Live Location"
                       loading="lazy"
                       sandbox="allow-scripts allow-same-origin"
                     />
                   </div>
-                )}
+                ) : null}
 
                 {/* Node 3: Destination */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
