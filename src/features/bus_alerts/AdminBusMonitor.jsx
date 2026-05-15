@@ -1,8 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X, Save } from 'lucide-react';
+import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X, Save, MapPin, Clock } from 'lucide-react';
+import { rtdb } from '../../config/firebaseClient';
+import { ref, onValue, off } from 'firebase/database';
+
+// ── Bus key helper (must match BusAlerts.jsx + LiveBusTracker.jsx) ─────────────
+function toBusKey(n) {
+  return `bus_${String(n).trim().toLowerCase().replace(/\s+/g, '_')}`;
+}
+
+// ── Per-bus live map card (subscribes to RTDB for a single bus) ─────────────
+// Renders a Google Maps iframe if the driver has pushed lat/lng.
+function BusLiveCard({ schoolId, busNumber }) {
+  const [live, setLive] = useState(null);
+
+  useEffect(() => {
+    if (!schoolId || !busNumber || !rtdb) return;
+    const path = `tracking/${schoolId}/${toBusKey(busNumber)}`;
+    const trackRef = ref(rtdb, path);
+    const unsub = onValue(trackRef, (snap) => {
+      setLive(snap.exists() ? snap.val() : null);
+    }, () => setLive(null));
+    return () => { unsub(); off(trackRef); };
+  }, [schoolId, busNumber]);
+
+  if (!live) return (
+    <div style={{ fontSize: '12px', color: 'var(--text-faint)', padding: '8px 0 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <Clock size={11} /> Route not started
+    </div>
+  );
+
+  const isLive = live.status === 'en_route';
+  return (
+    <div style={{ marginTop: '12px', borderTop: '1px solid var(--card-border)', paddingTop: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <MapPin size={12} color={isLive ? '#10b981' : '#94a3b8'} />
+          <span style={{ fontSize: '12px', fontWeight: 700, color: isLive ? '#10b981' : 'var(--text-muted)' }}>
+            {live.location_name || (live.lat ? `GPS: ${Number(live.lat).toFixed(4)}, ${Number(live.lng).toFixed(4)}` : 'En Route')}
+          </span>
+        </div>
+        <span style={{ fontSize: '10px', fontWeight: 800, background: isLive ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.1)', color: isLive ? '#10b981' : '#94a3b8', border: `1px solid ${isLive ? 'rgba(16,185,129,0.25)' : 'rgba(100,116,139,0.2)'}`, borderRadius: '20px', padding: '2px 8px' }}>
+          {isLive ? '🟢 LIVE' : '✅ Done'}
+        </span>
+      </div>
+      {live.lat && live.lng ? (
+        <iframe
+          key={`admin-map-${live.lat}-${live.lng}`}
+          src={`https://maps.google.com/maps?q=${live.lat},${live.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+          style={{ width: '100%', height: '180px', borderRadius: '12px', border: `2px solid ${isLive ? 'rgba(16,185,129,0.2)' : 'var(--card-border)'}`, display: 'block', pointerEvents: 'none' }}
+          title={`Bus ${busNumber} Live Location`}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
+        />
+      ) : (
+        <div style={{ fontSize: '11px', color: 'var(--text-faint)', padding: '4px 0' }}>Map unavailable — no GPS data in this push.</div>
+      )}
+    </div>
+  );
+}
 
 /**
  * AdminBusMonitor — Admin panel with two tabs:
@@ -158,19 +217,24 @@ export default function AdminBusMonitor() {
               ) : (
                 <div style={{ display: 'grid', gap: '14px' }}>
                   {assignments.map(a => (
-                    <div key={a.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Bus size={20} color="#fbbf24" />
+                    <div key={a.id} className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+                      {/* ── Top row: icon + info + status badge ── */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Bus size={20} color="#fbbf24" />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 900, fontSize: '16px', color: 'var(--text-main)' }}>Bus No. {a.bus_number}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{a.route_name || 'No route name'}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '2px' }}>Driver: {a.driver_name || 'Unassigned'}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', borderRadius: '20px', background: a.is_active ? 'rgba(16,185,129,0.1)' : 'rgba(100,116,139,0.1)' }}>
+                          {a.is_active ? <CheckCircle2 size={12} color="#10b981" /> : <AlertCircle size={12} color="#64748b" />}
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: a.is_active ? '#10b981' : '#64748b' }}>{a.is_active ? 'Active' : 'Inactive'}</span>
+                        </div>
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 900, fontSize: '16px', color: 'var(--text-main)' }}>Bus No. {a.bus_number}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{a.route_name || 'No route name'}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '2px' }}>Driver: {a.driver_name || 'Unassigned'}</div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', borderRadius: '20px', background: a.is_active ? 'rgba(16,185,129,0.1)' : 'rgba(100,116,139,0.1)' }}>
-                        {a.is_active ? <CheckCircle2 size={12} color="#10b981" /> : <AlertCircle size={12} color="#64748b" />}
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: a.is_active ? '#10b981' : '#64748b' }}>{a.is_active ? 'Active' : 'Inactive'}</span>
-                      </div>
+                      {/* ── Live map (reads from Firebase RTDB) ── */}
+                      <BusLiveCard schoolId={schoolId} busNumber={a.bus_number} />
                     </div>
                   ))}
                 </div>

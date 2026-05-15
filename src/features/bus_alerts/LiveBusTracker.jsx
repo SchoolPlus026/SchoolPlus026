@@ -82,7 +82,7 @@ export default function LiveBusTracker() {
       listenerUnsubRef.current = null;
     }
 
-    if (!fbReady || !selectedBus || !schoolId || !rtdb) {
+    if (!selectedBus || !schoolId || !rtdb) {
       setTrackingData(undefined);
       return;
     }
@@ -114,7 +114,7 @@ export default function LiveBusTracker() {
       off(trackRef);
       listenerUnsubRef.current = null;
     };
-  }, [fbReady, selectedBus, schoolId]);
+  }, [selectedBus, schoolId]);
 
   // ─── Unmount cleanup ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -238,143 +238,86 @@ export default function LiveBusTracker() {
           )}
         </div>
 
-        {/* ── Timeline — ALWAYS shown once a bus is selected, regardless of Firebase errors ── */}
+        {/* ── Live Tracking Card — map-first, always visible when bus is selected ── */}
         {selectedBus && (
           <div className="card">
-            <h3 style={{ margin: '0 0 20px', fontWeight: 800, fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Navigation size={16} color="#fbbf24" />
-              Live Route · Bus {selectedBus}
-            </h3>
+            {/* Header + status badge */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontWeight: 800, fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Navigation size={16} color="#fbbf24" />
+                Live Route · Bus {selectedBus}
+              </h3>
+              {isLive
+                ? <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '20px', padding: '3px 10px' }}>🟢 LIVE</span>
+                : isTripEnded
+                  ? <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(100,116,139,0.1)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.25)', borderRadius: '20px', padding: '3px 10px' }}>✅ Done</span>
+                  : null
+              }
+            </div>
 
-            {/* Connecting spinner — only shown when Firebase is actively authenticating */}
-            {isConnecting && !fbError && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', marginBottom: '12px' }}>
-                <Loader2 size={16} className="animate-spin" color="#fbbf24" />
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading route status…</span>
-              </div>
-            )}
-
-            {/* Default state: Firebase auth failed OR no live data OR trip ended.
-                This ALWAYS renders when the bus is not actively en_route. */}
-            {showDefault && (
-              <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                <div style={{ position: 'absolute', left: '15px', top: '24px', bottom: '24px', width: '2px', background: 'var(--card-border)', borderRadius: '2px' }} />
-
-                {/* Node 1 */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '28px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--input-bg)', border: '2px solid var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
-                    <Bus size={14} color="var(--text-faint)" />
-                  </div>
-                  <div style={{ paddingTop: '4px' }}>
-                    <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-muted)' }}>
-                      {isTripEnded ? '✅ Route Completed' : 'Route Not Started'}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '2px' }}>
-                      {isTripEnded
-                        ? `Ended at ${fmt(trackingData?.last_updated_ts)}`
-                        : fbError
-                          ? 'Live tracking unavailable — showing last known status'
-                          : fbReady
-                            ? "Driver hasn't started the route yet"
-                            : 'Connecting to live tracking…'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Node 2: School */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(79,70,229,0.12)', border: '2px solid rgba(79,70,229,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
-                    <School size={15} color="#6366f1" />
-                  </div>
-                  <div style={{ paddingTop: '4px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
-                      Currently at
-                    </div>
-                    <div style={{ fontWeight: 900, fontSize: '16px', color: 'var(--text-main)' }}>
-                      {schoolSettings?.name || 'School'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Live en_route state */}
+            {/* Location name + timestamp — shown only when live */}
             {isLive && (
-              <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                <div style={{ position: 'absolute', left: '15px', top: '24px', bottom: '24px', width: '2px', background: 'linear-gradient(180deg, #10b981, #fbbf24, rgba(129,140,248,0.3))', borderRadius: '2px' }} />
-
-                {/* Node 1: Started */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '28px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1, boxShadow: '0 0 0 4px rgba(16,185,129,0.15)' }}>
-                    <span style={{ fontSize: '14px' }}>🟢</span>
-                  </div>
-                  <div style={{ paddingTop: '4px' }}>
-                    <div style={{ fontWeight: 800, fontSize: '13px', color: '#10b981' }}>Route Started</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Driver is on the way</div>
-                  </div>
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <MapPin size={11} /> Current Location
                 </div>
-
-                {/* Node 2: Live location */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '28px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1, boxShadow: '0 0 0 6px rgba(251,191,36,0.2)', animation: 'pulse 2s infinite' }}>
-                    <MapPin size={16} color="#0f172a" />
-                  </div>
-                  <div style={{ paddingTop: '2px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 900, fontSize: '16px', color: 'var(--text-main)' }}>
-                        {trackingData?.location_name || 'En Route'}
-                      </span>
-                      <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '20px', padding: '2px 8px' }}>
-                        LIVE
-                      </span>
-                    </div>
-                    {trackingData?.last_updated_ts ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                        <Clock size={11} color="var(--text-faint)" />
-                        <span style={{ fontSize: '11px', color: 'var(--text-faint)' }}>
-                          {fmt(trackingData.last_updated_ts)} · {since(trackingData.last_updated_ts)}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
+                <div style={{ fontWeight: 900, fontSize: '18px', color: 'var(--text-main)' }}>
+                  {trackingData?.location_name || 'En Route…'}
                 </div>
-
-                {/* ── OSM Map ── renders the exact street using coordinates from Firebase.
-                    The driver stores lat+lng in the RTDB payload every 30s.
-                    This is 100% free — no API key, no rate limits. */}
-                {trackingData?.lat && trackingData?.lng ? (
-                  <div style={{ marginLeft: '0', marginBottom: '28px' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-faint)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <MapPin size={11} />
-                      Live street-level map
-                    </div>
-                    <iframe
-                      key={`map-${trackingData.lat}-${trackingData.lng}`}
-                      src={`https://maps.google.com/maps?q=${trackingData.lat},${trackingData.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
-                      style={{
-                        width: '100%', height: '220px', borderRadius: '14px',
-                        border: '2px solid rgba(251,191,36,0.2)', display: 'block',
-                        pointerEvents: 'none'
-                      }}
-                      title="Bus Live Location"
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      allowFullScreen
-                    />
+                {trackingData?.last_updated_ts ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                    <Clock size={11} color="var(--text-faint)" />
+                    <span style={{ fontSize: '11px', color: 'var(--text-faint)' }}>
+                      {fmt(trackingData.last_updated_ts)} · {since(trackingData.last_updated_ts)}
+                    </span>
                   </div>
                 ) : null}
+              </div>
+            )}
 
-                {/* Node 3: Destination */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--input-bg)', border: '2px solid var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
-                    <School size={16} color="var(--text-faint)" />
+            {/* Google Maps iframe — shows when driver has pushed lat/lng */}
+            {trackingData?.lat && trackingData?.lng ? (
+              <iframe
+                key={`map-${trackingData.lat}-${trackingData.lng}`}
+                src={`https://maps.google.com/maps?q=${trackingData.lat},${trackingData.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+                style={{
+                  width: '100%', height: '260px', borderRadius: '14px',
+                  border: isLive ? '2px solid rgba(16,185,129,0.25)' : '2px solid var(--card-border)',
+                  display: 'block', pointerEvents: 'none',
+                }}
+                title="Bus Live Location"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            ) : (
+              /* Fallback: Currently at School — shown when no GPS data available */
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 18px', background: 'var(--input-bg)', borderRadius: '14px', border: '1px solid var(--card-border)' }}>
+                <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'rgba(79,70,229,0.12)', border: '2px solid rgba(79,70,229,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <School size={20} color="#6366f1" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
+                    {isTripEnded ? 'Route Completed' : 'Currently at'}
                   </div>
-                  <div style={{ paddingTop: '4px' }}>
-                    <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-muted)' }}>
-                      {schoolSettings?.name || 'Destination'}
-                    </div>
+                  <div style={{ fontWeight: 900, fontSize: '16px', color: 'var(--text-main)' }}>
+                    {isTripEnded ? `Ended at ${fmt(trackingData?.last_updated_ts)}` : (schoolSettings?.name || 'School')}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '3px' }}>
+                    {isConnecting ? 'Connecting to live tracking…'
+                      : fbError ? 'Live tracking unavailable'
+                      : fbReady ? "Driver hasn't started the route yet"
+                      : 'Waiting for location data…'}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Connecting indicator inside card */}
+            {isConnecting && !fbError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                <Loader2 size={13} className="animate-spin" color="var(--text-faint)" />
+                <span style={{ fontSize: '12px', color: 'var(--text-faint)' }}>Connecting…</span>
               </div>
             )}
           </div>
