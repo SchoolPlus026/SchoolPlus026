@@ -67,11 +67,11 @@ export default function LiveBusTracker() {
     } finally {
       setIsConnecting(false);
     }
-  }, [mintToken]);
+  }, []);
 
   useEffect(() => {
     authFirebase();
-    return () => clearTimeout(tokenTimerRef.current);
+    // No cleanup needed — anonymous auth has no refresh timers
   }, [authFirebase]);
 
   // ─── RTDB listener ───────────────────────────────────────────────────────
