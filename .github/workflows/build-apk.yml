@@ -71,6 +71,17 @@ jobs:
           npx cap add android || true
           npx cap sync android
 
+      - name: 🐘 Upgrade Gradle Wrapper to 8.7 (Required for Java 21)
+        run: |
+          WRAPPER="android/gradle/wrapper/gradle-wrapper.properties"
+          if [ -f "$WRAPPER" ]; then
+            sed -i 's/gradle-[0-9.]\+-all.zip/gradle-8.7-all.zip/' "$WRAPPER"
+            echo "✅ Gradle Wrapper upgraded to 8.7"
+            grep "gradle-8.7-all.zip" "$WRAPPER"
+          else
+            echo "⚠️  Gradle Wrapper properties not found at $WRAPPER"
+          fi
+
       - name: 🪄 Inject Gradle Mirror Repos (bypass GitHub Actions Maven 403)
         # GitHub Actions IPs are intermittently blocked by Maven Central CDN (403 Forbidden).
         # An init.gradle script globally injects fallback mirrors BEFORE Gradle resolves
