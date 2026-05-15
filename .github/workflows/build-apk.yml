@@ -36,7 +36,7 @@ jobs:
         # Belt-and-suspenders: write a .env file so Vite picks up all vars
         # regardless of whether they are passed via the env: block or read from .env
         run: |
-          echo "VITE_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
           echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
           echo "VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}" >> .env
           echo "VITE_APP_VERSION_CODE=${{ github.run_number }}" >> .env
@@ -53,7 +53,7 @@ jobs:
       - name: 🏗️ Build React Vite Web Assets
         run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_APP_VERSION_CODE: ${{ github.run_number }}
@@ -240,7 +240,7 @@ jobs:
           echo "Uploading $APK_FILE to Supabase Storage..."
           
           HTTP_STATUS=$(curl -sS -o /tmp/upload_response.txt -w "%{http_code}" \
-            -X POST "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}/storage/v1/object/app-updates/${APK_FILE}" \
+            -X POST "${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/app-updates/${APK_FILE}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/vnd.android.package-archive" \
             --data-binary "@${APK_FILE}")
@@ -258,7 +258,7 @@ jobs:
       - name: 🧹 Auto-Delete Old APKs (Keep Last 2)
         run: |
           echo "Fetching list of APKs in app-updates bucket..."
-          curl -sS -X POST "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}/storage/v1/object/list/app-updates" \
+          curl -sS -X POST "${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/list/app-updates" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{"prefix":"","limit":100,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}' > /tmp/apk_list.json
@@ -271,7 +271,7 @@ jobs:
             FILES_TO_DELETE=$(echo "$FILE_NAMES" | tail -n +3)
             for FILE in $FILES_TO_DELETE; do
               echo "Deleting old APK: $FILE"
-              curl -sS -X DELETE "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}/storage/v1/object/app-updates/$FILE" \
+              curl -sS -X DELETE "${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/app-updates/$FILE" \
                 -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
             done
             echo "✅ Old APKs deleted."
@@ -288,9 +288,9 @@ jobs:
           APK_FILE="${{ env.APK_FILE }}"
           
           # Supabase Storage public direct download URL
-          APK_URL="${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}/storage/v1/object/public/app-updates/${APK_FILE}"
+          APK_URL="${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/public/app-updates/${APK_FILE}"
           
-          curl -sS -X POST "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}/rest/v1/app_versions" \
+          curl -sS -X POST "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/app_versions" \
             -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
@@ -310,7 +310,7 @@ jobs:
         # to every device_token row. Users learn about the update without opening app.
         run: |
           HTTP_STATUS=$(curl -sS -o /tmp/notify_response.txt -w "%{http_code}" \
-            -X POST "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}/functions/v1/notify-update" \
+            -X POST "${{ secrets.VITE_SUPABASE_URL }}/functions/v1/notify-update" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
             -d "{\"version_name\": \"${{ env.VERSION_TAG }}\", \"release_notes\": \"SchoolOS+ ${{ env.VERSION_TAG }} is now available. Open the app to install it.\"}")
