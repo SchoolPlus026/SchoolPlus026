@@ -414,11 +414,11 @@ export default function BusAlerts() {
               </div>
             </div>
 
-            {/* ── OSM Mini Map ── free, no API key, renders exact street level */}
+            {/* ── Google Maps Mini Map ── keyless embed, works in Android WebView */}
             {displayCoords && (
               <iframe
                 key={`${displayCoords.lat}-${displayCoords.lng}`}
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${displayCoords.lng - 0.004},${displayCoords.lat - 0.004},${displayCoords.lng + 0.004},${displayCoords.lat + 0.004}&layer=mapnik&marker=${displayCoords.lat},${displayCoords.lng}`}
+                src={`https://maps.google.com/maps?q=${displayCoords.lat},${displayCoords.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
                 style={{
                   width: '100%', height: '200px', borderRadius: '12px',
                   border: 'none', marginTop: '14px', display: 'block',
@@ -426,7 +426,8 @@ export default function BusAlerts() {
                 }}
                 title="Live Location Map"
                 loading="lazy"
-                sandbox="allow-scripts allow-same-origin"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
               />
             )}
           </div>

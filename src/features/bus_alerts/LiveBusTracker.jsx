@@ -183,7 +183,11 @@ export default function LiveBusTracker() {
             <WifiOff size={16} color="#ef4444" style={{ flexShrink: 0, marginTop: '1px' }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '13px', color: '#ef4444', fontWeight: 600 }}>Live tracking unavailable</div>
-              <div style={{ fontSize: '11px', color: '#fca5a5', marginTop: '2px' }}>{fbError}</div>
+              <div style={{ fontSize: '11px', color: '#fca5a5', marginTop: '2px' }}>
+                {fbError?.includes('api-key-not-valid')
+                  ? 'Firebase API key is invalid. Check VITE_FIREBASE_API_KEY in GitHub Secrets (no trailing spaces).'
+                  : fbError}
+              </div>
             </div>
             <button onClick={authFirebase} title="Retry"
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
@@ -346,7 +350,7 @@ export default function LiveBusTracker() {
                     </div>
                     <iframe
                       key={`map-${trackingData.lat}-${trackingData.lng}`}
-                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(trackingData.lng) - 0.004},${Number(trackingData.lat) - 0.004},${Number(trackingData.lng) + 0.004},${Number(trackingData.lat) + 0.004}&layer=mapnik&marker=${trackingData.lat},${trackingData.lng}`}
+                      src={`https://maps.google.com/maps?q=${trackingData.lat},${trackingData.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
                       style={{
                         width: '100%', height: '220px', borderRadius: '14px',
                         border: '2px solid rgba(251,191,36,0.2)', display: 'block',
@@ -354,7 +358,8 @@ export default function LiveBusTracker() {
                       }}
                       title="Bus Live Location"
                       loading="lazy"
-                      sandbox="allow-scripts allow-same-origin"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      allowFullScreen
                     />
                   </div>
                 ) : null}
