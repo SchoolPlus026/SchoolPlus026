@@ -5,9 +5,10 @@ import {
   Sun, Moon, Globe, Lock, Database, ShieldAlert, Info,
   Upload, Eye, EyeOff, Trash2
 } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 /* ─── helpers ─── */
 function toast(msg, setT) {
@@ -100,26 +101,62 @@ export default function SharedSettings() {
     try {
       const info = await CapacitorApp.getInfo();
       const localVersionCode = parseInt(info.build, 10);
-      
+
       const { data, error } = await supabase
         .from('app_versions')
         .select('version_code, version_name, apk_url')
         .order('version_code', { ascending: false })
         .limit(1)
         .single();
-        
+
       if (error || !data) {
-        toast('Failed to check for updates.', setToastMsg);
-      } else if (Number(data.version_code) > Number(localVersionCode)) {
-        toast(`Update available: v${data.version_name}. Starting download...`, setToastMsg);
-        if (data.apk_url) {
-          await Browser.open({ url: data.apk_url, presentationStyle: 'popover' });
-        }
-      } else {
-        toast('You are on the latest version.', setToastMsg);
+        toast('Failed to check for updates. Try again.', setToastMsg);
+        setCheckingUpdate(false);
+        return;
       }
+
+      if (Number(data.version_code) <= Number(localVersionCode)) {
+        toast('✅ You are on the latest version.', setToastMsg);
+        setCheckingUpdate(false);
+        return;
+      }
+
+      // Update available — download in-app (no browser redirect)
+      toast(`⬇️ Downloading v${data.version_name}…`, setToastMsg);
+
+      const response = await CapacitorHttp.request({
+        url:          data.apk_url,
+        method:       'GET',
+        responseType: 'blob',
+      });
+
+      if (response.status !== 200) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const fileName = `SchoolOS_Update_v${data.version_name}.apk`;
+      let b64 = response.data;
+      if (typeof b64 === 'string' && b64.includes(',')) {
+        b64 = b64.split(',')[1];
+      }
+
+      await Filesystem.writeFile({
+        path:      fileName,
+        data:      b64,
+        directory: Directory.Cache,
+      });
+
+      const { uri } = await Filesystem.getUri({
+        path:      fileName,
+        directory: Directory.Cache,
+      });
+
+      toast('✅ Download complete! Opening installer…', setToastMsg);
+      await Share.share({ title: 'Install SchoolOS+ Update', files: [uri] });
+
     } catch (err) {
-      toast('Error checking for updates.', setToastMsg);
+      console.error('[SharedSettings] Update download failed:', err);
+      toast('❌ Download failed: ' + (err?.message || 'Unknown error'), setToastMsg);
     }
     setCheckingUpdate(false);
   };
@@ -400,9 +437,20 @@ export default function SharedSettings() {
           Current Version: <strong>v{appVersionName}</strong>
         </p>
         {Capacitor.isNativePlatform() && (
-          <button onClick={checkForUpdates} disabled={checkingUpdate} className="btn outline" style={{ width: '100%', maxWidth: '250px' }}>
-            {checkingUpdate ? 'Checking...' : 'Check for Updates'}
+          <button
+            id="btn-check-for-updates"
+            onClick={checkForUpdates}
+            disabled={checkingUpdate}
+            className="btn outline"
+            style={{ width: '100%', maxWidth: '260px' }}
+          >
+            {checkingUpdate ? '⬇️ Downloading…' : '🔍 Check for Updates'}
           </button>
+        )}
+        {!Capacitor.isNativePlatform() && (
+          <p className="muted small" style={{ margin: 0, fontSize: '11px', opacity: 0.6 }}>
+            Web version updates automatically.
+          </p>
         )}
       </div>
 

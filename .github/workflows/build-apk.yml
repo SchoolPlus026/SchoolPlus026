@@ -7,10 +7,10 @@ name: Build Android APK (SchoolOS+)
 # ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
-    branches:
-      - main
     tags:
-      - 'v*'           # Only fire on version tags: v1.0.0, v1.0.5, v2.0.0, etc.
+      - 'v*'           # ONLY fire on version tags: v1.0.0, v1.0.5, v2.0.0, etc.
+                       # Push to main NEVER builds an APK — prevents the "repeated popup" bug.
+                       # To release: git tag v1.0.X && git push origin v1.0.X
   workflow_dispatch:   # Also allows manual "Run workflow" click from GitHub UI
 
 jobs:
@@ -100,16 +100,17 @@ jobs:
           echo "✅ init.gradle written to ~/.gradle/init.gradle"
           cat ~/.gradle/init.gradle
 
-      - name: 🔔 Patch AndroidManifest.xml — Add FCM & Geolocation Permissions
+      - name: 🔔 Patch AndroidManifest.xml — Add FCM, Geolocation & OTA Permissions
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ ! -f "$MANIFEST" ]; then
             echo "❌ AndroidManifest.xml not found at $MANIFEST"
             exit 1
           fi
-          sed -i 's|</manifest>|    <!-- Geolocation Permissions -->\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />\n    <!-- FCM: Android 13+ POST_NOTIFICATIONS runtime permission (REQUIRED) -->\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <!-- FCM: Notification vibration support -->\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <!-- FCM: Wake device to deliver messages reliably -->\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <!-- FCM: Re-register token after device reboot -->\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n</manifest>|' "$MANIFEST"
-          echo "✅ FCM & Geolocation permissions patched into AndroidManifest.xml"
+          sed -i 's|</manifest>|    <!-- Geolocation Permissions -->\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />\n    <!-- FCM: Android 13+ POST_NOTIFICATIONS runtime permission (REQUIRED) -->\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <!-- FCM: Notification vibration support -->\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <!-- FCM: Wake device to deliver messages reliably -->\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <!-- FCM: Re-register token after device reboot -->\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <!-- OTA Update: Required to install downloaded APKs in-app (Android 8+) -->\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n    <!-- OTA Update: Read/write APK to cache storage for in-app install -->\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n</manifest>|' "$MANIFEST"
+          echo "✅ FCM, Geolocation & OTA permissions patched into AndroidManifest.xml"
           grep -q "ACCESS_FINE_LOCATION" "$MANIFEST" && echo "✅ Geolocation confirmed" || (echo "❌ Patch FAILED" && exit 1)
+          grep -q "REQUEST_INSTALL_PACKAGES" "$MANIFEST" && echo "✅ OTA install permission confirmed" || (echo "❌ OTA patch FAILED" && exit 1)
 
       - name: 🔑 Inject google-services.json for FCM
         run: |

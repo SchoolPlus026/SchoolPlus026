@@ -4,7 +4,6 @@ import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
 
 // Core Flow Components
 import Login from './features/auth/Login';

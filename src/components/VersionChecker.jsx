@@ -1,93 +1,216 @@
 /**
  * VersionChecker.jsx
  * ─────────────────────────────────────────────────────────────────────────────
- * In-App Update checker for SchoolOS+.
+ * In-App OTA Update checker for SchoolOS+.
  *
- * How it works:
+ * Architecture (fixed):
  *  1. On mount (native Android only), fetches the latest row from the
  *     `app_versions` Supabase table ordered by version_code DESC.
- *  2. Compares it against APP_VERSION_CODE (the integer code baked in here,
- *     which must be kept in sync with the latest APK build).
- *  3. If the remote version_code > local version_code, shows a glassmorphic
- *     modal:
- *     - is_critical = true  → non-dismissible (user MUST update to proceed)
- *     - is_critical = false → dismissible via an "Update Later" button
- *  4. Download & Update opens the apk_url in the system browser using
- *     Capacitor Browser plugin so the user can sideload the new APK.
+ *  2. Compares against the device's real native versionCode via
+ *     CapacitorApp.getInfo().build — NOT an env var.
+ *  3. If remote version_code > local, shows a glassmorphic modal.
+ *  4. "Download & Install" runs a 3-step in-app pipeline:
+ *       Step 1 → CapacitorHttp downloads the APK binary (no browser tab)
+ *       Step 2 → @capacitor/filesystem writes the APK to the device cache
+ *       Step 3 → @capacitor/share opens the system APK installer intent
+ *     The modal shows animated step progress throughout. No redirects.
  *
- * Placement: Rendered inside NotificationProvider (or directly inside
- * protected layouts) — it renders null on web, so there's no web impact.
- *
- * ─── VERSION MANAGEMENT ──────────────────────────────────────────────────────
- * Update APP_VERSION_CODE every time you publish a new APK to Supabase:
- *   - Bump this integer here (e.g. 1 → 2)
- *   - Insert a new row in the app_versions table with that version_code
+ * Placement: Rendered in App.jsx for all authenticated native sessions.
+ * Renders null on web — zero web impact.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { supabase } from '../config/supabaseClient';
 
-const APP_VERSION_CODE = parseInt(import.meta.env.VITE_APP_VERSION_CODE || '1', 10);
-const APP_VERSION_NAME = import.meta.env.VITE_APP_VERSION_NAME || '1.0.0';
+// ── Download state machine ────────────────────────────────────────────────────
+const DL = {
+  IDLE:        null,
+  CONNECTING:  'connecting',
+  DOWNLOADING: 'downloading',
+  SAVING:      'saving',
+  DONE:        'done',
+  ERROR:       'error',
+};
 
-// ── Glassmorphic Update Modal ─────────────────────────────────────────────────
-function UpdateModal({ version, onDismiss, onDownload }) {
-  const isCritical = version.is_critical;
+// ── Tiny spinner ──────────────────────────────────────────────────────────────
+function Spin({ size = 13, color = '#818cf8' }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      border: '2px solid transparent', borderTopColor: color,
+      animation: 'vcSpin 0.75s linear infinite', flexShrink: 0,
+    }} />
+  );
+}
+
+// ── Step row ──────────────────────────────────────────────────────────────────
+function Step({ num, label, state }) { // state: 'done' | 'active' | 'idle'
+  const done   = state === 'done';
+  const active = state === 'active';
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '12px',
+      opacity: state === 'idle' ? 0.35 : 1,
+      transition: 'opacity 0.4s ease',
+    }}>
+      <div style={{
+        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: done ? '14px' : '11px', fontWeight: 800,
+        background: done ? 'rgba(16,185,129,0.15)' : active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.05)',
+        border: `1.5px solid ${done ? '#10b981' : active ? '#6366f1' : 'rgba(255,255,255,0.1)'}`,
+        color: done ? '#10b981' : active ? '#a5b4fc' : '#475569',
+      }}>
+        {done ? '✓' : active ? <Spin /> : num}
+      </div>
+      <span style={{
+        fontSize: '13px', fontWeight: active ? 700 : 600,
+        color: done ? '#34d399' : active ? '#e0e7ff' : '#475569',
+      }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function stepState(current, target) {
+  const order = [DL.CONNECTING, DL.DOWNLOADING, DL.SAVING, DL.DONE];
+  const ci = order.indexOf(current);
+  const ti = order.indexOf(target);
+  if (ci > ti) return 'done';
+  if (ci === ti) return 'active';
+  return 'idle';
+}
+
+// ── Download progress panel (replaces action buttons while in flight) ─────────
+function DownloadPanel({ dlState, errorMsg, onRetry, onDismiss, isCritical }) {
+  if (dlState === DL.ERROR) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{
+          display: 'flex', gap: '10px', alignItems: 'flex-start',
+          padding: '13px 14px', borderRadius: '13px',
+          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+        }}>
+          <span style={{ fontSize: '18px', flexShrink: 0 }}>❌</span>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#f87171', marginBottom: '3px' }}>
+              Download Failed
+            </div>
+            <div style={{ fontSize: '12px', color: '#fca5a5', lineHeight: 1.5 }}>
+              {errorMsg || 'Could not download the update. Check your connection and try again.'}
+            </div>
+          </div>
+        </div>
+        <button id="btn-retry-download" onClick={onRetry} style={{
+          width: '100%', padding: '14px', borderRadius: '13px',
+          background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+          border: 'none', cursor: 'pointer', color: '#fff',
+          fontSize: '14px', fontWeight: 800, letterSpacing: '0.02em',
+          boxShadow: '0 8px 24px rgba(79,70,229,0.35)',
+        }}>
+          ↺ Retry Download
+        </button>
+        {!isCritical && (
+          <button id="btn-update-later-error" onClick={onDismiss} style={{
+            width: '100%', padding: '12px', borderRadius: '13px',
+            background: 'transparent', border: '1px solid rgba(99,102,241,0.22)',
+            cursor: 'pointer', color: '#64748b', fontSize: '13px', fontWeight: 600,
+          }}>
+            Update Later
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (dlState === DL.DONE) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        gap: '12px', padding: '8px 0',
+      }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: '50%',
+          background: 'rgba(16,185,129,0.12)', border: '2px solid rgba(16,185,129,0.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px',
+        }}>✅</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#34d399', marginBottom: '6px' }}>
+            Download Complete!
+          </div>
+          <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: 1.6 }}>
+            The system installer is opening.<br />
+            Tap <strong style={{ color: '#c7d2fe' }}>Install</strong> when prompted to finish updating.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Active steps view (connecting / downloading / saving)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <Step num={1} label="Connecting to server…"   state={stepState(dlState, DL.CONNECTING)} />
+      <Step num={2} label="Downloading update…"     state={stepState(dlState, DL.DOWNLOADING)} />
+      <Step num={3} label="Saving to device cache…" state={stepState(dlState, DL.SAVING)} />
+
+      {/* Indeterminate progress bar */}
+      <div style={{
+        height: 4, borderRadius: 999, overflow: 'hidden',
+        background: 'rgba(99,102,241,0.12)', marginTop: '4px',
+      }}>
+        <div style={{
+          height: '100%', width: '35%', borderRadius: 999,
+          background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
+          animation: 'vcSlide 1.5s ease-in-out infinite',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Update Modal ──────────────────────────────────────────────────────────────
+function UpdateModal({ version, onDismiss, onDownload, dlState, errorMsg, onRetry }) {
+  const isCritical  = version.is_critical;
+  const isInFlight  = dlState !== DL.IDLE && dlState !== DL.ERROR;
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="App Update Available"
+      role="dialog" aria-modal="true" aria-label="App Update Available"
+      onClick={!isCritical && !isInFlight ? onDismiss : undefined}
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 99999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        background: 'rgba(0, 0, 0, 0.85)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-        animation: 'fcmFadeIn 0.3s ease',
+        position: 'fixed', inset: 0, zIndex: 99999,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)', animation: 'vcFadeIn 0.3s ease',
       }}
-      // Only allow clicking backdrop to dismiss if NOT critical
-      onClick={!isCritical ? onDismiss : undefined}
     >
-      {/* Card — stop propagation so clicking inside doesn't dismiss */}
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          width: '100%',
-          maxWidth: '400px',
-          borderRadius: '24px',
+          width: '100%', maxWidth: '400px', borderRadius: '24px',
           background: 'linear-gradient(145deg, rgba(18,16,56,0.97) 0%, rgba(10,8,36,0.99) 100%)',
           border: '1px solid rgba(99,102,241,0.35)',
           boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04) inset',
           padding: '32px 28px 28px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px',
-          animation: 'slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+          display: 'flex', flexDirection: 'column', gap: '20px',
+          animation: 'vcSlideUp 0.35s cubic-bezier(0.34,1.56,0.64,1)',
         }}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-          {/* Rocket icon */}
           <div style={{
-            width: '56px', height: '56px', borderRadius: '18px', flexShrink: 0,
+            width: 56, height: 56, borderRadius: '18px', flexShrink: 0,
             background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '26px',
-            boxShadow: '0 8px 24px rgba(79,70,229,0.4)',
-          }}>
-            🚀
-          </div>
+            fontSize: '26px', boxShadow: '0 8px 24px rgba(79,70,229,0.4)',
+          }}>🚀</div>
           <div style={{ flex: 1 }}>
             <div style={{
               fontSize: '18px', fontWeight: 900, color: '#f1f5f9',
@@ -103,144 +226,131 @@ function UpdateModal({ version, onDismiss, onDownload }) {
                   background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
                   color: '#f87171', fontSize: '10px', fontWeight: 800,
                   textTransform: 'uppercase', letterSpacing: '0.06em',
-                }}>
-                  Critical
-                </span>
+                }}>Critical</span>
               )}
             </div>
           </div>
         </div>
 
-        {/* ── Divider ── */}
-        <div style={{ height: '1px', background: 'rgba(99,102,241,0.18)' }} />
+        {/* Divider */}
+        <div style={{ height: 1, background: 'rgba(99,102,241,0.18)' }} />
 
-        {/* ── Release Notes ── */}
+        {/* Release notes */}
         {version.release_notes && (
           <div style={{
-            padding: '14px 16px',
-            borderRadius: '14px',
-            background: 'rgba(79,70,229,0.08)',
-            border: '1px solid rgba(99,102,241,0.18)',
+            padding: '13px 15px', borderRadius: '13px',
+            background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(99,102,241,0.18)',
           }}>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
-              What's New
-            </div>
+            <div style={{
+              fontSize: '10px', fontWeight: 800, color: '#818cf8',
+              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '7px',
+            }}>What's New</div>
             <p style={{ fontSize: '13px', color: '#cbd5e1', lineHeight: 1.6, margin: 0 }}>
               {version.release_notes}
             </p>
           </div>
         )}
 
-        {/* ── Critical warning ── */}
+        {/* Critical warning */}
         {isCritical && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '10px',
             padding: '12px 14px', borderRadius: '12px',
-            background: 'rgba(239,68,68,0.08)',
-            border: '1px solid rgba(239,68,68,0.25)',
+            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
           }}>
             <span style={{ fontSize: '16px' }}>⚠️</span>
             <span style={{ fontSize: '12px', color: '#fca5a5', lineHeight: 1.4 }}>
-              This is a <strong>required update</strong>. You must update before continuing to use the app.
+              This is a <strong>required update</strong>. You must update to continue using the app.
             </span>
           </div>
         )}
 
-        {/* ── Version info pill ── */}
+        {/* Version pill */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '4px 12px', borderRadius: '999px',
-            background: 'rgba(30,27,75,0.7)',
-            border: '1px solid rgba(99,102,241,0.2)',
+            background: 'rgba(30,27,75,0.7)', border: '1px solid rgba(99,102,241,0.2)',
           }}>
             <span style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>Installed</span>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>v{version.installed_name || APP_VERSION_NAME}</span>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>v{version.installed_name}</span>
           </div>
           <span style={{ fontSize: '14px', color: '#4f46e5' }}>→</span>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '4px 12px', borderRadius: '999px',
-            background: 'rgba(79,70,229,0.12)',
-            border: '1px solid rgba(99,102,241,0.3)',
+            background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(99,102,241,0.3)',
           }}>
             <span style={{ fontSize: '10px', color: '#818cf8', fontWeight: 600 }}>Latest</span>
             <span style={{ fontSize: '11px', color: '#c7d2fe', fontWeight: 700 }}>v{version.version_name}</span>
           </div>
         </div>
 
-        {/* ── Action buttons ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {/* Primary: Download & Update */}
-          <button
-            id="btn-download-update"
-            onClick={onDownload}
-            style={{
-              width: '100%', padding: '15px', borderRadius: '14px',
-              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-              border: 'none', cursor: 'pointer',
-              color: 'white', fontSize: '14px', fontWeight: 800,
-              letterSpacing: '0.02em',
-              boxShadow: '0 8px 24px rgba(79,70,229,0.4)',
-              transition: 'all 0.3s ease',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-            }}
-          >
-            ⬇️ Download &amp; Install Update
-          </button>
-
-          {/* Secondary: Later (only for non-critical) */}
-          {!isCritical && (
+        {/* Action area — swaps between buttons and progress panel */}
+        {dlState === DL.IDLE ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button
-              id="btn-update-later"
-              onClick={onDismiss}
+              id="btn-download-update"
+              onClick={onDownload}
               style={{
-                width: '100%', padding: '13px', borderRadius: '14px',
-                background: 'transparent',
-                border: '1px solid rgba(99,102,241,0.25)',
-                cursor: 'pointer', color: '#64748b',
-                fontSize: '13px', fontWeight: 600,
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)';
-                e.currentTarget.style.color = '#94a3b8';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = 'rgba(99,102,241,0.25)';
-                e.currentTarget.style.color = '#64748b';
+                width: '100%', padding: '15px', borderRadius: '14px',
+                background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                border: 'none', cursor: 'pointer', color: '#fff',
+                fontSize: '14px', fontWeight: 800, letterSpacing: '0.02em',
+                boxShadow: '0 8px 24px rgba(79,70,229,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}
             >
-              Update Later
+              ⬇️ Download &amp; Install Update
             </button>
-          )}
-        </div>
+            {!isCritical && (
+              <button
+                id="btn-update-later"
+                onClick={onDismiss}
+                style={{
+                  width: '100%', padding: '13px', borderRadius: '14px',
+                  background: 'transparent', border: '1px solid rgba(99,102,241,0.25)',
+                  cursor: 'pointer', color: '#64748b', fontSize: '13px', fontWeight: 600,
+                }}
+              >
+                Update Later
+              </button>
+            )}
+          </div>
+        ) : (
+          <DownloadPanel
+            dlState={dlState}
+            errorMsg={errorMsg}
+            onRetry={onRetry}
+            onDismiss={onDismiss}
+            isCritical={isCritical}
+          />
+        )}
       </div>
 
-      {/* ── Inline keyframe animations ── */}
+      {/* Keyframe animations */}
       <style>{`
-        @keyframes fcmFadeIn { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes slideUp   { from { opacity: 0; transform: translateY(32px) scale(0.96) } to { opacity: 1; transform: translateY(0) scale(1) } }
+        @keyframes vcFadeIn  { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes vcSlideUp { from { opacity: 0; transform: translateY(32px) scale(0.96) } to { opacity: 1; transform: none } }
+        @keyframes vcSpin    { to { transform: rotate(360deg) } }
+        @keyframes vcSlide   { 0% { transform: translateX(-100%) } 50% { transform: translateX(160%) } 100% { transform: translateX(400%) } }
       `}</style>
     </div>
   );
 }
 
-// Module-level singleton: prevents re-checking on component remount.
-// App.jsx renders {user && <VersionChecker />} which unmounts/remounts on
-// background auth refreshes. This flag ensures the Supabase query fires once
-// per app session regardless of how many times the component mounts.
+// ── Singleton guard: prevents re-checking on component remount ────────────────
 let versionCheckDone = false;
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VersionChecker() {
-  const [updateInfo, setUpdateInfo]       = useState(null);
-  const [dismissed, setDismissed]         = useState(false);
+  const [updateInfo,  setUpdateInfo]  = useState(null);
+  const [dismissed,  setDismissed]   = useState(false);
+  const [dlState,    setDlState]     = useState(DL.IDLE);
+  const [errorMsg,   setErrorMsg]    = useState('');
 
   useEffect(() => {
-    // Only run on native Android (web builds are always "latest")
     if (!Capacitor.isNativePlatform()) return;
-    // Singleton guard: if this module already ran the check this session, skip.
     if (versionCheckDone) return;
     versionCheckDone = true;
     let cancelled = false;
@@ -248,7 +358,7 @@ export default function VersionChecker() {
     async function checkVersion() {
       try {
         const info = await CapacitorApp.getInfo();
-        const localVersionCode = parseInt(info.build, 10);
+        const localCode = parseInt(info.build, 10);
 
         const { data, error } = await supabase
           .from('app_versions')
@@ -259,16 +369,13 @@ export default function VersionChecker() {
 
         if (error || !data || cancelled) return;
 
-        if (Number(data.version_code) > Number(localVersionCode)) {
-          console.info(
-            `[VersionChecker] Update available: v${data.version_name} (code ${data.version_code}) > installed (code ${localVersionCode})`
-          );
+        if (Number(data.version_code) > Number(localCode)) {
+          console.info(`[VersionChecker] Update available: ${data.version_name} (remote ${data.version_code} > local ${localCode})`);
           setUpdateInfo({ ...data, installed_name: info.version });
         } else {
           console.info('[VersionChecker] App is up to date.');
         }
       } catch (err) {
-        // Version check failure must never affect app usability
         console.warn('[VersionChecker] Version check failed (non-fatal):', err);
       }
     }
@@ -279,18 +386,69 @@ export default function VersionChecker() {
 
   const handleDownload = useCallback(async () => {
     if (!updateInfo?.apk_url) return;
-    await Browser.open({ url: updateInfo.apk_url, presentationStyle: 'popover' });
+
+    setDlState(DL.CONNECTING);
+    setErrorMsg('');
+
+    try {
+      // ── Step 1: Download APK binary via native HTTP (no browser tab) ──────
+      setDlState(DL.DOWNLOADING);
+      const response = await CapacitorHttp.request({
+        url:          updateInfo.apk_url,
+        method:       'GET',
+        responseType: 'blob',   // returns base64 on Android native
+      });
+
+      if (response.status !== 200) {
+        throw new Error(`Server returned HTTP ${response.status}. Check that the Supabase app-updates bucket is set to Public.`);
+      }
+
+      // ── Step 2: Write APK to device cache via Filesystem ──────────────────
+      setDlState(DL.SAVING);
+      const fileName = `SchoolOS_Update_v${updateInfo.version_name}.apk`;
+
+      // CapacitorHttp blob on Android is a base64 string (strip data-URL prefix if present)
+      let b64 = response.data;
+      if (typeof b64 === 'string' && b64.includes(',')) {
+        b64 = b64.split(',')[1];
+      }
+
+      await Filesystem.writeFile({
+        path:      fileName,
+        data:      b64,
+        directory: Directory.Cache,
+      });
+
+      const { uri } = await Filesystem.getUri({
+        path:      fileName,
+        directory: Directory.Cache,
+      });
+
+      // ── Step 3: Open system APK installer via Share intent ────────────────
+      setDlState(DL.DONE);
+      await Share.share({
+        title: 'Install SchoolOS+ Update',
+        files: [uri],
+      });
+
+    } catch (err) {
+      console.error('[VersionChecker] In-app download failed:', err);
+      setDlState(DL.ERROR);
+      setErrorMsg(err?.message || 'Download failed. Please check your internet connection.');
+    }
   }, [updateInfo]);
+
+  const handleRetry = useCallback(() => {
+    setDlState(DL.IDLE);
+    setErrorMsg('');
+  }, []);
 
   const handleDismiss = useCallback(() => {
-    if (updateInfo?.is_critical) return; // cannot dismiss critical updates
+    if (updateInfo?.is_critical) return;
+    if (dlState !== DL.IDLE && dlState !== DL.ERROR && dlState !== DL.DONE) return; // don't dismiss mid-download
     setDismissed(true);
-  }, [updateInfo]);
+  }, [updateInfo, dlState]);
 
-  // Don't render anything if:
-  // - No update found
-  // - User already dismissed (and it's non-critical)
-  // - Running on web
   if (!updateInfo || dismissed || !Capacitor.isNativePlatform()) return null;
 
   return (
@@ -298,6 +456,9 @@ export default function VersionChecker() {
       version={updateInfo}
       onDismiss={handleDismiss}
       onDownload={handleDownload}
+      onRetry={handleRetry}
+      dlState={dlState}
+      errorMsg={errorMsg}
     />
   );
 }
