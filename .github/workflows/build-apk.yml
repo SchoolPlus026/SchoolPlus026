@@ -7,11 +7,11 @@ name: Build Android APK (SchoolOS+)
 # ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
+    branches:
+      - main           # Build APK on every push to main for rapid testing
     tags:
-      - 'v*'           # ONLY fire on version tags: v1.0.0, v1.0.5, v2.0.0, etc.
-                       # Push to main NEVER builds an APK — prevents the "repeated popup" bug.
-                       # To release: git tag v1.0.X && git push origin v1.0.X
-  workflow_dispatch:   # Also allows manual "Run workflow" click from GitHub UI
+      - 'v*'           # Also build on version tags for formal releases
+  workflow_dispatch:   # Manual trigger from GitHub UI
 
 jobs:
   build-apk:
