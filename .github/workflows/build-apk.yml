@@ -165,11 +165,11 @@ jobs:
           rm -f android/app/src/main/res/drawable/ic_launcher_background.xml
           rm -f android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
 
-      - name: ☕ Setup Java JDK 17 (Required for Android)
+      - name: ☕ Setup Java JDK 21 (Required for Android)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'gradle'
 
       - name: 🔨 Grant Execute Permission to Gradle Wrapper
