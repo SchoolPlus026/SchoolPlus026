@@ -161,13 +161,16 @@ export default function LiveBusTracker() {
 
   // trackingData states:
   //   undefined  → listener not yet attached or waiting for first value
-  //   null       → no data in RTDB (route not started / trip_ended was wiped)
+  //   null       → no data in RTDB (route not started)
   //   { status: 'en_route', ... }   → live
   //   { status: 'trip_ended', ... } → finished
-  const isWaiting   = trackingData === undefined;
   const isLive      = trackingData?.status === 'en_route';
   const isTripEnded = trackingData?.status === 'trip_ended';
-  const showDefault = !trackingData || isTripEnded; // show school default
+  // Show default "Currently at School" whenever Firebase auth failed OR
+  // the RTDB has no live data (null) OR trip has ended.
+  // We deliberately do NOT gate this on fbReady — the UI must ALWAYS
+  // render something useful when a bus is selected.
+  const showDefault = !isLive;
 
   return (
     <ModuleGuard moduleName="bus_alerts">
@@ -255,7 +258,7 @@ export default function LiveBusTracker() {
           )}
         </div>
 
-        {/* ── Timeline — shown once a bus is selected ── */}
+        {/* ── Timeline — ALWAYS shown once a bus is selected, regardless of Firebase errors ── */}
         {selectedBus && (
           <div className="card">
             <h3 style={{ margin: '0 0 20px', fontWeight: 800, fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -263,16 +266,17 @@ export default function LiveBusTracker() {
               Live Route · Bus {selectedBus}
             </h3>
 
-            {/* Waiting for first RTDB value */}
-            {isWaiting && fbReady && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0' }}>
+            {/* Connecting spinner — only shown when Firebase is actively authenticating */}
+            {isConnecting && !fbError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', marginBottom: '12px' }}>
                 <Loader2 size={16} className="animate-spin" color="#fbbf24" />
                 <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading route status…</span>
               </div>
             )}
 
-            {/* Default state: no data OR trip ended */}
-            {!isWaiting && showDefault && (
+            {/* Default state: Firebase auth failed OR no live data OR trip ended.
+                This ALWAYS renders when the bus is not actively en_route. */}
+            {showDefault && (
               <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 <div style={{ position: 'absolute', left: '15px', top: '24px', bottom: '24px', width: '2px', background: 'var(--card-border)', borderRadius: '2px' }} />
 
@@ -288,7 +292,11 @@ export default function LiveBusTracker() {
                     <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '2px' }}>
                       {isTripEnded
                         ? `Ended at ${fmt(trackingData?.last_updated_ts)}`
-                        : fbReady ? "Driver hasn't started the route yet" : 'Connecting to live tracking…'}
+                        : fbError
+                          ? 'Live tracking unavailable — showing last known status'
+                          : fbReady
+                            ? "Driver hasn't started the route yet"
+                            : 'Connecting to live tracking…'}
                     </div>
                   </div>
                 </div>
@@ -311,7 +319,7 @@ export default function LiveBusTracker() {
             )}
 
             {/* Live en_route state */}
-            {!isWaiting && isLive && (
+            {isLive && (
               <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 <div style={{ position: 'absolute', left: '15px', top: '24px', bottom: '24px', width: '2px', background: 'linear-gradient(180deg, #10b981, #fbbf24, rgba(129,140,248,0.3))', borderRadius: '2px' }} />
 

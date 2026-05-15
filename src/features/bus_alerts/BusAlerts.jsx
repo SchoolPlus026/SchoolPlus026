@@ -19,31 +19,47 @@ function toBusKey(busNumber) {
 }
 
 // ─── Helper: parse Nominatim address into a human-readable string ─────────────
-function parseAddress(data) {
+// Key priority for rural/semi-urban India:
+//   road          → most consistently populated even in small towns
+//   neighbourhood → named areas within a city
+//   suburb        → city zones
+//   residential   → residential area names
+//   hamlet        → very small settlements
+//   village       → village name
+//   town/city     → last resort (city-only result)
+function parseAddress(data, lat, lng) {
   if (!data) return null;
   const a = data.address || {};
   console.log('[Nominatim] raw address object:', JSON.stringify(a));
 
+  // Granular local identifier (street / area level)
   const local =
+    a.road          ||
     a.neighbourhood ||
     a.suburb        ||
-    a.village       ||
-    a.road          ||
     a.residential   ||
     a.hamlet        ||
-    a.quarter       ||
+    a.village       ||
     null;
 
+  // City / town identifier
   const city = a.city || a.town || a.municipality || a.county || null;
 
-  console.log(`[Nominatim] localArea="${local}"  city="${city}"`);
+  console.log(`[Nominatim] local="${local}"  city="${city}"`);
 
   if (local && city && local.toLowerCase() !== city.toLowerCase()) {
     return `${local}, ${city}`;
   }
-  if (local) return local;
-  if (city)  return city;
-  // Final fallback: use first segment of display_name
+  if (local && !city) return local;
+
+  // Only city-level data available — append coords for precision
+  if (city) {
+    const coordStr = lat != null ? ` (GPS: ${Number(lat).toFixed(2)}, ${Number(lng).toFixed(2)})` : '';
+    console.warn('[Nominatim] city-only result, appending coords:', city + coordStr);
+    return city + coordStr;
+  }
+
+  // Absolute fallback: first segment of display_name
   const fallback = data.display_name?.split(',')[0]?.trim() || null;
   console.warn('[Nominatim] using display_name fallback:', fallback);
   return fallback;
@@ -112,13 +128,14 @@ export default function BusAlerts() {
   const reverseGeocode = useCallback(async (lat, lng) => {
     console.log(`[Geocode] requesting for ${lat}, ${lng}`);
     try {
+      // zoom=18 = street/building level (max granularity for Nominatim)
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=16&addressdetails=1`,
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`,
         { headers: { 'User-Agent': 'SchoolOS-BusSafeDrop/1.0 (schoolosplus@gmail.com)' } }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const name = parseAddress(data);
+      const name = parseAddress(data, lat, lng);
       console.log('[Geocode] result:', name);
       return name;
     } catch (e) {
