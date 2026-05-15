@@ -24,7 +24,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+import { FileOpener } from '@capacitor-community/file-opener';
 import { supabase } from '../config/supabaseClient';
 
 // ── Download state machine ────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ function stepState(current, target) {
 }
 
 // ── Download progress panel (replaces action buttons while in flight) ─────────
-function DownloadPanel({ dlState, errorMsg, onRetry, onDismiss, isCritical }) {
+function DownloadPanel({ dlState, errorMsg, onRetry, onDismiss, isCritical, progress }) {
   if (dlState === DL.ERROR) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -157,18 +157,19 @@ function DownloadPanel({ dlState, errorMsg, onRetry, onDismiss, isCritical }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <Step num={1} label="Connecting to server…"   state={stepState(dlState, DL.CONNECTING)} />
-      <Step num={2} label="Downloading update…"     state={stepState(dlState, DL.DOWNLOADING)} />
-      <Step num={3} label="Saving to device cache…" state={stepState(dlState, DL.SAVING)} />
+      <Step num={2} label={progress > 0 ? `Downloading (${progress}%)…` : "Downloading update…"} state={stepState(dlState, DL.DOWNLOADING)} />
+      <Step num={3} label="Opening installer…"      state={stepState(dlState, DL.SAVING)} />
 
-      {/* Indeterminate progress bar */}
+      {/* Determinate progress bar */}
       <div style={{
-        height: 4, borderRadius: 999, overflow: 'hidden',
-        background: 'rgba(99,102,241,0.12)', marginTop: '4px',
+        height: 6, borderRadius: 999, overflow: 'hidden',
+        background: 'rgba(99,102,241,0.12)', marginTop: '8px',
+        position: 'relative'
       }}>
         <div style={{
-          height: '100%', width: '35%', borderRadius: 999,
+          height: '100%', width: `${progress}%`, borderRadius: 999,
           background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
-          animation: 'vcSlide 1.5s ease-in-out infinite',
+          transition: 'width 0.3s ease-out',
         }} />
       </div>
     </div>
@@ -324,6 +325,7 @@ function UpdateModal({ version, onDismiss, onDownload, dlState, errorMsg, onRetr
             onRetry={onRetry}
             onDismiss={onDismiss}
             isCritical={isCritical}
+            progress={version.downloadProgress}
           />
         )}
       </div>
@@ -348,6 +350,7 @@ export default function VersionChecker() {
   const [dismissed,  setDismissed]   = useState(false);
   const [dlState,    setDlState]     = useState(DL.IDLE);
   const [errorMsg,   setErrorMsg]    = useState('');
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -371,7 +374,7 @@ export default function VersionChecker() {
 
         if (Number(data.version_code) > Number(localCode)) {
           console.info(`[VersionChecker] Update available: ${data.version_name} (remote ${data.version_code} > local ${localCode})`);
-          setUpdateInfo({ ...data, installed_name: info.version });
+          setUpdateInfo({ ...data, installed_name: info.version, downloadProgress: 0 });
         } else {
           console.info('[VersionChecker] App is up to date.');
         }
@@ -389,52 +392,49 @@ export default function VersionChecker() {
 
     setDlState(DL.CONNECTING);
     setErrorMsg('');
+    setDownloadProgress(0);
+
+    let progressListener = null;
 
     try {
-      // ── Step 1: Download APK binary via native HTTP (no browser tab) ──────
+      // ── Step 1 & 2: Download APK directly to filesystem with progress ──────
       setDlState(DL.DOWNLOADING);
-      const response = await CapacitorHttp.request({
-        url:          updateInfo.apk_url,
-        method:       'GET',
-        responseType: 'blob',   // returns base64 on Android native
-      });
-
-      if (response.status !== 200) {
-        throw new Error(`Server returned HTTP ${response.status}. Check that the Supabase app-updates bucket is set to Public.`);
-      }
-
-      // ── Step 2: Write APK to device cache via Filesystem ──────────────────
-      setDlState(DL.SAVING);
       const fileName = `SchoolOS_Update_v${updateInfo.version_name}.apk`;
 
-      // CapacitorHttp blob on Android is a base64 string (strip data-URL prefix if present)
-      let b64 = response.data;
-      if (typeof b64 === 'string' && b64.includes(',')) {
-        b64 = b64.split(',')[1];
-      }
-
-      await Filesystem.writeFile({
-        path:      fileName,
-        data:      b64,
-        directory: Directory.Cache,
+      // Setup progress listener
+      progressListener = await Filesystem.addListener('downloadProgress', (progress) => {
+        if (progress.contentLength > 0) {
+          const percent = Math.round((progress.bytes / progress.contentLength) * 100);
+          setDownloadProgress(percent);
+          setUpdateInfo(prev => ({ ...prev, downloadProgress: percent }));
+        }
       });
 
-      const { uri } = await Filesystem.getUri({
-        path:      fileName,
+      const downloadResult = await Filesystem.downloadFile({
+        url: updateInfo.apk_url,
+        path: fileName,
         directory: Directory.Cache,
+        progress: true
       });
 
-      // ── Step 3: Open system APK installer via Share intent ────────────────
+      // ── Step 3: Open system APK installer via FileOpener ──────────────────
+      setDlState(DL.SAVING); // Reusing 'saving' state for 'preparing to install'
+      await FileOpener.open({
+        filePath: downloadResult.path,
+        contentType: 'application/vnd.android.package-archive',
+        openWithDefault: true
+      });
+
       setDlState(DL.DONE);
-      await Share.share({
-        title: 'Install SchoolOS+ Update',
-        files: [uri],
-      });
 
     } catch (err) {
       console.error('[VersionChecker] In-app download failed:', err);
       setDlState(DL.ERROR);
       setErrorMsg(err?.message || 'Download failed. Please check your internet connection.');
+    } finally {
+      if (progressListener) {
+        progressListener.remove();
+      }
     }
   }, [updateInfo]);
 

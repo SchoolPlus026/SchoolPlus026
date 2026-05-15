@@ -8,7 +8,7 @@ import {
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+import { FileOpener } from '@capacitor-community/file-opener';
 
 /* ─── helpers ─── */
 function toast(msg, setT) {
@@ -124,35 +124,21 @@ export default function SharedSettings() {
       // Update available — download in-app (no browser redirect)
       toast(`⬇️ Downloading v${data.version_name}…`, setToastMsg);
 
-      const response = await CapacitorHttp.request({
-        url:          data.apk_url,
-        method:       'GET',
-        responseType: 'blob',
-      });
-
-      if (response.status !== 200) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
       const fileName = `SchoolOS_Update_v${data.version_name}.apk`;
-      let b64 = response.data;
-      if (typeof b64 === 'string' && b64.includes(',')) {
-        b64 = b64.split(',')[1];
-      }
-
-      await Filesystem.writeFile({
-        path:      fileName,
-        data:      b64,
-        directory: Directory.Cache,
-      });
-
-      const { uri } = await Filesystem.getUri({
-        path:      fileName,
-        directory: Directory.Cache,
+      
+      const downloadResult = await Filesystem.downloadFile({
+        url: data.apk_url,
+        path: fileName,
+        directory: Directory.Cache
       });
 
       toast('✅ Download complete! Opening installer…', setToastMsg);
-      await Share.share({ title: 'Install SchoolOS+ Update', files: [uri] });
+      
+      await FileOpener.open({
+        filePath: downloadResult.path,
+        contentType: 'application/vnd.android.package-archive',
+        openWithDefault: true
+      });
 
     } catch (err) {
       console.error('[SharedSettings] Update download failed:', err);
