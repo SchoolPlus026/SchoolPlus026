@@ -73,7 +73,7 @@ export default function TeacherAchieversPanel() {
       {tab === 'class' && (
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>Recent Class Stars</span>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>Recent Class Level Stars</span>
             <button onClick={() => setShowAwardModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#10B981,#059669)', color: '#fff', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}>
               <Plus size={13} /> Award Star
             </button>
@@ -125,7 +125,7 @@ export default function TeacherAchieversPanel() {
             return (
               <div key={tier} style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--card-border)' }}>
-                  {tier === 'class_star' ? '⭐ Class Stars' : '🏆 School Champions'}
+                  {tier === 'class_star' ? '⭐ Class Level Stars' : '🏆 School Level Champions'}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px' }}>
                   {tierBadges.map(b => (
@@ -178,19 +178,20 @@ export default function TeacherAchieversPanel() {
 }
 
 function CreateCustomBadgeForm({ schoolId, teacherId, className, onSuccess }) {
-  const [name, setName] = useState(''); const [color, setColor] = useState('#10B981'); const [icon, setIcon] = useState('star'); const [loading, setLoading] = useState(false);
+  const [name, setName] = useState(''); const [desc, setDesc] = useState(''); const [color, setColor] = useState('#10B981'); const [icon, setIcon] = useState('star'); const [loading, setLoading] = useState(false);
   const icons = ['star','smile','thumbs-up','zap','heart','sparkles','book-open','hand-heart'];
   const colors = ['#10B981','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6'];
 
   const submit = async () => {
     if (!name) return; setLoading(true);
-    try { await createCustomBadge({ schoolId, teacherId, className, name, description: 'Teacher custom badge', iconKey: icon, iconColor: color }); setName(''); onSuccess(); } catch(e) { alert(e.message); }
+    try { await createCustomBadge({ schoolId, teacherId, className, name, description: desc, iconKey: icon, iconColor: color }); setName(''); setDesc(''); onSuccess(); } catch(e) { alert(e.message); }
     setLoading(false);
   };
 
   return (
     <div style={{ padding: '16px', background: 'var(--glass)', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
       <input value={name} onChange={e=>setName(e.target.value)} placeholder="Badge Name (e.g. Best Silencer)" className="sp-input" style={{ marginBottom: '12px' }} />
+      <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Criteria (How to earn this)" className="sp-input" style={{ marginBottom: '12px' }} />
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div><label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>ICON</label><div style={{ display: 'flex', gap: '4px' }}>{icons.map(i => <div key={i} onClick={() => setIcon(i)} style={{ padding: '6px', borderRadius: '6px', cursor: 'pointer', background: icon === i ? 'var(--accent-light)' : 'transparent', border: icon === i ? '1px solid var(--accent)' : '1px solid var(--card-border)' }}><LucideBadgeIcon iconKey={i} color="var(--text-main)" size={16} /></div>)}</div></div>
         <div><label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>COLOR</label><div style={{ display: 'flex', gap: '4px' }}>{colors.map(c => <div key={c} onClick={() => setColor(c)} style={{ width: '28px', height: '28px', borderRadius: '6px', cursor: 'pointer', background: c, border: color === c ? '2px solid white' : '2px solid transparent', boxShadow: color === c ? `0 0 0 1px ${c}` : 'none' }} />)}</div></div>
@@ -214,7 +215,7 @@ function AwardStarModal({ badges, students, schoolId, awardedBy, className, onCl
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', padding: '20px', borderRadius: '16px', width: '100%', maxWidth: '400px' }}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '15px' }}>Award Class Star</h3>
-        <select onChange={e => setSelStd(students.find(s => s.id === e.target.value))} className="sp-input" style={{ marginBottom: '8px' }} defaultValue=""><option value="" disabled>Select Student...</option>{students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+        <select onChange={e => setSelStd(students.find(s => String(s.id) === String(e.target.value)))} className="sp-input" style={{ marginBottom: '8px' }} defaultValue=""><option value="" disabled>Select Student...</option>{students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px', maxHeight: '200px', overflowY: 'auto' }}>
           {manualBadges.map(b => <div key={b.id} onClick={() => setSelBdg(b)} style={{ padding: '8px', borderRadius: '8px', border: `2px solid ${selBdg?.id === b.id ? b.icon_color : 'var(--card-border)'}`, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}><LucideBadgeIcon iconKey={b.icon_key} color={b.icon_color} size={14} /><span style={{ fontSize: '12px', fontWeight: 600 }}>{b.name}</span></div>)}
         </div>

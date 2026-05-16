@@ -262,9 +262,20 @@ export async function awardBadge({ schoolId, studentId, badgeId, className, awar
       note:          note ?? null,
       academic_year: new Date().getFullYear().toString(),
     })
-    .select()
+    .select('*, badges_master(name)')
     .single();
   if (error) throw error;
+
+  // Queue a push notification for the student/parent
+  await supabase.from('app_notifications_queue').insert({
+    school_id: schoolId,
+    user_id: studentId,
+    title: 'New Achievement Unlocked! 🏆',
+    body: `You have been awarded the "${data.badges_master?.name || 'New'}" badge. Keep it up!`,
+    route: '/student/achievements',
+    is_ephemeral: false,
+    status: 'pending'
+  });
 
   await supabase.rpc('rebuild_badge_cache', { p_student_id: studentId });
   return data;

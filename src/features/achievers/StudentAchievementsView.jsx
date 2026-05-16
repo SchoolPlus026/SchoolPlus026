@@ -97,7 +97,7 @@ export default function StudentAchievementsView({ studentId }) {
                          <LucideBadgeIcon iconKey={ach.icon_key} color={ach.icon_color} size={24} />
                       </div>
                       <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>{ach.badge_name}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>{ach.tier === 'school_champion' ? 'School Champion' : 'Class Star'}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>{ach.tier === 'school_champion' ? 'School Level Champion' : 'Class Level Star'}</div>
                       <div style={{ fontSize: '10px', color: 'var(--text-faint)' }}>{new Date(ach.awarded_at).toLocaleDateString('en-IN')}</div>
                    </div>
                 ))}
@@ -197,7 +197,7 @@ export default function StudentAchievementsView({ studentId }) {
             return (
               <div key={tier} style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--card-border)' }}>
-                  {tier === 'class_star' ? '⭐ Class Stars' : '🏆 School Champions'}
+                  {tier === 'class_star' ? '⭐ Class Level Stars' : '🏆 School Level Champions'}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px' }}>
                   {tierBadges.map(b => (

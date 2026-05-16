@@ -90,8 +90,8 @@ export default function AdminAchieversPanel() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
         {[
-          ['champions','🏆 School Champions'],
-          ['class_level','⭐ Class Level'],
+          ['champions','🏆 School Level Champions'],
+          ['class_level','⭐ Class Level Stars'],
           ['catalog','🎖️ Badge Catalog'],
           ['leaderboard','🏅 Leaderboard']
         ].map(([key, label]) => (
@@ -110,7 +110,7 @@ export default function AdminAchieversPanel() {
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>
-              School Champions ({champions.length})
+              School Level Champions ({champions.length})
             </span>
             <button onClick={() => setShowAwardModal(true)} style={{
               display: 'flex', alignItems: 'center', gap: '6px',
@@ -123,7 +123,7 @@ export default function AdminAchieversPanel() {
           </div>
 
           {loadingChampions ? <div style={{ padding: '32px', textAlign: 'center' }}><Loader2 className="animate-spin inline text-amber-500" /></div> :
-           champions.length === 0 ? <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '13px' }}>🏆 No school champions yet.</div> :
+           champions.length === 0 ? <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '13px' }}>🏆 No school level champions yet.</div> :
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {champions.map(ch => (
                 <div key={ch.id} style={{
@@ -207,7 +207,7 @@ export default function AdminAchieversPanel() {
             return (
               <div key={tier} style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--card-border)' }}>
-                  {tier === 'class_star' ? '⭐ Class Stars' : '🏆 School Champions'}
+                  {tier === 'class_star' ? '⭐ Class Level Stars' : '🏆 School Level Champions'}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px' }}>
                   {tierBadges.map(b => (
@@ -301,7 +301,7 @@ function AwardChampionModal({ badges, classes, schoolId, awardedBy, onClose, onS
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', padding: '24px', borderRadius: '16px', width: '100%', maxWidth: '440px' }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '15px' }}>Award Tier 2 Champion</h3>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '15px' }}>Award School Level Champion</h3>
         
         <label className="text-xs font-bold text-slate-500 mb-1 block">1. Select Class</label>
         <select value={selClass} onChange={e => { setSelClass(e.target.value); setSelStd(null); }} className="sp-input" style={{ marginBottom: '12px' }}>
@@ -310,7 +310,7 @@ function AwardChampionModal({ badges, classes, schoolId, awardedBy, onClose, onS
         </select>
 
         <label className="text-xs font-bold text-slate-500 mb-1 block">2. Select Student</label>
-        <select value={selStd?.id || ''} onChange={e => setSelStd(students.find(s=>s.id === e.target.value))} className="sp-input" style={{ marginBottom: '16px' }} disabled={!selClass}>
+        <select value={selStd?.id || ''} onChange={e => setSelStd(students.find(s=>String(s.id) === String(e.target.value)))} className="sp-input" style={{ marginBottom: '16px' }} disabled={!selClass}>
            <option value="" disabled>Choose Student...</option>
            {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
@@ -372,15 +372,15 @@ function CreateBadgeModal({ schoolId, adminId, onClose, onSuccess }) {
         
         <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
            <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-              <input type="radio" checked={tier==='class_star'} onChange={()=>setTier('class_star')} /> Tier 1 (Class Star)
+              <input type="radio" checked={tier==='class_star'} onChange={()=>setTier('class_star')} /> Class Level Star
            </label>
            <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-              <input type="radio" checked={tier==='school_champion'} onChange={()=>setTier('school_champion')} /> Tier 2 (School Champion)
+              <input type="radio" checked={tier==='school_champion'} onChange={()=>setTier('school_champion')} /> School Level Champion
            </label>
         </div>
 
         <input value={name} onChange={e=>setName(e.target.value)} placeholder="Badge Name" className="sp-input" style={{ marginBottom: '12px' }} />
-        <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Description" className="sp-input" style={{ marginBottom: '12px' }} />
+        <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Criteria (How to earn this)" className="sp-input" style={{ marginBottom: '12px' }} />
         
         <div style={{ marginBottom: '12px' }}>
           <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>ICON</label>
