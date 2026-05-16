@@ -38,7 +38,7 @@ import SharedSettings from './features/settings/SharedSettings';
 
 // Attendance
 import MarkAttendance from './features/attendance/MarkAttendance';
-import TeacherSelfAttendance from './features/attendance/TeacherSelfAttendance';
+import TeacherAttendanceView from './features/attendance/TeacherAttendanceView';
 import StudentAttendanceChart from './features/attendance/StudentAttendanceChart';
 
 // Users / Profile
@@ -81,6 +81,9 @@ import CalendarEvents from './features/calendar/CalendarEvents';
 
 // Knowledge Base
 import KnowledgeBase from './features/knowledge-base/KnowledgeBase';
+
+// Achievers Board
+import AchieversBoard from './features/achievers/AchieversBoard';
 
 // Subscription / Billing
 import ManageSubscription from './features/billing/ManageSubscription';
@@ -233,6 +236,7 @@ export default function App() {
           <Route path="syllabus"      element={<SyllabusTracker />} />
           <Route path="lost-and-found" element={<FeatureGuard feature="lost_found"><LostAndFound /></FeatureGuard>} />
           <Route path="emergency"     element={<FeatureGuard feature="emergency"><EmergencyManager /></FeatureGuard>} />
+          <Route path="achievers"     element={<AchieversBoard />} />
           <Route path="executive-briefing" element={<FeatureGuard feature="executive_briefing"><ExecutiveBriefingPage /></FeatureGuard>} />
           <Route path="staff-pending-duty" element={<FeatureGuard feature="duty_radar"><StaffPendingDutyPage /></FeatureGuard>} />
         </Route>
@@ -244,7 +248,7 @@ export default function App() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard"        element={<TeacherDashboard />} />
           <Route path="profile"          element={<UserProfile />} />
-          <Route path="self-attendance"  element={<TeacherSelfAttendance />} />
+          <Route path="my-attendance"    element={<TeacherAttendanceView />} />
           <Route path="attendance"       element={<MarkAttendance />} />
           <Route path="users"            element={<UserManagement />} />
           <Route path="timetable"        element={<TimetableViewer />} />
@@ -262,6 +266,7 @@ export default function App() {
           <Route path="mood-note"        element={<FeatureGuard feature="mood_note"><MoodNote /></FeatureGuard>} />
           <Route path="emergency"        element={<FeatureGuard feature="emergency"><EmergencyManager /></FeatureGuard>} />
           <Route path="bus-alerts"        element={<FeatureGuard feature="bus_alerts"><LiveBusTracker /></FeatureGuard>} />
+          <Route path="achievers"        element={<AchieversBoard />} />
         </Route>
       </Route>
 
@@ -285,6 +290,7 @@ export default function App() {
           <Route path="lost-and-found" element={<FeatureGuard feature="lost_found"><LostAndFound /></FeatureGuard>} />
           <Route path="mood-note"   element={<FeatureGuard feature="mood_note"><MoodNote /></FeatureGuard>} />
           <Route path="bus-alerts"  element={<FeatureGuard feature="bus_alerts"><LiveBusTracker /></FeatureGuard>} />
+          <Route path="achievers"   element={<AchieversBoard />} />
         </Route>
       </Route>
 

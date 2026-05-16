@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, ClipboardCheck, Users, Clock, CalendarX,
-  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare, Book, HeartPulse, Search, AlertTriangle, Bus
+  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare, Book, HeartPulse, Search, AlertTriangle, Bus, Trophy
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -18,7 +18,7 @@ import FeatureGuard from '../../components/FeatureGuard';
 // Notices, Leaves, Gallery, Reports, Settings
 const MODULES = [
   { name: 'My Profile',         path: '/teacher/profile',          icon: <User size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250', moduleId: 'users'   },
-  { name: 'Mark My Attendance', path: '/teacher/self-attendance',  icon: <ClipboardCheck size={26} />,colorHex: '#818cf8', bgRgb: '129,140,248', moduleId: 'attendance'  },
+  { name: 'My Attendance',      path: '/teacher/my-attendance',    icon: <CalendarHeart size={26} />, colorHex: '#818cf8', bgRgb: '129,140,248', moduleId: 'attendance'  },
   { name: 'Class Attendance',   path: '/teacher/attendance',       icon: <Users size={26} />,         colorHex: '#a78bfa', bgRgb: '167,139,250', moduleId: 'attendance'  },
   { name: 'Manage Students',    path: '/teacher/users',             icon: <Users size={26} />,         colorHex: '#6366f1', bgRgb: '99,102,241', moduleId: 'users'   },
   { name: 'Timetable',          path: '/teacher/timetable',        icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252', moduleId: 'timetable'  },
@@ -35,6 +35,7 @@ const MODULES = [
   { name: 'Mood Note',          path: '/teacher/mood-note',         icon: <HeartPulse size={26} />,    colorHex: '#ec4899', bgRgb: '236,72,153',  moduleId: 'mood_note' },
   { name: 'Emergency Alerts',   path: '/teacher/emergency',         icon: <AlertTriangle size={26} />, colorHex: '#ef4444', bgRgb: '239,68,68',   moduleId: 'emergency' },
   { name: 'Bus Tracker',        path: '/teacher/bus-alerts',        icon: <Bus size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36',  moduleId: 'bus_alerts' },
+  { name: 'Achievers Board',    path: '/teacher/achievers',         icon: <Trophy size={26} />,       colorHex: '#F59E0B', bgRgb: '245,158,11',  moduleId: 'default'},
   { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 

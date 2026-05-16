@@ -4,8 +4,5 @@
 			"path": ".."
 		}
 	],
-	"settings": {
-		"github-actions.use-enterprise": true,
-		"github-actions.workflows.pinned.refresh.enabled": true
-	}
+	"settings": {}
 }

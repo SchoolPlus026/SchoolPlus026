@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, ClipboardList, DollarSign, Clock,
-  Bell, CalendarHeart, Image, Phone, Settings, BookOpen, MessageSquare, Book, HeartPulse, Search, Bus
+  Bell, CalendarHeart, Image, Phone, Settings, BookOpen, MessageSquare, Book, HeartPulse, Search, Bus, Trophy
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -29,6 +29,7 @@ const MODULES = [
   { name: 'Complaint Box',  path: '/student/complaint-box',   icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
   { name: 'Mood Note',      path: '/student/mood-note',       icon: <HeartPulse size={26} />,    colorHex: '#ec4899', bgRgb: '236,72,153', moduleId: 'mood_note' },
   { name: 'Bus Tracker',   path: '/student/bus-alerts',      icon: <Bus size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36', moduleId: 'bus_alerts' },
+  { name: 'Achievers Board', path: '/student/achievers',     icon: <Trophy size={26} />,       colorHex: '#F59E0B', bgRgb: '245,158,11', moduleId: 'default'},
   { name: 'Settings',       path: '/student/settings',        icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
 ];
 

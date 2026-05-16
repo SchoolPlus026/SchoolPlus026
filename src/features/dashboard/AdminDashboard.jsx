@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Users, ClipboardList, DollarSign, Clock, CalendarHeart,
   Image, Bell, Calendar, LineChart, Settings, CalendarX,
-  Phone, Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus, Book, AlertTriangle, Search, Target, Radar
+  Phone, Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus, Book, AlertTriangle, Search, Target, Radar, Trophy
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import PlanStatusBanner from '../../components/PlanStatusBanner';
@@ -37,6 +37,7 @@ const MODULES = [
   { name: 'Knowledge Base', path: '/admin/knowledge-base', icon: <BookOpen size={26} />,       colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'knowledge_base'},
   { name: 'Executive Briefing', path: '/admin/executive-briefing',  icon: <Target size={26} />,         colorHex: '#818cf8', bgRgb: '129,140,248',  moduleId: 'executive_briefing'},
   { name: 'Staff Pending Duty', path: '/admin/staff-pending-duty',  icon: <Radar size={26} />,          colorHex: '#fb7185', bgRgb: '251,113,133',  moduleId: 'duty_radar'},
+  { name: 'Achievers Board', path: '/admin/achievers', icon: <Trophy size={26} />, colorHex: '#F59E0B', bgRgb: '245,158,11', moduleId: 'default'},
   { name: 'Settings',       path: '/admin/settings',       icon: <Settings size={26} />,       colorHex: '#94a3b8', bgRgb: '148,163,184',  moduleId: 'settings'      },
 ];
 

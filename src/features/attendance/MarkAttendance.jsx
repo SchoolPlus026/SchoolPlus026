@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck, CheckCircle2, XCircle, AlertCircle, Filter, Download } from 'lucide-react';
+import { triggerStreakCheck } from '../../hooks/useAchievements';
 
 export default function MarkAttendance() {
   const { user, role, schoolSettings } = useAppStore();
@@ -125,10 +126,17 @@ export default function MarkAttendance() {
         if (notifErr) console.error('Notification queuing failed:', notifErr);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, payload) => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
       setAttendanceEdits({});
       showToast('Attendance recorded successfully!');
+      
+      // Trigger automated streak checks for students
+      if (payload && payload.length > 0 && payload[0].role === 'student' && selectedClass) {
+        triggerStreakCheck(payload[0].school_id, selectedClass, payload[0].month_year)
+          .then(() => queryClient.invalidateQueries({ queryKey: ['student-achievements'] }))
+          .catch(err => console.error("Streak check failed:", err));
+      }
     },
     onError: (err) => {
       showToast('Error saving: ' + err.message);
