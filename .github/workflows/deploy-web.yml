@@ -54,6 +54,39 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
+      - name: 🔐 Generate assetlinks.json for WebAuthn/Passkeys
+        run: |
+          mkdir -p dist/.well-known
+          
+          # We need the keystore to extract the SHA256
+          KEYSTORE_PATH="/tmp/schoolos.jks"
+          B64="${{ secrets.KEYSTORE_BASE64 }}"
+          
+          if [ -n "$B64" ] && [ "$B64" != "" ]; then
+            echo "$B64" | base64 --decode > "$KEYSTORE_PATH"
+            
+            # Extract SHA256 using keytool
+            SHA256=$(keytool -list -v -keystore "$KEYSTORE_PATH" -alias schoolos -storepass "${{ secrets.STORE_PASSWORD }}" | grep "SHA256:" | awk '{print $2}')
+            
+            echo "Extracted SHA256: $SHA256"
+            
+            # Create assetlinks.json
+            cat > dist/.well-known/assetlinks.json << EOF
+            [{
+              "relation": ["delegate_permission/common.handle_all_urls", "delegate_permission/common.get_login_creds"],
+              "target": {
+                "namespace": "android_app",
+                "package_name": "com.schoolsaas.app",
+                "sha256_cert_fingerprints": ["$SHA256"]
+              }
+            }]
+            EOF
+            echo "✅ assetlinks.json generated dynamically"
+          else
+            echo "⚠️ KEYSTORE_BASE64 secret not found. Cannot generate assetlinks.json."
+            echo "[]" > dist/.well-known/assetlinks.json
+          fi
+
       - name: 🚀 Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
