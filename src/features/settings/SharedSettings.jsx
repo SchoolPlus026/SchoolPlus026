@@ -9,6 +9,7 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
+import BiometricSetup from './BiometricSetup';
 
 /* ─── helpers ─── */
 function toast(msg, setT) {
@@ -335,7 +336,11 @@ export default function SharedSettings() {
         </button>
       </div>
 
-      {/* ── 4. DATA MANAGEMENT (admin only) ── */}
+      {/* ── 4. BIOMETRIC LOGIN — Native Android APK only ── */}
+      {/* Hidden on all web/desktop browsers via Capacitor.isNativePlatform() */}
+      {(Capacitor?.isNativePlatform?.() ?? false) && <BiometricSetup />}
+
+      {/* ── 5. DATA MANAGEMENT (admin only) ── */}
       {userRole === 'admin' && (
         <>
           <div className="card">
