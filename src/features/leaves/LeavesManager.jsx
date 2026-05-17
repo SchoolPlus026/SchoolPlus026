@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { usePending } from '../../hooks/usePending';
-import { CalendarHeart, Loader2, Plus, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { CalendarHeart, Loader2, Plus, CheckCircle2, XCircle, Clock, Bell } from 'lucide-react';
 
 export default function LeavesManager() {
   const { user, role, schoolSettings } = useAppStore();
@@ -55,12 +55,24 @@ export default function LeavesManager() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: async ({ id, status }) => {
+    mutationFn: async ({ leave, status }) => {
       const { error } = await supabase
         .from('leaves')
         .update({ status })
-        .eq('id', id);
+        .eq('id', leave.id);
       if (error) throw error;
+      
+      const { error: notifErr } = await supabase
+        .from('app_notifications_queue')
+        .insert({
+           school_id: schoolSettings.school_id,
+           user_id: leave.user_id,
+           title: 'Leave Application Update',
+           body: `Your leave request for ${new Date(leave.from_date).toLocaleDateString()} - ${new Date(leave.to_date).toLocaleDateString()} has been ${status}.`,
+           route: '/leaves',
+           status: 'pending'
+        });
+      if (notifErr) console.error('Notification failed:', notifErr);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
@@ -169,12 +181,16 @@ export default function LeavesManager() {
                       {role === 'admin' && <p className="text-xs text-muted mt-1 font-semibold">Applied by: {leave.users?.name} ({leave.users?.role})</p>}
                     </div>
 
+                    {leave.user_id === user?.id && leave.status === 'pending' && (
+                       <ReminderButton leave={leave} user={user} schoolSettings={schoolSettings} />
+                    )}
+
                     {role === 'admin' && leave.status === 'pending' && (
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => {
                             if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
-                            statusMutation.mutate({ id: leave.id, status: 'Approved' });
+                            statusMutation.mutate({ leave, status: 'Approved' });
                           }}
                           className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 shadow-sm"
                         >
@@ -183,7 +199,7 @@ export default function LeavesManager() {
                         <button
                           onClick={() => {
                             if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
-                            statusMutation.mutate({ id: leave.id, status: 'Rejected' });
+                            statusMutation.mutate({ leave, status: 'Rejected' });
                           }}
                           className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 shadow-sm"
                         >
@@ -199,5 +215,89 @@ export default function LeavesManager() {
         )}
       </div>
     </div>
+  );
+}
+
+function ReminderButton({ leave, user, schoolSettings }) {
+  const queryClient = useQueryClient();
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  React.useEffect(() => {
+    if (!leave.last_reminder_at) return;
+    const interval = setInterval(() => {
+      const diff = 3600000 - (Date.now() - new Date(leave.last_reminder_at).getTime());
+      if (diff > 0) {
+        setTimeLeft(Math.ceil(diff / 60000));
+      } else {
+        setTimeLeft(0);
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [leave.last_reminder_at]);
+
+  const reminderMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('leaves')
+        .update({ last_reminder_at: new Date().toISOString() })
+        .eq('id', leave.id);
+      if (error) throw error;
+
+      const notifications = [];
+      
+      notifications.push({
+         school_id: schoolSettings.school_id,
+         target_role: 'admin',
+         title: 'Leave Reminder',
+         body: `Reminder: Pending leave application from ${user.name}`,
+         route: '/leaves',
+         status: 'pending'
+      });
+
+      if (user.role === 'student' && user.class) {
+         const { data: teachers } = await supabase
+           .from('users')
+           .select('id')
+           .eq('role', 'teacher')
+           .eq('class', user.class)
+           .eq('school_id', schoolSettings.school_id);
+           
+         if (teachers && teachers.length > 0) {
+            notifications.push({
+               school_id: schoolSettings.school_id,
+               user_id: teachers[0].id,
+               title: 'Leave Reminder',
+               body: `Reminder: Pending leave application from ${user.name}`,
+               route: '/leaves',
+               status: 'pending'
+            });
+         }
+      }
+
+      const { error: notifErr } = await supabase
+        .from('app_notifications_queue')
+        .insert(notifications);
+      if (notifErr) console.error('Notification failed:', notifErr);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
+      alert('Reminder sent successfully!');
+    }
+  });
+
+  const isCooldown = timeLeft > 0 || (leave.last_reminder_at && (Date.now() - new Date(leave.last_reminder_at).getTime()) < 3600000);
+  const displayTime = timeLeft > 0 ? timeLeft : (leave.last_reminder_at ? Math.ceil((3600000 - (Date.now() - new Date(leave.last_reminder_at).getTime())) / 60000) : 0);
+
+  return (
+    <button
+      disabled={isCooldown || reminderMutation.isPending}
+      onClick={() => reminderMutation.mutate()}
+      title={isCooldown && displayTime > 0 ? `Try again in ${displayTime} mins` : 'Send Reminder to Admin/Teacher'}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCooldown ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-100 text-blue-600 hover:bg-blue-200 shadow-sm'}`}
+    >
+      <Bell size={14} /> 
+      {reminderMutation.isPending ? 'Sending...' : isCooldown && displayTime > 0 ? `Wait ${displayTime}m` : 'Send Reminder'}
+    </button>
   );
 }

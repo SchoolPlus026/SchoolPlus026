@@ -1,61 +1,74 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Target, DollarSign, CalendarX, Loader2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
 export default function ExecutiveBriefingWidget({ forceShow = false }) {
   const { schoolSettings } = useAppStore();
   const navigate = useNavigate();
-  const [briefing, setBriefing] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [dismissed, setDismissed] = useState(false);
+  
+  const today = new Date().toISOString().split('T')[0];
+  const [dismissed, setDismissed] = useState(() => {
+    return !!localStorage.getItem(`dismissed_briefing_${today}`);
+  });
 
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const isDismissed = localStorage.getItem(`dismissed_briefing_${today}`);
-    if (isDismissed) {
-      setDismissed(true);
-      return;
-    }
+  const { data: briefing, isLoading: loading } = useQuery({
+    queryKey: ['executive-briefing', schoolSettings?.school_id, today],
+    queryFn: async () => {
+      if (!schoolSettings?.school_id) return { staff_on_leave: "0", fees_collected: "₹0", pending_complaints: "0" };
 
-    if (!schoolSettings?.school_id) return;
-    
-    const fetchBriefing = async () => {
-      setLoading(true);
-      
-      const { data, error } = await supabase
-        .from('executive_briefings')
-        .select('summary_data')
-        .eq('school_id', schoolSettings.school_id)
-        .eq('date', today)
-        .maybeSingle();
-      
-      if (!error && data?.summary_data) {
-        setBriefing(data.summary_data);
-      } else {
-        setBriefing({
-          staff_on_leave: "0",
-          fees_collected: "₹0",
-          pending_complaints: "0"
-        });
-      }
-      setLoading(false);
-    };
+      const [leavesRes, feesRes, complaintsRes] = await Promise.all([
+        supabase
+          .from('leaves')
+          .select('*', { count: 'exact', head: true })
+          .eq('school_id', schoolSettings.school_id)
+          .neq('role', 'student')
+          .ilike('status', 'approved')
+          .lte('from_date', today)
+          .gte('to_date', today),
+        
+        supabase
+          .from('fees_payments')
+          .select('amount')
+          .eq('school_id', schoolSettings.school_id)
+          .eq('payment_date', today),
+          
+        supabase
+          .from('complaint_box')
+          .select('*', { count: 'exact', head: true })
+          .eq('school_id', schoolSettings.school_id)
+          .eq('status', 'pending')
+      ]);
 
-    fetchBriefing();
-  }, [schoolSettings?.school_id]);
+      const feesSum = feesRes.data ? feesRes.data.reduce((sum, item) => sum + Number(item.amount || 0), 0) : 0;
+
+      return {
+        staff_on_leave: leavesRes.count?.toString() || "0",
+        fees_collected: `₹${feesSum.toLocaleString()}`,
+        pending_complaints: complaintsRes.count?.toString() || "0"
+      };
+    },
+    enabled: !!schoolSettings?.school_id && !dismissed,
+    refetchInterval: 60000 // 1 min
+  });
 
   const handleDismiss = () => {
-    const today = new Date().toISOString().split('T')[0];
     localStorage.setItem(`dismissed_briefing_${today}`, 'true');
     setDismissed(true);
-    if (forceShow) {
-      navigate(-1);
-    }
+    if (forceShow) navigate(-1);
   };
 
-  if ((dismissed && !forceShow) || loading) return null;
+  if (dismissed && !forceShow) return null;
+
+  if (loading) {
+    return (
+      <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-2xl p-4 sm:p-5 mb-8 shadow-lg fade-in flex justify-center items-center min-h-[120px]">
+        <Loader2 className="animate-spin text-indigo-400" size={24} />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-2xl p-4 sm:p-5 mb-8 shadow-lg fade-in">

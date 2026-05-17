@@ -14,6 +14,7 @@ import ExecutiveBriefingWidget from './ExecutiveBriefingWidget';
 import PendingAttendanceWidget from '../attendance/PendingAttendanceWidget';
 import { usePlan } from '../../hooks/usePlan';
 import { usePending } from '../../hooks/usePending';
+import { useUniversalModuleActivity } from '../../hooks/useUniversalModuleActivity';
 
 // All toggleable school modules. Each MUST have a matching moduleId for the guard.
 const MODULES = [
@@ -44,7 +45,18 @@ const MODULES = [
 // Premium plan lock — redirects to billing if on free tier
 const PREMIUM_MODULES = ['Fees', 'Timetable', 'Leaves', 'Reports'];
 
-function ModuleCard({ mod, isLocked, onClick }) {
+function ActivityModuleCard({ mod, isLocked, onClick }) {
+  const { hasActivity, markViewed } = useUniversalModuleActivity(mod.moduleId);
+
+  const handleClick = (e) => {
+    markViewed();
+    if (onClick) onClick(e);
+  };
+
+  return <ModuleCard mod={mod} isLocked={isLocked} hasActivity={hasActivity} onClick={handleClick} />;
+}
+
+function ModuleCard({ mod, isLocked, onClick, hasActivity }) {
   return (
     <Link
       to={isLocked ? '#' : mod.path}
@@ -52,6 +64,9 @@ function ModuleCard({ mod, isLocked, onClick }) {
       className="module-card"
       style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative', opacity: isLocked ? 0.6 : 1 }}
     >
+      {hasActivity && (
+         <div style={{ position: 'absolute', top: '12px', right: '12px', background: '#ef4444', border: '2px solid var(--card-bg)', borderRadius: '50%', width: '12px', height: '12px', zIndex: 10, boxShadow: '0 0 8px rgba(239,68,68,0.6)' }} />
+      )}
       {isLocked && (
         <div style={{ position: 'absolute', top: '10px', right: '10px', color: 'var(--text-faint)' }}>
           <Lock size={14} />
@@ -150,7 +165,7 @@ export default function AdminDashboard() {
             const isLocked = isFree && PREMIUM_MODULES.includes(mod.name);
             return (
               <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
-                <ModuleCard
+                <ActivityModuleCard
                   mod={mod}
                   isLocked={isLocked}
                   onClick={(e) => handleModuleClick(e, mod)}

@@ -13,15 +13,77 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
     return !!localStorage.getItem(`dismissed_duty_${today}`);
   });
 
-  const { data: missing = [], isLoading: loading } = useQuery({
-    queryKey: ['attendance', 'duty_radar', schoolSettings?.school_id],
+  const { data: missingData = { missing: [], totalSubmitted: 0 }, isLoading: loading } = useQuery({
+    queryKey: ['attendance', 'duty_radar_client', schoolSettings?.school_id],
     queryFn: async () => {
-      if (!schoolSettings?.school_id) return [];
-      const { data, error } = await supabase.rpc('get_missing_attendance_radar', {
-        p_school_id: schoolSettings.school_id
+      if (!schoolSettings?.school_id) return { missing: [], totalSubmitted: 0 };
+      
+      const { data: freshSettings } = await supabase
+        .from('school_settings')
+        .select('classes')
+        .eq('school_id', schoolSettings.school_id)
+        .single();
+        
+      let activeClasses = freshSettings?.classes || schoolSettings.classes || [];
+      if (typeof activeClasses === 'string') {
+        try { activeClasses = JSON.parse(activeClasses); }
+        catch { activeClasses = activeClasses.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, '')); }
+      }
+      
+      if (!activeClasses || activeClasses.length === 0) return { missing: [], totalSubmitted: 0 };
+      
+      const todayDate = new Date().toISOString().split('T')[0];
+      const monthYear = todayDate.substring(0, 7);
+      
+      const [attRes, stuRes, teacherRes] = await Promise.all([
+        supabase
+          .from('attendance')
+          .select('user_id, attendance_data')
+          .eq('school_id', schoolSettings.school_id)
+          .eq('month_year', monthYear),
+        supabase
+          .from('users')
+          .select('id, class')
+          .eq('role', 'student')
+          .eq('school_id', schoolSettings.school_id),
+        supabase
+          .from('users')
+          .select('name, class')
+          .eq('role', 'teacher')
+          .eq('school_id', schoolSettings.school_id)
+      ]);
+      
+      if (attRes.error) throw attRes.error;
+      if (stuRes.error) throw stuRes.error;
+      if (teacherRes.error) throw teacherRes.error;
+      
+      const attendanceData = attRes.data || [];
+      const students = stuRes.data || [];
+      const teachers = teacherRes.data || [];
+      
+      const submittedClasses = new Set();
+      
+      attendanceData.forEach(a => {
+         if (a.attendance_data && a.attendance_data[todayDate]) {
+            const student = students.find(s => s.id === a.user_id);
+            if (student && student.class) {
+               submittedClasses.add(student.class);
+            }
+         }
       });
-      if (error) throw error;
-      return data || [];
+      
+      const missingClassNames = activeClasses.filter(c => !submittedClasses.has(c));
+      
+      const missing = missingClassNames.map(className => {
+         const teacher = teachers.find(t => t.class === className);
+         return {
+            teacher_name: teacher ? teacher.name : 'Unassigned',
+            class_name: className,
+            period_label: 'Daily Attendance'
+         };
+      });
+      
+      return { missing, totalSubmitted: submittedClasses.size };
     },
     enabled: !!schoolSettings?.school_id && !dismissed,
     refetchInterval: 60000,
@@ -37,6 +99,8 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
   };
 
   if (dismissed && !forceShow) return null;
+
+  const { missing, totalSubmitted } = missingData;
 
   if (loading && missing.length === 0) {
     return (
@@ -67,34 +131,38 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
         )}
       </div>
 
-      {missing.length === 0 ? (
+      {missing.length === 0 && totalSubmitted > 0 ? (
         <div className="text-center py-4 bg-slate-800/30 rounded-xl border border-white/5">
           <p className="text-emerald-400 text-sm font-bold">All clear!</p>
           <p className="text-xs text-slate-500 font-medium">All active classes have submitted attendance.</p>
         </div>
       ) : (
         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-          {missing.map((m, i) => (
-            <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl transition-colors">
-              <div>
-                <p className="text-sm font-bold text-slate-200">{m.teacher_name}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-black bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded uppercase tracking-wider">
-                    {m.class_name}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">
-                    {m.period_label || `Period ${m.period_order}`}
-                  </span>
-                </div>
-              </div>
-              <button 
-                className="w-full sm:w-auto px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                onClick={() => alert(`Reminder sent to ${m.teacher_name}.`)}
-              >
-                Send Reminder <Send size={12} />
-              </button>
-            </div>
-          ))}
+          {missing.length === 0 ? (
+             <div className="text-center py-4 text-slate-400 text-sm">No active classes defined in system.</div>
+          ) : (
+             missing.map((m, i) => (
+               <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl transition-colors">
+                 <div>
+                   <p className="text-sm font-bold text-slate-200">{m.teacher_name}</p>
+                   <div className="flex items-center gap-2 mt-1">
+                     <span className="text-[10px] font-black bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded uppercase tracking-wider">
+                       {m.class_name}
+                     </span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase">
+                       {m.period_label || `Period ${m.period_order}`}
+                     </span>
+                   </div>
+                 </div>
+                 <button 
+                   className="w-full sm:w-auto px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                   onClick={() => alert(`Reminder sent to ${m.teacher_name}.`)}
+                 >
+                   Send Reminder <Send size={12} />
+                 </button>
+               </div>
+             ))
+          )}
         </div>
       )}
     </div>

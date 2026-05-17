@@ -36,9 +36,9 @@ export default function OffClasses() {
 
     if (attErr) { console.error('OffClasses attendance error:', attErr); setData([]); setLoading(false); return; }
 
-    // Filter to find who is absent TODAY
+    // Filter to find who is absent or on leave TODAY
     const absentUserIds = (monthAtt || [])
-      .filter(a => a.attendance_data && a.attendance_data[today] === 'Absent')
+      .filter(a => a.attendance_data && (a.attendance_data[today] === 'Absent' || a.attendance_data[today] === 'Leave'))
       .map(a => a.user_id);
 
     if (absentUserIds.length === 0) { setData([]); setLoading(false); return; }
@@ -91,10 +91,10 @@ export default function OffClasses() {
       <div className="sp-card">
         <div className="flex items-center gap-3 mb-1">
           <AlertTriangle size={18} className="text-amber-400" />
-          <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Off Classes — Teachers Absent</h3>
+          <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Off Classes — Teachers Absent/On Leave</h3>
         </div>
         <p className="text-xs text-slate-500 font-semibold">
-          Showing off-periods for teachers marked absent today ({today}).
+          Showing off-periods for teachers marked absent or on leave today ({today}).
         </p>
       </div>
 
@@ -107,7 +107,7 @@ export default function OffClasses() {
           <div className="flex flex-col items-center gap-3 py-10 text-center">
             <UserX size={32} className="text-slate-600" />
             <p className="text-sm text-slate-500 italic">
-              No teachers are marked absent today, or absent teachers have no classes scheduled.
+              No teachers are marked absent or on leave today, or absent teachers have no classes scheduled.
             </p>
           </div>
         ) : (

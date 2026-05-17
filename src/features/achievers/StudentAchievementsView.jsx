@@ -160,9 +160,9 @@ export default function StudentAchievementsView({ studentId }) {
               {leaderboard.map((lb, idx) => {
                 const rank = idx + 1;
                 let bgStyle = 'var(--glass)'; let colorStyle = 'var(--text-main)'; let badgeNode = null;
-                if (rank === 1) { bgStyle = 'rgba(251, 191, 36, 0.15)'; colorStyle = '#F59E0B'; badgeNode = <Medal size={20} color="#F59E0B" />; }
-                else if (rank === 2) { bgStyle = 'rgba(156, 163, 175, 0.15)'; colorStyle = '#9CA3AF'; badgeNode = <Medal size={20} color="#9CA3AF" />; }
-                else if (rank === 3) { bgStyle = 'rgba(217, 119, 6, 0.15)'; colorStyle = '#D97706'; badgeNode = <Medal size={20} color="#D97706" />; }
+                if (rank === 1) { bgStyle = 'linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05))'; colorStyle = '#EAB308'; badgeNode = <Medal size={20} color="#EAB308" />; }
+                else if (rank === 2) { bgStyle = 'linear-gradient(135deg, rgba(148, 163, 184, 0.15), rgba(148, 163, 184, 0.05))'; colorStyle = '#94A3B8'; badgeNode = <Medal size={20} color="#94A3B8" />; }
+                else if (rank === 3) { bgStyle = 'linear-gradient(135deg, rgba(180, 83, 9, 0.15), rgba(180, 83, 9, 0.05))'; colorStyle = '#B45309'; badgeNode = <Medal size={20} color="#B45309" />; }
 
                 const isMe = lb.student_id === studentId;
 

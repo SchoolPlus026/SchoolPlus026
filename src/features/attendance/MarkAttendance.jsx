@@ -14,6 +14,7 @@ export default function MarkAttendance() {
   
   const [attendanceEdits, setAttendanceEdits] = useState({});
   const [toast, setToast] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
 
   function showToast(msg) {
     setToast(msg);
@@ -70,6 +71,22 @@ export default function MarkAttendance() {
       return data || [];
     },
     enabled: !!targets && targets.length > 0
+  });
+
+  const { data: leavesList } = useQuery({
+    queryKey: ['leaves_for_attendance', selectedDate, schoolSettings?.school_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leaves')
+        .select('user_id')
+        .eq('status', 'Approved')
+        .lte('from_date', selectedDate)
+        .gte('to_date', selectedDate)
+        .eq('school_id', schoolSettings?.school_id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!schoolSettings?.school_id
   });
 
   const saveMutation = useMutation({
@@ -129,6 +146,7 @@ export default function MarkAttendance() {
     onSuccess: (_, payload) => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
       setAttendanceEdits({});
+      setIsEditing(false);
       showToast('Attendance recorded successfully!');
       
       // Trigger automated streak checks for students
@@ -153,7 +171,13 @@ export default function MarkAttendance() {
   const currentStatusFor = (targetId) => {
     if (attendanceEdits[targetId]) return attendanceEdits[targetId];
     const record = existingAttendance?.find(a => a.user_id === targetId);
-    return record?.attendance_data?.[selectedDate] || 'Present';
+    if (record?.attendance_data?.[selectedDate]) {
+       return record.attendance_data[selectedDate];
+    }
+    if (leavesList && leavesList.some(l => l.user_id === targetId)) {
+       return 'Leave';
+    }
+    return 'Present';
   };
 
   // True if attendance has already been submitted for this date/class
@@ -228,7 +252,7 @@ export default function MarkAttendance() {
             </select>
             )}
             <div className="sp-input w-[140px] opacity-70 bg-slate-100 cursor-not-allowed flex items-center justify-center font-bold text-slate-600">{selectedDate}</div>
-            <button className="btn-primary flex items-center gap-2" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
+            <button className="btn-primary flex items-center gap-2" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student') || (isAlreadyMarked && !isEditing)}>
               {saveMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {saveMutation.isPending ? 'Saving...' : 'Save Attendance'}
             </button>
@@ -242,7 +266,7 @@ export default function MarkAttendance() {
                <div className="sp-input w-auto min-w-[150px] opacity-70 cursor-not-allowed uppercase text-xs font-bold flex items-center justify-center">CLASS {selectedClass || 'UNASSIGNED'}</div>
             )}
             <div className="sp-input w-[140px] opacity-70 bg-slate-100 cursor-not-allowed flex items-center justify-center font-bold text-slate-600">{selectedDate}</div>
-            <button className="btn-primary flex items-center gap-2" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student')}>
+            <button className="btn-primary flex items-center gap-2" onClick={handleSave} disabled={saveMutation.isPending || !targets || (!selectedClass && targetRole === 'student') || (isAlreadyMarked && !isEditing)}>
               {saveMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {saveMutation.isPending ? 'Saving...' : 'Save Attendance'}
             </button>
@@ -252,9 +276,16 @@ export default function MarkAttendance() {
 
       {isAlreadyMarked && (
          <div className="card" style={{ borderColor: 'var(--accent)', background: 'rgba(96, 165, 250, 0.1)' }}>
-            <div className="flex items-center gap-3">
-               <span className="badge">Recorded</span>
-               <span className="text-sm font-semibold">Attendance for this date is already recorded. Making changes will update the records.</span>
+            <div className="flex items-center justify-between gap-3">
+               <div className="flex items-center gap-3">
+                  <span className="badge">Recorded</span>
+                  <span className="text-sm font-semibold">Attendance for this date is already recorded. Making changes will update the records.</span>
+               </div>
+               {!isEditing && (
+                  <button onClick={() => setIsEditing(true)} className="btn-primary flex items-center gap-2 text-xs py-1.5 px-3">
+                    Edit Attendance
+                  </button>
+               )}
             </div>
          </div>
       )}
@@ -267,23 +298,28 @@ export default function MarkAttendance() {
            ) : (!targets || targets.length === 0) ? (
                <div className="muted p-4 text-center">No subjects found for this selection.</div>
            ) : (
-               targets.map(target => {
+                targets.map(target => {
                  const status = currentStatusFor(target.id);
+                 const isOnLeave = leavesList && leavesList.some(l => l.user_id === target.id);
+                 const disabled = isAlreadyMarked && !isEditing;
                  return (
-                    <div key={target.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+                    <div key={target.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap', opacity: disabled ? 0.7 : 1 }}>
                         <div style={{ flex: 1, minWidth: '150px' }}>
-                            <strong>{target.name}</strong><br/>
+                            <strong>{target.name}</strong>
+                            {isOnLeave && <span className="badge ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Approved Leave</span>}
+                            <br/>
                             <span className="muted small">{target.username}</span>
                         </div>
-                        {['Present', 'Absent', 'Leave'].map(st => (
-                            <label key={st} className="cursor-pointer" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '10px' }}>
+                        {['Present', 'Absent', 'Leave', 'Half_day'].map(st => (
+                            <label key={st} className={`cursor-pointer ${disabled ? 'pointer-events-none' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '10px' }}>
                                 <input 
                                   type="radio" 
                                   name={`status_${target.id}`} 
                                   value={st} 
                                   checked={status === st} 
+                                  disabled={disabled}
                                   onChange={() => handleStatusChange(target.id, st)}
-                                /> {st}
+                                /> {st.replace('_', ' ')}
                             </label>
                         ))}
                     </div>

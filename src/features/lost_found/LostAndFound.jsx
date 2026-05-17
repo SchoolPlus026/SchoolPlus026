@@ -37,7 +37,7 @@ export default function LostAndFound() {
     setLoading(true);
     let query = supabase
       .from('lost_and_found')
-      .select('*, reported_by:users!reported_by(name, role), claimed_by_user:users!claimed_by(name, role)')
+      .select('*, reported_user:users!reported_by(id, name, role), claimed_by_user:users!claimed_by(name, role)')
       .eq('school_id', schoolSettings.school_id)
       .order('created_at', { ascending: false });
     
@@ -143,12 +143,26 @@ export default function LostAndFound() {
     }
   };
 
-  const handleClaim = async (id) => {
+  const handleClaim = async (id, reportedById) => {
     const details = window.prompt("Please provide details/proof to claim this item:");
     if (!details) return;
     const { error } = await supabase.from('lost_and_found').update({ status: 'claimed', claimed_by: user.id }).eq('id', id);
     if (!error) {
       alert("Claim submitted successfully! The admin will verify.");
+      
+      if (reportedById && reportedById !== user.id) {
+        await supabase.from('app_notifications_queue').insert({
+          school_id: schoolSettings.school_id,
+          sender_id: user.id,
+          recipient_id: reportedById,
+          type: 'lost_found_claim',
+          title: 'Found Item Claimed!',
+          body: `Someone has claimed the item you reported.`,
+          is_ephemeral: false,
+          status: 'pending'
+        });
+      }
+
       fetchItems();
     }
   };
@@ -273,7 +287,7 @@ export default function LostAndFound() {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <User size={14} className="text-pink-400" />
-                  Reported by: <span className="font-bold text-slate-300">{item.reported_by?.name}</span>
+                  Reported by: <span className="font-bold text-slate-300">{item.reported_user?.name}</span>
                 </div>
                 {item.claimed_by_user && (
                   <div className="flex items-center gap-2 text-xs text-amber-400/80">
@@ -284,8 +298,8 @@ export default function LostAndFound() {
               </div>
 
               <div className="mt-6 pt-4 border-t border-white/5 flex gap-2 justify-end">
-                {item.status === 'active' && item.reported_by?.name !== user.name && (
-                  <button onClick={() => handleClaim(item.id)} className="px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-bold rounded-lg transition-colors">
+                {item.status === 'active' && item.reported_user?.name !== user.name && (
+                  <button onClick={() => handleClaim(item.id, item.reported_user?.id)} className="px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-bold rounded-lg transition-colors">
                     Claim This Is Mine
                   </button>
                 )}
