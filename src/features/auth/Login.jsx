@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff, Fingerprint } from 'lucide-react';
+import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigate, Link } from 'react-router-dom';
-import { useBiometric } from '../../hooks/useBiometric';
-import { Capacitor } from '@capacitor/core';
 
 export default function Login() {
   const [step, setStep] = useState(1); // 1: School Code, 2: Auth
@@ -20,16 +18,6 @@ export default function Login() {
   const [globalApp, setGlobalApp] = useState({ name: 'SchoolOS+', logo: null });
   const { setUserAndRole, setSchoolSettings, schoolSettings } = useAppStore();
   const navigate = useNavigate();
-  const { isSupported, loginWithBiometric, loading: bioLoading, error: bioError } = useBiometric();
-
-  const [biometricSupported, setBiometricSupported] = useState(false);
-  const [bioLoginError, setBioLoginError] = useState('');
-
-  // Check biometric support when moving to Step 2
-  useEffect(() => {
-    if (biometricSupported) return; // Already checked
-    isSupported().then(setBiometricSupported);
-  }, [isSupported, biometricSupported]);
 
   // On mount: always reset school context so shared-device users start fresh at step 1.
   // The persisted schoolSettings from a previous session must not auto-advance this form.
@@ -154,63 +142,6 @@ export default function Login() {
     }
   };
 
-  // ── Biometric login handler ──
-  const handleBiometricLogin = async () => {
-    setBioLoginError('');
-    if (!username) {
-      setBioLoginError('Please enter your username first so we can find your account.');
-      return;
-    }
-    try {
-      const rawInput = username.trim();
-      let loginEmail = rawInput.includes('@') ? rawInput : null;
-
-      if (!loginEmail) {
-        const { data: emailData, error: lookupError } = await supabase
-          .rpc('get_email_by_username', { p_username: rawInput });
-        if (lookupError || !emailData) {
-          setBioLoginError(`No account found for "${rawInput}".`);
-          return;
-        }
-        loginEmail = emailData;
-      }
-
-      // Get user ID + profile from email
-      const { data: profileData } = await supabase
-        .from('users')
-        .select('id, role, school_id, name')
-        .eq('email', loginEmail)
-        .single();
-
-      if (!profileData) {
-        setBioLoginError('Account not found. Please use password login.');
-        return;
-      }
-
-      // School validation (same rule as password login)
-      if (profileData.role !== 'platform_admin' && profileData.school_id !== schoolSettings?.school_id) {
-        setBioLoginError('This account does not belong to the selected school.');
-        return;
-      }
-
-      const result = await loginWithBiometric(profileData.id);
-
-      if (!result.success) {
-        setBioLoginError(result.error ?? 'Biometric login failed. Please use your password.');
-        return;
-      }
-
-      // Navigate (same as regular login)
-      setUserAndRole(result.user, profileData.role);
-      if (profileData.role === 'platform_admin') {
-        navigate('/platform-admin', { replace: true });
-      } else {
-        navigate(`/${profileData.role}`, { replace: true });
-      }
-    } catch (err) {
-      setBioLoginError(err.message ?? 'Biometric login failed.');
-    }
-  };
 
   const handleForgotPassword = async () => {
     if (!username) {
@@ -429,47 +360,7 @@ export default function Login() {
               </button>
             </form>
 
-            {/* ── Biometric Login Divider + Button ── */}
-            {/* Only shown inside the native Android APK — hidden on all web/desktop browsers */}
-            {(Capacitor?.isNativePlatform?.() ?? false) && biometricSupported && (
-              <div className="mt-5 fade-in">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex-1 h-px bg-white/10" />
-                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">or</span>
-                  <div className="flex-1 h-px bg-white/10" />
-                </div>
 
-                {bioLoginError && (
-                  <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-red-300 font-semibold">{bioLoginError}</p>
-                  </div>
-                )}
-
-                <button
-                  id="btn-biometric-login"
-                  type="button"
-                  onClick={handleBiometricLogin}
-                  disabled={bioLoading || loading}
-                  className="w-full py-3.5 flex items-center justify-center gap-2.5 text-sm font-bold rounded-xl border border-indigo-500/30 hover:border-indigo-500/60 transition-all"
-                  style={{
-                    background: 'rgba(99, 102, 241, 0.08)',
-                    color: '#a5b4fc',
-                  }}
-                >
-                  {bioLoading
-                    ? <Loader2 className="w-5 h-5 animate-spin" />
-                    : <>
-                        <Fingerprint size={18} />
-                        Login with Fingerprint / Face ID
-                      </>
-                  }
-                </button>
-                <p className="text-center text-[10px] text-slate-600 mt-2">
-                  Enter your username above, then tap the button
-                </p>
-              </div>
-            )}
           </div>
         )}
       </div>
