@@ -70,17 +70,8 @@ jobs:
             
             echo "Extracted SHA256: $SHA256"
             
-            # Create assetlinks.json
-            cat > dist/.well-known/assetlinks.json << EOF
-            [{
-              "relation": ["delegate_permission/common.handle_all_urls", "delegate_permission/common.get_login_creds"],
-              "target": {
-                "namespace": "android_app",
-                "package_name": "com.schoolsaas.app",
-                "sha256_cert_fingerprints": ["$SHA256"]
-              }
-            }]
-            EOF
+            # Create assetlinks.json (using printf to avoid heredoc indentation issues in YAML)
+            printf '[{"relation":["delegate_permission/common.handle_all_urls","delegate_permission/common.get_login_creds"],"target":{"namespace":"android_app","package_name":"com.schoolsaas.app","sha256_cert_fingerprints":["%s"]}}]' "$SHA256" > dist/.well-known/assetlinks.json
             echo "✅ assetlinks.json generated dynamically"
           else
             echo "⚠️ KEYSTORE_BASE64 secret not found. Cannot generate assetlinks.json."
