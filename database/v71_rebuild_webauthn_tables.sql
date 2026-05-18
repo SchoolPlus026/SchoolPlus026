@@ -27,18 +27,22 @@ CREATE INDEX IF NOT EXISTS idx_passkeys_user_id ON public.user_passkeys (user_id
 
 ALTER TABLE public.user_passkeys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "passkeys: owner select" ON public.user_passkeys;
 CREATE POLICY "passkeys: owner select"
   ON public.user_passkeys FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "passkeys: owner delete" ON public.user_passkeys;
 CREATE POLICY "passkeys: owner delete"
   ON public.user_passkeys FOR DELETE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "passkeys: owner insert" ON public.user_passkeys;
 CREATE POLICY "passkeys: owner insert"
   ON public.user_passkeys FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "passkeys: owner update" ON public.user_passkeys;
 CREATE POLICY "passkeys: owner update"
   ON public.user_passkeys FOR UPDATE
   USING (auth.uid() = user_id)
@@ -58,14 +62,17 @@ CREATE INDEX IF NOT EXISTS idx_challenges_expires_at ON public.webauthn_challeng
 
 ALTER TABLE public.webauthn_challenges ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "challenges: owner select" ON public.webauthn_challenges;
 CREATE POLICY "challenges: owner select"
   ON public.webauthn_challenges FOR SELECT
   USING (auth.uid()::text = owner_key);
 
+DROP POLICY IF EXISTS "challenges: owner insert" ON public.webauthn_challenges;
 CREATE POLICY "challenges: owner insert"
   ON public.webauthn_challenges FOR INSERT
   WITH CHECK (auth.uid()::text = owner_key);
 
+DROP POLICY IF EXISTS "challenges: owner delete" ON public.webauthn_challenges;
 CREATE POLICY "challenges: owner delete"
   ON public.webauthn_challenges FOR DELETE
   USING (auth.uid()::text = owner_key);
