@@ -204,7 +204,8 @@ export default function Login() {
       try {
         nativeResponse = await CapacitorPasskey.getCredential({ publicKey: options });
       } catch (nativeError) {
-        throw new Error("Biometric scan cancelled or failed.");
+        console.error("Native passkey error:", nativeError);
+        throw new Error(`Native Error: ${nativeError?.message || JSON.stringify(nativeError) || 'Unknown native exception'}`);
       }
 
       if (!nativeResponse || typeof nativeResponse !== 'object' || (!nativeResponse.id && !nativeResponse.rawId)) {
