@@ -7,13 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const rpID = "app.schoolos.plus"; 
-const origin = `https://${rpID}`; // Will match assetlinks / Android app links
-// Android app links usually have origin like android:apk-key-hash:... but Capacitor passkey 
-// plugin handles origins depending on configuration. We'll pass the actual expected origin
-// or bypass origin check if necessary for Android by accepting multiple origins.
-// Wait, the Capacitor Passkey plugin uses the app's associated domain as the origin.
-// For Android, it relies on Digital Asset Links. So origin will be the https URL.
+const rpID = Deno.env.get("RP_ID") || "app.schoolos.plus"; 
+const originEnv = Deno.env.get("EXPECTED_ORIGIN") || `https://${rpID}`;
+const originList = originEnv.split(','); // Convert comma-separated string to array
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -50,7 +46,7 @@ serve(async (req) => {
       const verification = await verifyRegistrationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: [origin, `http://localhost`, `capacitor://localhost`, `http://localhost:5173`],
+        expectedOrigin: [...originList, `http://localhost`, `capacitor://localhost`, `http://localhost:5173`],
         expectedRPID: rpID,
         requireUserVerification: false
       });
@@ -112,7 +108,7 @@ serve(async (req) => {
       const verification = await verifyAuthenticationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: [origin, `http://localhost`, `capacitor://localhost`, `http://localhost:5173`],
+        expectedOrigin: [...originList, `http://localhost`, `capacitor://localhost`, `http://localhost:5173`],
         expectedRPID: rpID,
         authenticator: {
           credentialID: base64UrlDecode(passkey.credential_id),

@@ -8,9 +8,9 @@ const corsHeaders = {
 };
 
 const rpName = "SchoolOS+";
-const rpID = "app.schoolos.plus"; // Or your domain, though Capacitor uses standard RP ID or android:apk-key-hash.
-// Using standard domain for both
-const origin = `https://${rpID}`; 
+const rpID = Deno.env.get("RP_ID") || "app.schoolos.plus"; 
+const originEnv = Deno.env.get("EXPECTED_ORIGIN") || `https://${rpID}`;
+const origin = originEnv.split(','); // Convert comma-separated string to array 
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

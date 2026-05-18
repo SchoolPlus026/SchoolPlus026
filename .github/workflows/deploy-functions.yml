@@ -40,7 +40,16 @@ jobs:
           # Deploy all functions
           # Note: platform-create-school DOES verify JWT (called by authenticated UI users)
           # Note: notification functions skip JWT verification (called by pg_net server triggers)
-          FUNCTIONS_NO_JWT=("send-notice-notification" "process-notification-queue" "cron-notification-scheduler")
+          # Set required environment variables for WebAuthn functions
+          echo "Setting WebAuthn secrets..."
+          supabase secrets set \
+            EXPECTED_ORIGIN="https://app.schoolos.plus,android:apk-key-hash,http://localhost" \
+            RP_ID="app.schoolos.plus" \
+            VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}" \
+            VITE_SUPABASE_ANON_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
+            --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+
+          FUNCTIONS_NO_JWT=("send-notice-notification" "process-notification-queue" "cron-notification-scheduler" "webauthn-start" "webauthn-verify")
           FUNCTIONS_WITH_JWT=("platform-create-school" "platform-delete-school" "approve-school-registration" "school-self-upgrade" "gdrive-upload" "gdrive-auth")
           
           for func in "${FUNCTIONS_NO_JWT[@]}"; do
