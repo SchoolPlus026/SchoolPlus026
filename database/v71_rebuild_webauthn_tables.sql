@@ -35,6 +35,15 @@ CREATE POLICY "passkeys: owner delete"
   ON public.user_passkeys FOR DELETE
   USING (auth.uid() = user_id);
 
+CREATE POLICY "passkeys: owner insert"
+  ON public.user_passkeys FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "passkeys: owner update"
+  ON public.user_passkeys FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 CREATE TABLE IF NOT EXISTS public.webauthn_challenges (
   id         uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   owner_key  text NOT NULL,
@@ -48,6 +57,18 @@ CREATE INDEX IF NOT EXISTS idx_challenges_owner_key ON public.webauthn_challenge
 CREATE INDEX IF NOT EXISTS idx_challenges_expires_at ON public.webauthn_challenges (expires_at);
 
 ALTER TABLE public.webauthn_challenges ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "challenges: owner select"
+  ON public.webauthn_challenges FOR SELECT
+  USING (auth.uid()::text = owner_key);
+
+CREATE POLICY "challenges: owner insert"
+  ON public.webauthn_challenges FOR INSERT
+  WITH CHECK (auth.uid()::text = owner_key);
+
+CREATE POLICY "challenges: owner delete"
+  ON public.webauthn_challenges FOR DELETE
+  USING (auth.uid()::text = owner_key);
 
 CREATE OR REPLACE FUNCTION public.cleanup_expired_webauthn_challenges()
 RETURNS void

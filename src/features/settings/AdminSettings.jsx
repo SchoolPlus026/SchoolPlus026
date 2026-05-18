@@ -12,6 +12,7 @@ import { usePlan } from '../../hooks/usePlan';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App } from '@capacitor/app';
+import BiometricSetup from './BiometricSetup';
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
@@ -592,6 +593,9 @@ export default function AdminSettings() {
           <Lock size={16} /> {pwdLoading ? t.savingPassword : t.savePassword}
         </button>
       </div>
+
+      {/* ── 4.5 BIOMETRIC SETUP ── */}
+      <BiometricSetup />
 
       {/* ── 5. DATA MANAGEMENT ── */}
       <div className="card">
