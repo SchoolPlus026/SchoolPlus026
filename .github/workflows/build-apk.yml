@@ -82,6 +82,22 @@ jobs:
             echo "⚠️  Gradle Wrapper properties not found at $WRAPPER"
           fi
 
+      - name: ⚙️ Patch Android Variables & Java Version (Passkey Support)
+        run: |
+          VARIABLES="android/variables.gradle"
+          if [ -f "$VARIABLES" ]; then
+            sed -i 's/minSdkVersion = .*/minSdkVersion = 24/' "$VARIABLES"
+            sed -i 's/compileSdkVersion = .*/compileSdkVersion = 35/' "$VARIABLES"
+            sed -i 's/targetSdkVersion = .*/targetSdkVersion = 35/' "$VARIABLES"
+            echo "✅ variables.gradle patched for Passkey (minSdk 24, targetSdk 35)"
+          fi
+          
+          BUILD_GRADLE="android/app/build.gradle"
+          if [ -f "$BUILD_GRADLE" ]; then
+            perl -pi -e 's/(compileSdk rootProject.*)/$1\n    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_21\n        targetCompatibility JavaVersion.VERSION_21\n    }/' "$BUILD_GRADLE"
+            echo "✅ app/build.gradle patched with Java 21 compileOptions"
+          fi
+
       - name: 🪄 Inject Gradle Mirror Repos (bypass GitHub Actions Maven 403)
         # GitHub Actions IPs are intermittently blocked by Maven Central CDN (403 Forbidden).
         # An init.gradle script globally injects fallback mirrors BEFORE Gradle resolves
