@@ -54,11 +54,15 @@ export default function BiometricSetup() {
       const options = typeof startData === 'string' ? JSON.parse(startData) : startData;
 
       // 2. Call Native Capacitor Passkey Bridge
-      const nativeResponse = await CapacitorPasskey.createCredential({ publicKey: options });
+      let nativeResponse;
+      try {
+        nativeResponse = await CapacitorPasskey.createCredential({ publicKey: options });
+      } catch (nativeError) {
+        throw new Error("Biometric enrollment cancelled or failed.");
+      }
 
-      if (!nativeResponse) {
-        setError('Biometric authentication cancelled or device not enrolled.');
-        return;
+      if (!nativeResponse || typeof nativeResponse !== 'object' || (!nativeResponse.id && !nativeResponse.rawId)) {
+        throw new Error("Invalid or empty biometric payload received from device.");
       }
 
       // 3. Verify with Edge Function
