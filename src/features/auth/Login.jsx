@@ -200,7 +200,7 @@ export default function Login() {
       const { options, sessionKey } = typeof startData === 'string' ? JSON.parse(startData) : startData;
 
       // 2. Call Native Capacitor Passkey Bridge
-      const nativeResponse = await CapacitorPasskey.authenticate(options);
+      const nativeResponse = await CapacitorPasskey.getCredential({ publicKey: options });
 
       // 3. Verify with Edge Function
       const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-verify', {
