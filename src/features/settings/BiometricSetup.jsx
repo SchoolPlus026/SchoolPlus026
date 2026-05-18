@@ -56,6 +56,11 @@ export default function BiometricSetup() {
       // 2. Call Native Capacitor Passkey Bridge
       const nativeResponse = await CapacitorPasskey.createCredential({ publicKey: options });
 
+      if (!nativeResponse) {
+        setError('Biometric authentication cancelled or device not enrolled.');
+        return;
+      }
+
       // 3. Verify with Edge Function
       const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-verify', {
         body: { action: 'registration', userId: user.id, response: nativeResponse }

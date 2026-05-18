@@ -43,8 +43,8 @@ jobs:
           # Set required environment variables for WebAuthn functions
           echo "Setting WebAuthn secrets..."
           supabase secrets set \
-            EXPECTED_ORIGIN="https://app.schoolos.plus,android:apk-key-hash,http://localhost" \
-            RP_ID="app.schoolos.plus" \
+            EXPECTED_ORIGIN="https://schoolpro-d95a8.web.app,android:apk-key-hash,http://localhost" \
+            RP_ID="schoolpro-d95a8.web.app" \
             VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}" \
             VITE_SUPABASE_ANON_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
             --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
