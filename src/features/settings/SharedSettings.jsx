@@ -9,7 +9,7 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
-
+import BiometricSetup from './BiometricSetup';
 /* ─── helpers ─── */
 function toast(msg, setT) {
   setT(msg);
@@ -334,6 +334,9 @@ export default function SharedSettings() {
           <Lock size={16} /> {pwdLoading ? t.savingPassword : t.savePassword}
         </button>
       </div>
+
+      {/* ── 4. BIOMETRIC SETUP ── */}
+      <BiometricSetup />
 
       {/* ── 5. DATA MANAGEMENT (admin only) ── */}
       {userRole === 'admin' && (

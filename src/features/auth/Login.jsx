@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff, Fingerprint } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Passkey } from '@capgo/capacitor-passkey';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigate, Link } from 'react-router-dom';
@@ -183,6 +185,73 @@ export default function Login() {
     }
   };
 
+  const handleBiometricLogin = async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    setLoading(true);
+    setError('');
+    
+    try {
+      // 1. Get options from Edge Function
+      const { data: startData, error: startError } = await supabase.functions.invoke('webauthn-start', {
+        body: { action: 'authenticate' }
+      });
+      if (startError) throw startError;
+
+      const { options, sessionKey } = typeof startData === 'string' ? JSON.parse(startData) : startData;
+
+      // 2. Call Native Capacitor Passkey Bridge
+      const nativeResponse = await Passkey.authenticate(options);
+
+      // 3. Verify with Edge Function
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-verify', {
+        body: { action: 'authentication', sessionKey, response: nativeResponse }
+      });
+      
+      if (verifyError) throw verifyError;
+      if (!verifyData?.success) throw new Error("Biometric verification failed");
+
+      // 4. Log in using the returned token
+      const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+        email: verifyData.email,
+        token_hash: verifyData.token_hash,
+        type: 'magiclink'
+      });
+
+      if (authError) throw authError;
+
+      // 5. Fetch user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('role, school_id, name')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        await supabase.auth.signOut();
+        throw new Error('Could not load your profile.');
+      }
+
+      // 6. Navigate
+      if (profile.role !== 'platform_admin') {
+        if (profile.school_id !== schoolSettings?.school_id) {
+          await supabase.auth.signOut();
+          throw new Error('This account does not belong to the selected school workspace.');
+        }
+      } else if (!schoolSettings) {
+        setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
+      }
+
+      setUserAndRole(authData.user, profile.role);
+      navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
+
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Biometric login failed. Please use your password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
       style={{ background: 'radial-gradient(800px 400px at 30% 20%, rgba(124, 58, 237, 0.15), transparent), linear-gradient(180deg, #0b1020 0%, #061233 100%)' }}
@@ -360,6 +429,19 @@ export default function Login() {
               </button>
             </form>
 
+            {(Capacitor?.isNativePlatform?.() ?? false) && (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={handleBiometricLogin}
+                  disabled={loading}
+                  className="w-full py-3.5 flex items-center justify-center gap-2 text-sm font-bold rounded-xl border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+                >
+                  <Fingerprint size={18} />
+                  Login with Biometrics
+                </button>
+              </div>
+            )}
 
           </div>
         )}

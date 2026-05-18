@@ -8,6 +8,9 @@
     },
     "CapacitorHttp": {
       "enabled": true
+    },
+    "CapacitorPasskey": {
+      "origin": "https://app.schoolos.plus"
     }
   }
 }
