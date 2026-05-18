@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff, Fingerprint } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { Passkey } from '@capgo/capacitor-passkey';
+import { CapacitorPasskey } from '@capgo/capacitor-passkey';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigate, Link } from 'react-router-dom';
@@ -200,7 +200,7 @@ export default function Login() {
       const { options, sessionKey } = typeof startData === 'string' ? JSON.parse(startData) : startData;
 
       // 2. Call Native Capacitor Passkey Bridge
-      const nativeResponse = await Passkey.authenticate(options);
+      const nativeResponse = await CapacitorPasskey.authenticate(options);
 
       // 3. Verify with Edge Function
       const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-verify', {

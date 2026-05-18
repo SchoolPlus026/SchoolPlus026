@@ -3,7 +3,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Fingerprint, Trash2, Loader2, Plus, ShieldCheck } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { Passkey } from '@capgo/capacitor-passkey';
+import { CapacitorPasskey } from '@capgo/capacitor-passkey';
 
 export default function BiometricSetup() {
   const { user } = useAppStore();
@@ -54,7 +54,7 @@ export default function BiometricSetup() {
       const options = typeof startData === 'string' ? JSON.parse(startData) : startData;
 
       // 2. Call Native Capacitor Passkey Bridge
-      const nativeResponse = await Passkey.register(options);
+      const nativeResponse = await CapacitorPasskey.register(options);
 
       // 3. Verify with Edge Function
       const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-verify', {
