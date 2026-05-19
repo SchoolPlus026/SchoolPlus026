@@ -1,20 +1,21 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { generateRegistrationOptions, generateAuthenticationOptions } from "npm:@simplewebauthn/server";
+// PINNED to v11 — v11+ changed verifyAuthenticationResponse to use `credential` not `authenticator`
+import {
+  generateRegistrationOptions,
+  generateAuthenticationOptions,
+} from "npm:@simplewebauthn/server@11";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// CRITICAL: rpID MUST match the android:host in AndroidManifest App Links intent-filter
+// AND the CapacitorPasskey.origin in capacitor.config.json
+// AND the domain serving /.well-known/assetlinks.json
 const rpName = "SchoolOS+";
-// CRITICAL: rpID MUST exactly match the Android App Links host in AndroidManifest.xml
-// and the 'origin' value in capacitor.config.json → CapacitorPasskey.
-// Error [50152] = RP ID cannot be validated = mismatch between this value and the
-// domain Android Credential Manager has verified via assetlinks.json.
 const rpID = Deno.env.get("RP_ID") || "schoolpro-d95a8.web.app";
-const originEnv = Deno.env.get("EXPECTED_ORIGIN") || `https://${rpID}`;
-const origin = originEnv.split(','); // Convert comma-separated string to array 
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -29,93 +30,97 @@ serve(async (req) => {
 
     const { action, userId, email } = await req.json();
 
+    // ── REGISTRATION ──────────────────────────────────────────────────────────
     if (action === "register") {
-      // Generate registration options
-      const user = {
-        id: userId,
-        username: email || userId,
-      };
+      if (!userId) throw new Error("userId is required for registration");
+
+      // v11 requires userID as Uint8Array
+      const userIDBytes = new TextEncoder().encode(userId);
 
       const options = await generateRegistrationOptions({
         rpName,
         rpID,
-        userID: new TextEncoder().encode(userId),
-        userName: user.username,
+        userID: userIDBytes,
+        userName: email || userId,
         attestationType: "none",
         authenticatorSelection: {
-          residentKey: "preferred",
+          // "discouraged" = device-bound credential (no Google account binding)
+          // This means Android goes STRAIGHT to fingerprint without the
+          // "Create a passkey / select account" email dialog.
+          // During login, we identify the user by their registered credential_id.
+          residentKey: "discouraged",
           userVerification: "preferred",
-          authenticatorAttachment: "platform"
-        }
+          authenticatorAttachment: "platform",
+        },
       });
 
-      // Save challenge to db
-      // Use normalized type 'registration' to match what webauthn-verify queries for
-      const { error } = await supabase.from("webauthn_challenges").insert({
-        owner_key: userId,
-        challenge: options.challenge,
-        type: "registration"
-      });
+      // Store challenge for later verification
+      const { error: dbError } = await supabase
+        .from("webauthn_challenges")
+        .insert({
+          owner_key: userId,
+          challenge: options.challenge,
+          type: "registration",
+        });
 
-      if (error) throw error;
+      if (dbError) throw new Error(`DB insert failed: ${dbError.message}`);
 
       return new Response(JSON.stringify(options), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    } else if (action === "authenticate") {
-      // Generate authentication options
-      let allowCredentials = undefined;
+    }
 
-      // If userId is provided, we can scope it. Otherwise, rely on resident keys (Passkeys)
+    // ── AUTHENTICATION ────────────────────────────────────────────────────────
+    if (action === "authenticate") {
+      // userId MAY be provided if the login screen already knows the user.
+      // When not provided, we fall back to a session key (anonymous auth).
+      let allowCredentials: { id: string; transports: string[] }[] | undefined = undefined;
+
       if (userId) {
-        const { data: passkeys, error: passkeysError } = await supabase
+        const { data: passkeys } = await supabase
           .from("user_passkeys")
           .select("credential_id")
           .eq("user_id", userId);
 
-        if (!passkeysError && passkeys) {
-          allowCredentials = passkeys.map((pk) => ({
+        if (passkeys && passkeys.length > 0) {
+          allowCredentials = passkeys.map((pk: { credential_id: string }) => ({
             id: pk.credential_id,
             transports: ["internal"],
           }));
         }
       }
 
-      // Generate options
       const options = await generateAuthenticationOptions({
         rpID,
         allowCredentials,
-        userVerification: "preferred"
+        userVerification: "preferred",
       });
 
-      // Save challenge. Use a generic owner_key if userId is missing (like 'anonymous')
-      // Wait, verify will need to find the challenge. We can pass the challenge back to the client
-      // or the client can send back the challenge id? WebAuthn doesn't return the challenge.
-      // So we must store it with a session or generic identifier, but for an API we usually just
-      // store the challenge by its value or let the client pass a session ID.
-      // Let's use a temporary string that the client passes as 'sessionId' or 'owner_key'
-      const sessionKey = userId || req.headers.get("x-client-info") || "anonymous_auth";
+      // Use userId as the challenge owner key, or a fallback for anonymous flows
+      const sessionKey = userId || `anon_${crypto.randomUUID()}`;
 
-      const { error } = await supabase.from("webauthn_challenges").insert({
-        owner_key: sessionKey,
-        challenge: options.challenge,
-        type: "authentication"
-      });
+      const { error: dbError } = await supabase
+        .from("webauthn_challenges")
+        .insert({
+          owner_key: sessionKey,
+          challenge: options.challenge,
+          type: "authentication",
+        });
 
-      if (error) throw error;
+      if (dbError) throw new Error(`DB insert failed: ${dbError.message}`);
 
       return new Response(JSON.stringify({ options, sessionKey }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    throw new Error("Invalid action");
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    throw new Error(`Invalid action: "${action}"`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[webauthn-start] ERROR:", message);
+    return new Response(JSON.stringify({ error: message }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
-
-

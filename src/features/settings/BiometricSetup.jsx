@@ -39,44 +39,70 @@ export default function BiometricSetup() {
     fetchPasskeys();
   }, [user.id]);
 
+  // Helper: invoke Edge Function and surface the real server-side error message
+  // instead of the generic "Edge Function returned a non-2xx status code".
+  const invokeEdgeFn = async (fnName, body) => {
+    const { data, error } = await supabase.functions.invoke(fnName, { body });
+    if (error) {
+      // Supabase JS wraps the body inside error.context on non-2xx
+      let detail = error.message;
+      try {
+        const ctx = error.context;
+        if (ctx?.json) {
+          const body = await ctx.json();
+          detail = body?.error || detail;
+        } else if (data?.error) {
+          detail = data.error;
+        }
+      } catch (_) { /* ignore JSON parse errors */ }
+      throw new Error(detail);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const handleEnroll = async () => {
     setLoading(true);
     setError('');
     setSuccess('');
     try {
-      // 1. Get options from Edge Function
-      const { data: startData, error: startError } = await supabase.functions.invoke('webauthn-start', {
-        body: { action: 'register', userId: user.id, email: user.email }
+      // 1. Get registration options from Edge Function
+      const options = await invokeEdgeFn('webauthn-start', {
+        action: 'register',
+        userId: user.id,
+        email: user.email,
       });
-      if (startError) throw startError;
 
-      // Ensure startData is not stringified JSON inside data
-      const options = typeof startData === 'string' ? JSON.parse(startData) : startData;
-
-      // 2. Call Native Capacitor Passkey Bridge
+      // 2. Call Native Capacitor Passkey Bridge — triggers fingerprint prompt
       let nativeResponse;
       try {
         nativeResponse = await CapacitorPasskey.createCredential({ publicKey: options });
       } catch (nativeError) {
-        console.error("Native passkey error:", nativeError);
-        throw new Error(`Native Error: ${nativeError?.message || JSON.stringify(nativeError) || 'Unknown native exception'}`);
+        // User cancelled or device does not support biometrics
+        const msg = nativeError?.message || JSON.stringify(nativeError) || 'Unknown native error';
+        if (msg.toLowerCase().includes('cancel') || msg.includes('user cancelled')) {
+          setError('Biometric setup was cancelled.');
+          return;
+        }
+        throw new Error(`Native Error: ${msg}`);
       }
 
       if (!nativeResponse || typeof nativeResponse !== 'object' || (!nativeResponse.id && !nativeResponse.rawId)) {
-        throw new Error("Invalid or empty biometric payload received from device.");
+        throw new Error('Invalid or empty biometric payload received from device.');
       }
 
-      // 3. Verify with Edge Function
-      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-verify', {
-        body: { action: 'registration', userId: user.id, response: nativeResponse }
+      // 3. Verify registration with Edge Function
+      const verifyData = await invokeEdgeFn('webauthn-verify', {
+        action: 'registration',
+        userId: user.id,
+        response: nativeResponse,
       });
-      if (verifyError) throw verifyError;
-      if (!verifyData?.success) throw new Error("Verification failed on server");
+      if (!verifyData?.success) throw new Error('Server verification failed — please try again.');
 
       setSuccess('Biometric login enabled successfully!');
       fetchPasskeys();
     } catch (err) {
-      console.error(err);
+      console.error('[BiometricSetup] enroll error:', err);
       setError(err.message || 'Failed to enroll biometrics.');
     } finally {
       setLoading(false);

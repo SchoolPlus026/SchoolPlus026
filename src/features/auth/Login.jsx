@@ -185,49 +185,74 @@ export default function Login() {
     }
   };
 
+  // Extracts the real server-side error from a failed Edge Function invocation.
+  const invokeEdgeFn = async (fnName, body) => {
+    const { data, error } = await supabase.functions.invoke(fnName, { body });
+    if (error) {
+      let detail = error.message;
+      try {
+        const ctx = error.context;
+        if (ctx?.json) {
+          const parsed = await ctx.json();
+          detail = parsed?.error || detail;
+        } else if (data?.error) {
+          detail = data.error;
+        }
+      } catch (_) { /* ignore */ }
+      throw new Error(detail);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const handleBiometricLogin = async () => {
     if (!Capacitor.isNativePlatform()) return;
     setLoading(true);
     setError('');
-    
+
     try {
-      // 1. Get options from Edge Function
-      const { data: startData, error: startError } = await supabase.functions.invoke('webauthn-start', {
-        body: { action: 'authenticate' }
-      });
-      if (startError) throw startError;
+      // 1. Get authentication options from Edge Function
+      const startData = await invokeEdgeFn('webauthn-start', { action: 'authenticate' });
+      const { options, sessionKey } = startData;
+      if (!options || !sessionKey) throw new Error('Invalid response from authentication start');
 
-      const { options, sessionKey } = typeof startData === 'string' ? JSON.parse(startData) : startData;
-
-      // 2. Call Native Capacitor Passkey Bridge
+      // 2. Call Native Capacitor Passkey Bridge — triggers fingerprint prompt
       let nativeResponse;
       try {
         nativeResponse = await CapacitorPasskey.getCredential({ publicKey: options });
       } catch (nativeError) {
-        console.error("Native passkey error:", nativeError);
-        throw new Error(`Native Error: ${nativeError?.message || JSON.stringify(nativeError) || 'Unknown native exception'}`);
+        const msg = nativeError?.message || JSON.stringify(nativeError) || 'Unknown native error';
+        if (msg.toLowerCase().includes('cancel')) {
+          setError('Biometric login cancelled.');
+          return;
+        }
+        throw new Error(`Native Error: ${msg}`);
       }
 
       if (!nativeResponse || typeof nativeResponse !== 'object' || (!nativeResponse.id && !nativeResponse.rawId)) {
-        throw new Error("Invalid or empty biometric payload received from device.");
+        throw new Error('Invalid or empty biometric payload received from device.');
       }
 
-      // 3. Verify with Edge Function
-      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-verify', {
-        body: { action: 'authentication', sessionKey, response: nativeResponse }
+      // 3. Verify authentication with Edge Function
+      const verifyData = await invokeEdgeFn('webauthn-verify', {
+        action: 'authentication',
+        sessionKey,
+        response: nativeResponse,
       });
-      
-      if (verifyError) throw verifyError;
-      if (!verifyData?.success) throw new Error("Biometric verification failed");
 
-      // 4. Log in using the returned token
+      if (!verifyData?.success || !verifyData?.token_hash) {
+        throw new Error('Biometric verification failed — server did not return a login token.');
+      }
+
+      // 4. Exchange token for a Supabase session
       const { data: authData, error: authError } = await supabase.auth.verifyOtp({
         email: verifyData.email,
         token_hash: verifyData.token_hash,
-        type: 'magiclink'
+        type: 'magiclink',
       });
 
-      if (authError) throw authError;
+      if (authError) throw new Error(authError.message || 'Token verification failed');
+      if (!authData?.user) throw new Error('Authentication succeeded but no user was returned');
 
       // 5. Fetch user profile
       const { data: profile, error: profileError } = await supabase
@@ -238,10 +263,10 @@ export default function Login() {
 
       if (profileError || !profile) {
         await supabase.auth.signOut();
-        throw new Error('Could not load your profile.');
+        throw new Error('Could not load your profile. Please contact your administrator.');
       }
 
-      // 6. Navigate
+      // 6. School validation & navigate
       if (profile.role !== 'platform_admin') {
         if (profile.school_id !== schoolSettings?.school_id) {
           await supabase.auth.signOut();
@@ -255,12 +280,13 @@ export default function Login() {
       navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
 
     } catch (err) {
-      console.error(err);
+      console.error('[Login] biometric error:', err);
       setError(err.message || 'Biometric login failed. Please use your password.');
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
