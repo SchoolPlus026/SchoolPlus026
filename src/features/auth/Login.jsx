@@ -269,7 +269,6 @@ export default function Login() {
 
       // 4. Exchange token for a Supabase session
       const { data: authData, error: authError } = await supabase.auth.verifyOtp({
-        email: verifyData.email,
         token_hash: verifyData.token_hash,
         type: 'magiclink',
       });
