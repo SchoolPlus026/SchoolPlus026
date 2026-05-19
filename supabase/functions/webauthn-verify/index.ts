@@ -48,7 +48,13 @@ serve(async (req) => {
       const verification = await verifyRegistrationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: [...originList, `http://localhost`, `capacitor://localhost`, `http://localhost:5173`],
+        expectedOrigin: [
+          ...originList,
+          `http://localhost`,
+          `capacitor://localhost`,
+          `http://localhost:5173`,
+          `android:apk-key-hash:r5sAqNnCzBHvVIjMs9w5Au8xULnKB0EeP7HZP5Kh09M`
+        ],
         expectedRPID: rpID,
         requireUserVerification: false
       });
@@ -114,7 +120,13 @@ serve(async (req) => {
       const verification = await verifyAuthenticationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: [...originList, `http://localhost`, `capacitor://localhost`, `http://localhost:5173`],
+        expectedOrigin: [
+          ...originList,
+          `http://localhost`,
+          `capacitor://localhost`,
+          `http://localhost:5173`,
+          `android:apk-key-hash:r5sAqNnCzBHvVIjMs9w5Au8xULnKB0EeP7HZP5Kh09M`
+        ],
         expectedRPID: rpID,
         authenticator: {
           credentialID: base64UrlDecode(passkey.credential_id),
