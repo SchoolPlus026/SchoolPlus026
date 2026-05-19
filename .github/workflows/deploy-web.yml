@@ -23,7 +23,7 @@ jobs:
         run: npm config set legacy-peer-deps true
 
       - name: 📥 Install Dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps
 
       - name: 🔐 Create .env file from GitHub Secrets
         run: |

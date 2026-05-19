@@ -228,7 +228,10 @@ export default function Login() {
       // 2. Call Native Capacitor Passkey Bridge — triggers fingerprint prompt
       let nativeResponse;
       try {
-        nativeResponse = await CapacitorPasskey.getCredential({ publicKey: options });
+        nativeResponse = await CapacitorPasskey.getCredential({ 
+          publicKey: options,
+          mediation: 'optional' 
+        });
       } catch (nativeError) {
         const msg = nativeError?.message || JSON.stringify(nativeError) || 'Unknown native error';
         if (msg.toLowerCase().includes('cancel')) {
@@ -243,9 +246,10 @@ export default function Login() {
         throw new Error(`Native Error: ${msg}`);
       }
 
-      if (!nativeResponse || typeof nativeResponse !== 'object') {
-        throw new Error('No credential returned from device. Please re-enroll your biometrics.');
+      if (!nativeResponse) {
+        throw new Error('Biometric authentication failed.');
       }
+      
       // Guard the id property explicitly
       const credId = nativeResponse?.id || nativeResponse?.rawId;
       if (!credId) {
