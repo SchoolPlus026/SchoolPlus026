@@ -211,8 +211,17 @@ export default function Login() {
     setError('');
 
     try {
+      // Build the authenticate request.
+      // Passing 'username' lets the Edge Function resolve the userId and build an
+      // explicit allowCredentials list. This is required for non-discoverable
+      // (residentKey: discouraged) credentials AND speeds up discoverable ones.
+      const authPayload = { action: 'authenticate' };
+      if (username.trim()) {
+        authPayload.username = username.trim();
+      }
+
       // 1. Get authentication options from Edge Function
-      const startData = await invokeEdgeFn('webauthn-start', { action: 'authenticate' });
+      const startData = await invokeEdgeFn('webauthn-start', authPayload);
       const { options, sessionKey } = startData;
       if (!options || !sessionKey) throw new Error('Invalid response from authentication start');
 
@@ -226,11 +235,21 @@ export default function Login() {
           setError('Biometric login cancelled.');
           return;
         }
+        // "No credentials available" — user hasn't enrolled yet or enrolled on different device
+        if (msg.toLowerCase().includes('no credentials') || msg.toLowerCase().includes('no passkey')) {
+          setError('No biometric login found. Please enroll your fingerprint from Settings first.');
+          return;
+        }
         throw new Error(`Native Error: ${msg}`);
       }
 
-      if (!nativeResponse || typeof nativeResponse !== 'object' || (!nativeResponse.id && !nativeResponse.rawId)) {
-        throw new Error('Invalid or empty biometric payload received from device.');
+      if (!nativeResponse || typeof nativeResponse !== 'object') {
+        throw new Error('No credential returned from device. Please re-enroll your biometrics.');
+      }
+      // Guard the id property explicitly
+      const credId = nativeResponse?.id || nativeResponse?.rawId;
+      if (!credId) {
+        throw new Error('Device returned an incomplete credential. Please re-enroll your biometrics from Settings.');
       }
 
       // 3. Verify authentication with Edge Function

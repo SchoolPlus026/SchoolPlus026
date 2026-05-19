@@ -11,10 +11,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// CRITICAL: rpID MUST match the android:host in AndroidManifest App Links intent-filter
-// AND the CapacitorPasskey.origin in capacitor.config.json
-// AND the domain serving /.well-known/assetlinks.json
 const rpName = "SchoolOS+";
+// CRITICAL: rpID must match android:host in AndroidManifest, capacitor.config.json CapacitorPasskey.origin,
+// and the domain that serves /.well-known/assetlinks.json
 const rpID = Deno.env.get("RP_ID") || "schoolpro-d95a8.web.app";
 
 serve(async (req) => {
@@ -28,13 +27,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { action, userId, email } = await req.json();
+    const { action, userId, email, username } = await req.json();
 
     // ── REGISTRATION ──────────────────────────────────────────────────────────
     if (action === "register") {
       if (!userId) throw new Error("userId is required for registration");
 
-      // v11 requires userID as Uint8Array
       const userIDBytes = new TextEncoder().encode(userId);
 
       const options = await generateRegistrationOptions({
@@ -44,17 +42,16 @@ serve(async (req) => {
         userName: email || userId,
         attestationType: "none",
         authenticatorSelection: {
-          // "discouraged" = device-bound credential (no Google account binding)
-          // This means Android goes STRAIGHT to fingerprint without the
-          // "Create a passkey / select account" email dialog.
-          // During login, we identify the user by their registered credential_id.
-          residentKey: "discouraged",
+          // "preferred" = stores credential in Google Password Manager (survives reboots/device switches).
+          // Android shows a "Create a passkey" bottom sheet once during enrollment so the user can
+          // confirm which account it's bound to — this is the standard, expected FIDO2 UX.
+          // After enrollment the LOGIN flow goes directly to the fingerprint scanner.
+          residentKey: "preferred",
           userVerification: "preferred",
           authenticatorAttachment: "platform",
         },
       });
 
-      // Store challenge for later verification
       const { error: dbError } = await supabase
         .from("webauthn_challenges")
         .insert({
@@ -72,22 +69,67 @@ serve(async (req) => {
 
     // ── AUTHENTICATION ────────────────────────────────────────────────────────
     if (action === "authenticate") {
-      // userId MAY be provided if the login screen already knows the user.
-      // When not provided, we fall back to a session key (anonymous auth).
+      // STRATEGY:
+      // 1. If userId is given directly → use it.
+      // 2. If only username/email is given → look it up in public.users (server has service-role).
+      // 3. If neither is given → discoverable credential flow (Android selects from password manager).
+      //
+      // Providing allowCredentials (via userId) is REQUIRED when the credential was registered with
+      // residentKey="discouraged" (old enrollments). It also speeds up Android's credential lookup
+      // even for "preferred" (discoverable) credentials.
+
+      let resolvedUserId = userId || null;
+
+      // Resolve userId from username/email if not directly provided
+      if (!resolvedUserId && username) {
+        const trimmed = username.trim();
+
+        if (trimmed.includes("@")) {
+          // Email lookup in public.users
+          const { data: userRow } = await supabase
+            .from("users")
+            .select("id")
+            .eq("email", trimmed)
+            .maybeSingle();
+          resolvedUserId = userRow?.id || null;
+        }
+
+
+        if (!resolvedUserId) {
+          // Try username lookup in public.users
+          const { data: userRow } = await supabase
+            .from("users")
+            .select("id")
+            .eq("username", trimmed)
+            .maybeSingle();
+          resolvedUserId = userRow?.id || null;
+        }
+
+        console.log(`[webauthn-start] Resolved userId for username "${username}":`, resolvedUserId);
+      }
+
+      // Build allowCredentials if we know the user
       let allowCredentials: { id: string; transports: string[] }[] | undefined = undefined;
 
-      if (userId) {
-        const { data: passkeys } = await supabase
+      if (resolvedUserId) {
+        const { data: passkeys, error: pkErr } = await supabase
           .from("user_passkeys")
           .select("credential_id")
-          .eq("user_id", userId);
+          .eq("user_id", resolvedUserId);
+
+        if (pkErr) console.error("[webauthn-start] passkey lookup error:", pkErr.message);
 
         if (passkeys && passkeys.length > 0) {
           allowCredentials = passkeys.map((pk: { credential_id: string }) => ({
             id: pk.credential_id,
             transports: ["internal"],
           }));
+          console.log(`[webauthn-start] Built allowCredentials with ${allowCredentials.length} credential(s)`);
+        } else {
+          console.warn("[webauthn-start] No passkeys found for resolvedUserId:", resolvedUserId);
         }
+      } else {
+        console.log("[webauthn-start] No userId resolved — using discoverable credential flow");
       }
 
       const options = await generateAuthenticationOptions({
@@ -96,8 +138,8 @@ serve(async (req) => {
         userVerification: "preferred",
       });
 
-      // Use userId as the challenge owner key, or a fallback for anonymous flows
-      const sessionKey = userId || `anon_${crypto.randomUUID()}`;
+      // session key ties the challenge to the right user for verification
+      const sessionKey = resolvedUserId || `anon_${crypto.randomUUID()}`;
 
       const { error: dbError } = await supabase
         .from("webauthn_challenges")
