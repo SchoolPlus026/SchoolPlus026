@@ -8,7 +8,11 @@ const corsHeaders = {
 };
 
 const rpName = "SchoolOS+";
-const rpID = Deno.env.get("RP_ID") || "app.schoolos.plus"; 
+// CRITICAL: rpID MUST exactly match the Android App Links host in AndroidManifest.xml
+// and the 'origin' value in capacitor.config.json → CapacitorPasskey.
+// Error [50152] = RP ID cannot be validated = mismatch between this value and the
+// domain Android Credential Manager has verified via assetlinks.json.
+const rpID = Deno.env.get("RP_ID") || "schoolpro-d95a8.web.app";
 const originEnv = Deno.env.get("EXPECTED_ORIGIN") || `https://${rpID}`;
 const origin = originEnv.split(','); // Convert comma-separated string to array 
 
@@ -46,6 +50,7 @@ serve(async (req) => {
       });
 
       // Save challenge to db
+      // Use normalized type 'registration' to match what webauthn-verify queries for
       const { error } = await supabase.from("webauthn_challenges").insert({
         owner_key: userId,
         challenge: options.challenge,

@@ -7,7 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const rpID = Deno.env.get("RP_ID") || "app.schoolos.plus"; 
+// CRITICAL: rpID MUST exactly match the Android App Links host in AndroidManifest.xml
+// and the 'origin' value in capacitor.config.json → CapacitorPasskey.
+const rpID = Deno.env.get("RP_ID") || "schoolpro-d95a8.web.app";
 const originEnv = Deno.env.get("EXPECTED_ORIGIN") || `https://${rpID}`;
 const originList = originEnv.split(','); // Convert comma-separated string to array
 
@@ -92,7 +94,11 @@ serve(async (req) => {
       };
 
       // Get the passkey based on credential ID
-      const credential_id = response.id;
+      // Guard against undefined/null response — prevents "Cannot read properties of undefined" crash
+      const credential_id = response?.id;
+      if (!credential_id) {
+        throw new Error("Biometric response is missing credential id. Re-enroll and try again.");
+      }
       
       const { data: passkeys, error: passkeysError } = await supabase
         .from("user_passkeys")

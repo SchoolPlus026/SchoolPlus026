@@ -1,10 +1,13 @@
 [{
-  "relation": ["delegate_permission/common.handle_all_urls", "delegate_permission/common.get_login_creds"],
+  "relation": [
+    "delegate_permission/common.handle_all_urls",
+    "delegate_permission/common.get_login_creds"
+  ],
   "target": {
     "namespace": "android_app",
     "package_name": "com.schoolsaas.app",
     "sha256_cert_fingerprints": [
-      "9B:28:90:3A:01:EE:51:7E:DD:32:B1:01:54:19:64:89:E1:96:AC:70:E4:09:63:F6:16:D4:53:C9:80:C2:5F:B6"
+      "AF:9B:00:A8:D9:C2:CC:11:EF:54:88:CC:B3:DC:39:02:EF:31:50:B9:CA:07:41:1E:3F:B1:D9:3F:92:A1:D3:D3"
     ]
   }
 }]
