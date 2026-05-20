@@ -194,11 +194,14 @@ function UpgradeModal({ featureLabel, onClose, onUpgrade }) {
 }
 
 // ── FeatureGuard Component ────────────────────────────────────────────────────
-export default function FeatureGuard({ feature, children, inline = false }) {
+export default function FeatureGuard({ feature, children, inline = false, compact = false }) {
   const { isPremium, schoolSettings } = usePlan();
   const role = useAppStore((s) => s.role);
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    return localStorage.getItem(`dismiss_widget_${feature}`) === 'true';
+  });
 
   const planType = schoolSettings?.plan_type || 'free';
   const isFreePlan = planType === 'free' || schoolSettings?.subscription_tier === 'Free';
@@ -216,8 +219,100 @@ export default function FeatureGuard({ feature, children, inline = false }) {
     navigate('/admin/billing');
   };
 
+  const handleDismiss = () => {
+    localStorage.setItem(`dismiss_widget_${feature}`, 'true');
+    setDismissed(true);
+  };
+
   // Free feature — always render children
   if (!isLocked) return children;
+
+  // ── COMPACT WIDGET MODE ───────────────────────────────────────────────────
+  if (compact) {
+    if (dismissed) return null;
+    return (
+      <div style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
+        padding: '16px 20px',
+        borderRadius: '16px',
+        background: 'var(--card-bg)',
+        border: '1px solid rgba(99, 102, 241, 0.25)',
+        marginBottom: '16px',
+        animation: 'abSlideUp 0.35s ease both',
+      }}>
+        {/* Close Button */}
+        <button
+          onClick={handleDismiss}
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-faint)',
+            cursor: 'pointer',
+            padding: '4px',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = '#ef4444';
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = 'var(--text-faint)';
+            e.currentTarget.style.background = 'none';
+          }}
+          title="Hide widget"
+        >
+          <X size={14} />
+        </button>
+
+        {/* Lock Icon */}
+        <div style={{
+          width: '42px', height: '42px', borderRadius: '12px',
+          background: 'rgba(99,102,241,0.1)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <Lock size={18} color="#818cf8" />
+        </div>
+
+        {/* Info */}
+        <div style={{ flex: 1, minWidth: 0, paddingRight: '24px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {label}
+            <span style={{ fontSize: '9px', fontWeight: 700, background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '1px 6px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Premium</span>
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+            Upgrade your school subscription plan to unlock access to this widget and its automated insights.
+          </div>
+        </div>
+
+        {/* Upgrade Button */}
+        <button
+          onClick={() => navigate('/admin/billing')}
+          style={{
+            padding: '8px 16px', borderRadius: '10px',
+            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+            border: 'none', cursor: 'pointer',
+            color: 'white', fontSize: '11px', fontWeight: 800,
+            boxShadow: '0 4px 12px rgba(79,70,229,0.25)',
+            display: 'flex', alignItems: 'center', gap: '4px',
+            flexShrink: 0,
+          }}
+        >
+          <Crown size={12} /> Upgrade
+        </button>
+      </div>
+    );
+  }
 
   // ── INLINE MODE: render a disabled wrapper ────────────────────────────────
   if (inline) {

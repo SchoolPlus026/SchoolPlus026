@@ -44,10 +44,18 @@ export default function AdminAchieversPanel() {
   }, [schoolId]);
 
   React.useEffect(() => {
-    if (!loadingBadges && badges.length === 0 && !seeding && !seedDone && schoolId) {
-      handleSeedBadges();
+    if (!loadingBadges && schoolId && !seeding && !seedDone) {
+      const defaultNames = [
+        'Student of the Year', 'Sports Hero', 'Academic Excellence', 'Cultural Icon', 'Leadership Award',
+        'Homework Hero', 'Discipline Hero', 'Helper Hero', 'Best Student', 'All-Rounder', 'Class Monitor', '100% Attendance'
+      ];
+      const existingNames = new Set((badges || []).map(b => b.name.toLowerCase()));
+      const hasMissingDefault = defaultNames.some(name => !existingNames.has(name.toLowerCase()));
+      if (hasMissingDefault) {
+        handleSeedBadges();
+      }
     }
-  }, [loadingBadges, badges.length, schoolId]);
+  }, [loadingBadges, badges, schoolId]);
 
   const handleRevoke = async (achievementId, studentId) => {
     if (!window.confirm('Revoke this badge? The record is soft-deleted.')) return;

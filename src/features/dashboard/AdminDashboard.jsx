@@ -115,11 +115,11 @@ export default function AdminDashboard() {
       <PendingBanner />
       <PlanStatusBanner />
 
-      <FeatureGuard feature="executive_briefing">
+      <FeatureGuard feature="executive_briefing" compact={true}>
         <ExecutiveBriefingWidget />
       </FeatureGuard>
 
-      <FeatureGuard feature="duty_radar">
+      <FeatureGuard feature="duty_radar" compact={true}>
         <PendingAttendanceWidget />
       </FeatureGuard>
 

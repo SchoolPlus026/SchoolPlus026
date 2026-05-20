@@ -274,7 +274,7 @@ export default function FeatureAccessManager() {
             padding: '12px 24px',
             fontSize: '13px',
             fontWeight: 800,
-            color: subTab === 'global' ? '#fff' : 'var(--text-muted)',
+            color: subTab === 'global' ? 'var(--text-main)' : 'var(--text-muted)',
             background: subTab === 'global' ? 'var(--card-bg)' : 'transparent',
             border: subTab === 'global' ? '1px solid var(--card-border)' : 'none',
             borderBottom: subTab === 'global' ? '1px solid var(--card-bg)' : 'none',
@@ -294,7 +294,7 @@ export default function FeatureAccessManager() {
             padding: '12px 24px',
             fontSize: '13px',
             fontWeight: 800,
-            color: subTab === 'school' ? '#fff' : 'var(--text-muted)',
+            color: subTab === 'school' ? 'var(--text-main)' : 'var(--text-muted)',
             background: subTab === 'school' ? 'var(--card-bg)' : 'transparent',
             border: subTab === 'school' ? '1px solid var(--card-border)' : 'none',
             borderBottom: subTab === 'school' ? '1px solid var(--card-bg)' : 'none',
@@ -506,7 +506,7 @@ export default function FeatureAccessManager() {
                           border: 'none',
                           background: selectedSchoolId === s.school_id ? 'rgba(99,102,241,0.12)' : 'transparent',
                           borderLeft: selectedSchoolId === s.school_id ? '3px solid #6366f1' : '3px solid transparent',
-                          color: selectedSchoolId === s.school_id ? '#a5b4fc' : 'var(--text-main)',
+                          color: selectedSchoolId === s.school_id ? 'var(--accent)' : 'var(--text-main)',
                           cursor: 'pointer',
                           display: 'flex',
                           flexDirection: 'column',
@@ -560,7 +560,7 @@ export default function FeatureAccessManager() {
                 {/* Selected school header */}
                 <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid var(--card-border)', paddingBottom: '16px' }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#fff' }}>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: 'var(--text-main)' }}>
                       {selectedSchool.name}
                     </h3>
                     <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -608,7 +608,7 @@ export default function FeatureAccessManager() {
                   <div style={{
                     display: 'flex', gap: '8px', padding: '10px 14px', borderRadius: '8px',
                     background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)',
-                    fontSize: '11px', color: '#fcd34d', alignItems: 'center'
+                    fontSize: '11px', color: '#b45309', alignItems: 'center'
                   }}>
                     <AlertTriangle size={14} style={{ flexShrink: 0 }} />
                     This school is on the <strong>{selectedSchool.plan_type || selectedSchool.subscription_tier}</strong> plan. Locks only enforce behavior for schools on the <strong>Free</strong> plan.

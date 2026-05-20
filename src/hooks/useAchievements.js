@@ -311,8 +311,21 @@ export async function seedDefaultBadges(schoolId, adminId) {
     { school_id: schoolId, name: '100% Attendance', description: 'Present every single day', icon_key: 'zap', icon_color: '#F59E0B', tier: 'class_star', award_type: 'manual', created_by: adminId },
   ];
 
-  const { error } = await supabase.from('badges_master').insert(defaults);
-  if (error) throw error;
+  const { data: existing, error: fetchError } = await supabase
+    .from('badges_master')
+    .select('name')
+    .eq('school_id', schoolId)
+    .eq('is_active', true);
+
+  if (fetchError) throw fetchError;
+
+  const existingNames = new Set((existing || []).map(b => b.name.toLowerCase()));
+  const toInsert = defaults.filter(d => !existingNames.has(d.name.toLowerCase()));
+
+  if (toInsert.length > 0) {
+    const { error } = await supabase.from('badges_master').insert(toInsert);
+    if (error) throw error;
+  }
 }
 
 // ── Student: Pin up to 2 badges ───────────────────────────────────────────────

@@ -107,7 +107,7 @@ function TeacherDashboardContent() {
       <DashboardHero />
       <PendingBanner />
 
-      <FeatureGuard feature="duty_radar">
+      <FeatureGuard feature="duty_radar" compact={true}>
         <TeacherDutyBanner />
       </FeatureGuard>
 

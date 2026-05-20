@@ -8,6 +8,34 @@ import {
   CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus, Plus
 } from 'lucide-react';
 
+const formatClassName = (input) => {
+  let str = input.trim().toUpperCase();
+  if (!str) return '';
+
+  const getOrdinal = (n) => {
+    const num = parseInt(n, 10);
+    const j = num % 10, k = num % 100;
+    if (j === 1 && k !== 11) return 'ST';
+    if (j === 2 && k !== 12) return 'ND';
+    if (j === 3 && k !== 13) return 'RD';
+    return 'TH';
+  };
+
+  if (/^\d+$/.test(str)) {
+    return str + getOrdinal(str);
+  }
+  if (/^\d+[A-Z]$/.test(str)) {
+    return str + '-TH';
+  }
+  if (/^\d+\s+[A-Z]$/.test(str)) {
+    return str.replace(/\s+/g, '') + '-TH';
+  }
+  str = str.replace(/\b(\d+)\b/g, (match) => {
+    return match + getOrdinal(match);
+  });
+  return str;
+};
+
 const EField = ({ label, field, type = 'text', options = null, allowCustom = false, editForm, setEditForm }) => (
   <div>
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">{label}</label>
@@ -214,14 +242,18 @@ export default function UserManagement() {
     if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
     const newClass = window.prompt('Enter new class name (e.g. 10TH SCI):');
     if (!newClass || !newClass.trim()) return;
-    const cName = newClass.trim().toUpperCase();
-    if (classes.includes(cName)) return alert('Class already exists.');
     
-    const updatedClasses = [...classes, cName].sort();
+    const formatted = formatClassName(newClass);
+    if (classes.includes(formatted)) {
+      alert('Already exists');
+      return;
+    }
+    
+    const updatedClasses = [...classes, formatted].sort();
     const { error } = await supabase.from('school_settings').update({ classes: updatedClasses }).eq('school_id', schoolSettings.school_id);
     if (error) return alert('Error creating class: ' + error.message);
     setSchoolSettings({ ...schoolSettings, classes: updatedClasses });
-    alert(`Class ${cName} created successfully!`);
+    alert(`Class ${formatted} created successfully!`);
   };
 
   return (
