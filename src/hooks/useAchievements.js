@@ -293,10 +293,25 @@ export async function revokeBadge(achievementId, studentId) {
 
 // ── Seed Default Badges ────────────────────────────────────────────────────────
 export async function seedDefaultBadges(schoolId, adminId) {
-  const { error } = await supabase.rpc('seed_default_badges', {
-    p_school_id: schoolId,
-    p_admin_id:  adminId,
-  });
+  const defaults = [
+    // School Level Champions
+    { school_id: schoolId, name: 'Student of the Year', description: 'Awarded for overall excellence', icon_key: 'trophy', icon_color: '#F59E0B', tier: 'school_champion', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: 'Sports Hero', description: 'Outstanding performance in sports', icon_key: 'medal', icon_color: '#3B82F6', tier: 'school_champion', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: 'Academic Excellence', description: 'Top academic performance', icon_key: 'graduation-cap', icon_color: '#8B5CF6', tier: 'school_champion', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: 'Cultural Icon', description: 'Exceptional talent in arts and culture', icon_key: 'music', icon_color: '#EC4899', tier: 'school_champion', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: 'Leadership Award', description: 'Outstanding leadership qualities', icon_key: 'crown', icon_color: '#10B981', tier: 'school_champion', award_type: 'manual', created_by: adminId },
+    
+    // Class Level Stars
+    { school_id: schoolId, name: 'Homework Hero', description: 'Consistently completes homework on time', icon_key: 'book-open', icon_color: '#10B981', tier: 'class_star', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: 'Discipline Hero', description: 'Exemplary behavior in class', icon_key: 'shield', icon_color: '#64748B', tier: 'class_star', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: 'Helper Hero', description: 'Always ready to help others', icon_key: 'hand-heart', icon_color: '#EC4899', tier: 'class_star', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: 'Best Student', description: 'Outstanding student of the month', icon_key: 'star', icon_color: '#F59E0B', tier: 'class_star', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: 'All-Rounder', description: 'Excellent in all class activities', icon_key: 'sparkles', icon_color: '#8B5CF6', tier: 'class_star', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: 'Class Monitor', description: 'Takes responsibility in class', icon_key: 'smile', icon_color: '#3B82F6', tier: 'class_star', award_type: 'manual', created_by: adminId },
+    { school_id: schoolId, name: '100% Attendance', description: 'Present every single day', icon_key: 'zap', icon_color: '#F59E0B', tier: 'class_star', award_type: 'manual', created_by: adminId },
+  ];
+
+  const { error } = await supabase.from('badges_master').insert(defaults);
   if (error) throw error;
 }
 

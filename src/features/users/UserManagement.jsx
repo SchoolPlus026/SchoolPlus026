@@ -5,7 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { usePending } from '../../hooks/usePending';
 import {
   Users, Search, UserPlus, Filter, Loader2, Phone, BookOpen,
-  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus
+  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus, Plus
 } from 'lucide-react';
 
 const EField = ({ label, field, type = 'text', options = null, allowCustom = false, editForm, setEditForm }) => (
@@ -210,6 +210,20 @@ export default function UserManagement() {
     setEditForm({ ...user });
   };
 
+  const handleCreateClass = async () => {
+    if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+    const newClass = window.prompt('Enter new class name (e.g. 10TH SCI):');
+    if (!newClass || !newClass.trim()) return;
+    const cName = newClass.trim().toUpperCase();
+    if (classes.includes(cName)) return alert('Class already exists.');
+    
+    const updatedClasses = [...classes, cName].sort();
+    const { error } = await supabase.from('school_settings').update({ classes: updatedClasses }).eq('school_id', schoolSettings.school_id);
+    if (error) return alert('Error creating class: ' + error.message);
+    setSchoolSettings({ ...schoolSettings, classes: updatedClasses });
+    alert(`Class ${cName} created successfully!`);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
 
@@ -258,15 +272,23 @@ export default function UserManagement() {
           </div>
         )}
         {currentRole === 'admin' && (
-          <button
-            onClick={() => {
-              if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
-              setIsAddModalOpen(true);
-            }}
-            className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95"
-          >
-            <UserPlus size={20} /> Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={handleCreateClass}
+              className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-500/20 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 transition-all whitespace-nowrap active:scale-95"
+            >
+              <Plus size={20} /> Create Class
+            </button>
+            <button
+              onClick={() => {
+                if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                setIsAddModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95"
+            >
+              <UserPlus size={20} /> Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            </button>
+          </div>
         )}
       </div>
 

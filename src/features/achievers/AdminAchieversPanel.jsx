@@ -43,6 +43,12 @@ export default function AdminAchieversPanel() {
       });
   }, [schoolId]);
 
+  React.useEffect(() => {
+    if (!loadingBadges && badges.length === 0 && !seeding && !seedDone && schoolId) {
+      handleSeedBadges();
+    }
+  }, [loadingBadges, badges.length, schoolId]);
+
   const handleRevoke = async (achievementId, studentId) => {
     if (!window.confirm('Revoke this badge? The record is soft-deleted.')) return;
     await revokeBadge(achievementId, studentId);

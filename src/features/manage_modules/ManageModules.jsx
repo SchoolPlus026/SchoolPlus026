@@ -16,7 +16,7 @@ const ALL_MODULES = [
   { id: 'leaves',        label: 'Leaves',           emoji: '🌿', desc: 'Leave applications for students and staff.' },
   { id: 'reports',       label: 'Reports',          emoji: '📊', desc: 'Academic and attendance analytics.' },
   { id: 'contact',       label: 'Contact',          emoji: '📞', desc: 'School contact directory.' },
-  { id: 'knowledge_base',label: 'Knowledge Base',   emoji: '📚', desc: 'School FAQs and resource library.' },
+  { id: 'knowledge_base',label: 'Help',   emoji: '📚', desc: 'School FAQs and resource library.' },
   // ── Optional / New ─────────────────────────────────────────────────────────
   { id: 'complaint_box', label: 'Complaint Box',    emoji: '📮', desc: 'Private messaging between students, teachers, and admin.' },
   { id: 'lost_found',    label: 'Lost & Found',     emoji: '🔍', desc: 'Report and recover lost items on campus.' },

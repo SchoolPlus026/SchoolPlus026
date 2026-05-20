@@ -79,7 +79,7 @@ import MoodNote from './features/mood_note/MoodNote';
 // Calendar Events
 import CalendarEvents from './features/calendar/CalendarEvents';
 
-// Knowledge Base
+// Help
 import KnowledgeBase from './features/knowledge-base/KnowledgeBase';
 
 // Achievers Board

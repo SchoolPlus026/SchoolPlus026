@@ -24,7 +24,7 @@ export default function PlatformAdminDashboard() {
     { id: 'transactions',  name: 'Transactions',    icon: <DollarSign size={26} />,    colorHex: '#818cf8', bgRgb: '129,140,248' },
     { id: 'broadcast',     name: 'Broadcasts',      icon: <Megaphone size={26} />,     colorHex: '#fbbf24', bgRgb: '251,191,36' },
     { id: 'tickets',       name: 'Support Tickets', icon: <HelpCircle size={26} />,    colorHex: '#c084fc', bgRgb: '192,132,252' },
-    { id: 'kb',            name: 'Knowledge Base',  icon: <BookOpen size={26} />,      colorHex: '#f472b6', bgRgb: '244,114,182' },
+    { id: 'kb',            name: 'Help',  icon: <BookOpen size={26} />,      colorHex: '#f472b6', bgRgb: '244,114,182' },
     { id: 'audit',         name: 'Audit Logs',      icon: <Shield size={26} />,        colorHex: '#2dd4bf', bgRgb: '45,212,191' },
     { id: 'settings',      name: 'Settings',        icon: <SettingsIcon size={26} />,  colorHex: '#94a3b8', bgRgb: '148,163,184' },
   ];
@@ -1205,7 +1205,7 @@ export default function PlatformAdminDashboard() {
               <div className="icon-box"><HardDrive size={20} /></div>
               <div className="text-content">
                 <h4>Platform Google Drive</h4>
-                <p>Connect P.A. Google Drive for Knowledge Base video uploads.</p>
+                <p>Connect P.A. Google Drive for Help video uploads.</p>
               </div>
             </div>
             <div className="mt-4 space-y-3">

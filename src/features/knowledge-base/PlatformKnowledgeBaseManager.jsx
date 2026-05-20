@@ -374,7 +374,7 @@ export default function PlatformKnowledgeBaseManager() {
         <div className="flex gap-4 items-center">
           <div className="icon-box"><BookOpen size={20} /></div>
           <div className="text-content">
-            <h4>Knowledge Base Manager</h4>
+            <h4>Help Manager</h4>
             <p>Manage tutorial categories and video articles for all users.</p>
           </div>
         </div>
