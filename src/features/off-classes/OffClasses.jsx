@@ -100,8 +100,18 @@ export default function OffClasses() {
 
       <div className="sp-card">
         {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
+          <div className="space-y-4 py-2">
+            {[1, 2, 3].map(idx => (
+              <div key={idx} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-10 rounded animate-shimmer"></div>
+                  <div className="h-4 w-16 rounded animate-shimmer"></div>
+                </div>
+                <div className="h-4 w-12 rounded animate-shimmer"></div>
+                <div className="h-4 w-20 rounded animate-shimmer"></div>
+                <div className="h-4 w-32 rounded animate-shimmer"></div>
+              </div>
+            ))}
           </div>
         ) : !data || data.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-10 text-center">

@@ -50,9 +50,7 @@ export default function StaffLayout() {
       </header>
 
       <main className="flex-1 overflow-y-auto" style={{ padding: '24px 16px' }}>
-        <div key={location.pathname} className="premium-page-transition">
-          <Outlet />
-        </div>
+        <Outlet />
       </main>
     </div>
   );
