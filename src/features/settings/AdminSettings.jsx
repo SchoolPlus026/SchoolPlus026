@@ -380,6 +380,64 @@ export default function AdminSettings() {
   /* ── Password ── */
   const [oldPwd, setOldPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
+  const [dangerPwd, setDangerPwd] = useState('');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  const checkForUpdates = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      return alert('Updates are handled automatically on the web.');
+    }
+    setCheckingUpdate(true);
+    try {
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const { FileOpener } = await import('@capacitor-community/file-opener');
+      const info = await App.getInfo();
+      const localVersionCode = parseInt(info.build, 10);
+
+      const { data, error } = await supabase
+        .from('app_versions')
+        .select('version_code, version_name, apk_url')
+        .order('version_code', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !data) {
+        alert('Failed to check for updates. Try again.');
+        setCheckingUpdate(false);
+        return;
+      }
+
+      if (Number(data.version_code) <= Number(localVersionCode)) {
+        alert('✅ You are on the latest version.');
+        setCheckingUpdate(false);
+        return;
+      }
+
+      // Update available
+      alert(`⬇️ Downloading v${data.version_name}… Please wait.`);
+
+      const fileName = `SchoolOS_Update_v${data.version_name}.apk`;
+      
+      const downloadResult = await Filesystem.downloadFile({
+        url: data.apk_url,
+        path: fileName,
+        directory: Directory.Cache
+      });
+
+      alert('✅ Download complete! Opening installer…');
+      
+      await FileOpener.open({
+        filePath: downloadResult.path,
+        contentType: 'application/vnd.android.package-archive',
+        openWithDefault: true
+      });
+
+    } catch (err) {
+      console.error('[AdminSettings] Update download failed:', err);
+      alert('❌ Download failed: ' + (err?.message || 'Unknown error'));
+    }
+    setCheckingUpdate(false);
+  };
   const [pwdLoading, setPwdLoading] = useState(false);
   const [showOldPwd, setShowOldPwd] = useState(false);
   const [showNewPwd, setShowNewPwd] = useState(false);
@@ -709,6 +767,7 @@ export default function AdminSettings() {
               <FileText size={16} /> Terms & Conditions
             </button>
           )}
+
           {platformSettings?.refund_policy && (
             <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('refund')}>
               <FileText size={16} /> Refund Policy
@@ -748,6 +807,16 @@ export default function AdminSettings() {
             color: 'white', padding: '2px 7px', borderRadius: '999px'
           }}>Latest</span>
         </div>
+        {Capacitor.isNativePlatform() && (
+          <button
+            onClick={checkForUpdates}
+            disabled={checkingUpdate}
+            className="btn outline"
+            style={{ width: '100%', maxWidth: '260px', marginTop: '12px' }}
+          >
+            {checkingUpdate ? '⬇️ Downloading…' : '🔍 Check for Updates'}
+          </button>
+        )}
         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Silent in-app updates enabled</span>
       </div>
 

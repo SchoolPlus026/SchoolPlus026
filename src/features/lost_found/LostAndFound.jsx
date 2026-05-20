@@ -268,7 +268,7 @@ export default function LostAndFound() {
                   className={`w-16 h-16 rounded-xl bg-slate-800 flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/5 ${item.photo_url ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                   onClick={() => item.photo_url && setViewItem(item)}
                 >
-                  {item.photo_url ? <img src={getThumbnailLink(item.photo_url)} alt="" className="w-full h-full object-cover" /> : <Search className="text-slate-600" />}
+                  {item.photo_url ? <img src={getThumbnailLink(item.photo_url)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Search className="text-slate-600" />}
                 </div>
                 <div className="flex-1">
                   <h4 className="font-bold text-slate-100">{item.item_name}</h4>
@@ -356,6 +356,7 @@ export default function LostAndFound() {
                   src={viewItem.photo_url} 
                   alt="Full size" 
                   className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
                 />
               )}
             </div>

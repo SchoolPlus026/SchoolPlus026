@@ -307,7 +307,12 @@ export default function UserManagement() {
                           {user.name?.charAt(0)}
                         </div>
                         <div>
-                          <div className="font-bold text-slate-800 text-base">{user.name}</div>
+                          <div className="font-bold text-slate-800 text-base flex items-center gap-2">
+                            {user.name}
+                            {activeTab === 'teacher' && user.class && (
+                              <span className="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md uppercase tracking-widest">{user.class}</span>
+                            )}
+                          </div>
                           <div className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md inline-block mt-1">@{user.username}</div>
                         </div>
                       </div>

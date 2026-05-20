@@ -261,7 +261,7 @@ export default function GalleryManager() {
               <div key={item.id} onClick={() => setViewItem(item)} className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm group hover:border-primary/50 transition-all flex flex-col relative cursor-pointer">
                 <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
                   {item.cover_link ? (
-                    <img src={getThumbnailLink(item.cover_link)} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => e.target.style.display = 'none'} />
+                    <img src={getThumbnailLink(item.cover_link)} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => e.target.style.display = 'none'} referrerPolicy="no-referrer" />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-50">
                       <Folder size={64} className="text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
@@ -403,7 +403,7 @@ export default function GalleryManager() {
                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                  {viewItem.photo_urls.map((url, idx) => (
                     <div key={idx} className="aspect-square bg-white/5 rounded-xl overflow-hidden border border-white/10">
-                       <img src={getThumbnailLink(url)} alt="" className="w-full h-full object-cover" />
+                       <img src={getThumbnailLink(url)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </div>
                  ))}
                </div>
