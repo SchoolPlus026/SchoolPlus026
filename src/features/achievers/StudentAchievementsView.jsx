@@ -45,7 +45,7 @@ export default function StudentAchievementsView({ studentId }) {
           ['catalog', '🎖️ Info Guide']
         ].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
-            padding: '8px 16px', borderRadius: '10px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: 'none',
+            padding: '8px 16px', borderRadius: '10px', fontWeight: 700, fontSize: '12px', cursor: 'pointer',
             background: tab === key ? 'linear-gradient(135deg,#F59E0B,#EF4444)' : 'var(--glass)',
             color: tab === key ? '#fff' : 'var(--text-muted)',
             border: tab === key ? 'none' : '1px solid var(--card-border)',

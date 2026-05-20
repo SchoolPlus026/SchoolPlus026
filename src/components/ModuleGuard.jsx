@@ -16,20 +16,41 @@ import { useAppStore } from '../store/useAppStore';
 export default function ModuleGuard({ moduleName, children, inline = false, alwaysVisible = false }) {
   const { schoolSettings, role } = useAppStore();
   const activeModules = schoolSettings?.modules_active || [];
+  const lockedModules = schoolSettings?.locked_modules || [];
 
   const isAdmin = role === 'admin' || role === 'platform_admin';
+  const isPlatformAdmin = role === 'platform_admin';
   const isDefault = moduleName === 'default';
-  const isEnabled = alwaysVisible || isDefault || activeModules.includes(moduleName);
+
+  // Check if locked dynamically for Free plan
+  const planType = schoolSettings?.plan_type || 'free';
+  const isFreePlan = planType === 'free' || schoolSettings?.subscription_tier === 'Free';
+  const isLockedByPlatform = isFreePlan && lockedModules.includes(moduleName);
+
+  const isEnabled = alwaysVisible || isDefault || (activeModules.includes(moduleName) && !isLockedByPlatform);
 
   // ── Inline mode (dashboard cards / sidebar links) ──────────────────────────
-  // Hides for everyone, including admin, when module is OFF.
-  // Only alwaysVisible or 'default' cards remain.
+  // Hides for everyone when module is OFF or locked by platform.
   if (inline) {
     return isEnabled ? children : null;
   }
 
+  // ── Locked by Platform screen ──────────────────────────────────────────────
+  // Show premium lock screen to school users (admins and staff/teachers/students)
+  if (isLockedByPlatform && !isPlatformAdmin) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: '2rem', textAlign: 'center' }}>
+        <div style={{ width: '64px', height: '64px', borderRadius: '18px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', fontSize: '28px' }}>🔒</div>
+        <h2 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-main)', marginBottom: '8px' }}>Premium Module</h2>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '360px', lineHeight: 1.6 }}>
+          This feature is locked on the Free plan by the platform administration. Please upgrade your subscription to unlock access.
+        </p>
+      </div>
+    );
+  }
+
   // ── Full page mode (route guard) ───────────────────────────────────────────
-  // Admin always bypasses so they retain data access even for "hidden" modules.
+  // Admin always bypasses normal disabling so they retain data access.
   if (isAdmin || isEnabled) {
     return children;
   }

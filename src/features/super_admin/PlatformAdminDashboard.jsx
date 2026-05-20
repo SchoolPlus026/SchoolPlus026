@@ -9,6 +9,7 @@ import { Browser } from '@capacitor/browser';
 import PlatformKnowledgeBaseManager from '../knowledge-base/PlatformKnowledgeBaseManager';
 import RegistrationsInbox from './RegistrationsInbox';
 import BiometricSetup from '../settings/BiometricSetup';
+import FeatureAccessManager from './FeatureAccessManager';
 
 export default function PlatformAdminDashboard() {
   const { user, setImpersonation } = useAppStore();
@@ -22,9 +23,10 @@ export default function PlatformAdminDashboard() {
     { id: 'registrations', name: 'Registrations',   icon: <Users size={26} />,         colorHex: '#fb7185', bgRgb: '251,113,133', badge: true },
     { id: 'plans',         name: 'Pricing Plans',   icon: <CreditCard size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153' },
     { id: 'transactions',  name: 'Transactions',    icon: <DollarSign size={26} />,    colorHex: '#818cf8', bgRgb: '129,140,248' },
+    { id: 'feature-access', name: 'Tier & Access',   icon: <Lock size={26} />,          colorHex: '#a78bfa', bgRgb: '167,139,250' },
     { id: 'broadcast',     name: 'Broadcasts',      icon: <Megaphone size={26} />,     colorHex: '#fbbf24', bgRgb: '251,191,36' },
     { id: 'tickets',       name: 'Support Tickets', icon: <HelpCircle size={26} />,    colorHex: '#c084fc', bgRgb: '192,132,252' },
-    { id: 'kb',            name: 'Help',  icon: <BookOpen size={26} />,      colorHex: '#f472b6', bgRgb: '244,114,182' },
+    { id: 'kb',            name: 'Help',            icon: <BookOpen size={26} />,      colorHex: '#f472b6', bgRgb: '244,114,182' },
     { id: 'audit',         name: 'Audit Logs',      icon: <Shield size={26} />,        colorHex: '#2dd4bf', bgRgb: '45,212,191' },
     { id: 'settings',      name: 'Settings',        icon: <SettingsIcon size={26} />,  colorHex: '#94a3b8', bgRgb: '148,163,184' },
   ];
@@ -1110,6 +1112,9 @@ export default function PlatformAdminDashboard() {
 
       {/* ── SECTION: REGISTRATIONS ── */}
       {activeTab === 'registrations' && <RegistrationsInbox />}
+
+      {/* ── SECTION: TIER & ACCESS CONTROL ── */}
+      {activeTab === 'feature-access' && <FeatureAccessManager />}
 
       {/* ── SECTION: KNOWLEDGE BASE ── */}
       {activeTab === 'kb' && <PlatformKnowledgeBaseManager />}

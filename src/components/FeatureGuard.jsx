@@ -19,6 +19,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Crown, Lock, X, Zap, ArrowRight } from 'lucide-react';
 import { usePlan } from '../hooks/usePlan';
+import { useAppStore } from '../store/useAppStore';
 
 // ── Feature permission map ────────────────────────────────────────────────────
 // true  = available on free plan
@@ -52,6 +53,28 @@ const FEATURE_LABELS = {
   users_manage:           'User Management (Add/Edit)',
   calendar_add:           'Calendar Event Creation',
   notifications_targeted: 'Targeted Notifications',
+};
+
+const FEATURE_TO_MODULE = {
+  fees: 'fees',
+  timetable: 'timetable',
+  leaves: 'leaves',
+  reports: 'reports',
+  calendar_add: 'calendar',
+  calendar_view: 'calendar',
+  gallery: 'gallery',
+  attendance_view: 'attendance',
+  notices: 'notices',
+  contact: 'contact',
+  knowledge_base: 'knowledge_base',
+  complaint_box: 'complaint_box',
+  lost_found: 'lost_found',
+  bus_alerts: 'bus_alerts',
+  syllabus: 'syllabus',
+  mood_note: 'mood_note',
+  emergency: 'emergency',
+  duty_radar: 'duty_radar',
+  executive_briefing: 'executive_briefing',
 };
 
 // ── Premium Upgrade Modal ─────────────────────────────────────────────────────
@@ -172,11 +195,20 @@ function UpgradeModal({ featureLabel, onClose, onUpgrade }) {
 
 // ── FeatureGuard Component ────────────────────────────────────────────────────
 export default function FeatureGuard({ feature, children, inline = false }) {
-  const { isPremium } = usePlan();
+  const { isPremium, schoolSettings } = usePlan();
+  const role = useAppStore((s) => s.role);
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
 
-  const isLocked = !isPremium && FREE_FEATURES[feature] === false;
+  const planType = schoolSettings?.plan_type || 'free';
+  const isFreePlan = planType === 'free' || schoolSettings?.subscription_tier === 'Free';
+  const lockedModules = schoolSettings?.locked_modules || [];
+  const mappedModule = FEATURE_TO_MODULE[feature];
+  
+  const isLockedByPlatform = isFreePlan && mappedModule && lockedModules.includes(mappedModule);
+  const isPlatformAdmin = role === 'platform_admin';
+
+  const isLocked = (!isPlatformAdmin && !isPremium && FREE_FEATURES[feature] === false) || (isLockedByPlatform && !isPlatformAdmin);
   const label    = FEATURE_LABELS[feature] || feature;
 
   const handleUpgrade = () => {

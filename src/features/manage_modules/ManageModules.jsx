@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { LayoutGrid, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { LayoutGrid, CheckCircle2, XCircle, Loader2, Lock } from 'lucide-react';
 
 // All possible modules with their display metadata
 const ALL_MODULES = [
@@ -98,6 +98,18 @@ export default function ManageModules() {
           const active = isActive(mod.id);
           const isSaving = saving === mod.id;
 
+          const planType = schoolSettings?.plan_type || 'free';
+          const isFreePlan = planType === 'free' || schoolSettings?.subscription_tier === 'Free';
+          const lockedModules = schoolSettings?.locked_modules || [];
+          const isLockedByPlatform = isFreePlan && lockedModules.includes(mod.id);
+
+          let cardBorder = active ? 'rgba(99,102,241,0.25)' : 'var(--card-border)';
+          let cardBg = 'var(--card-bg)';
+          if (isLockedByPlatform) {
+            cardBorder = 'rgba(239,68,68,0.25)';
+            cardBg = 'rgba(239,68,68,0.02)';
+          }
+
           return (
             <div
               key={mod.id}
@@ -107,10 +119,10 @@ export default function ManageModules() {
                 gap: '16px',
                 padding: '16px 20px',
                 borderRadius: '16px',
-                background: 'var(--card-bg)',
-                border: `1px solid ${active ? 'rgba(99,102,241,0.25)' : 'var(--card-border)'}`,
+                background: cardBg,
+                border: `1px solid ${cardBorder}`,
                 transition: 'all 0.2s ease',
-                boxShadow: active ? '0 0 0 1px rgba(99,102,241,0.1)' : 'none',
+                boxShadow: active && !isLockedByPlatform ? '0 0 0 1px rgba(99,102,241,0.1)' : 'none',
               }}
             >
               {/* Emoji */}
@@ -127,39 +139,51 @@ export default function ManageModules() {
               </div>
 
               {/* Status Pill */}
-              <div style={{
-                fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em',
-                color: active ? '#10b981' : 'var(--text-faint)',
-                display: 'flex', alignItems: 'center', gap: '4px',
-                flexShrink: 0,
-              }}>
-                {active
-                  ? <><CheckCircle2 size={12} /> On</>
-                  : <><XCircle size={12} /> Off</>}
-              </div>
+              {isLockedByPlatform ? (
+                <div style={{
+                  fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  color: '#ef4444',
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                  flexShrink: 0,
+                }}>
+                  <Lock size={12} /> Locked by Platform
+                </div>
+              ) : (
+                <div style={{
+                  fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  color: active ? '#10b981' : 'var(--text-faint)',
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                  flexShrink: 0,
+                }}>
+                  {active
+                    ? <><CheckCircle2 size={12} /> On</>
+                    : <><XCircle size={12} /> Off</>}
+                </div>
+              )}
 
               {/* Toggle */}
               <button
                 onClick={() => handleToggle(mod.id)}
-                disabled={isSaving}
+                disabled={isSaving || isLockedByPlatform}
                 style={{
                   width: '48px', height: '26px', borderRadius: '999px', flexShrink: 0,
-                  background: active ? '#6366f1' : 'var(--input-bg)',
-                  border: `2px solid ${active ? '#6366f1' : 'var(--card-border)'}`,
-                  position: 'relative', cursor: 'pointer',
+                  background: isLockedByPlatform ? '#334155' : (active ? '#6366f1' : 'var(--input-bg)'),
+                  border: `2px solid ${isLockedByPlatform ? '#475569' : (active ? '#6366f1' : 'var(--card-border)')}`,
+                  position: 'relative', cursor: isLockedByPlatform ? 'not-allowed' : 'pointer',
+                  opacity: isLockedByPlatform ? 0.75 : 1,
                   transition: 'all 0.25s ease',
                   display: 'flex', alignItems: 'center',
                   padding: '0 3px',
                 }}
-                title={active ? `Disable ${mod.label}` : `Enable ${mod.label}`}
+                title={isLockedByPlatform ? `${mod.label} is locked by Platform` : (active ? `Disable ${mod.label}` : `Enable ${mod.label}`)}
               >
                 {isSaving ? (
                   <Loader2 size={14} style={{ color: '#fff', margin: 'auto', animation: 'spin 0.8s linear infinite' }} />
                 ) : (
                   <span style={{
-                    width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                    width: '18px', height: '18px', borderRadius: '50%', background: isLockedByPlatform ? '#94a3b8' : '#fff',
                     boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                    transform: active ? 'translateX(22px)' : 'translateX(0)',
+                    transform: !isLockedByPlatform && active ? 'translateX(22px)' : 'translateX(0)',
                     transition: 'transform 0.25s ease',
                     display: 'block',
                   }} />
