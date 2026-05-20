@@ -8,10 +8,10 @@ import {
   CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus
 } from 'lucide-react';
 
-const EField = ({ label, field, type = 'text', options = null, editForm, setEditForm }) => (
+const EField = ({ label, field, type = 'text', options = null, allowCustom = false, editForm, setEditForm }) => (
   <div>
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">{label}</label>
-    {options ? (
+    {options && !allowCustom ? (
       <select
         value={editForm[field] || ''}
         onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
@@ -21,12 +21,20 @@ const EField = ({ label, field, type = 'text', options = null, editForm, setEdit
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     ) : (
-      <input
-        type={type}
-        value={editForm[field] || ''}
-        onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
-        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-300 leading-normal"
-      />
+      <>
+        <input
+          type={type}
+          list={options ? field + "-datalist" : undefined}
+          value={editForm[field] || ''}
+          onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-300 leading-normal"
+        />
+        {options && allowCustom && (
+          <datalist id={field + "-datalist"}>
+            {options.map(o => <option key={o} value={o} />)}
+          </datalist>
+        )}
+      </>
     )}
   </div>
 );
@@ -379,7 +387,7 @@ export default function UserManagement() {
               <EField label="Aadhar Card Number" field="aadhar_card" editForm={editForm} setEditForm={setEditForm} />
 
               {(activeTab === 'student' || activeTab === 'teacher') && (
-                <EField label="Class / Standard" field="class" options={classes} editForm={editForm} setEditForm={setEditForm} />
+                <EField label="Class / Standard" field="class" options={classes} allowCustom={true} editForm={editForm} setEditForm={setEditForm} />
               )}
               {(activeTab === 'teacher' || activeTab === 'staff') && (
                 <EField label="Qualification" field="qualification" editForm={editForm} setEditForm={setEditForm} />
@@ -474,12 +482,18 @@ export default function UserManagement() {
                   </div>
                   {(activeTab === 'student' || activeTab === 'teacher') && (
                     <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Class / Standard</label>
-                      <select value={addForm.userClass} onChange={e => setAddForm(f => ({ ...f, userClass: e.target.value }))}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary">
-                        <option value="">Select...</option>
-                        {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Class / Standard (Enter new or select)</label>
+                      <input
+                        type="text"
+                        list="addClassList"
+                        value={addForm.userClass}
+                        onChange={e => setAddForm(f => ({ ...f, userClass: e.target.value.toUpperCase() }))}
+                        placeholder="e.g. 1ST, 2ND"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <datalist id="addClassList">
+                        {classes.map(c => <option key={c} value={c} />)}
+                      </datalist>
                     </div>
                   )}
                 </div>

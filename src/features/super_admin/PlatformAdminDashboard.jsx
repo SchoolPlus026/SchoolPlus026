@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import PlatformKnowledgeBaseManager from '../knowledge-base/PlatformKnowledgeBaseManager';
 import RegistrationsInbox from './RegistrationsInbox';
+import BiometricSetup from '../settings/BiometricSetup';
 
 export default function PlatformAdminDashboard() {
   const { user, setImpersonation } = useAppStore();
@@ -1195,6 +1196,8 @@ export default function PlatformAdminDashboard() {
               <Save size={16} /> {savingPlatform ? 'Saving...' : 'Save Settings'}
             </button>
           </div>
+
+          <BiometricSetup />
 
           {/* ---- PLATFORM GDRIVE ---- */}
           <div className="mt-6" style={{ borderTop: '1px solid var(--card-border)', paddingTop: 24 }}>

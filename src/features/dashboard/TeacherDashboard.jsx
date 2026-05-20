@@ -37,7 +37,7 @@ const MODULES = [
   { name: 'Emergency Alerts',   path: '/teacher/emergency',         icon: <AlertTriangle size={26} />, colorHex: '#ef4444', bgRgb: '239,68,68',   moduleId: 'emergency' },
   { name: 'Bus Tracker',        path: '/teacher/bus-alerts',        icon: <Bus size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36',  moduleId: 'bus_alerts' },
   { name: 'Achievers Board',    path: '/teacher/achievers',         icon: <Trophy size={26} />,       colorHex: '#F59E0B', bgRgb: '245,158,11',  moduleId: 'default'},
-  { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'settings'  },
+  { name: 'Settings',           path: '/teacher/settings',          icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'default'  },
 ];
 
 const PREMIUM_MODULES = ['Timetable', 'Gallery'];

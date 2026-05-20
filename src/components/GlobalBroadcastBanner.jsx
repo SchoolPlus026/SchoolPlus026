@@ -20,7 +20,7 @@ export default function GlobalBroadcastBanner() {
         // .eq('target_schools', 'all') // we could filter here, but we are keeping it simple
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         // Simple client-side dismissal using localStorage (so it doesn't show again until a new ID arrives)

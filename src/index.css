@@ -713,3 +713,22 @@
     overflow: hidden;
   }
 }
+
+/* Hide Google Translate UI */
+iframe.skiptranslate,
+.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate,
+.VIpgJd-ZVi9od-ORHb-OEVmcd,
+#goog-gt-tt, 
+.goog-te-balloon-frame { 
+    display: none !important; 
+    visibility: hidden !important; 
+}
+body { 
+    top: 0px !important; 
+    position: static !important; 
+}
+.goog-text-highlight { 
+    background-color: transparent !important; 
+    box-shadow: none !important; 
+}

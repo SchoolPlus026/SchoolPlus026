@@ -15,7 +15,7 @@ function readFileAsBase64(file) {
 }
 
 export default function GalleryManager() {
-  const { role, schoolSettings, addBackgroundUpload, updateBackgroundUpload, removeBackgroundUpload } = useAppStore();
+  const { user, role, schoolSettings, addBackgroundUpload, updateBackgroundUpload, removeBackgroundUpload } = useAppStore();
   const { isPending } = usePending();
   const queryClient = useQueryClient();
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -29,8 +29,19 @@ export default function GalleryManager() {
   const [title, setTitle]           = useState('');
   const [link, setLink]             = useState('');
   const [category, setCategory]     = useState('Events');
+  const [visibilityScope, setVisibilityScope] = useState('Entire School');
+  const [targetClass, setTargetClass]         = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [coverFiles, setCoverFiles] = useState([]);
+  const [viewItem, setViewItem]     = useState(null);
+
+  const getThumbnailLink = (url) => {
+    if (!url) return '';
+    const match = url.match(/\/d\/(.*?)\//);
+    if (match && match[1]) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800-h800`;
+    return url;
+  };
+
   
   const [selectedDriveIndex, setSelectedDriveIndex] = useState(0);
   const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
@@ -98,6 +109,7 @@ export default function GalleryManager() {
 
   function resetForm() {
     setTitle(''); setLink(''); setCategory('Events'); setCoverFiles([]);
+    setVisibilityScope('Entire School'); setTargetClass('');
     setIsCreating(false); setAddModalOpen(false);
   }
 
@@ -123,8 +135,29 @@ export default function GalleryManager() {
             const { data: { session } } = await supabase.auth.getSession();
             const headers = { Authorization: `Bearer ${session?.access_token}` };
 
+            const getOrCreateFolder = async (fName, parentId) => {
+               const search = await supabase.functions.invoke('gdrive-upload', { body: { action: 'search_folder', folderName: fName, parentFolderId: parentId, driveIndex: targetDriveIndex, school_id: schoolSettings.school_id }, headers });
+               if (search.error) throw new Error(search.error.message);
+               if (search.data?.id) return search.data.id;
+               
+               const create = await supabase.functions.invoke('gdrive-upload', { body: { action: 'create_folder', folderName: fName, parentFolderId: parentId, driveIndex: targetDriveIndex, school_id: schoolSettings.school_id }, headers });
+               if (create.error) throw new Error(create.error.message);
+               if (create.data?.error) throw new Error(create.data.error);
+               if (!create.data?.id) throw new Error('Failed to create folder, no ID returned.');
+               return create.data.id;
+            };
+
+            const classFolderName = visibilityScope === 'Entire School' ? 'Entire School' : (visibilityScope === 'My Class' && user?.user_metadata?.class ? user.user_metadata.class : targetClass);
+
+            updateBackgroundUpload(uploadId, { status: `Creating folder ${classFolderName}...` });
+            let currentParent = await getOrCreateFolder(classFolderName, null);
+
+            updateBackgroundUpload(uploadId, { status: `Creating category ${eventCat}...` });
+            currentParent = await getOrCreateFolder(eventCat, currentParent);
+
+            updateBackgroundUpload(uploadId, { status: `Creating event ${eventTitle}...` });
             const { data: folderData, error: folderError } = await supabase.functions.invoke('gdrive-upload', {
-              body: { action: 'create_folder', folderName: eventTitle, driveIndex: targetDriveIndex },
+              body: { action: 'create_folder', folderName: eventTitle, parentFolderId: currentParent, driveIndex: targetDriveIndex, school_id: schoolSettings.school_id },
               headers
             });
             if (folderError || folderData?.error) throw new Error(folderData?.error || folderError?.message || "Folder creation failed");
@@ -147,7 +180,8 @@ export default function GalleryManager() {
                    fileName: file.name,
                    mimeType: file.type || 'application/octet-stream',
                    fileBase64: fileBase64,
-                   driveIndex: targetDriveIndex
+                   driveIndex: targetDriveIndex,
+                   school_id: schoolSettings.school_id
                  },
                  headers
                });
@@ -170,6 +204,8 @@ export default function GalleryManager() {
               link:       folderLink,
               cover_link: coverLink,
               photo_urls: photoUrls,
+              visibility_scope: visibilityScope,
+              target_class: visibilityScope === 'Entire School' ? null : classFolderName
             });
 
             removeBackgroundUpload(uploadId);
@@ -188,6 +224,13 @@ export default function GalleryManager() {
     }
   };
 
+  const displayMedia = media?.filter(item => {
+    if (role === 'admin' || role === 'platform_admin') return true;
+    if (item.visibility_scope === 'Entire School') return true;
+    const userClass = user?.user_metadata?.class;
+    return userClass && item.target_class && userClass.toLowerCase() === item.target_class.toLowerCase();
+  });
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -197,7 +240,7 @@ export default function GalleryManager() {
           </h2>
           <p className="text-sm text-muted">Browse through school events, activities, and milestones.</p>
         </div>
-        {role === 'admin' && (
+        {(role === 'admin' || role === 'teacher') && (
           <button onClick={() => setAddModalOpen(true)} className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md">
             <Plus size={20} /> Add Event
           </button>
@@ -206,19 +249,19 @@ export default function GalleryManager() {
 
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
-      ) : !media || media.length === 0 ? (
+      ) : !displayMedia || displayMedia.length === 0 ? (
         <div className="text-center py-20 bg-white border-2 border-dashed border-border rounded-3xl text-muted">Your gallery is currently empty.</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {media.map((item) => {
+          {displayMedia.map((item) => {
             const photoUrls = Array.isArray(item.photo_urls) ? item.photo_urls : [];
             const photoCount = photoUrls.length;
 
             return (
-              <div key={item.id} className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm group hover:border-primary/50 transition-all flex flex-col relative">
+              <div key={item.id} onClick={() => setViewItem(item)} className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm group hover:border-primary/50 transition-all flex flex-col relative cursor-pointer">
                 <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
                   {item.cover_link ? (
-                    <img src={item.cover_link} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => e.target.style.display = 'none'} />
+                    <img src={getThumbnailLink(item.cover_link)} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => e.target.style.display = 'none'} />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-50">
                       <Folder size={64} className="text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
@@ -227,7 +270,7 @@ export default function GalleryManager() {
                   {photoCount > 1 && (
                     <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 text-white text-[10px] font-bold rounded-full backdrop-blur-sm flex items-center gap-1"><ImageIcon size={10} /> {photoCount} photos</div>
                   )}
-                  {role === 'admin' && (
+                  {(role === 'admin' || role === 'platform_admin') && (
                     <button onClick={(ev) => { ev.stopPropagation(); if (window.confirm('Delete this event? It will also be removed from Google Drive.')) deleteMutation.mutate(item); }} className="absolute top-3 right-3 p-2 bg-red-100 text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white">
                       <X size={16} />
                     </button>
@@ -295,6 +338,23 @@ export default function GalleryManager() {
                   <option value="Awards">Awards &amp; Honors</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-text mb-1.5">Visibility Scope</label>
+                <select value={visibilityScope} onChange={e => setVisibilityScope(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-sm">
+                  <option value="Entire School">Entire School</option>
+                  {role === 'teacher' && <option value="My Class">My Class</option>}
+                  <option value="Specific Class">Specific Class</option>
+                </select>
+              </div>
+              {visibilityScope === 'Specific Class' && (
+                <div>
+                  <label className="block text-sm font-semibold text-text mb-1.5">Target Class</label>
+                  <select required value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm appearance-none cursor-pointer">
+                    <option value="" disabled>Select a Class</option>
+                    {(schoolSettings?.classes || []).map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )}
               {gdriveConnected ? (
                 <div>
                   <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-xs text-green-800 font-semibold flex flex-col gap-2 mb-3">
@@ -323,6 +383,36 @@ export default function GalleryManager() {
                 {(addMutation.isPending || isCreating) ? <><Loader2 size={18} className="animate-spin" /> Submitting...</> : <><Plus size={18} /> Create Event</>}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewItem && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black/95 backdrop-blur-md">
+          <div className="flex justify-between items-center p-4 border-b border-white/10 text-white">
+            <h3 className="font-bold truncate pr-4">{viewItem.title}</h3>
+            <div className="flex items-center gap-3">
+              <a href={viewItem.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-semibold transition-colors">
+                <ExternalLink size={14} /> View Folder
+              </a>
+              <button onClick={() => setViewItem(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"><X size={20} /></button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 md:p-8">
+             {viewItem.photo_urls?.length > 0 ? (
+               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                 {viewItem.photo_urls.map((url, idx) => (
+                    <div key={idx} className="aspect-square bg-white/5 rounded-xl overflow-hidden border border-white/10">
+                       <img src={getThumbnailLink(url)} alt="" className="w-full h-full object-cover" />
+                    </div>
+                 ))}
+               </div>
+             ) : (
+               <div className="w-full h-full flex flex-col items-center justify-center text-white/50">
+                  <Folder size={64} className="mb-4 opacity-50" />
+                  <p>No direct photos available. Please open the folder.</p>
+               </div>
+             )}
           </div>
         </div>
       )}

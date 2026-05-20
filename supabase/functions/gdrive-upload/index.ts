@@ -135,6 +135,22 @@ serve(async (req) => {
       })
     }
 
+    if (action === 'search_folder') {
+      const { folderName, parentFolderId } = body
+      if (!folderName) throw new Error('folderName required')
+      const targetParent = parentFolderId || targetDrive.folder_id
+      
+      const query = `name='${folderName}' and '${targetParent}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      })
+      const searchData = await searchRes.json()
+      if (searchData.files && searchData.files.length > 0) {
+        return new Response(JSON.stringify({ id: searchData.files[0].id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ id: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
     if (action === 'create_folder') {
       const { folderName } = body
       if (!folderName) throw new Error('folderName required')
@@ -148,7 +164,7 @@ serve(async (req) => {
         body: JSON.stringify({
           name: folderName,
           mimeType: 'application/vnd.google-apps.folder',
-          parents: [targetDrive.folder_id]
+          parents: [body.parentFolderId || targetDrive.folder_id]
         })
       })
       const folderData = await folderRes.json()

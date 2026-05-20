@@ -17,12 +17,12 @@ export default function LostAndFound() {
   const [targetClass, setTargetClass] = useState('');
   const [file, setFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [viewImage, setViewImage] = useState(null);
+  const [viewItem, setViewItem] = useState(null);
 
-  const getDirectImageLink = (url) => {
+  const getThumbnailLink = (url) => {
     if (!url) return '';
     const match = url.match(/\/d\/(.*?)\//);
-    if (match && match[1]) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    if (match && match[1]) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200-h200`;
     return url;
   };
 
@@ -266,9 +266,9 @@ export default function LostAndFound() {
               <div className="mt-4 flex gap-4">
                 <div 
                   className={`w-16 h-16 rounded-xl bg-slate-800 flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/5 ${item.photo_url ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-                  onClick={() => item.photo_url && setViewImage(getDirectImageLink(item.photo_url))}
+                  onClick={() => item.photo_url && setViewItem(item)}
                 >
-                  {item.photo_url ? <img src={getDirectImageLink(item.photo_url)} alt="" className="w-full h-full object-cover" /> : <Search className="text-slate-600" />}
+                  {item.photo_url ? <img src={getThumbnailLink(item.photo_url)} alt="" className="w-full h-full object-cover" /> : <Search className="text-slate-600" />}
                 </div>
                 <div className="flex-1">
                   <h4 className="font-bold text-slate-100">{item.item_name}</h4>
@@ -321,21 +321,45 @@ export default function LostAndFound() {
         </div>
       )}
 
-      {/* Image Lightbox Modal */}
-      {viewImage && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 animate-in fade-in" onClick={() => setViewImage(null)}>
+      {/* Media Lightbox Modal */}
+      {viewItem && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 p-2 sm:p-6 animate-in fade-in" onClick={() => setViewItem(null)}>
           <button 
-            onClick={() => setViewImage(null)}
-            className="absolute top-4 right-4 md:top-8 md:right-8 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all"
+            onClick={() => setViewItem(null)}
+            className="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all z-[110]"
           >
-            <X size={20} />
+            <X size={24} />
           </button>
-          <img 
-            src={viewImage} 
-            alt="Full size" 
-            className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl shadow-black"
-            onClick={e => e.stopPropagation()}
-          />
+          
+          <div className="w-full max-w-4xl h-[70vh] sm:h-[80vh] bg-slate-900 rounded-xl overflow-hidden shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-slate-800 border-b border-white/10 flex justify-between items-center">
+              <h3 className="text-white font-bold truncate pr-4">{viewItem.item_name}</h3>
+              <a 
+                href={viewItem.photo_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-bold rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+              >
+                View in Drive
+              </a>
+            </div>
+            <div className="flex-1 bg-black w-full h-full relative">
+              {viewItem.photo_url.includes('drive.google.com') ? (
+                <iframe
+                  src={viewItem.photo_url.replace(/\/view.*$/, '/preview').replace(/\/edit.*$/, '/preview')}
+                  className="absolute inset-0 w-full h-full border-0"
+                  allow="autoplay"
+                  title="Media Preview"
+                ></iframe>
+              ) : (
+                <img 
+                  src={viewItem.photo_url} 
+                  alt="Full size" 
+                  className="w-full h-full object-contain"
+                />
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

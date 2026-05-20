@@ -308,6 +308,16 @@ export default function AdminSettings() {
     setLang(val);
     localStorage.setItem('sp_lang', val);
     document.documentElement.lang = val;
+    
+    // Google Translate Trigger
+    if (val === 'en') {
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.${window.location.hostname}; path=/;`;
+    } else {
+      document.cookie = `googtrans=/en/${val}; path=/`;
+      document.cookie = `googtrans=/en/${val}; domain=.${window.location.hostname}; path=/`;
+    }
+    window.location.reload();
   };
 
   /* ── Theme ── */

@@ -46,10 +46,10 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
           .select('id, class')
           .eq('role', 'student')
           .eq('school_id', schoolSettings.school_id),
-        supabase
-          .from('users')
-          .select('name, class')
-          .eq('role', 'teacher')
+          supabase
+            .from('users')
+            .select('name, class')
+            .in('role', ['teacher', 'staff'])
           .eq('school_id', schoolSettings.school_id)
       ]);
       
@@ -75,7 +75,23 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       const missingClassNames = activeClasses.filter(c => !submittedClasses.has(c));
       
       const missing = missingClassNames.map(className => {
-         const teacher = teachers.find(t => t.class === className);
+         const teacher = teachers.find(t => {
+           if (!t.class) return false;
+           let tClasses = [];
+           if (typeof t.class === 'string') {
+             try {
+               const parsed = JSON.parse(t.class);
+               if (Array.isArray(parsed)) tClasses = parsed;
+               else tClasses = t.class.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+             } catch (e) {
+               tClasses = t.class.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+             }
+           } else if (Array.isArray(t.class)) {
+             tClasses = t.class;
+           }
+           return tClasses.some(tc => tc?.toString().trim().toLowerCase() === className?.toString().trim().toLowerCase());
+         });
+         
          return {
             teacher_name: teacher ? teacher.name : 'Unassigned',
             class_name: className,
