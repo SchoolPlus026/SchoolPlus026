@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
   User, ClipboardList, DollarSign, Clock,
   Bell, CalendarHeart, Image, Phone, Settings, BookOpen, MessageSquare, Book, HeartPulse, Search, Bus, Trophy
@@ -101,37 +102,40 @@ function ActivityModuleCard({ mod }) {
   const { hasActivity, markViewed } = useUniversalModuleActivity(mod.moduleId);
 
   return (
-    <Link
-      to={mod.path}
-      onClick={() => markViewed()}
-      className="module-card active-scale hover-lift"
-      style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative' }}
+    <motion.div
+      whileHover={{ scale: 1.04, boxShadow: `0 10px 30px -6px rgba(${mod.bgRgb},0.3)` }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ type: 'spring', stiffness: 350, damping: 20 }}
     >
-      {hasActivity && (
-         <div style={{ position: 'absolute', top: '12px', right: '12px', background: '#ef4444', border: '2px solid var(--card-bg)', borderRadius: '50%', width: '12px', height: '12px', zIndex: 10, boxShadow: '0 0 8px rgba(239,68,68,0.6)' }} />
-      )}
-      <div style={{
-        width: '56px', height: '56px', borderRadius: '16px',
-        background: `rgba(${mod.bgRgb}, 0.12)`,
-        border: `1px solid rgba(${mod.bgRgb}, 0.2)`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: mod.colorHex,
-        transition: 'transform 0.25s ease',
-      }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+      <Link
+        to={mod.path}
+        onClick={() => markViewed()}
+        className="module-card"
+        style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative', display: 'block' }}
       >
-        {mod.icon}
-      </div>
-      <span style={{
-        fontSize: '11px', fontWeight: 800,
-        textTransform: 'uppercase', letterSpacing: '0.06em',
-        color: 'var(--text-main)', textAlign: 'center',
-        lineHeight: 1.3,
-      }}>
-        {mod.name}
-      </span>
-    </Link>
+        {hasActivity && (
+           <div style={{ position: 'absolute', top: '12px', right: '12px', background: '#ef4444', border: '2px solid var(--card-bg)', borderRadius: '50%', width: '12px', height: '12px', zIndex: 10, boxShadow: '0 0 8px rgba(239,68,68,0.6)' }} />
+        )}
+        <div style={{
+          width: '56px', height: '56px', borderRadius: '16px',
+          background: `rgba(${mod.bgRgb}, 0.12)`,
+          border: `1px solid rgba(${mod.bgRgb}, 0.2)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: mod.colorHex, margin: '0 auto',
+        }}
+        >
+          {mod.icon}
+        </div>
+        <span style={{
+          fontSize: '11px', fontWeight: 800,
+          textTransform: 'uppercase', letterSpacing: '0.06em',
+          color: 'var(--text-main)', textAlign: 'center',
+          lineHeight: 1.3, display: 'block', marginTop: '12px',
+        }}>
+          {mod.name}
+        </span>
+      </Link>
+    </motion.div>
   );
 }
 

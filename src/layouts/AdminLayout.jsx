@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
 import GlobalBroadcastBanner from '../components/GlobalBroadcastBanner';
+import PageTransition from '../components/PageTransition';
 
 export default function AdminLayout() {
   const { user, schoolSettings, isImpersonating, clearImpersonation } = useAppStore();
@@ -127,7 +128,9 @@ export default function AdminLayout() {
                <ChevronLeft size={14} /> Back to Dashboard
             </Link>
           )}
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </div>
       </main>
     </div>

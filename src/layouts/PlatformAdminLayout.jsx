@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, Settings, LayoutDashboard, ChevronLeft, Globe } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import PageTransition from '../components/PageTransition';
 
 export default function PlatformAdminLayout() {
   const { user } = useAppStore();
@@ -69,7 +70,9 @@ export default function PlatformAdminLayout() {
                <ChevronLeft size={14} /> Back to Dashboard
             </Link>
           )}
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </div>
       </main>
     </div>

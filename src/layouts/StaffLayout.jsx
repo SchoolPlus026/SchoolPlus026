@@ -5,6 +5,7 @@ import { supabase } from '../config/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Bell } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
+import PageTransition from '../components/PageTransition';
 
 export default function StaffLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -50,7 +51,9 @@ export default function StaffLayout() {
       </header>
 
       <main className="flex-1 overflow-y-auto" style={{ padding: '24px 16px' }}>
-        <Outlet />
+        <PageTransition>
+          <Outlet />
+        </PageTransition>
       </main>
     </div>
   );

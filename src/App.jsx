@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+import { ToastProvider } from './components/ToastProvider';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
 import { Capacitor } from '@capacitor/core';
@@ -195,8 +197,10 @@ export default function App() {
     return `/${role}`;
   };
 
+  const location = useLocation();
+
   return (
-    <>
+    <ToastProvider>
       {/* VersionChecker: runs once on launch for all native authenticated sessions.
           Renders null on web. Must be outside <Routes> so it isn't unmounted
           on route transitions. */}
@@ -205,7 +209,8 @@ export default function App() {
       {user && <EmergencyOverlay />}
       {user && <HelpButton />}
 
-      <Routes>
+      <AnimatePresence mode="wait" initial={false}>
+      <Routes location={location} key={location.pathname}>
       <Route path="/" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />
       <Route path="/login" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Login />} />
       <Route path="/register" element={<RegisterSchool />} />
@@ -335,6 +340,7 @@ export default function App() {
 
       <Route path="*" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Navigate to="/login" replace />} />
     </Routes>
-    </>
+    </AnimatePresence>
+    </ToastProvider>
   );
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Bus, Search, AlertTriangle, Calendar, Image, HelpCircle } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 
@@ -37,32 +38,36 @@ export default function DriverDashboard() {
           gap: '14px',
         }}>
           {MODULES.map((mod) => (
-            <Link
+            <motion.div
               key={mod.name}
-              to={mod.path}
-              className="module-card shadow-lg active-scale hover-lift"
-              style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', background: 'white', borderRadius: '24px', border: '1px solid var(--border-color)' }}
+              whileHover={{ scale: 1.04, boxShadow: `0 10px 30px -6px rgba(${mod.bgRgb},0.3)` }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 20 }}
             >
-              <div style={{
-                width: '56px', height: '56px', borderRadius: '16px',
-                background: `rgba(${mod.bgRgb}, 0.12)`,
-                border: `1px solid rgba(${mod.bgRgb}, 0.2)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: mod.colorHex, transition: 'transform 0.25s ease',
-              }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              <Link
+                to={mod.path}
+                className="module-card"
+                style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', borderRadius: '24px' }}
               >
-                {mod.icon}
-              </div>
-              <span style={{
-                fontSize: '11px', fontWeight: 800,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-                color: 'var(--text-main)', textAlign: 'center', lineHeight: 1.3,
-              }}>
-                {mod.name}
-              </span>
-            </Link>
+                <div style={{
+                  width: '56px', height: '56px', borderRadius: '16px',
+                  background: `rgba(${mod.bgRgb}, 0.12)`,
+                  border: `1px solid rgba(${mod.bgRgb}, 0.2)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: mod.colorHex,
+                }}
+                >
+                  {mod.icon}
+                </div>
+                <span style={{
+                  fontSize: '11px', fontWeight: 800,
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  color: 'var(--text-main)', textAlign: 'center', lineHeight: 1.3,
+                }}>
+                  {mod.name}
+                </span>
+              </Link>
+            </motion.div>
           ))}
         </div>
       </div>

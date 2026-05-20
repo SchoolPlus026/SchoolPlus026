@@ -6,6 +6,7 @@ import { LogOut, LayoutDashboard, Settings, ChevronLeft, RefreshCw } from 'lucid
 import { useQueryClient } from '@tanstack/react-query';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
+import PageTransition from '../components/PageTransition';
 import GlobalBroadcastBanner from '../components/GlobalBroadcastBanner';
 
 export default function StudentLayout() {
@@ -85,7 +86,9 @@ export default function StudentLayout() {
                <ChevronLeft size={14} /> Back to Dashboard
             </Link>
           )}
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </div>
       </main>
     </div>
