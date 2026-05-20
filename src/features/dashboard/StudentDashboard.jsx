@@ -104,7 +104,7 @@ function ActivityModuleCard({ mod }) {
     <Link
       to={mod.path}
       onClick={() => markViewed()}
-      className="module-card"
+      className="module-card active-scale hover-lift"
       style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative' }}
     >
       {hasActivity && (

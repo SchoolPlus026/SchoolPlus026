@@ -61,7 +61,7 @@ function ModuleCard({ mod, isLocked, onClick, hasActivity }) {
     <Link
       to={isLocked ? '#' : mod.path}
       onClick={onClick}
-      className="module-card"
+      className="module-card active-scale hover-lift"
       style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative', opacity: isLocked ? 0.6 : 1 }}
     >
       {hasActivity && (
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
           {/* ── MANAGE MODULES ─ Always visible, never hidden ─────────────── */}
           <Link
             to="/admin/manage-modules"
-            className="module-card"
+            className="module-card active-scale hover-lift"
             style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative' }}
           >
             <div style={{

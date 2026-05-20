@@ -40,7 +40,7 @@ export default function DriverDashboard() {
             <Link
               key={mod.name}
               to={mod.path}
-              className="module-card shadow-lg"
+              className="module-card shadow-lg active-scale hover-lift"
               style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', background: 'white', borderRadius: '24px', border: '1px solid var(--border-color)' }}
             >
               <div style={{

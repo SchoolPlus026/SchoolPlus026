@@ -358,9 +358,30 @@ export default function UserManagement() {
       {/* User Table */}
       <div className="bg-white border border-border rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary" />
-            <span className="font-bold tracking-widest text-slate-400 uppercase text-xs">Accessing Directory...</span>
+          <div className="p-6 space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="h-4 w-28 rounded-lg animate-shimmer"></div>
+              <div className="h-4 w-36 rounded-lg animate-shimmer"></div>
+              <div className="h-4 w-28 rounded-lg animate-shimmer"></div>
+              <div className="h-4.5 w-20 rounded-lg animate-shimmer"></div>
+            </div>
+            {[1, 2, 3, 4].map((idx) => (
+              <div key={idx} className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-800/50 last:border-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full animate-shimmer shrink-0"></div>
+                  <div className="space-y-2">
+                    <div className="h-3.5 w-32 rounded animate-shimmer"></div>
+                    <div className="h-2.5 w-20 rounded animate-shimmer"></div>
+                  </div>
+                </div>
+                <div className="h-3.5 w-28 rounded animate-shimmer hidden md:block"></div>
+                <div className="h-3.5 w-24 rounded animate-shimmer hidden md:block"></div>
+                <div className="flex gap-2">
+                  <div className="h-9 w-20 rounded-xl animate-shimmer"></div>
+                  <div className="h-9 w-20 rounded-xl animate-shimmer"></div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredUsers?.length === 0 ? (
           <div className="text-center py-24">

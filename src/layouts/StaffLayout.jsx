@@ -9,6 +9,7 @@ import NotificationBell from '../components/NotificationBell';
 export default function StaffLayout() {
   const { user, schoolSettings } = useAppStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -49,7 +50,9 @@ export default function StaffLayout() {
       </header>
 
       <main className="flex-1 overflow-y-auto" style={{ padding: '24px 16px' }}>
-        <Outlet />
+        <div key={location.pathname} className="premium-page-transition">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

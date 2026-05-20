@@ -68,7 +68,7 @@ export default function StaffDashboard() {
             <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
               <Link
                 to={mod.path}
-                className="module-card"
+                className="module-card active-scale hover-lift"
                 style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px' }}
               >
                 <div style={{

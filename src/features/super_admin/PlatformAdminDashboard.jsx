@@ -681,7 +681,15 @@ export default function PlatformAdminDashboard() {
               </thead>
               <tbody>
                 {loadingPlans ? (
-                  <tr><td colSpan="5" className="text-center py-6 text-muted">Loading plans...</td></tr>
+                  [1, 2].map(idx => (
+                    <tr key={idx}>
+                      <td><div className="h-4 w-32 rounded animate-shimmer"></div></td>
+                      <td><div className="h-4 w-16 rounded animate-shimmer"></div></td>
+                      <td><div className="h-4 w-20 rounded animate-shimmer"></div></td>
+                      <td><div className="h-5 w-16 rounded-full animate-shimmer"></div></td>
+                      <td><div className="h-8 w-20 rounded-lg animate-shimmer"></div></td>
+                    </tr>
+                  ))
                 ) : plans.length === 0 ? (
                   <tr><td colSpan="5" className="text-center py-6 text-muted">No subscription plans found.</td></tr>
                 ) : (
@@ -741,7 +749,16 @@ export default function PlatformAdminDashboard() {
               </thead>
               <tbody>
                 {loadingTx ? (
-                  <tr><td colSpan="6" className="text-center py-6 text-muted">Loading transactions...</td></tr>
+                  [1, 2, 3].map(idx => (
+                    <tr key={idx}>
+                      <td><div className="h-4 w-28 rounded animate-shimmer"></div></td>
+                      <td><div className="h-4 w-32 rounded animate-shimmer"></div></td>
+                      <td><div className="h-4 w-20 rounded animate-shimmer"></div></td>
+                      <td><div className="h-4 w-16 rounded animate-shimmer"></div></td>
+                      <td><div className="h-4 w-28 rounded animate-shimmer"></div></td>
+                      <td><div className="h-5 w-16 rounded-full animate-shimmer"></div></td>
+                    </tr>
+                  ))
                 ) : transactions.length === 0 ? (
                   <tr><td colSpan="6" className="text-center py-6 text-muted">No transactions found.</td></tr>
                 ) : (
@@ -797,7 +814,20 @@ export default function PlatformAdminDashboard() {
               </thead>
               <tbody>
                 {loadingSchools ? (
-                  <tr><td colSpan="5" className="text-center py-6 text-muted">Loading schools...</td></tr>
+                  [1, 2, 3].map(idx => (
+                    <tr key={idx}>
+                      <td><div className="h-4 w-12 rounded animate-shimmer"></div></td>
+                      <td><div className="h-4 w-40 rounded animate-shimmer"></div></td>
+                      <td><div className="h-5 w-16 rounded-full animate-shimmer"></div></td>
+                      <td><div className="h-4 w-12 rounded animate-shimmer"></div></td>
+                      <td>
+                        <div className="flex gap-1.5">
+                          <div className="h-8 w-16 rounded-lg animate-shimmer"></div>
+                          <div className="h-8 w-16 rounded-lg animate-shimmer"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : schools.length === 0 ? (
                   <tr><td colSpan="5" className="text-center py-6 text-muted">No schools registered yet.</td></tr>
                 ) : (
@@ -948,7 +978,17 @@ export default function PlatformAdminDashboard() {
                 </thead>
                 <tbody>
                   {loadingBroadcasts ? (
-                    <tr><td colSpan="7" className="text-center py-4 text-muted">Loading history...</td></tr>
+                    [1, 2].map(idx => (
+                      <tr key={idx}>
+                        <td><div className="h-4 w-16 rounded animate-shimmer"></div></td>
+                        <td><div className="h-4 w-40 rounded animate-shimmer"></div></td>
+                        <td><div className="h-5 w-16 rounded-full animate-shimmer"></div></td>
+                        <td><div className="h-5 w-16 rounded-full animate-shimmer"></div></td>
+                        <td><div className="h-4 w-20 rounded animate-shimmer"></div></td>
+                        <td><div className="h-4 w-12 rounded animate-shimmer"></div></td>
+                        <td><div className="h-8 w-16 rounded-lg animate-shimmer"></div></td>
+                      </tr>
+                    ))
                   ) : broadcasts.length === 0 ? (
                     <tr><td colSpan="7" className="text-center py-4 text-muted">No past broadcasts.</td></tr>
                   ) : (
@@ -1007,7 +1047,19 @@ export default function PlatformAdminDashboard() {
 
           <div className="mt-6 space-y-4">
             {loadingTickets ? (
-              <div className="text-center py-6 text-muted">Loading tickets...</div>
+              [1, 2].map(idx => (
+                <div key={idx} className="border border-slate-700/50 rounded-xl p-4 bg-slate-800/30 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2">
+                      <div className="h-4.5 w-48 rounded animate-shimmer"></div>
+                      <div className="h-3 w-32 rounded animate-shimmer"></div>
+                    </div>
+                    <div className="h-5 w-16 rounded-full animate-shimmer"></div>
+                  </div>
+                  <div className="h-3 w-full rounded animate-shimmer mt-3"></div>
+                  <div className="h-3 w-4/5 rounded animate-shimmer"></div>
+                </div>
+              ))
             ) : tickets.length === 0 ? (
               <div className="text-center py-6 text-muted">No support tickets found.</div>
             ) : (

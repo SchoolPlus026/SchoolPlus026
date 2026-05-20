@@ -69,7 +69,9 @@ export default function PlatformAdminLayout() {
                <ChevronLeft size={14} /> Back to Dashboard
             </Link>
           )}
-          <Outlet />
+          <div key={location.pathname} className="premium-page-transition">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>
