@@ -68,11 +68,15 @@ const EField = ({ label, field, type = 'text', options = null, allowCustom = fal
 );
 
 export default function UserManagement() {
-  const { schoolSettings, user: currentUser, role: currentRole } = useAppStore();
+  const { schoolSettings, setSchoolSettings, user: currentUser, role: currentRole } = useAppStore();
   const { isPending } = usePending();
   const [activeTab, setActiveTab] = useState(currentRole === 'teacher' ? 'student' : 'teacher');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState(currentRole === 'teacher' ? (currentUser?.user_metadata?.class || '') : '');
+
+  /* ── Create Class Modal State ── */
+  const [isCreateClassModalOpen, setIsCreateClassModalOpen] = useState(false);
+  const [newClassInput, setNewClassInput] = useState('');
   const queryClient = useQueryClient();
 
   /* ── Password Reset State ── */
@@ -238,22 +242,46 @@ export default function UserManagement() {
     setEditForm({ ...user });
   };
 
-  const handleCreateClass = async () => {
+  const handleSaveClass = async (e) => {
+    e.preventDefault();
     if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
-    const newClass = window.prompt('Enter new class name (e.g. 10TH SCI):');
-    if (!newClass || !newClass.trim()) return;
+    if (!newClassInput || !newClassInput.trim()) {
+      alert('Please enter a class number.');
+      return;
+    }
     
-    const formatted = formatClassName(newClass);
+    const getOrdinal = (n) => {
+      const num = parseInt(n, 10);
+      if (isNaN(num)) return '';
+      const j = num % 10, k = num % 100;
+      if (j === 1 && k !== 11) return 'ST';
+      if (j === 2 && k !== 12) return 'ND';
+      if (j === 3 && k !== 13) return 'RD';
+      return 'TH';
+    };
+    
+    const formatted = newClassInput.trim() + getOrdinal(newClassInput.trim());
+    
     if (classes.includes(formatted)) {
       alert('Already exists');
       return;
     }
     
-    const updatedClasses = [...classes, formatted].sort();
+    const updatedClasses = [...classes, formatted].sort((a, b) => {
+      const numA = parseInt(a, 10);
+      const numB = parseInt(b, 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      return a.localeCompare(b);
+    });
+    
     const { error } = await supabase.from('school_settings').update({ classes: updatedClasses }).eq('school_id', schoolSettings.school_id);
     if (error) return alert('Error creating class: ' + error.message);
     setSchoolSettings({ ...schoolSettings, classes: updatedClasses });
     alert(`Class ${formatted} created successfully!`);
+    setIsCreateClassModalOpen(false);
+    setNewClassInput('');
   };
 
   return (
@@ -306,7 +334,10 @@ export default function UserManagement() {
         {currentRole === 'admin' && (
           <div className="flex flex-col sm:flex-row gap-2">
             <button
-              onClick={handleCreateClass}
+              onClick={() => {
+                if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                setIsCreateClassModalOpen(true);
+              }}
               className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-500/20 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 transition-all whitespace-nowrap active:scale-95"
             >
               <Plus size={20} /> Create Class
@@ -708,6 +739,60 @@ export default function UserManagement() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── CREATE CLASS MODAL ── */}
+      {isCreateClassModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <form onSubmit={handleSaveClass} className="bg-white border border-border rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
+                <Plus size={20} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-black text-slate-800 tracking-tight text-base">Create Class</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Manage Academy</p>
+              </div>
+            </div>
+            
+            <p className="text-[11px] text-slate-500 mb-4 font-medium leading-relaxed">
+              Enter the numeric grade or class number (e.g., 1, 2, 10, 11). Only numbers are accepted; the system will append the correct suffix (ST, ND, RD, TH) automatically.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] uppercase font-black text-slate-400 tracking-widest block mb-1">Class Number</label>
+                <input
+                  type="text"
+                  pattern="\d*"
+                  inputMode="numeric"
+                  value={newClassInput}
+                  onChange={e => setNewClassInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="e.g. 1, 3, 10..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-emerald-300 font-bold"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setIsCreateClassModalOpen(false); setNewClassInput(''); }}
+                  className="flex-1 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newClassInput}
+                  className="flex-[1.5] py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl disabled:opacity-50 transition-all shadow-md shadow-emerald-200 flex items-center justify-center gap-1.5"
+                >
+                  Create Class
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       )}
     </div>
