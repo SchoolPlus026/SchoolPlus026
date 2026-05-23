@@ -8,6 +8,8 @@ import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
 import GlobalBroadcastBanner from '../components/GlobalBroadcastBanner';
 import PageTransition from '../components/PageTransition';
+import RecoveryNudgeBanner from '../components/RecoveryNudgeBanner';
+import ResetWarningBanner from '../components/ResetWarningBanner';
 
 export default function AdminLayout() {
   const { user, schoolSettings, isImpersonating, clearImpersonation } = useAppStore();
@@ -106,6 +108,12 @@ export default function AdminLayout() {
 
       {/* ── Global Broadcast Banner ── */}
       <GlobalBroadcastBanner />
+
+      {/* ── Recovery Onboarding Nudge ── */}
+      <RecoveryNudgeBanner />
+
+      {/* ── Password Reset Security Warning ── */}
+      <ResetWarningBanner />
 
       {/* ── Trial/Free Plan Banner ── */}
       {schoolSettings?.subscription_tier === 'Free' && !hideFreeBanner && (

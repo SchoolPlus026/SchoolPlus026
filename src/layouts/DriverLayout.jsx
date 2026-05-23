@@ -7,6 +7,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
+import RecoveryNudgeBanner from '../components/RecoveryNudgeBanner';
+import ResetWarningBanner from '../components/ResetWarningBanner';
 
 export default function DriverLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -74,6 +76,12 @@ export default function DriverLayout() {
           </button>
         </div>
       </header>
+
+      {/* ── Recovery Onboarding Nudge ── */}
+      <RecoveryNudgeBanner />
+
+      {/* ── Password Reset Security Warning ── */}
+      <ResetWarningBanner />
 
       <main className="flex-1 overflow-y-auto scroll-stable">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

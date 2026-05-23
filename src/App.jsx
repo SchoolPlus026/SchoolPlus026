@@ -94,6 +94,7 @@ import FeatureGuard from './components/FeatureGuard';
 export default function App() {
   const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
   const [isInitializing, setIsInitializing] = useState(!user);
+  const location = useLocation();
 
   useEffect(() => {
     async function initializeApp() {
@@ -196,8 +197,6 @@ export default function App() {
     if (role === 'staff') return '/staff';
     return `/${role}`;
   };
-
-  const location = useLocation();
 
   return (
     <ToastProvider>

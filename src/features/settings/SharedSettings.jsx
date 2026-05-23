@@ -10,6 +10,8 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
 import BiometricSetup from './BiometricSetup';
+import RecoverySetup from './RecoverySetup';
+import WebSyncPanel from './WebSyncPanel';
 /* ─── helpers ─── */
 function toast(msg, setT) {
   setT(msg);
@@ -347,6 +349,12 @@ export default function SharedSettings() {
 
       {/* ── 4. BIOMETRIC SETUP ── */}
       <BiometricSetup />
+
+      {/* ── 4.6 ACCOUNT RECOVERY SETUP ── */}
+      <RecoverySetup />
+
+      {/* ── 4.7 WEB PC SYNC PANEL ── */}
+      <WebSyncPanel />
 
       {/* ── 5. DATA MANAGEMENT (admin only) ── */}
       {userRole === 'admin' && (

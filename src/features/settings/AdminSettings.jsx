@@ -13,6 +13,8 @@ import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App } from '@capacitor/app';
 import BiometricSetup from './BiometricSetup';
+import RecoverySetup from './RecoverySetup';
+import WebSyncPanel from './WebSyncPanel';
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
@@ -664,6 +666,12 @@ export default function AdminSettings() {
 
       {/* ── 4.5 BIOMETRIC SETUP ── */}
       <BiometricSetup />
+
+      {/* ── 4.6 ACCOUNT RECOVERY SETUP ── */}
+      <RecoverySetup />
+
+      {/* ── 4.7 WEB PC SYNC PANEL ── */}
+      <WebSyncPanel />
 
       {/* ── 5. DATA MANAGEMENT ── */}
       <div className="card">

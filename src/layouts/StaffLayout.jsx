@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Bell } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
 import PageTransition from '../components/PageTransition';
+import RecoveryNudgeBanner from '../components/RecoveryNudgeBanner';
+import ResetWarningBanner from '../components/ResetWarningBanner';
 
 export default function StaffLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -49,6 +51,12 @@ export default function StaffLayout() {
           </button>
         </div>
       </header>
+
+      {/* ── Recovery Onboarding Nudge ── */}
+      <RecoveryNudgeBanner />
+
+      {/* ── Password Reset Security Warning ── */}
+      <ResetWarningBanner />
 
       <main className="flex-1 overflow-y-auto" style={{ padding: '24px 16px' }}>
         <PageTransition>

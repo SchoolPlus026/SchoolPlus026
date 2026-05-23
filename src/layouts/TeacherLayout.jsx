@@ -8,6 +8,8 @@ import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import GlobalBroadcastBanner from '../components/GlobalBroadcastBanner';
+import RecoveryNudgeBanner from '../components/RecoveryNudgeBanner';
+import ResetWarningBanner from '../components/ResetWarningBanner';
 
 export default function TeacherLayout() {
   const { user, schoolSettings } = useAppStore();
@@ -78,6 +80,12 @@ export default function TeacherLayout() {
 
       {/* ── Global Broadcast Banner ── */}
       <GlobalBroadcastBanner />
+
+      {/* ── Recovery Onboarding Nudge ── */}
+      <RecoveryNudgeBanner />
+
+      {/* ── Password Reset Security Warning ── */}
+      <ResetWarningBanner />
 
       <main className="flex-1 overflow-y-auto scroll-stable">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

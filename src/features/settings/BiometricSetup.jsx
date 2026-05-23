@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../config/supabaseClient';
+import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Fingerprint, Trash2, Loader2, Plus, ShieldCheck } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -42,23 +42,7 @@ export default function BiometricSetup() {
   // Helper: invoke Edge Function and surface the real server-side error message
   // instead of the generic "Edge Function returned a non-2xx status code".
   const invokeEdgeFn = async (fnName, body) => {
-    const { data, error } = await supabase.functions.invoke(fnName, { body });
-    if (error) {
-      // Supabase JS wraps the body inside error.context on non-2xx
-      let detail = error.message;
-      try {
-        const ctx = error.context;
-        if (ctx?.json) {
-          const body = await ctx.json();
-          detail = body?.error || detail;
-        } else if (data?.error) {
-          detail = data.error;
-        }
-      } catch (_) { /* ignore JSON parse errors */ }
-      throw new Error(detail);
-    }
-    if (data?.error) throw new Error(data.error);
-    return data;
+    return safeInvokeEdgeFn(fnName, body);
   };
 
   const handleEnroll = async () => {

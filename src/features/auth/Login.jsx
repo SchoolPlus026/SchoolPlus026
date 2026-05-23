@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff, Fingerprint } from 'lucide-react';
+import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff, Fingerprint, RefreshCw, Key, HelpCircle, ChevronRight } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorPasskey } from '@capgo/capacitor-passkey';
-import { supabase } from '../../config/supabaseClient';
+import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function Login() {
-  const [step, setStep] = useState(1); // 1: School Code, 2: Auth
+  const [step, setStep] = useState(1); // 1: School Code, 2: Auth, 3: Recovery Center, 4: School Code Rec, 5: Username Rec, 6: Password Rec, 7: QR Sync PC Screen
   const [schoolCode, setSchoolCode] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -17,43 +17,73 @@ export default function Login() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Recovery UI state variables
+  const [recoveryRole, setRecoveryRole] = useState('student');
+  const [recoveryName, setRecoveryName] = useState('');
+  const [recoveryContact, setRecoveryContact] = useState('');
+  const [recoveryDob, setRecoveryDob] = useState('');
+  const [recoveryPassword, setRecoveryPassword] = useState('');
+  
+  // Q&A Wizard states
+  const [qaSessionId, setQaSessionId] = useState('');
+  const [qaQuestions, setQaQuestions] = useState([]);
+  const [currentQaIndex, setCurrentQaIndex] = useState(0);
+  const [qaAnswers, setQaAnswers] = useState({});
+  const [qaIncorrectList, setQaIncorrectList] = useState([]);
+  const [qaAttempts, setQaAttempts] = useState(0);
+  const [newRecoveryPassword, setNewRecoveryPassword] = useState('');
+  const [confirmRecoveryPassword, setConfirmRecoveryPassword] = useState('');
+
+  // Pin Recovery
+  const [recoveryPin, setRecoveryPin] = useState('');
+
+  // QR Sync State
+  const [qrToken, setQrToken] = useState('');
+  const [qrPollInterval, setQrPollInterval] = useState(null);
+
   const [globalApp, setGlobalApp] = useState({ name: 'SchoolOS+', logo: null });
   const { setUserAndRole, setSchoolSettings, schoolSettings } = useAppStore();
   const navigate = useNavigate();
 
-  // On mount: always reset school context so shared-device users start fresh at step 1.
-  // The persisted schoolSettings from a previous session must not auto-advance this form.
+  // On mount: reset session
   useEffect(() => {
     setSchoolSettings(null);
     supabase.from('platform_settings').select('app_name, logo_url').single()
       .then(({ data }) => {
         if (data) setGlobalApp({ name: data.app_name || 'SchoolOS+', logo: data.logo_url });
       }).catch(console.error);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setSchoolSettings]);
+
+  useEffect(() => {
+    return () => {
+      if (qrPollInterval) clearInterval(qrPollInterval);
+    };
+  }, [qrPollInterval]);
+
+  const invokeEdgeFn = async (action, body) => {
+    if (action === 'webauthn-start' || action === 'webauthn-verify') {
+      return safeInvokeEdgeFn(action, body);
+    }
+    return safeInvokeEdgeFn('hybrid-recovery-handler', { action, ...body });
+  };
 
   const handleIdentifySchool = async (e) => {
     e.preventDefault();
-    if (schoolCode.toUpperCase() === 'PLATFORM') {
-       setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
-       setStep(2);
-       return;
-    }
     setLoading(true);
     setError('');
     
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Connection timed out. Please check your internet and try again.')), 10000)
-    );
-
     try {
-      const fetchPromise = supabase
+      if (schoolCode.toUpperCase() === 'PLATFORM') {
+         setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
+         setStep(2);
+         return;
+      }
+
+      const { data, error: fetchError } = await supabase
         .from('school_settings')
         .select('*')
         .eq('school_code', schoolCode.toUpperCase())
-        .limit(1)
         .maybeSingle();
-
-      const { data, error: fetchError } = await Promise.race([fetchPromise, timeoutPromise]);
       
       if (fetchError) throw new Error(fetchError.message);
       if (!data) throw new Error('Invalid School Code. Please check and try again.');
@@ -67,6 +97,9 @@ export default function Login() {
     }
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // LOGIN SUBMIT (WITH BRUTE-FORCE LOCKOUT INTERCEPTION)
+  // ─────────────────────────────────────────────────────────────────────────
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -74,37 +107,58 @@ export default function Login() {
     try {
       const rawInput = username.trim();
 
-      // ── Step 1: Resolve email from username ──
-      // If the input already looks like an email, use it directly.
-      // Otherwise, look up the email from the public.users table by username.
-      let loginEmail = '';
+      // 1. Intercept Check Brute-Force Lockout (Fail-Open)
+      try {
+        const bfCheck = await invokeEdgeFn('check-brute-force', { username: rawInput });
+        if (bfCheck?.locked) {
+          const unlockTime = new Date(bfCheck.lockedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          throw new Error(`🔒 Account Temporarily Locked: Too many incorrect login attempts. For security, this username is locked for 2 hours. Please try again after ${unlockTime}.`);
+        }
+      } catch (bfErr) {
+        if (bfErr.message?.includes('Account Temporarily Locked')) {
+          throw bfErr;
+        }
+        console.warn('Brute-force check failed to execute. Failing open:', bfErr);
+      }
 
+      // Resolve email from username
+      let loginEmail = '';
       if (rawInput.includes('@')) {
-        // It's already an email
         loginEmail = rawInput;
       } else {
-        // Username lookup — we query public.users to find the linked auth email.
-        // We use a public-readable RPC or the anon key select.
-        // Since users table has RLS, we call a helper or use auth metadata.
-        // Strategy: query auth.users via a known email pattern first (demo), 
-        // then fall back to a username→email lookup via the resolve_email_by_username function.
         const { data: lookupData, error: lookupError } = await supabase
           .rpc('get_email_by_username', { p_username: rawInput });
 
         if (lookupError || !lookupData) {
-          throw new Error(`No account found for username "${rawInput}". Please use your email instead.`);
+          throw new Error(`No account found for username "${rawInput}". Please check your username.`);
         }
         loginEmail = lookupData;
       }
 
-      // ── Step 2: Sign in with Supabase Auth ──
+      // Sign in with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: password,
       });
-      if (authError) throw new Error('Incorrect password or account not found.');
 
-      // ── Step 3: Fetch user profile ──
+      if (authError) {
+        // Log failure to brute-force monitor (Fail-Open)
+        try {
+          await invokeEdgeFn('log-failure', { username: rawInput });
+        } catch (bfErr) {
+          console.warn('Failed to log brute-force failure:', bfErr);
+        }
+        throw new Error('Incorrect password or account not found.');
+      }
+
+      // Reset brute force counter on successful sign-in (Fail-Open)
+      try {
+        await invokeEdgeFn('reset-failures', { username: rawInput });
+      } catch (bfErr) {
+        console.warn('Failed to reset brute-force failures:', bfErr);
+      }
+
+      // Fetch user profile
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('role, school_id, name')
@@ -116,7 +170,7 @@ export default function Login() {
         throw new Error('Could not load your profile. Please contact your administrator.');
       }
 
-      // ── Step 4: School validation (skip for platform_admin) ──
+      // School validation (skip for platform_admin)
       if (profile.role !== 'platform_admin') {
         if (profile.school_id !== schoolSettings?.school_id) {
           await supabase.auth.signOut();
@@ -124,19 +178,12 @@ export default function Login() {
         }
       }
 
-      // ── Step 5: For platform_admin, load school settings from their own record ──
       if (profile.role === 'platform_admin' && !schoolSettings) {
-        // Platform admin has no school; just set a placeholder so the store isn't null
         setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
       }
 
       setUserAndRole(authData.user, profile.role);
-
-      if (profile.role === 'platform_admin') {
-        navigate('/platform-admin', { replace: true });
-      } else {
-        navigate(`/${profile.role}`, { replace: true });
-      }
+      navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
     } catch (err) {
       setError(err.message || 'An unexpected error occurred during login.');
     } finally {
@@ -144,40 +191,28 @@ export default function Login() {
     }
   };
 
-
-  const handleForgotPassword = async () => {
-    if (!username) {
-      setError('Please enter your username first.');
+  // ─────────────────────────────────────────────────────────────────────────
+  // SCHOOL CODE RECOVERY
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleRecoverSchoolCode = async (e) => {
+    e.preventDefault();
+    if (!recoveryContact.trim() && !recoveryDob) {
+      setError('Please provide either your Registered Contact Number or Date of Birth.');
       return;
     }
     setForgotLoading(true);
     setError('');
-    setSuccess('');
     try {
-      // 1. Resolve profile to check role
-      const { data: profile, error: lookupError } = await supabase
-        .from('users')
-        .select('email, role')
-        .eq('username', username.trim())
-        .single();
-
-      if (lookupError || !profile) {
-        throw new Error('No account found for this username. Please contact your administrator.');
-      }
-
-      if (profile.role === 'student') {
-        setSuccess('Please contact your class teacher to reset your password.');
-        return;
-      }
-
-      // 2. Trigger Supabase Reset for Staff/Teacher/Admin
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(profile.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const data = await invokeEdgeFn('recover-school-code', {
+        name: recoveryName,
+        role: recoveryRole,
+        contact: recoveryContact.trim() || null,
+        dob: recoveryDob || null
       });
-
-      if (resetError) throw resetError;
-
-      setSuccess("Recovery email sent. If you don't receive it, please contact your School Admin (Headmaster).");
+      setQaQuestions([{ id: 1, question: data.challengeQuestion, options: data.options }]);
+      setQaSessionId(data.sessionId);
+      setCurrentQaIndex(0);
+      setStep(42); // Challenge screen
     } catch (err) {
       setError(err.message);
     } finally {
@@ -185,142 +220,209 @@ export default function Login() {
     }
   };
 
-  // Extracts the real server-side error from a failed Edge Function invocation.
-  const invokeEdgeFn = async (fnName, body) => {
-    const { data, error } = await supabase.functions.invoke(fnName, { body });
-    if (error) {
-      let detail = error.message;
-      try {
-        const ctx = error.context;
-        if (ctx?.json) {
-          const parsed = await ctx.json();
-          detail = parsed?.error || detail;
-        } else if (data?.error) {
-          detail = data.error;
-        }
-      } catch (_) { /* ignore */ }
-      throw new Error(detail);
+  const handleSubmitSchoolCodeChallenge = async (answer) => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await invokeEdgeFn('verify-school-code', {
+        sessionId: qaSessionId,
+        answer
+      });
+      setSuccess(`Your School Code is: ${data.schoolCode}`);
+      setSchoolCode(data.schoolCode);
+      setStep(1);
+      setTimeout(() => {
+        setSuccess('');
+      }, 10000); // 10 seconds autohide
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    if (data?.error) throw new Error(data.error);
-    return data;
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // USERNAME RECOVERY
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleRecoverUsername = async (e) => {
+    e.preventDefault();
+    if (!recoveryContact.trim() && !recoveryDob) {
+      setError('Please provide either your Registered Contact Number or Date of Birth.');
+      return;
+    }
+    setForgotLoading(true);
+    setError('');
+    try {
+      const data = await invokeEdgeFn('initiate-recovery', {
+        credential_type: 'username',
+        school_code: schoolCode,
+        password: recoveryPassword,
+        name: recoveryName,
+        dob: recoveryDob || null,
+        contact: recoveryContact.trim() || null
+      });
+      setQaQuestions(data.questions);
+      setQaSessionId(data.sessionId);
+      setCurrentQaIndex(0);
+      setQaAnswers({});
+      setStep(52); // Sequential Q&A screen
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PASSWORD RECOVERY
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleRecoverPassword = async (e) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setError('');
+    try {
+      const data = await invokeEdgeFn('initiate-recovery', {
+        credential_type: 'password',
+        username: username,
+        school_code: schoolCode
+      });
+      setQaQuestions(data.questions);
+      setQaSessionId(data.sessionId);
+      setCurrentQaIndex(0);
+      setQaAnswers({});
+      setStep(62); // Question wizard
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  // Final evaluation for recovery Q&A
+  const handleEvaluateQARecovery = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      if (qaQuestions.length === 5 && Object.keys(qaAnswers).length < 5) {
+        throw new Error('Please answer all 5 questions first.');
+      }
+
+      const isPasswordRec = step === 62;
+
+      if (isPasswordRec) {
+        if (newRecoveryPassword !== confirmRecoveryPassword) throw new Error('Passwords do not match');
+        if (newRecoveryPassword.length < 6) throw new Error('Password must be at least 6 characters');
+      }
+
+      const data = await invokeEdgeFn('submit-recovery-answers', {
+        sessionId: qaSessionId,
+        answers: qaAnswers,
+        newPassword: isPasswordRec ? newRecoveryPassword : null
+      });
+
+      if (isPasswordRec) {
+        setSuccess('Password updated successfully! Redirecting you to login...');
+        setTimeout(() => {
+          setSuccess('');
+          setStep(2);
+        }, 3000);
+      } else {
+        setSuccess(`Your Username is: ${data.username}`);
+        setUsername(data.username);
+        setStep(2);
+        setTimeout(() => {
+          setSuccess('');
+        }, 10000); // 10 seconds
+      }
+    } catch (err) {
+      // Handle Student strict abort
+      if (err.message.includes('aborted') || err.message.includes('Class Teacher')) {
+        setError('Verification Failed. Please contact your Class Teacher to reset your password.');
+        setQaQuestions([]);
+        return;
+      }
+      setError(err.message);
+      // Highlight incorrect questions
+      if (err.incorrectQuestions) {
+        setQaIncorrectList(err.incorrectQuestions);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // UNIVERSAL QR CODE WEB-SYNC LOGIC
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleInitiateQrSync = async () => {
+    setForgotLoading(true);
+    setError('');
+    try {
+      const data = await invokeEdgeFn('qr-generate', {});
+      setQrToken(data.qrToken);
+      setStep(7); // Show PC QR Screen
+
+      // Start polling status
+      const interval = setInterval(async () => {
+        try {
+          const status = await invokeEdgeFn('qr-poll', { qrToken: data.qrToken });
+          if (status.expired) {
+            clearInterval(interval);
+            setError('QR session expired. Please refresh.');
+          } else if (status.verified) {
+            clearInterval(interval);
+            setSuccess('Device verified successfully! Logging you in...');
+            // Redirect magic link
+            window.location.href = status.loginUrl;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 3000);
+      setQrPollInterval(interval);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   const handleBiometricLogin = async () => {
     if (!Capacitor.isNativePlatform()) return;
     setLoading(true);
     setError('');
-
     try {
-      // Build the authenticate request.
-      // Passing 'username' lets the Edge Function resolve the userId and build an
-      // explicit allowCredentials list. This is required for non-discoverable
-      // (residentKey: discouraged) credentials AND speeds up discoverable ones.
-      const authPayload = { action: 'authenticate' };
-      if (username.trim()) {
-        authPayload.username = username.trim();
-      }
-
-      // 1. Get authentication options from Edge Function
-      const startData = await invokeEdgeFn('webauthn-start', authPayload);
+      const startData = await invokeEdgeFn('webauthn-start', { action: 'authenticate', username });
       const { options, sessionKey } = startData;
-      if (!options || !sessionKey) throw new Error('Invalid response from authentication start');
-
-      // 2. Call Native Capacitor Passkey Bridge — triggers fingerprint prompt
-      let nativeResponse;
-      try {
-        nativeResponse = await CapacitorPasskey.getCredential({ 
-          publicKey: options,
-          mediation: 'optional' 
-        });
-      } catch (nativeError) {
-        const msg = nativeError?.message || JSON.stringify(nativeError) || 'Unknown native error';
-        if (msg.toLowerCase().includes('cancel')) {
-          setError('Biometric login cancelled.');
-          return;
-        }
-        // "No credentials available" — user hasn't enrolled yet or enrolled on different device
-        if (msg.toLowerCase().includes('no credentials') || msg.toLowerCase().includes('no passkey')) {
-          setError('No biometric login found. Please enroll your fingerprint from Settings first.');
-          return;
-        }
-        throw new Error(`Native Error: ${msg}`);
-      }
-
-      if (!nativeResponse) {
-        throw new Error('Biometric authentication failed.');
-      }
-      
-      // Guard the id property explicitly
-      const credId = nativeResponse?.id || nativeResponse?.rawId;
-      if (!credId) {
-        throw new Error('Device returned an incomplete credential. Please re-enroll your biometrics from Settings.');
-      }
-
-      // 3. Verify authentication with Edge Function
+      let nativeResponse = await CapacitorPasskey.getCredential({ publicKey: options, mediation: 'optional' });
       const verifyData = await invokeEdgeFn('webauthn-verify', {
         action: 'authentication',
         sessionKey,
         response: nativeResponse,
       });
 
-      if (!verifyData?.success || !verifyData?.token_hash) {
-        throw new Error('Biometric verification failed — server did not return a login token.');
-      }
-
-      // 4. Exchange token for a Supabase session
       const { data: authData, error: authError } = await supabase.auth.verifyOtp({
         token_hash: verifyData.token_hash,
         type: 'magiclink',
       });
 
-      if (authError) throw new Error(authError.message || 'Token verification failed');
-      if (!authData?.user) throw new Error('Authentication succeeded but no user was returned');
+      if (authError) throw authError;
 
-      // 5. Fetch user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('role, school_id, name')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (profileError || !profile) {
-        await supabase.auth.signOut();
-        throw new Error('Could not load your profile. Please contact your administrator.');
-      }
-
-      // 6. School validation & navigate
-      if (profile.role !== 'platform_admin') {
-        if (profile.school_id !== schoolSettings?.school_id) {
-          await supabase.auth.signOut();
-          throw new Error('This account does not belong to the selected school workspace.');
-        }
-      } else if (!schoolSettings) {
-        setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
-      }
-
+      const { data: profile } = await supabase.from('users').select('role, school_id').eq('id', authData.user.id).single();
       setUserAndRole(authData.user, profile.role);
-      navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
-
+      navigate(`/${profile.role}`, { replace: true });
     } catch (err) {
-      console.error('[Login] biometric error:', err);
-      setError(err.message || 'Biometric login failed. Please use your password.');
+      setError(err.message || 'Biometric verification failed.');
     } finally {
       setLoading(false);
     }
   };
 
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
       style={{ background: 'radial-gradient(800px 400px at 30% 20%, rgba(124, 58, 237, 0.15), transparent), linear-gradient(180deg, #0b1020 0%, #061233 100%)' }}
     >
-      {/* Decorative blobs */}
-      <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none"
-        style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }} />
-      <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full blur-3xl opacity-10 pointer-events-none"
-        style={{ background: '#60a5fa' }} />
-
-      {/* App header branding */}
       <div className="mb-8 text-center relative z-10">
         <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden"
           style={{ background: globalApp.logo ? 'transparent' : 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
@@ -333,191 +435,350 @@ export default function Login() {
         <h1 className="text-2xl font-extrabold text-white tracking-tight">
           {step === 2 && schoolSettings?.name ? schoolSettings.name : globalApp.name}
         </h1>
-        <p className="text-slate-400 text-sm mt-1 font-medium">
-          Digital School — Portal for Students, Teachers &amp; Admin
-        </p>
+        <p className="text-slate-400 text-sm mt-1 font-medium">Digital School Workspace</p>
       </div>
 
-      {/* Login Card */}
       <div className="w-full max-w-md relative z-10 sp-card shadow-2xl">
+        {error && (
+          <div className="mb-5 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-300 font-semibold">{error}</p>
+          </div>
+        )}
 
-        {step === 1 ? (
+        {success && (
+          <div className="mb-5 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3">
+            <div className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5">✓</div>
+            <p className="text-sm text-emerald-300 font-semibold">{success}</p>
+          </div>
+        )}
+
+        {/* 1. School Code Step */}
+        {step === 1 && (
           <div className="fade-in">
-            <div className="mb-8">
-              <h2 className="text-lg font-black text-slate-100 uppercase tracking-tight">Enter School Code</h2>
-              <p className="text-slate-500 text-xs mt-1 font-semibold uppercase tracking-widest">Use the code provided by your administrator</p>
-            </div>
-
-            {error && (
-              <div className="mb-5 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
-                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-300 font-semibold">{error}</p>
-              </div>
-            )}
-
+            <h2 className="text-lg font-black text-slate-100 uppercase tracking-tight mb-5">Enter School Code</h2>
             <form onSubmit={handleIdentifySchool} className="space-y-5">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">School Code</label>
-                <input
-                  type="text"
-                  required
-                  value={schoolCode}
-                  onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
-                  className="sp-input text-center text-2xl font-black tracking-[0.3em]"
-                  placeholder="DEMO01"
-                  autoFocus
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary w-full py-3.5 flex items-center justify-center gap-2 text-sm font-bold"
-              >
-                {loading
-                  ? <Loader2 className="w-5 h-5 animate-spin" />
-                  : <>Continue <ArrowRight size={16} /></>
-                }
+              <input
+                type="text"
+                required
+                value={schoolCode}
+                onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                className="sp-input text-center text-2xl font-black tracking-[0.3em]"
+                placeholder="DEMO01"
+                autoFocus
+              />
+              <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center gap-2">
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Continue <ArrowRight size={16} /></>}
               </button>
             </form>
+            <button onClick={() => setStep(4)} className="text-xs font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-wider block mt-4 text-center w-full">
+              Forgot School Code?
+            </button>
           </div>
-        ) : (
+        )}
+
+        {/* 2. Login Step */}
+        {step === 2 && (
           <div className="fade-in">
-            <button
-              onClick={() => { setStep(1); setError(''); setSchoolCode(''); setSchoolSettings(null); }}
-              className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 transition-colors mb-7 uppercase tracking-widest"
-            >
+            <button onClick={() => { setStep(1); setSchoolSettings(null); }} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 transition-colors mb-7 uppercase tracking-widest">
               <ArrowLeft size={12} /> Change School
             </button>
-
-            {/* School identity display */}
-            {schoolSettings && (
-              <div className="flex items-center gap-3 mb-7 pb-5 border-b border-white/5">
-                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  {schoolSettings.logo_url
-                    ? <img src={schoolSettings.logo_url} alt="Logo" className="w-full h-full object-contain" />
-                    : <SchoolIcon size={18} className="text-indigo-300" />
-                  }
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-slate-200">{schoolSettings.name}</div>
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">Authorized Access Only</div>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="mb-5 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
-                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-300 font-semibold">{error}</p>
-              </div>
-            )}
-
-            {success && (
-              <div className="mb-5 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3">
-                <div className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5">✓</div>
-                <p className="text-sm text-emerald-300 font-semibold">{success}</p>
-              </div>
-            )}
-
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Username</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">
-                    <User size={16} />
-                  </div>
-                  <input
-                    id="username"
-                    type="text"
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="sp-input pl-11"
-                    placeholder="e.g. admin or teacher"
-                    autoComplete="username"
-                    autoFocus
-                  />
-                </div>
-                <p className="text-[10px] text-slate-600 mt-1 ml-1">Enter your username or full email address</p>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Username</label>
+                <input id="username" type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="sp-input pl-4" placeholder="e.g. admin or teacher" />
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Password</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">
-                    <Lock size={16} />
-                  </div>
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="sp-input pl-11 pr-11"
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(v => !v)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
-                    tabIndex={-1}
-                  >
+                  <input id="password" type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} className="sp-input pl-4 pr-11" placeholder="••••••••" />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-300">
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                <div className="flex justify-end mt-2">
-                  <button
-                    type="button"
-                    disabled={forgotLoading}
-                    onClick={handleForgotPassword}
-                    className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest disabled:opacity-50"
-                  >
-                    {forgotLoading ? 'Sending...' : 'Forgot Password?'}
-                  </button>
-                </div>
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary w-full py-3.5 flex items-center justify-center text-sm font-bold mt-2"
-              >
+              <div className="flex justify-between items-center mt-2">
+                <button type="button" onClick={() => setStep(3)} className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest">
+                  Trouble logging in?
+                </button>
+              </div>
+              <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
               </button>
             </form>
+            {Capacitor.isNativePlatform() && (
+              <button onClick={handleBiometricLogin} className="w-full py-3.5 flex items-center justify-center gap-2 text-sm font-bold rounded-xl border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 transition-colors mt-4">
+                <Fingerprint size={18} /> Biometric Login
+              </button>
+            )}
+          </div>
+        )}
 
-            {(Capacitor?.isNativePlatform?.() ?? false) && (
-              <div className="mt-4 pt-4 border-t border-white/10">
+        {/* 3. Account Recovery Center */}
+        {step === 3 && (
+          <div className="fade-in space-y-4">
+            <button onClick={() => setStep(2)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 transition-colors mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Back to Login
+            </button>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider mb-2">Account Help & Recovery</h3>
+            <button onClick={() => setStep(6)} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
+              <span>🔑 Forgot Password?</span>
+              <ChevronRight size={16} />
+            </button>
+            <button onClick={() => setStep(5)} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
+              <span>👤 Forgot Username?</span>
+              <ChevronRight size={16} />
+            </button>
+            <button onClick={() => setStep(4)} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
+              <span>🏫 Forgot School Code?</span>
+              <ChevronRight size={16} />
+            </button>
+            {!Capacitor.isNativePlatform() && (
+              <button onClick={handleInitiateQrSync} className="w-full py-3 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-300">
+                <span>📲 Sync Login with Mobile App (QR Code)</span>
+                <ChevronRight size={16} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 4. Recover School Code */}
+        {step === 4 && (
+          <form onSubmit={handleRecoverSchoolCode} className="fade-in space-y-4">
+            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Back
+            </button>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Find School Code</h3>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Your Role</label>
+              <select value={recoveryRole} onChange={e => setRecoveryRole(e.target.value)} className="sp-input text-sm">
+                <option value="student">Student</option>
+                <option value="teacher">Teacher</option>
+                <option value="staff">Staff Member</option>
+                <option value="driver">Bus Driver</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Full Name</label>
+              <input type="text" required value={recoveryName} onChange={e => setRecoveryName(e.target.value)} className="sp-input" placeholder="As registered in school records" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Contact Number</label>
+                <input type="tel" value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Mobile Number" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Date of Birth</label>
+                <input type="date" value={recoveryDob} onChange={e => setRecoveryDob(e.target.value)} className="sp-input text-sm" />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 ml-1">
+              Provide at least one: Registered Contact Number or Date of Birth.
+            </p>
+            <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
+              {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Search'}
+            </button>
+          </form>
+        )}
+
+        {/* 42. School Code Challenge */}
+        {step === 42 && (
+          <div className="fade-in space-y-4">
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider mb-2">School Verification</h3>
+            <p className="text-xs text-slate-300 font-semibold mb-4">{qaQuestions[0]?.question}</p>
+            <div className="space-y-3">
+              {qaQuestions[0]?.options.map((opt, i) => (
+                <button key={i} onClick={() => handleSubmitSchoolCodeChallenge(opt)} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold text-slate-200">
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 5. Recover Username */}
+        {step === 5 && (
+          <form onSubmit={handleRecoverUsername} className="fade-in space-y-4">
+            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Back
+            </button>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Recover Username</h3>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">School Code</label>
+              <input type="text" required value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} className="sp-input text-center text-lg font-black tracking-widest" placeholder="DEMO01" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Password</label>
+              <input type="password" required value={recoveryPassword} onChange={e => setRecoveryPassword(e.target.value)} className="sp-input" placeholder="Enter password to cross-verify" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Full Name</label>
+              <input type="text" required value={recoveryName} onChange={e => setRecoveryName(e.target.value)} className="sp-input" placeholder="Registered full name" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Date of Birth</label>
+                <input type="date" value={recoveryDob} onChange={e => setRecoveryDob(e.target.value)} className="sp-input text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Mobile Number</label>
+                <input type="tel" value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Registered number" />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 col-span-2 ml-1">
+              Provide at least one: Registered Contact Number or Date of Birth.
+            </p>
+            <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
+              {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify Identity'}
+            </button>
+          </form>
+        )}
+
+        {/* 6. Recover Password Initial */}
+        {step === 6 && (
+          <form onSubmit={handleRecoverPassword} className="fade-in space-y-4">
+            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Back
+            </button>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Reset Password</h3>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username</label>
+              <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="sp-input" placeholder="Enter username" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">School Code</label>
+              <input type="text" required value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} className="sp-input text-center text-lg font-black tracking-widest" placeholder="DEMO01" />
+            </div>
+            <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
+              {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Get Recovery Questions'}
+            </button>
+          </form>
+        )}
+
+        {/* 52 & 62. Sequential 5-Question Recovery Wizard */}
+        {(step === 52 || step === 62) && qaQuestions.length > 0 && (
+          <div className="fade-in space-y-4">
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider mb-2">Identity Verification</h3>
+            <div className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Question {currentQaIndex + 1} of 5</div>
+            <p className="text-xs font-semibold text-slate-200 mt-2 mb-4">{qaQuestions[currentQaIndex]?.question}</p>
+            
+            {qaQuestions[currentQaIndex]?.options && qaQuestions[currentQaIndex]?.options.length > 0 ? (
+              <div className="space-y-3">
+                {qaQuestions[currentQaIndex].options.map((opt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setQaAnswers({ ...qaAnswers, [qaQuestions[currentQaIndex].id]: opt });
+                      if (currentQaIndex < 4) {
+                        setCurrentQaIndex(currentQaIndex + 1);
+                      }
+                    }}
+                    className={`w-full py-3 px-4 border rounded-xl text-left text-sm font-semibold transition-all ${
+                      qaAnswers[qaQuestions[currentQaIndex].id] === opt 
+                        ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300' 
+                        : 'bg-white/5 border-white/10 text-slate-200 hover:bg-white/10'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={qaAnswers[qaQuestions[currentQaIndex].id] || ''}
+                  onChange={e => setQaAnswers({ ...qaAnswers, [qaQuestions[currentQaIndex].id]: e.target.value })}
+                  className="sp-input"
+                  placeholder="Type your answer here..."
+                />
                 <button
-                  type="button"
-                  onClick={handleBiometricLogin}
-                  disabled={loading}
-                  className="w-full py-3.5 flex items-center justify-center gap-2 text-sm font-bold rounded-xl border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+                  onClick={() => {
+                    if (currentQaIndex < 4) {
+                      setCurrentQaIndex(currentQaIndex + 1);
+                    }
+                  }}
+                  className="btn-primary w-full py-2.5 text-xs font-bold"
                 >
-                  <Fingerprint size={18} />
-                  Login with Biometrics
+                  Save & Next
                 </button>
               </div>
             )}
 
+            <div className="flex justify-between items-center mt-6 pt-4 border-t border-white/5">
+              <button
+                disabled={currentQaIndex === 0}
+                onClick={() => setCurrentQaIndex(currentQaIndex - 1)}
+                className="text-xs text-slate-500 hover:text-slate-300 font-semibold disabled:opacity-30"
+              >
+                Previous
+              </button>
+              <button
+                disabled={currentQaIndex === 4}
+                onClick={() => setCurrentQaIndex(currentQaIndex + 1)}
+                className="text-xs text-slate-500 hover:text-slate-300 font-semibold disabled:opacity-30"
+              >
+                Next
+              </button>
+            </div>
+
+            {/* Final Submission Block */}
+            {Object.keys(qaAnswers).length === 5 && (
+              <form onSubmit={handleEvaluateQARecovery} className="space-y-4 pt-4 border-t border-white/10">
+                {step === 62 && (
+                  <>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Create New Password</h4>
+                    <div>
+                      <input type="password" required value={newRecoveryPassword} onChange={e => setNewRecoveryPassword(e.target.value)} className="sp-input text-sm" placeholder="New Password (min 6 chars)" />
+                    </div>
+                    <div>
+                      <input type="password" required value={confirmRecoveryPassword} onChange={e => setConfirmRecoveryPassword(e.target.value)} className="sp-input text-sm" placeholder="Confirm New Password" />
+                    </div>
+                  </>
+                )}
+                <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit Answers'}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* 7. PC Web QR Sync Screen */}
+        {step === 7 && (
+          <div className="fade-in text-center space-y-4">
+            <button onClick={() => { setStep(3); if (qrPollInterval) clearInterval(qrPollInterval); }} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Cancel Sync
+            </button>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Sync with Mobile App</h3>
+            <p className="text-xs text-slate-400">Scan this QR code using your logged-in SchoolOS+ mobile application to sign in instantly.</p>
+            
+            {qrToken ? (
+              <div className="p-4 bg-white rounded-2xl w-64 h-64 mx-auto flex items-center justify-center shadow-lg">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrToken}`}
+                  alt="Sync QR Code"
+                  className="w-48 h-48"
+                />
+              </div>
+            ) : (
+              <div className="w-64 h-64 mx-auto bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center">
+                <Loader2 className="animate-spin text-slate-400" />
+              </div>
+            )}
+
+            <div className="mt-4 pt-4 border-t border-white/5">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Or enter Sync Code in mobile app:</p>
+              <div className="bg-white/10 border border-white/10 rounded-xl py-2 px-4 inline-block text-lg font-black tracking-[0.2em] text-indigo-300">
+                {qrToken ? qrToken.slice(0, 6).toUpperCase() : '------'}
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Footer */}
       <div className="relative z-10 text-center mt-8 space-y-3">
-        <div>
-          <Link
-            to="/register"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2 rounded-full border border-indigo-500/20"
-          >
-            🏫 Register Your School — Get Started Free
-          </Link>
-        </div>
-        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-          Developed by Shubham Arun Hajare — 9022761401
-        </p>
+        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">SchoolOS+ Multi-Tenant Platform</p>
       </div>
     </div>
   );
