@@ -49,7 +49,7 @@ jobs:
             VITE_SUPABASE_ANON_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
             --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
 
-          FUNCTIONS_NO_JWT=("send-notice-notification" "process-notification-queue" "cron-notification-scheduler" "webauthn-start" "webauthn-verify")
+          FUNCTIONS_NO_JWT=("send-notice-notification" "process-notification-queue" "cron-notification-scheduler" "webauthn-start" "webauthn-verify" "hybrid-recovery-handler")
           FUNCTIONS_WITH_JWT=("platform-create-school" "platform-delete-school" "approve-school-registration" "school-self-upgrade" "gdrive-upload" "gdrive-auth")
           
           for func in "${FUNCTIONS_NO_JWT[@]}"; do

@@ -7,231 +7,207 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status,
+  })
+}
+
+function errorResponse(message: string, status = 400) {
+  return new Response(JSON.stringify({ error: message }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status,
+  })
+}
+
+// ─── Main Handler ────────────────────────────────────────────────────────────
+
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  )
+  // Only allow POST
+  if (req.method !== 'POST') {
+    return errorResponse('Method not allowed', 405)
+  }
+
+  // Build admin client
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return errorResponse('Server configuration error: missing env vars', 500)
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  })
+
+  // Parse body
+  let body: Record<string, unknown> = {}
+  try {
+    const text = await req.text()
+    if (text) {
+      body = JSON.parse(text)
+    }
+  } catch (_) {
+    return errorResponse('Invalid JSON payload')
+  }
+
+  const { action, ...payload } = body as Record<string, unknown>
+
+  if (!action || typeof action !== 'string') {
+    return errorResponse('Missing or invalid action parameter')
+  }
 
   try {
-    let body: any = {}
-    try {
-      body = await req.json()
-    } catch (_) {
-      throw new Error('Invalid JSON payload')
-    }
-    const { action, ...payload } = body
-    if (!action) throw new Error('Missing action parameter')
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1. BRUTE-FORCE PROTECTION
+    // ─────────────────────────────────────────────────────────────────────────
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 1. STANDARD LOGIN BRUTE-FORCE PROTECTION
-    // ─────────────────────────────────────────────────────────────────────────
     if (action === 'check-brute-force') {
-      const { username } = payload
-      if (!username) throw new Error('Username is required')
+      const username = (payload.username as string | undefined)?.trim().toLowerCase()
+      if (!username) return errorResponse('Username is required')
 
       const { data: log, error } = await supabaseAdmin
         .from('login_brute_force_logs')
         .select('*')
-        .eq('username', username.trim().toLowerCase())
+        .eq('username', username)
         .maybeSingle()
 
-      if (error) throw error
-
-      if (log && log.locked_until && new Date(log.locked_until) > new Date()) {
-        return new Response(
-          JSON.stringify({ locked: true, lockedUntil: log.locked_until }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        )
+      if (error) {
+        console.error('check-brute-force DB error:', error)
+        // Fail open — don't block login on DB errors
+        return jsonResponse({ locked: false })
       }
 
-      return new Response(
-        JSON.stringify({ locked: false }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      if (log?.locked_until && new Date(log.locked_until) > new Date()) {
+        return jsonResponse({ locked: true, lockedUntil: log.locked_until })
+      }
+
+      return jsonResponse({ locked: false })
     }
 
-    if (action === 'log-failure') {
-      const { username } = payload
-      if (!username) throw new Error('Username is required')
+    // ─────────────────────────────────────────────────────────────────────────
 
-      const trimmedUsername = username.trim().toLowerCase()
+    if (action === 'log-failure') {
+      const username = (payload.username as string | undefined)?.trim().toLowerCase()
+      if (!username) return errorResponse('Username is required')
 
       const { data: log } = await supabaseAdmin
         .from('login_brute_force_logs')
         .select('*')
-        .eq('username', trimmedUsername)
+        .eq('username', username)
         .maybeSingle()
 
       let attempts = 1
-      let lockedUntil = null
+      let lockedUntil: string | null = null
 
       if (log) {
-        attempts = log.failed_attempts + 1
+        attempts = (log.failed_attempts as number) + 1
         if (attempts >= 5) {
-          lockedUntil = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // 2 hours lockout
+          lockedUntil = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
         }
-
         await supabaseAdmin
           .from('login_brute_force_logs')
-          .update({
-            failed_attempts: attempts,
-            locked_until: lockedUntil,
-            last_attempt_at: new Date().toISOString()
-          })
-          .eq('username', trimmedUsername)
+          .update({ failed_attempts: attempts, locked_until: lockedUntil, last_attempt_at: new Date().toISOString() })
+          .eq('username', username)
       } else {
         await supabaseAdmin
           .from('login_brute_force_logs')
-          .insert({
-            username: trimmedUsername,
-            failed_attempts: 1
-          })
+          .insert({ username, failed_attempts: 1 })
       }
 
-      return new Response(
-        JSON.stringify({ attempts, locked: attempts >= 5, lockedUntil }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({ attempts, locked: attempts >= 5, lockedUntil })
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+
     if (action === 'reset-failures') {
-      const { username } = payload
-      if (!username) throw new Error('Username is required')
+      const username = (payload.username as string | undefined)?.trim().toLowerCase()
+      if (!username) return errorResponse('Username is required')
 
       await supabaseAdmin
         .from('login_brute_force_logs')
         .delete()
-        .eq('username', username.trim().toLowerCase())
+        .eq('username', username)
 
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({ success: true })
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 2. PRIVATE SCHOOL CODE RETRIEVAL
+    // 2. SCHOOL CODE RECOVERY
     // ─────────────────────────────────────────────────────────────────────────
+
     if (action === 'recover-school-code') {
-      const { name, role, contact, dob } = payload
-      if (!name || !role) throw new Error('Missing identity details')
-      if ((!contact || !contact.trim()) && !dob) {
-        throw new Error('Please enter either your Registered Contact Number or Date of Birth.')
+      const name = (payload.name as string | undefined)?.trim()
+      const role = payload.role as string | undefined
+      const contact = (payload.contact as string | undefined)?.trim() || null
+      const dob = payload.dob as string | undefined | null
+
+      if (!name || !role) return errorResponse('Missing identity details')
+      if (!contact && !dob) {
+        return errorResponse('Please enter either your Registered Contact Number or Date of Birth.')
       }
 
       let query = supabaseAdmin
         .from('users')
         .select('id, school_id, name, class')
-        .eq('name', name.trim())
+        .eq('name', name)
         .eq('role', role)
 
-      if (contact && contact.trim()) {
-        query = query.eq('contact', contact.trim())
-      }
-      if (dob) {
-        query = query.eq('dob', dob)
-      }
+      if (contact) query = query.eq('contact', contact)
+      if (dob) query = query.eq('dob', dob)
 
-      const { data: users, error } = await query
+      const { data: users, error: usersErr } = await query
+      if (usersErr) {
+        console.error('recover-school-code users query error:', usersErr)
+        return errorResponse('Server error during identity lookup. Please try again.')
+      }
       if (!users || users.length === 0) {
-        throw new Error('We could not verify your identity. Please contact your school administration.')
+        return errorResponse('We could not verify your identity. Please contact your school administration.')
       }
 
-      // Pick the first matched user
-      const user = users[0]
+      const user = users[0] as { id: string; school_id: string; name: string; class: string }
 
-      // Generate a dynamic verification challenge based on role
       let challengeQuestion = ''
       let options: string[] = []
       let correctAnswer = ''
 
       if (role === 'student') {
         challengeQuestion = 'Select your Class Teacher from the list below:'
-        const { data: teachers } = await supabaseAdmin
-          .from('users')
-          .select('name')
-          .eq('school_id', user.school_id)
-          .eq('role', 'teacher')
-          .eq('class', user.class)
-          .limit(1)
-
-        const { data: randomTeachers } = await supabaseAdmin
-          .from('users')
-          .select('name')
-          .eq('school_id', user.school_id)
-          .eq('role', 'teacher')
-          .neq('class', user.class)
-          .limit(2)
-
-        correctAnswer = teachers?.[0]?.name ?? 'Principal'
+        const { data: teachers } = await supabaseAdmin.from('users').select('name').eq('school_id', user.school_id).eq('role', 'teacher').eq('class', user.class).limit(1)
+        const { data: randomTeachers } = await supabaseAdmin.from('users').select('name').eq('school_id', user.school_id).eq('role', 'teacher').neq('class', user.class).limit(2)
+        correctAnswer = (teachers as { name: string }[])?.[0]?.name ?? 'Principal'
         options = [correctAnswer]
-        if (randomTeachers) {
-          randomTeachers.forEach(t => options.push(t.name))
-        }
-        while (options.length < 3) {
-          options.push(`Teacher ${options.length + 1}`)
-        }
+        if (randomTeachers) (randomTeachers as { name: string }[]).forEach(t => options.push(t.name))
+        while (options.length < 3) options.push(`Teacher ${options.length + 1}`)
         options.sort(() => Math.random() - 0.5)
       } else if (role === 'teacher') {
         challengeQuestion = 'Select one of YOUR students from the list below:'
-        const { data: students } = await supabaseAdmin
-          .from('users')
-          .select('name')
-          .eq('school_id', user.school_id)
-          .eq('role', 'student')
-          .eq('class', user.class)
-          .limit(1)
-
-        const { data: randomStudents } = await supabaseAdmin
-          .from('users')
-          .select('name')
-          .eq('school_id', user.school_id)
-          .eq('role', 'student')
-          .neq('class', user.class)
-          .limit(2)
-
-        correctAnswer = students?.[0]?.name ?? 'Class Monitor'
+        const { data: students } = await supabaseAdmin.from('users').select('name').eq('school_id', user.school_id).eq('role', 'student').eq('class', user.class).limit(1)
+        const { data: randomStudents } = await supabaseAdmin.from('users').select('name').eq('school_id', user.school_id).eq('role', 'student').neq('class', user.class).limit(2)
+        correctAnswer = (students as { name: string }[])?.[0]?.name ?? 'Class Monitor'
         options = [correctAnswer]
-        if (randomStudents) {
-          randomStudents.forEach(s => options.push(s.name))
-        }
-        while (options.length < 3) {
-          options.push(`Student ${options.length + 1}`)
-        }
+        if (randomStudents) (randomStudents as { name: string }[]).forEach(s => options.push(s.name))
+        while (options.length < 3) options.push(`Student ${options.length + 1}`)
         options.sort(() => Math.random() - 0.5)
       } else {
         challengeQuestion = 'Select the School Admin/Principal from the list below:'
-        const { data: admins } = await supabaseAdmin
-          .from('users')
-          .select('name')
-          .eq('school_id', user.school_id)
-          .eq('role', 'admin')
-          .limit(1)
-
-        const { data: randomStaff } = await supabaseAdmin
-          .from('users')
-          .select('name')
-          .eq('school_id', user.school_id)
-          .neq('role', 'admin')
-          .limit(2)
-
-        correctAnswer = admins?.[0]?.name ?? 'System Admin'
+        const { data: admins } = await supabaseAdmin.from('users').select('name').eq('school_id', user.school_id).eq('role', 'admin').limit(1)
+        const { data: randomStaff } = await supabaseAdmin.from('users').select('name').eq('school_id', user.school_id).neq('role', 'admin').limit(2)
+        correctAnswer = (admins as { name: string }[])?.[0]?.name ?? 'System Admin'
         options = [correctAnswer]
-        if (randomStaff) {
-          randomStaff.forEach(s => options.push(s.name))
-        }
-        while (options.length < 3) {
-          options.push(`Staff ${options.length + 1}`)
-        }
+        if (randomStaff) (randomStaff as { name: string }[]).forEach(s => options.push(s.name))
+        while (options.length < 3) options.push(`Staff ${options.length + 1}`)
         options.sort(() => Math.random() - 0.5)
       }
 
-      // Store challenge answers in ephemeral sessions
       const { data: session, error: sessErr } = await supabaseAdmin
         .from('recovery_ephemeral_sessions')
         .insert({
@@ -242,17 +218,20 @@ serve(async (req) => {
         .select()
         .single()
 
-      if (sessErr) throw sessErr
+      if (sessErr) {
+        console.error('recover-school-code session insert error:', sessErr)
+        return errorResponse('Failed to create recovery session. Please try again.')
+      }
 
-      return new Response(
-        JSON.stringify({ challengeQuestion, options, sessionId: session.id }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({ challengeQuestion, options, sessionId: (session as { id: string }).id })
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+
     if (action === 'verify-school-code') {
-      const { sessionId, answer } = payload
-      if (!sessionId || !answer) throw new Error('Missing session details')
+      const sessionId = payload.sessionId as string | undefined
+      const answer = payload.answer as string | undefined
+      if (!sessionId || !answer) return errorResponse('Missing session details')
 
       const { data: session, error } = await supabaseAdmin
         .from('recovery_ephemeral_sessions')
@@ -260,151 +239,128 @@ serve(async (req) => {
         .eq('id', sessionId)
         .maybeSingle()
 
-      if (error || !session) throw new Error('Session expired or invalid')
+      if (error || !session) return errorResponse('Session expired or invalid')
 
-      const saved = session.saved_answers
+      const saved = (session as { saved_answers: { step: string; correctAnswer: string } }).saved_answers
       if (saved?.step !== 'school-code' || saved?.correctAnswer !== answer) {
-        throw new Error('Verification failed. Incorrect answer.')
+        return errorResponse('Verification failed. Incorrect answer.')
       }
 
-      // Fetch School Code
       const { data: school, error: schoolErr } = await supabaseAdmin
         .from('school_settings')
         .select('school_code')
-        .eq('school_id', session.school_id)
+        .eq('school_id', (session as { school_id: string }).school_id)
         .maybeSingle()
 
-      if (schoolErr || !school) throw new Error('School settings not found')
+      if (schoolErr || !school) return errorResponse('School settings not found')
 
-      // Delete ephemeral session
-      await supabaseAdmin
-        .from('recovery_ephemeral_sessions')
-        .delete()
-        .eq('id', sessionId)
+      await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', sessionId)
 
-      return new Response(
-        JSON.stringify({ schoolCode: school.school_code }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({ schoolCode: (school as { school_code: string }).school_code })
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 3. COMPILE 5 DYNAMIC QUESTIONS & INITIATE RECOVERY (PASSWORD OR USERNAME)
+    // 3. INITIATE RECOVERY (USERNAME OR PASSWORD)
     // ─────────────────────────────────────────────────────────────────────────
-    if (action === 'initiate-recovery') {
-      const { credential_type, username, password, school_code, name, dob, contact } = payload
 
-      let userProfile = null
+    if (action === 'initiate-recovery') {
+      const credential_type = payload.credential_type as string | undefined
+      const username_input = payload.username as string | undefined
+      const password_input = payload.password as string | undefined
+      const school_code = (payload.school_code as string | undefined)?.toUpperCase()
+      const name_input = (payload.name as string | undefined)?.trim()
+      const dob_input = payload.dob as string | undefined | null
+      const contact_input = (payload.contact as string | undefined)?.trim() || null
+
+      let userProfile: Record<string, unknown> | null = null
 
       if (credential_type === 'password') {
-        // Recovering Password requires Username + 5 Questions
-        if (!username || !school_code) throw new Error('Missing Username or School Code')
+        if (!username_input || !school_code) return errorResponse('Missing Username or School Code')
 
         const { data: school, error: schoolErr } = await supabaseAdmin
-          .from('school_settings')
-          .select('school_id')
-          .eq('school_code', school_code.toUpperCase())
-          .maybeSingle()
-
-        if (schoolErr || !school) throw new Error('Invalid School Code')
+          .from('school_settings').select('school_id').eq('school_code', school_code).maybeSingle()
+        if (schoolErr || !school) return errorResponse('Invalid School Code')
 
         const { data: uProf } = await supabaseAdmin
-          .from('users')
-          .select('*')
-          .eq('username', username.trim())
-          .eq('school_id', school.school_id)
-          .maybeSingle()
+          .from('users').select('*').eq('username', username_input.trim()).eq('school_id', (school as { school_id: string }).school_id).maybeSingle()
+        if (!uProf) return errorResponse('Account not found')
+        userProfile = uProf as Record<string, unknown>
 
-        if (!uProf) throw new Error('Account not found')
-        userProfile = uProf
       } else {
-        // Recovering Username requires Password + 5 Questions
-        if (!password || !school_code || !name) {
-          throw new Error('Missing password or identity matching fields')
+        // Recovering Username
+        if (!password_input || !school_code || !name_input) {
+          return errorResponse('Missing password or identity matching fields')
         }
-        if ((!contact || !contact.trim()) && !dob) {
-          throw new Error('Please enter either your Registered Contact Number or Date of Birth.')
+        if (!contact_input && !dob_input) {
+          return errorResponse('Please enter either your Registered Contact Number or Date of Birth.')
         }
 
         const { data: school, error: schoolErr } = await supabaseAdmin
-          .from('school_settings')
-          .select('school_id')
-          .eq('school_code', school_code.toUpperCase())
-          .maybeSingle()
+          .from('school_settings').select('school_id').eq('school_code', school_code).maybeSingle()
+        if (schoolErr || !school) return errorResponse('Invalid School Code')
 
-        if (schoolErr || !school) throw new Error('Invalid School Code')
-
-        // First find user matching details in public.users
         let query = supabaseAdmin
-          .from('users')
-          .select('*')
-          .eq('name', name.trim())
-          .eq('school_id', school.school_id)
-
-        if (dob) {
-          query = query.eq('dob', dob)
-        }
-        if (contact && contact.trim()) {
-          query = query.eq('contact', contact.trim())
-        }
+          .from('users').select('*').eq('name', name_input).eq('school_id', (school as { school_id: string }).school_id)
+        if (dob_input) query = query.eq('dob', dob_input)
+        if (contact_input) query = query.eq('contact', contact_input)
 
         const { data: usersMatching } = await query
-
-        if (!usersMatching || usersMatching.length === 0) {
-          throw new Error('We could not verify your identity. Please contact school office.')
+        if (!usersMatching || (usersMatching as unknown[]).length === 0) {
+          return errorResponse('We could not verify your identity. Please contact school office.')
         }
 
-        const userCandidate = usersMatching[0]
+        const userCandidate = (usersMatching as Record<string, unknown>[])[0]
+        const loginEmail = (userCandidate.email as string) || `${userCandidate.username}@school.com`
 
-        // Verify password
-        const loginEmail = userCandidate.email || `${userCandidate.username}@school.com`
         const { data: authData, error: authErr } = await supabaseAdmin.auth.signInWithPassword({
           email: loginEmail,
-          password: password
+          password: password_input
         })
 
-        if (authErr || !authData.user) {
-          throw new Error('Incorrect password or credentials match failure.')
+        if (authErr || !authData?.user) {
+          return errorResponse('Incorrect password or credentials match failure.')
         }
 
         userProfile = userCandidate
       }
 
-      // Check if account recovery is locked out permanently
+      // Check if recovery is locked
       const { data: recProfile } = await supabaseAdmin
-        .from('recovery_profiles')
-        .select('*')
-        .eq('user_id', userProfile.id)
-        .maybeSingle()
+        .from('recovery_profiles').select('*').eq('user_id', userProfile.id).maybeSingle()
 
-      if (recProfile && recProfile.recovery_locked_until && new Date(recProfile.recovery_locked_until) > new Date()) {
-        const unlockTime = new Date(recProfile.recovery_locked_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        throw new Error(`🔒 Account Recovery Locked: Recovery functions are frozen on this account for 24 hours. Please try again after ${unlockTime}.`);
+      if (recProfile) {
+        const rp = recProfile as { recovery_locked_until?: string }
+        if (rp.recovery_locked_until && new Date(rp.recovery_locked_until) > new Date()) {
+          const unlockTime = new Date(rp.recovery_locked_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          return errorResponse(`🔒 Account Recovery Locked: Recovery functions are frozen for 24 hours. Please try again after ${unlockTime}.`)
+        }
       }
 
-      // Generate exactly 5 questions
-      const questionsList: Array<{ id: number; question: string; options: string[] }> = []
+      // Build 5 questions
+      type Question = { id: number; question: string; options: string[] }
+      const questionsList: Question[] = []
       const answersMap: Record<number, string> = {}
       let qIndex = 1
 
-      // Q1: DOB Check (Compulsory if present)
+      // Q1: DOB
       if (userProfile.dob) {
+        const correctDob = new Date(userProfile.dob as string).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
         questionsList.push({
           id: qIndex,
           question: 'Please verify your Date of Birth:',
           options: [
-            new Date(userProfile.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+            correctDob,
             new Date(Date.now() - 5 * 365 * 24 * 3600000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
             new Date(Date.now() - 15 * 365 * 24 * 3600000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
           ].sort(() => Math.random() - 0.5)
         })
-        answersMap[qIndex] = new Date(userProfile.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        answersMap[qIndex] = correctDob
         qIndex++
       }
 
-      // Q2: Registered Contact Check (Compulsory if present)
+      // Q2: Contact last 4 digits
       if (userProfile.contact) {
-        const cleanContact = userProfile.contact.trim()
+        const cleanContact = (userProfile.contact as string).trim()
         questionsList.push({
           id: qIndex,
           question: 'Verify the last 4 digits of your registered contact number:',
@@ -414,147 +370,92 @@ serve(async (req) => {
         qIndex++
       }
 
-      // Role-based Contextual Questions (Q3, Q4)
+      // Q3/Q4: Role-based
       if (userProfile.role === 'student') {
         const { data: teacher } = await supabaseAdmin
-          .from('users')
-          .select('name')
-          .eq('school_id', userProfile.school_id)
-          .eq('role', 'teacher')
-          .eq('class', userProfile.class)
-          .limit(1)
-          .maybeSingle()
-
+          .from('users').select('name').eq('school_id', userProfile.school_id).eq('role', 'teacher').eq('class', userProfile.class).limit(1).maybeSingle()
         if (teacher) {
-          questionsList.push({
-            id: qIndex,
-            question: 'Who is your Class Teacher?',
-            options: [teacher.name, 'Mr. Sharma (Math)', 'Mrs. Gupta (Hindi)'].sort(() => Math.random() - 0.5)
-          })
-          answersMap[qIndex] = teacher.name
+          const t = teacher as { name: string }
+          questionsList.push({ id: qIndex, question: 'Who is your Class Teacher?', options: [t.name, 'Mr. Sharma (Math)', 'Mrs. Gupta (Hindi)'].sort(() => Math.random() - 0.5) })
+          answersMap[qIndex] = t.name
           qIndex++
         }
 
         const { data: attendance } = await supabaseAdmin
-          .from('attendance')
-          .select('attendance_data')
-          .eq('user_id', userProfile.id)
-          .limit(1)
-          .maybeSingle()
-
-        if (attendance && attendance.attendance_data) {
-          const keys = Object.keys(attendance.attendance_data)
+          .from('attendance').select('attendance_data').eq('user_id', userProfile.id).limit(1).maybeSingle()
+        if (attendance) {
+          const ad = attendance as { attendance_data?: Record<string, string> }
+          const keys = ad.attendance_data ? Object.keys(ad.attendance_data) : []
           if (keys.length > 0) {
             const checkDate = keys[0]
-            const realStatus = attendance.attendance_data[checkDate]
-            questionsList.push({
-              id: qIndex,
-              question: `What was your attendance status on ${checkDate}?`,
-              options: ['Present', 'Absent', 'On Leave'].sort(() => Math.random() - 0.5)
-            })
+            const realStatus = ad.attendance_data![checkDate]
+            questionsList.push({ id: qIndex, question: `What was your attendance status on ${checkDate}?`, options: ['Present', 'Absent', 'On Leave'].sort(() => Math.random() - 0.5) })
             answersMap[qIndex] = realStatus
             qIndex++
           }
         }
       } else if (userProfile.role === 'teacher') {
         const { data: tt } = await supabaseAdmin
-          .from('timetable')
-          .select('*')
-          .eq('teacher', userProfile.id.toString())
-          .limit(1)
-          .maybeSingle()
-
+          .from('timetable').select('*').eq('teacher', String(userProfile.id)).limit(1).maybeSingle()
         if (tt) {
-          questionsList.push({
-            id: qIndex,
-            question: `According to the school timetable, which class do you teach during period ${tt.period_order} on ${tt.day}?`,
-            options: [tt.class, '5th A', '9th C'].sort(() => Math.random() - 0.5)
-          })
-          answersMap[qIndex] = tt.class
+          const t = tt as { period_order: number; day: string; class: string }
+          questionsList.push({ id: qIndex, question: `According to the timetable, which class do you teach during period ${t.period_order} on ${t.day}?`, options: [t.class, '5th A', '9th C'].sort(() => Math.random() - 0.5) })
+          answersMap[qIndex] = t.class
           qIndex++
         }
 
         const { data: leave } = await supabaseAdmin
-          .from('leaves')
-          .select('from_date')
-          .eq('user_id', userProfile.id)
-          .limit(1)
-          .maybeSingle()
-
+          .from('leaves').select('from_date').eq('user_id', userProfile.id).limit(1).maybeSingle()
         if (leave) {
-          questionsList.push({
-            id: qIndex,
-            question: 'Select the start date of your last applied leave application:',
-            options: [leave.from_date, '2026-01-15', '2026-04-10'].sort(() => Math.random() - 0.5)
-          })
-          answersMap[qIndex] = leave.from_date
+          const l = leave as { from_date: string }
+          questionsList.push({ id: qIndex, question: 'Select the start date of your last applied leave application:', options: [l.from_date, '2026-01-15', '2026-04-10'].sort(() => Math.random() - 0.5) })
+          answersMap[qIndex] = l.from_date
           qIndex++
         }
       } else if (userProfile.role === 'driver') {
         const { data: bus } = await supabaseAdmin
-          .from('bus_assignments')
-          .select('bus_number, route_name')
-          .eq('driver_id', userProfile.id)
-          .limit(1)
-          .maybeSingle()
-
+          .from('bus_assignments').select('bus_number, route_name').eq('driver_id', userProfile.id).limit(1).maybeSingle()
         if (bus) {
-          questionsList.push({
-            id: qIndex,
-            question: 'What is your assigned School Bus Number?',
-            options: [bus.bus_number, 'Bus-08', 'Bus-12'].sort(() => Math.random() - 0.5)
-          })
-          answersMap[qIndex] = bus.bus_number
+          const b = bus as { bus_number: string }
+          questionsList.push({ id: qIndex, question: 'What is your assigned School Bus Number?', options: [b.bus_number, 'Bus-08', 'Bus-12'].sort(() => Math.random() - 0.5) })
+          answersMap[qIndex] = b.bus_number
           qIndex++
         }
       }
 
+      // Fill from security questions in recProfile
       if (questionsList.length < 5 && recProfile) {
-        if (recProfile.security_question_1 && recProfile.security_answer_1_hash) {
-          questionsList.push({
-            id: qIndex,
-            question: recProfile.security_question_1,
-            options: []
-          })
-          answersMap[qIndex] = recProfile.security_answer_1_hash
+        const rp = recProfile as Record<string, string>
+        if (rp.security_question_1 && rp.security_answer_1_hash) {
+          questionsList.push({ id: qIndex, question: rp.security_question_1, options: [] })
+          answersMap[qIndex] = rp.security_answer_1_hash
           qIndex++
         }
-        if (recProfile.security_question_2 && recProfile.security_answer_2_hash) {
-          questionsList.push({
-            id: qIndex,
-            question: recProfile.security_question_2,
-            options: []
-          })
-          answersMap[qIndex] = recProfile.security_answer_2_hash
+        if (questionsList.length < 5 && rp.security_question_2 && rp.security_answer_2_hash) {
+          questionsList.push({ id: qIndex, question: rp.security_question_2, options: [] })
+          answersMap[qIndex] = rp.security_answer_2_hash
           qIndex++
         }
       }
 
-      const genericQuestions = [
+      // Fill generic questions to reach 5
+      const genericQs = [
         "What is the first name of your school's current principal?",
         "Which state is your school located in?",
         "What is the name of your school mascot?"
       ]
-      let genIndex = 0
+      let genIdx = 0
       while (questionsList.length < 5) {
-        questionsList.push({
-          id: qIndex,
-          question: genericQuestions[genIndex] || `Static Verification Question ${qIndex}`,
-          options: []
-        })
-        if (genIndex === 0) {
+        const qText = genericQs[genIdx] || `Verification Question ${qIndex}`
+        questionsList.push({ id: qIndex, question: qText, options: [] })
+        if (genIdx === 0) {
           const { data: principal } = await supabaseAdmin
-            .from('users')
-            .select('name')
-            .eq('school_id', userProfile.school_id)
-            .eq('role', 'admin')
-            .limit(1)
-            .maybeSingle()
-          answersMap[qIndex] = principal?.name ?? 'Principal'
+            .from('users').select('name').eq('school_id', userProfile.school_id).eq('role', 'admin').limit(1).maybeSingle()
+          answersMap[qIndex] = (principal as { name?: string } | null)?.name ?? 'Principal'
         } else {
           answersMap[qIndex] = 'SchoolOS+'
         }
-        genIndex++
+        genIdx++
         qIndex++
       }
 
@@ -570,186 +471,174 @@ serve(async (req) => {
         .select()
         .single()
 
-      if (sessErr) throw sessErr
+      if (sessErr) {
+        console.error('initiate-recovery session insert error:', sessErr)
+        return errorResponse('Failed to create recovery session. Please try again.')
+      }
 
-      return new Response(
-        JSON.stringify({ questions: finalQuestions, sessionId: session.id }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({ questions: finalQuestions, sessionId: (session as { id: string }).id })
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 4. SUBMIT AND EVALUATE RECOVERY ANSWERS (DELAYED EVALUATION + 2 ATTEMPTS)
+    // 4. SUBMIT RECOVERY ANSWERS
     // ─────────────────────────────────────────────────────────────────────────
-    if (action === 'submit-recovery-answers') {
-      const { sessionId, answers, newPassword } = payload
-      if (!sessionId || !answers) throw new Error('Missing session details')
 
-      await supabaseAdmin.rpc('cleanup_expired_recovery_sessions')
+    if (action === 'submit-recovery-answers') {
+      const sessionId = payload.sessionId as string | undefined
+      const answers = payload.answers as Record<string, string> | undefined
+      const newPassword = payload.newPassword as string | undefined | null
+
+      if (!sessionId || !answers) return errorResponse('Missing session details')
+
+      // Clean up expired sessions (non-blocking)
+      supabaseAdmin.rpc('cleanup_expired_recovery_sessions').then(() => {}).catch(() => {})
 
       const { data: session, error } = await supabaseAdmin
-        .from('recovery_ephemeral_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .maybeSingle()
+        .from('recovery_ephemeral_sessions').select('*').eq('id', sessionId).maybeSingle()
 
-      if (error || !session) throw new Error('Recovery session has expired or is invalid. Please restart.')
+      if (error || !session) return errorResponse('Recovery session has expired or is invalid. Please restart.')
 
-      // Check lockout status
-      const { data: recProfile } = await supabaseAdmin
-        .from('recovery_profiles')
-        .select('*')
-        .eq('user_id', session.user_id)
-        .maybeSingle()
-
-      if (recProfile && recProfile.recovery_locked_until && new Date(recProfile.recovery_locked_until) > new Date()) {
-        throw new Error(`This recovery session is locked. Try again after 24 hours.`)
+      const s = session as {
+        user_id: string; school_id: string; attempt_count: number;
+        saved_answers: { answersMap: Record<string, string>; credential_type: string }
       }
 
-      const { answersMap, credential_type } = session.saved_answers
+      // Check recovery lockout on user profile
+      const { data: recProfile } = await supabaseAdmin
+        .from('recovery_profiles').select('*').eq('user_id', s.user_id).maybeSingle()
+
+      if (recProfile) {
+        const rp = recProfile as { recovery_locked_until?: string }
+        if (rp.recovery_locked_until && new Date(rp.recovery_locked_until) > new Date()) {
+          return errorResponse('This recovery session is locked. Please try again after 24 hours.')
+        }
+      }
+
+      const { answersMap, credential_type } = s.saved_answers
       const incorrectQuestions: number[] = []
 
       for (const [idStr, realAns] of Object.entries(answersMap)) {
         const qId = parseInt(idStr)
         const userAns = (answers[qId] ?? '').trim().toLowerCase()
-
-        if (userAns !== realAns.trim().toLowerCase()) {
+        if (userAns !== (realAns ?? '').trim().toLowerCase()) {
           incorrectQuestions.push(qId)
         }
       }
 
       if (incorrectQuestions.length > 0) {
-        const newAttempts = session.attempt_count + 1
-        let lockedUntil = null
+        const newAttempts = s.attempt_count + 1
+        let lockedUntil: string | null = null
 
         if (newAttempts >= 2) {
-          lockedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours lockout
-          
-          // Lock recovery permanently on user profile
+          lockedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
           if (recProfile) {
-            await supabaseAdmin
-              .from('recovery_profiles')
-              .update({ recovery_locked_until: lockedUntil })
-              .eq('user_id', session.user_id)
+            await supabaseAdmin.from('recovery_profiles').update({ recovery_locked_until: lockedUntil }).eq('user_id', s.user_id)
           } else {
-            await supabaseAdmin
-              .from('recovery_profiles')
-              .insert({ user_id: session.user_id, school_id: session.school_id, recovery_locked_until: lockedUntil })
+            await supabaseAdmin.from('recovery_profiles').insert({ user_id: s.user_id, school_id: s.school_id, recovery_locked_until: lockedUntil })
           }
         }
 
-        const { data: uProfile, error: uProfileErr } = await supabaseAdmin
-          .from('users')
-          .select('role')
-          .eq('id', session.user_id)
-          .maybeSingle()
+        // Update attempt count in session
+        await supabaseAdmin.from('recovery_ephemeral_sessions').update({ attempt_count: newAttempts }).eq('id', sessionId)
 
-        if (uProfileErr || !uProfile) throw new Error('User profile not found')
+        const { data: uProfile } = await supabaseAdmin.from('users').select('role').eq('id', s.user_id).maybeSingle()
+        const role = (uProfile as { role?: string } | null)?.role
 
-        if (uProfile?.role === 'student') {
-          return new Response(
-            JSON.stringify({
-              error: 'Verification aborted.',
-              abort: true,
-              message: 'Please contact your Class Teacher to reset your password.'
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-          )
+        if (role === 'student') {
+          // Students cannot retry — abort immediately
+          await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', sessionId)
+          return new Response(JSON.stringify({
+            error: 'Verification aborted.',
+            abort: true,
+            message: 'Please contact your Class Teacher to reset your password.'
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
         }
 
-        return new Response(
-          JSON.stringify({
-            error: 'Validation failed. Some answers were incorrect.',
-            incorrectQuestions,
-            attempts: newAttempts,
-            locked: newAttempts >= 2,
-            lockedUntil
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        )
+        return new Response(JSON.stringify({
+          error: 'Validation failed. Some answers were incorrect.',
+          incorrectQuestions,
+          attempts: newAttempts,
+          locked: newAttempts >= 2,
+          lockedUntil
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
       }
 
-      // SUCCESS!
+      // ─── SUCCESS ───────────────────────────────────────────────────────────
+
       if (credential_type === 'password') {
-        if (!newPassword) throw new Error('New password is required to complete recovery')
-        if (newPassword.length < 6) throw new Error('Password must be at least 6 characters long')
+        if (!newPassword) return errorResponse('New password is required to complete recovery')
+        if (newPassword.length < 6) return errorResponse('Password must be at least 6 characters long')
 
-        const { error: resetErr } = await supabaseAdmin.auth.admin.updateUserById(
-          session.user_id,
-          { password: newPassword }
-        )
+        const { error: resetErr } = await supabaseAdmin.auth.admin.updateUserById(s.user_id, { password: newPassword })
+        if (resetErr) {
+          console.error('Password reset error:', resetErr)
+          return errorResponse('Failed to update password. Please try again.')
+        }
 
-        if (resetErr) throw resetErr
+        await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', sessionId)
 
-        await supabaseAdmin
-          .from('recovery_ephemeral_sessions')
-          .delete()
-          .eq('id', sessionId)
-
-        // Queue alert in notifications for dashboard
-        await supabaseAdmin
-          .from('notifications')
-          .insert({
-            school_id: session.school_id,
-            to_user_id: session.user_id,
-            message: 'Your account password was recently reset. If this was not you, lock recovery options immediately.',
-            link: '/settings'
+        // Send notification — non-fatal, wrapped in try-catch
+        try {
+          await supabaseAdmin.from('notifications').insert({
+            school_id: s.school_id,
+            to_user_id: s.user_id,
+            message: 'Your account password was recently reset. If this was not you, lock your recovery options immediately from Settings.',
+            link: '/settings',
+            type: 'security_alert'
           })
+        } catch (notifErr) {
+          console.warn('Could not send security notification (non-fatal):', notifErr)
+        }
 
-        return new Response(
-          JSON.stringify({ success: true, message: 'Password updated successfully!' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        )
+        return jsonResponse({ success: true, message: 'Password updated successfully!' })
+
       } else {
-        // Recovering Username
+        // Username recovery — return username
         const { data: uProfile, error: uProfileErr } = await supabaseAdmin
-          .from('users')
-          .select('username')
-          .eq('id', session.user_id)
-          .maybeSingle()
+          .from('users').select('username').eq('id', s.user_id).maybeSingle()
+        if (uProfileErr || !uProfile) return errorResponse('User profile not found')
 
-        if (uProfileErr || !uProfile) throw new Error('User profile not found')
+        await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', sessionId)
 
-        await supabaseAdmin
-          .from('recovery_ephemeral_sessions')
-          .delete()
-          .eq('id', sessionId)
-
-        return new Response(
-          JSON.stringify({ success: true, username: uProfile.username }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        )
+        return jsonResponse({ success: true, username: (uProfile as { username: string }).username })
       }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 5. UNIVERSAL QR CODE DEVICE HANDSHAKE
+    // 5. QR CODE DEVICE SYNC
     // ─────────────────────────────────────────────────────────────────────────
+
     if (action === 'qr-generate') {
       const qrToken = crypto.randomUUID()
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
+      // NOTE: user_id is NULL here because no user has scanned yet.
+      // The v76 migration makes user_id nullable in this table.
       const { data: session, error } = await supabaseAdmin
         .from('recovery_ephemeral_sessions')
         .insert({
-          user_id: '00000000-0000-0000-0000-000000000000',
+          user_id: null,        // Intentionally null — no user yet
+          school_id: null,      // Intentionally null — no user yet
           qr_token: qrToken,
           qr_verified: false,
-          expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+          expires_at: expiresAt
         })
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('qr-generate insert error:', error)
+        return errorResponse(`Failed to generate QR session: ${error.message}`)
+      }
 
-      return new Response(
-        JSON.stringify({ qrToken, sessionId: session.id }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({ qrToken, sessionId: (session as { id: string }).id })
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+
     if (action === 'qr-poll') {
-      const { qrToken } = payload
-      if (!qrToken) throw new Error('Missing QR token')
+      const qrToken = payload.qrToken as string | undefined
+      if (!qrToken) return errorResponse('Missing QR token')
 
       const { data: session, error } = await supabaseAdmin
         .from('recovery_ephemeral_sessions')
@@ -758,130 +647,105 @@ serve(async (req) => {
         .maybeSingle()
 
       if (error || !session) {
-        return new Response(
-          JSON.stringify({ expired: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        )
+        return jsonResponse({ expired: true })
       }
 
-      if (session.qr_verified && session.user_id !== '00000000-0000-0000-0000-000000000000') {
-        const { data: user, error: userErr } = await supabaseAdmin
-          .from('users')
-          .select('email')
-          .eq('id', session.user_id)
-          .maybeSingle()
+      const s = session as { qr_verified: boolean; user_id: string | null; expires_at: string }
 
-        if (userErr || !user) throw new Error('User email not found')
+      // Check expiry
+      if (s.expires_at && new Date(s.expires_at) < new Date()) {
+        await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('qr_token', qrToken)
+        return jsonResponse({ expired: true })
+      }
+
+      if (s.qr_verified && s.user_id) {
+        // Generate magic link for the verified user
+        const { data: userRow, error: userErr } = await supabaseAdmin
+          .from('users').select('email').eq('id', s.user_id).maybeSingle()
+
+        if (userErr || !userRow) return errorResponse('User email not found')
+
+        const emailToUse = (userRow as { email?: string }).email || `${s.user_id}@school.com`
 
         const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({
           type: 'magiclink',
-          email: user.email || `${session.user_id}@school.com`
+          email: emailToUse
         })
 
-        if (otpErr) throw otpErr
+        if (otpErr) {
+          console.error('Magic link generation error:', otpErr)
+          return errorResponse('Failed to generate login link. Please try again.')
+        }
 
-        await supabaseAdmin
-          .from('recovery_ephemeral_sessions')
-          .delete()
-          .eq('qr_token', qrToken)
+        await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('qr_token', qrToken)
 
-        return new Response(
-          JSON.stringify({ verified: true, loginUrl: otpLink.properties.action_link }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        )
+        return jsonResponse({ verified: true, loginUrl: otpLink.properties.action_link })
       }
 
-      return new Response(
-        JSON.stringify({ verified: false }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({ verified: false })
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+
     if (action === 'qr-approve') {
-      const { qrToken, mobileUserId } = payload
-      if (!qrToken || !mobileUserId) throw new Error('Missing approval credentials')
+      const qrToken = payload.qrToken as string | undefined
+      const mobileUserId = payload.mobileUserId as string | undefined
+      if (!qrToken || !mobileUserId) return errorResponse('Missing approval credentials')
 
       const { data: session } = await supabaseAdmin
-        .from('recovery_ephemeral_sessions')
-        .select('*')
-        .eq('qr_token', qrToken)
-        .maybeSingle()
+        .from('recovery_ephemeral_sessions').select('*').eq('qr_token', qrToken).maybeSingle()
 
-      if (!session) throw new Error('Session expired or invalid')
+      if (!session) return errorResponse('Session expired or invalid')
 
       const { data: userProfile, error: userProfileErr } = await supabaseAdmin
-        .from('users')
-        .select('school_id')
-        .eq('id', mobileUserId)
-        .maybeSingle()
+        .from('users').select('school_id').eq('id', mobileUserId).maybeSingle()
 
-      if (userProfileErr || !userProfile) throw new Error('Mobile user profile not found')
+      if (userProfileErr || !userProfile) return errorResponse('Mobile user profile not found')
 
       await supabaseAdmin
         .from('recovery_ephemeral_sessions')
-        .update({
-          qr_verified: true,
-          user_id: mobileUserId,
-          school_id: userProfile.school_id
-        })
+        .update({ qr_verified: true, user_id: mobileUserId, school_id: (userProfile as { school_id: string }).school_id })
         .eq('qr_token', qrToken)
 
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({ success: true })
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 6. IT'S NOT ME (RECOVERY LOCKING)
+    // 6. RECOVERY LOCKING ("It's Not Me")
     // ─────────────────────────────────────────────────────────────────────────
-    if (action === 'lock-recovery') {
-      const { userId } = payload
-      if (!userId) throw new Error('Missing user parameter')
 
-      const lockedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours lock
+    if (action === 'lock-recovery') {
+      const userId = payload.userId as string | undefined
+      if (!userId) return errorResponse('Missing user parameter')
+
+      const lockedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
       const { data: recProfile } = await supabaseAdmin
-        .from('recovery_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle()
+        .from('recovery_profiles').select('*').eq('user_id', userId).maybeSingle()
 
       if (recProfile) {
-        await supabaseAdmin
-          .from('recovery_profiles')
-          .update({ recovery_locked_until: lockedUntil })
-          .eq('user_id', userId)
+        await supabaseAdmin.from('recovery_profiles').update({ recovery_locked_until: lockedUntil }).eq('user_id', userId)
       } else {
         const { data: userProfile, error: userProfileErr } = await supabaseAdmin
-          .from('users')
-          .select('school_id')
-          .eq('id', userId)
-          .maybeSingle()
+          .from('users').select('school_id').eq('id', userId).maybeSingle()
+        if (userProfileErr || !userProfile) return errorResponse('User profile not found')
 
-        if (userProfileErr || !userProfile) throw new Error('User profile not found')
-
-        await supabaseAdmin
-          .from('recovery_profiles')
-          .insert({
-            user_id: userId,
-            school_id: userProfile?.school_id,
-            recovery_locked_until: lockedUntil
-          })
+        await supabaseAdmin.from('recovery_profiles').insert({
+          user_id: userId,
+          school_id: (userProfile as { school_id: string }).school_id,
+          recovery_locked_until: lockedUntil
+        })
       }
 
-      return new Response(
-        JSON.stringify({ success: true, lockedUntil }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return jsonResponse({ success: true, lockedUntil })
     }
 
-    throw new Error(`Unsupported action: ${action}`)
+    // Unknown action
+    return errorResponse(`Unsupported action: ${action}`)
 
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-    )
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'An unexpected server error occurred.'
+    console.error(`hybrid-recovery-handler [${action}] unhandled error:`, err)
+    return errorResponse(message, 500)
   }
 })
