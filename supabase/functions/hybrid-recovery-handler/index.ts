@@ -650,7 +650,10 @@ serve(async (req) => {
         return jsonResponse({ expired: true })
       }
 
-      const s = session as { qr_verified: boolean; user_id: string | null; expires_at: string }
+      const s = session as { 
+        qr_verified: boolean; user_id: string | null; expires_at: string;
+        saved_answers?: { requiresPasswordChange?: boolean }
+      }
 
       // Check expiry
       if (s.expires_at && new Date(s.expires_at) < new Date()) {
@@ -661,11 +664,12 @@ serve(async (req) => {
       if (s.qr_verified && s.user_id) {
         // Generate magic link for the verified user
         const { data: userRow, error: userErr } = await supabaseAdmin
-          .from('users').select('email').eq('id', s.user_id).maybeSingle()
+          .from('users').select('email, username').eq('id', s.user_id).maybeSingle()
 
         if (userErr || !userRow) return errorResponse('User email not found')
 
-        const emailToUse = (userRow as { email?: string }).email || `${s.user_id}@school.com`
+        const u = userRow as { email?: string; username?: string }
+        const emailToUse = u.email || `${s.user_id}@school.com`
 
         const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({
           type: 'magiclink',
@@ -679,10 +683,99 @@ serve(async (req) => {
 
         await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('qr_token', qrToken)
 
-        return jsonResponse({ verified: true, loginUrl: otpLink.properties.action_link })
+        return jsonResponse({ 
+          verified: true, 
+          loginUrl: otpLink.properties.action_link,
+          requiresPasswordChange: s.saved_answers?.requiresPasswordChange ?? false 
+        })
       }
 
       return jsonResponse({ verified: false })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Mobile Login: scan QR OR enter 6-digit code from PC (Flow A → mobile receives)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (action === 'qr-mobile-login') {
+      const displayCode = payload.displayCode as string | undefined
+      const qrToken = payload.qrToken as string | undefined
+      const mobileUserId = payload.mobileUserId as string | undefined
+
+      if (!mobileUserId) return errorResponse('You must be logged into the mobile app to use this feature.')
+      if (!displayCode && !qrToken) return errorResponse('Please provide a sync code or scan the QR code.')
+
+      if (displayCode) {
+        const { data: sessions } = await supabaseAdmin
+          .from('recovery_ephemeral_sessions').select('*').eq('qr_verified', false).gt('expires_at', new Date().toISOString())
+
+        if (!sessions || sessions.length === 0) return errorResponse('Code not found or expired. Please ask for a new code.')
+
+        type SessionRow = { id: string; user_id: string | null; saved_answers?: { displayCode?: string; flow?: string } }
+        const matched = (sessions as SessionRow[]).find(s => s.saved_answers?.displayCode === displayCode && s.saved_answers?.flow === 'pc-to-mobile')
+        if (!matched) return errorResponse('Invalid code. Please check and try again.')
+
+        await supabaseAdmin.from('recovery_ephemeral_sessions').update({ qr_verified: true }).eq('id', matched.id)
+        return jsonResponse({ success: true, message: 'Code accepted! Logging you into your mobile app now.' })
+      }
+
+      if (qrToken) {
+        const { data: session } = await supabaseAdmin
+          .from('recovery_ephemeral_sessions').select('*').eq('qr_token', qrToken).maybeSingle()
+
+        if (!session) return errorResponse('QR code has expired. Please scan a new QR code.')
+
+        const s = session as { id: string; expires_at: string; saved_answers?: { flow?: string } }
+        if (new Date(s.expires_at) < new Date()) {
+          await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', s.id)
+          return errorResponse('This QR code has expired. Please ask for a new one.')
+        }
+        if (s.saved_answers?.flow !== 'pc-to-mobile') return errorResponse('This QR code is not valid for mobile login.')
+
+        await supabaseAdmin.from('recovery_ephemeral_sessions').update({ qr_verified: true, user_id: mobileUserId }).eq('id', s.id)
+
+        const { data: userRow } = await supabaseAdmin.from('users').select('email, username').eq('id', mobileUserId).maybeSingle()
+        const u = userRow as { email?: string; username?: string } | null
+        const emailToUse = u?.email || `${mobileUserId}@school.com`
+
+        const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: emailToUse })
+        if (otpErr) return errorResponse('Could not create login session. Please try again.')
+
+        return jsonResponse({ success: true, loginUrl: otpLink.properties.action_link, requiresPasswordChange: true })
+      }
+
+      return errorResponse('Invalid request parameters.')
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PC Login: enter 6-digit code from Mobile (Flow B → PC receives)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (action === 'qr-pc-login') {
+      const displayCode = payload.displayCode as string | undefined
+      if (!displayCode) return errorResponse('Please enter the 6-digit sync code.')
+
+      const { data: sessions } = await supabaseAdmin
+        .from('recovery_ephemeral_sessions').select('*').eq('qr_verified', false).gt('expires_at', new Date().toISOString())
+
+      if (!sessions || sessions.length === 0) return errorResponse('Code not found or expired. Please generate a new code on your mobile app.')
+
+      type SessionRow = { id: string; user_id: string | null; saved_answers?: { displayCode?: string; flow?: string } }
+      const matched = (sessions as SessionRow[]).find(s => s.saved_answers?.displayCode === displayCode && s.saved_answers?.flow === 'mobile-to-pc')
+
+      if (!matched) return errorResponse('Invalid code. Please check the 6-digit code shown on your mobile app.')
+      if (!matched.user_id) return errorResponse('Session error. Please generate a new code on your mobile.')
+
+      await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', matched.id)
+
+      const { data: userRow } = await supabaseAdmin.from('users').select('email, username').eq('id', matched.user_id).maybeSingle()
+      const u = userRow as { email?: string; username?: string } | null
+      const emailToUse = u?.email || `${matched.user_id}@school.com`
+
+      const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: emailToUse })
+      if (otpErr) return errorResponse('Failed to create login session. Please try again.')
+
+      return jsonResponse({ success: true, loginUrl: otpLink.properties.action_link, requiresPasswordChange: true })
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -711,7 +804,97 @@ serve(async (req) => {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 6. RECOVERY LOCKING ("It's Not Me")
+    // 6. FAST-TRACK SIMPLE PIN RECOVERY
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (action === 'pin-recovery-verify') {
+      const credential_type = payload.credential_type as string | undefined
+      const school_code = (payload.school_code as string | undefined)?.toUpperCase()
+      const pin = (payload.pin as string | undefined)?.trim()
+      const dob = payload.dob as string | undefined | null
+      const contact = (payload.contact as string | undefined)?.trim() || null
+      const newPassword = payload.newPassword as string | undefined | null
+      const username_input = (payload.username as string | undefined)?.trim()
+      const name_input = (payload.name as string | undefined)?.trim()
+      const role_input = payload.role as string | undefined
+
+      if (!credential_type || !school_code || !pin) return errorResponse('Missing required fields: school code and recovery PIN are required.')
+      if (pin.length !== 6 || !/^\d+$/.test(pin)) return errorResponse('Recovery PIN must be exactly 6 digits.')
+      if (!dob && !contact) return errorResponse('Please provide either your Date of Birth or Contact Number.')
+
+      const { data: school, error: schoolErr } = await supabaseAdmin
+        .from('school_settings').select('school_id').eq('school_code', school_code).maybeSingle()
+      if (schoolErr || !school) return errorResponse('Invalid School Code.')
+
+      const schoolId = (school as { school_id: string }).school_id
+      let userProfile: Record<string, unknown> | null = null
+
+      if (credential_type === 'password') {
+        if (!username_input) return errorResponse('Please enter your Username.')
+        const { data: uProf } = await supabaseAdmin.from('users').select('*').eq('username', username_input).eq('school_id', schoolId).maybeSingle()
+        if (!uProf) return errorResponse('No account found with this username in this school.')
+        userProfile = uProf as Record<string, unknown>
+      } else {
+        if (!name_input) return errorResponse('Please enter your Full Name.')
+        let q = supabaseAdmin.from('users').select('*').eq('name', name_input).eq('school_id', schoolId)
+        if (role_input) q = q.eq('role', role_input)
+        const { data: usersFound } = await q
+        if (!usersFound || (usersFound as unknown[]).length === 0) return errorResponse('No account found matching your name in this school.')
+        userProfile = (usersFound as Record<string, unknown>[])[0]
+      }
+
+      let identityVerified = false
+      if (dob && userProfile.dob === dob) identityVerified = true
+      if (contact && userProfile.contact && (userProfile.contact as string).trim() === contact) identityVerified = true
+      if (!identityVerified) return errorResponse('Date of Birth or Contact Number does not match our records.')
+
+      const { data: recProfile } = await supabaseAdmin
+        .from('recovery_profiles').select('*').eq('user_id', userProfile.id).maybeSingle()
+
+      if (!recProfile) return errorResponse('No Recovery PIN is set on this account. Please use the "Answer Questions" method instead.')
+
+      const rp = recProfile as { recovery_locked_until?: string; pin_hash?: string }
+      if (rp.recovery_locked_until && new Date(rp.recovery_locked_until) > new Date()) {
+        const unlockTime = new Date(rp.recovery_locked_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        return errorResponse(`🔒 Recovery is locked until ${unlockTime}. Please try later.`)
+      }
+
+      if (!rp.pin_hash) return errorResponse('No Recovery PIN is set on this account. Please use the "Answer Questions" method instead.')
+
+      if (rp.pin_hash !== pin) {
+        const lockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        await supabaseAdmin.from('recovery_profiles').update({ recovery_locked_until: lockUntil }).eq('user_id', userProfile.id)
+        return errorResponse('Incorrect Recovery PIN. Recovery has been locked for 24 hours to protect your account.')
+      }
+
+      if (credential_type === 'password') {
+        if (!newPassword) return errorResponse('Please enter a new password.')
+        if (newPassword.length < 6) return errorResponse('Password must be at least 6 characters.')
+
+        const { error: resetErr } = await supabaseAdmin.auth.admin.updateUserById(userProfile.id as string, { password: newPassword })
+        if (resetErr) {
+          console.error('pin-recovery password reset error:', resetErr)
+          return errorResponse('Failed to update password. Please try again.')
+        }
+
+        await supabaseAdmin.from('recovery_profiles').update({ recovery_locked_until: null }).eq('user_id', userProfile.id)
+
+        try {
+          await supabaseAdmin.from('notifications').insert({
+            school_id: userProfile.school_id, to_user_id: userProfile.id,
+            message: 'Your password was reset using your Recovery PIN. If this was not you, contact your school admin immediately.',
+            link: '/settings', type: 'security_alert'
+          })
+        } catch (_) { /* non-fatal */ }
+
+        return jsonResponse({ success: true, message: 'Password updated successfully!' })
+      } else {
+        return jsonResponse({ success: true, username: userProfile.username as string })
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 7. RECOVERY LOCKING ("It's Not Me")
     // ─────────────────────────────────────────────────────────────────────────
 
     if (action === 'lock-recovery') {
