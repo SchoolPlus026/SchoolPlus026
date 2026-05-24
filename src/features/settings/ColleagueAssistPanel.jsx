@@ -26,6 +26,11 @@ export default function ColleagueAssistPanel() {
   const [copied, setCopied] = useState(false);
   const [countdown, setCountdown] = useState(null);
 
+  // Identity verification states
+  const [authType, setAuthType] = useState('password'); // 'password' or 'pin'
+  const [authPassword, setAuthPassword] = useState('');
+  const [authPin, setAuthPin] = useState('');
+
   const handleGenerateToken = async (e) => {
     e.preventDefault();
     setError('');
@@ -36,16 +41,30 @@ export default function ColleagueAssistPanel() {
       return;
     }
 
+    if (authType === 'password' && !authPassword) {
+      setError('Please enter your password to verify identity.');
+      return;
+    }
+
+    if (authType === 'pin' && !authPin) {
+      setError('Please enter your recovery PIN to verify identity.');
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await safeInvokeEdgeFn('hybrid-recovery-handler', {
         action: 'generate-colleague-token',
         helperUserId: user?.id,
-        colleagueUsername: colleagueUsername.trim()
+        colleagueUsername: colleagueUsername.trim(),
+        password: authType === 'password' ? authPassword : null,
+        pin: authType === 'pin' ? authPin : null
       });
 
       setResult(data);
       setColleagueUsername('');
+      setAuthPassword('');
+      setAuthPin('');
 
       // Start countdown timer (30 minutes = 1800 seconds)
       const expiry = new Date(data.expiresAt);
@@ -198,6 +217,46 @@ export default function ColleagueAssistPanel() {
             <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', marginLeft: '2px' }}>
               Enter the exact username of the teacher/staff you want to help. Students are not eligible for peer-assisted recovery.
             </p>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+              Verify Your Identity
+            </label>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <button type="button" onClick={() => setAuthType('password')}
+                className={`btn ${authType === 'password' ? 'accent' : 'outline'}`}
+                style={{ flex: 1, padding: '8px', fontSize: '12px', width: 'auto' }}>
+                Verify with Password
+              </button>
+              <button type="button" onClick={() => setAuthType('pin')}
+                className={`btn ${authType === 'pin' ? 'accent' : 'outline'}`}
+                style={{ flex: 1, padding: '8px', fontSize: '12px', width: 'auto' }}>
+                Verify with PIN
+              </button>
+            </div>
+            
+            {authType === 'password' ? (
+              <input
+                type="password"
+                required
+                value={authPassword}
+                onChange={e => setAuthPassword(e.target.value)}
+                className="sp-input"
+                placeholder="Enter your account password"
+              />
+            ) : (
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                required
+                value={authPin}
+                onChange={e => setAuthPin(e.target.value.replace(/\D/g, ''))}
+                className="sp-input text-center text-lg tracking-[0.2em] font-bold"
+                placeholder="000000"
+              />
+            )}
           </div>
 
           <button type="submit" disabled={loading} className="btn accent w-full">

@@ -6,6 +6,7 @@ import { CapacitorPasskey } from '@capgo/capacitor-passkey';
 import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigate, Link } from 'react-router-dom';
+import jsQR from 'jsqr';
 
 export default function Login() {
   /**
@@ -94,27 +95,71 @@ export default function Login() {
     };
   }, [qrPollInterval]);
 
-  // Camera QR Scanner — start/stop camera stream
+  // Camera QR Scanner — start/stop camera stream with real-time decoding
   useEffect(() => {
     let stream = null;
+    let animationFrameId = null;
 
     const startCamera = async () => {
       try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera not supported on this browser/device.');
+        }
+
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' }
         });
         const video = document.getElementById('qr-scanner-video');
         if (video) {
           video.srcObject = stream;
+          video.setAttribute('playsinline', 'true');
+
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+
+          const scanFrame = () => {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+              canvas.height = video.videoHeight;
+              canvas.width = video.videoWidth;
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert',
+              });
+
+              if (code && code.data) {
+                console.log('Found QR code:', code.data);
+                let token = code.data;
+                if (token.includes('?token=')) {
+                  const url = new URL(token);
+                  token = url.searchParams.get('token') || token;
+                }
+
+                // Call direct login handler
+                handleMobileScannedCode(token);
+                setScannerActive(false);
+                return;
+              }
+            }
+            if (scannerActive) {
+              animationFrameId = requestAnimationFrame(scanFrame);
+            }
+          };
+
+          animationFrameId = requestAnimationFrame(scanFrame);
         }
       } catch (err) {
         console.error('Camera access error:', err);
-        setError('Could not access camera. Please enter the code manually below.');
+        setError('Could not access camera. Please allow camera permissions in settings or enter the code manually.');
         setScannerActive(false);
       }
     };
 
     const stopCamera = () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         stream = null;
@@ -514,11 +559,9 @@ export default function Login() {
     setError('');
     try {
       const data = await invokeEdgeFn('qr-pc-login', { displayCode: qrSyncCode.trim() });
-      if (data.requiresPasswordChange) {
-        setPendingMagicLink(data.loginUrl);
-        setStep(9);
-      } else {
+      if (data.loginUrl) {
         setSuccess('Logging you in...');
+        sessionStorage.setItem('show_sync_password_reset', 'true');
         window.location.href = data.loginUrl;
       }
     } catch (err) {
@@ -534,21 +577,33 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) throw new Error('You must be logged into the mobile app to use this feature.');
       const data = await invokeEdgeFn('qr-mobile-login', {
-        displayCode: mobileQrCode.trim() || undefined,
-        mobileUserId: currentUser.id
+        displayCode: mobileQrCode.trim()
       });
       if (data.loginUrl) {
-        if (data.requiresPasswordChange) {
-          setPendingMagicLink(data.loginUrl);
-          setStep(9);
-        } else {
-          window.location.href = data.loginUrl;
-        }
-      } else {
-        setSuccess(data.message || 'Code accepted! Your other device will log in now.');
+        setSuccess('Logging you in...');
+        sessionStorage.setItem('show_sync_password_reset', 'true');
+        window.location.href = data.loginUrl;
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mobile user: successfully scanned QR code (Flow A)
+  const handleMobileScannedCode = async (token) => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await invokeEdgeFn('qr-mobile-login', {
+        qrToken: token
+      });
+      if (data.loginUrl) {
+        setSuccess('Logging you in...');
+        sessionStorage.setItem('show_sync_password_reset', 'true');
+        window.location.href = data.loginUrl;
       }
     } catch (err) {
       setError(err.message);
@@ -767,14 +822,14 @@ export default function Login() {
             {/* Flow B: PC enters 6-digit code generated on Mobile */}
             {!Capacitor.isNativePlatform() && (
               <button onClick={() => { setError(''); setQrSyncCode(''); setStep(7); }} className="w-full py-3 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-300">
-                <span>📲 Sync Login with Mobile App (QR Code)</span>
+                <span>📷 Scan QR / Enter Code to Login (Only for Admin)</span>
                 <ChevronRight size={16} />
               </button>
             )}
             {/* Flow A: Mobile scans QR or enters code from PC */}
             {Capacitor.isNativePlatform() && (
               <button onClick={() => { setError(''); setMobileQrCode(''); setStep(8); }} className="w-full py-3 px-4 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-violet-300">
-                <span>📷 Scan QR / Enter Code to Login</span>
+                <span>📷 Scan QR / Enter Code to Login (Only for Admin)</span>
                 <ChevronRight size={16} />
               </button>
             )}
@@ -1087,7 +1142,7 @@ export default function Login() {
         {/* ── 7. PC QR/Code Screen (Flow B: enter 6-digit from Mobile) ── */}
         {step === 7 && (
           <div className="fade-in space-y-4">
-            <button onClick={() => { setStep(3); setQrSyncCode(''); if (qrPollInterval) clearInterval(qrPollInterval); }}
+            <button onClick={() => { setStep(3); setQrSyncCode(''); }}
               className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Cancel
             </button>
@@ -1104,38 +1159,6 @@ export default function Login() {
                   {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
                 </button>
               </form>
-            </div>
-
-            {/* Divider */}
-            <div className="relative flex items-center gap-3">
-              <div className="flex-1 h-px bg-white/10" />
-              <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Or scan QR with mobile</span>
-              <div className="flex-1 h-px bg-white/10" />
-            </div>
-
-            {/* Legacy anonymous QR for mobile to scan & approve */}
-            <div className="text-center space-y-3">
-              <p className="text-xs text-slate-400">Open your SchoolOS+ mobile app → Settings → Link PC Login → Scan this QR or enter 6-char code.</p>
-              {qrToken ? (
-                <div className="p-4 bg-white rounded-2xl w-56 h-56 mx-auto flex items-center justify-center shadow-lg">
-                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${qrToken}`} alt="Sync QR" className="w-44 h-44" />
-                </div>
-              ) : (
-                <button onClick={handleInitiateQrSync} disabled={forgotLoading}
-                  className="w-56 h-56 mx-auto bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-white/10 transition-all cursor-pointer">
-                  {forgotLoading ? <Loader2 className="animate-spin text-slate-400" size={28} /> : (
-                    <><QrCode size={40} className="text-indigo-400" /><span className="text-xs text-slate-400 font-semibold">Tap to generate QR</span></>
-                  )}
-                </button>
-              )}
-              {qrToken && (
-                <div className="mt-3">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">6-Char code for mobile app:</p>
-                  <div className="bg-white/10 border border-white/10 rounded-xl py-2 px-4 inline-block text-lg font-black tracking-[0.2em] text-indigo-300">
-                    {qrToken.slice(0, 6).toUpperCase()}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}

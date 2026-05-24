@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { X, Lock, Loader2 } from 'lucide-react';
 import { ToastProvider } from './components/ToastProvider';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
@@ -207,6 +208,7 @@ export default function App() {
       {user && <GlobalUploadToasts />}
       {user && <EmergencyOverlay />}
       {user && <HelpButton />}
+      {user && <SyncPasswordResetModal />}
 
       <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
@@ -341,5 +343,138 @@ export default function App() {
     </Routes>
     </AnimatePresence>
     </ToastProvider>
+  );
+}
+
+function SyncPasswordResetModal() {
+  const [show, setShow] = useState(() => sessionStorage.getItem('show_sync_password_reset') === 'true');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  if (!show) return null;
+
+  const handleClose = () => {
+    sessionStorage.removeItem('show_sync_password_reset');
+    setShow(false);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateErr) throw updateErr;
+
+      setSuccess('Password updated successfully!');
+      sessionStorage.removeItem('show_sync_password_reset');
+      setTimeout(() => {
+        setShow(false);
+      }, 2000);
+    } catch (err) {
+      setError(err.message || 'Failed to update password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.8)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999,
+      padding: '20px'
+    }}>
+      <div className="card w-full max-w-md relative border border-white/10" style={{ background: 'var(--bg-card)' }}>
+        <button onClick={handleClose} style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          background: 'none',
+          border: 'none',
+          color: 'var(--text-muted)',
+          cursor: 'pointer'
+        }}>
+          <X size={20} />
+        </button>
+
+        <div className="settings-header" style={{ marginBottom: '20px' }}>
+          <div className="icon-box" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+            <Lock size={20} />
+          </div>
+          <div className="text-content">
+            <h4>Update Your Password (Optional)</h4>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>
+              You have logged in using a sync code. Would you like to update your account password now?
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm font-semibold">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm font-semibold">
+            {success}
+          </div>
+        )}
+
+        <form onSubmit={handleUpdate} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+            <input
+              type="password"
+              required
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              className="sp-input"
+              placeholder="Min 6 characters"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
+            <input
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              className="sp-input"
+              placeholder="Repeat new password"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={handleClose} className="btn ghost flex-1 text-slate-400">
+              Skip
+            </button>
+            <button type="submit" disabled={loading} className="btn accent flex-1">
+              {loading ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Update Password'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

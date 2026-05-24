@@ -354,8 +354,10 @@ export default function SharedSettings() {
       {/* ── 4.6 ACCOUNT RECOVERY SETUP ── */}
       <RecoverySetup />
 
-      {/* ── 4.7 WEB PC SYNC PANEL ── */}
-      <WebSyncPanel />
+      {/* ── 4.7 WEB PC SYNC PANEL (admin & platform_admin only) ── */}
+      {(userRole === 'admin' || userRole === 'platform_admin') && (
+        <WebSyncPanel />
+      )}
 
       {/* ── 4.8 COLLEAGUE ASSIST (teacher & staff only) ── */}
       {(userRole === 'teacher' || userRole === 'staff') && (

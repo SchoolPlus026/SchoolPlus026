@@ -1,69 +1,135 @@
 import React, { useState } from 'react';
-import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
+import { safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Monitor, Smartphone, Loader2, CheckCircle2, ArrowRight, Copy, RefreshCw, Lock } from 'lucide-react';
+import { Monitor, Smartphone, Loader2, CheckCircle2, Copy, RefreshCw, ShieldAlert, X } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 
 /**
- * WebSyncPanel — Two-section settings panel for QR sync
+ * WebSyncPanel — Rebuilt Sync Settings Panel for Admins
  *
- * Section A (Flow B): Logged-in Mobile user → generates QR + 6-digit code → PC enters that code
- * Section B (legacy): Logged-in Mobile user → enters 6-char code shown on PC screen (old flow)
+ * Exclusively for Platform Admin and School Admin.
+ *
+ * Flow:
+ *  1. Admin clicks "Generate Code"
+ *  2. Invoke 'get-sync-questions'
+ *  3. If skipVerification: true, show final code/QR directly
+ *  4. Else show MCQ + DOB/Contact inputs. Verification succeeds -> show final code/QR
  */
 export default function WebSyncPanel() {
-  const { user } = useAppStore();
+  const { user, role } = useAppStore();
+  const cleanRole = (role || '').toLowerCase();
 
-  // ── Section A: Generate code for PC login ──────────────────────────────
-  const [genPassword, setGenPassword] = useState('');
+  // Guard: Admin only
+  if (cleanRole !== 'admin' && cleanRole !== 'platform_admin') {
+    return null;
+  }
+
+  // Pre-generation Quiz states
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizSessionId, setQuizSessionId] = useState('');
+  const [mcqQuestion, setMcqQuestion] = useState(null); // { question, options }
+  const [mcqAnswer, setMcqAnswer] = useState('');
+  const [dynamicQuestion, setDynamicQuestion] = useState(null); // { type, question }
+  const [dynamicAnswer, setDynamicAnswer] = useState('');
+
+  // Generated Code states
+  const [genCode, setGenCode] = useState('');
+  const [qrTokenState, setQrTokenState] = useState('');
+  const [genExpiry, setGenExpiry] = useState('');
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState('');
-  const [genCode, setGenCode] = useState('');
-  const [genExpiry, setGenExpiry] = useState('');
   const [copied, setCopied] = useState(false);
   const [countdown, setCountdown] = useState(null);
 
-  // ── Section B: Approve PC QR scan ─────────────────────────────────────
-  const [approveCode, setApproveCode] = useState('');
-  const [approveLoading, setApproveLoading] = useState(false);
-  const [approveError, setApproveError] = useState('');
-  const [approveSuccess, setApproveSuccess] = useState('');
+  const startCountdownTimer = (expiresAt) => {
+    const expiry = new Date(expiresAt);
+    const tick = () => {
+      const remaining = Math.max(0, Math.floor((expiry - new Date()) / 1000));
+      setCountdown(remaining);
+      if (remaining > 0) {
+        window.syncCountdownTimeout = setTimeout(tick, 1000);
+      } else {
+        setGenCode('');
+        setQrTokenState('');
+        setCountdown(null);
+      }
+    };
+    if (window.syncCountdownTimeout) clearTimeout(window.syncCountdownTimeout);
+    tick();
+  };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Generate 6-digit code for PC login (Flow B: Mobile → PC)
-  // ─────────────────────────────────────────────────────────────────────────
   const handleGenerateCode = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setGenError('');
     setGenCode('');
-    setGenExpiry('');
+    setQrTokenState('');
+    setCountdown(null);
+    setMcqAnswer('');
+    setDynamicAnswer('');
+    setShowQuiz(false);
 
-    if (!genPassword) {
-      setGenError('Please enter your password to generate a sync code.');
+    setGenLoading(true);
+    try {
+      const clientPlatform = Capacitor.isNativePlatform() ? 'mobile' : 'pc';
+      const data = await safeInvokeEdgeFn('hybrid-recovery-handler', {
+        action: 'get-sync-questions',
+        userId: user?.id,
+        clientPlatform
+      });
+
+      if (data.skipVerification) {
+        setGenCode(data.displayCode);
+        setGenExpiry(data.expiresAt);
+        if (data.qrToken) {
+          setQrTokenState(data.qrToken);
+        }
+        startCountdownTimer(data.expiresAt);
+      } else {
+        setQuizSessionId(data.sessionId);
+        setMcqQuestion(data.mcqQuestion);
+        setDynamicQuestion(data.dynamicQuestion);
+        setShowQuiz(true);
+      }
+    } catch (err) {
+      setGenError(err.message || 'Failed to initialize sync code generation.');
+    } finally {
+      setGenLoading(false);
+    }
+  };
+
+  const handleVerifyQuiz = async (e) => {
+    e.preventDefault();
+    setGenError('');
+
+    if (!mcqAnswer) {
+      setGenError('Please identify the staff member.');
+      return;
+    }
+    if (!dynamicAnswer.trim()) {
+      setGenError('Please enter the answer to the profile question.');
       return;
     }
 
     setGenLoading(true);
     try {
+      const clientPlatform = Capacitor.isNativePlatform() ? 'mobile' : 'pc';
       const data = await safeInvokeEdgeFn('hybrid-recovery-handler', {
-        action: 'qr-generate-mobile',
-        userId: user?.id,
-        password: genPassword
+        action: 'verify-sync-questions',
+        sessionId: quizSessionId,
+        staffAnswer: mcqAnswer,
+        dynamicAnswer: dynamicAnswer.trim(),
+        clientPlatform
       });
 
       setGenCode(data.displayCode);
       setGenExpiry(data.expiresAt);
-      setGenPassword('');
-
-      // Start countdown
-      const expiry = new Date(data.expiresAt);
-      const tick = () => {
-        const remaining = Math.max(0, Math.floor((expiry - new Date()) / 1000));
-        setCountdown(remaining);
-        if (remaining > 0) setTimeout(tick, 1000);
-        else { setGenCode(''); setCountdown(null); }
-      };
-      setTimeout(tick, 1000);
+      if (data.qrToken) {
+        setQrTokenState(data.qrToken);
+      }
+      setShowQuiz(false);
+      startCountdownTimer(data.expiresAt);
     } catch (err) {
-      setGenError(err.message || 'Failed to generate sync code. Please try again.');
+      setGenError(err.message || 'Verification failed. Please try again.');
     } finally {
       setGenLoading(false);
     }
@@ -78,181 +144,183 @@ export default function WebSyncPanel() {
     }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Approve PC login — enter 6-char code from PC QR screen (legacy Flow)
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleApproveSync = async (e) => {
-    e.preventDefault();
-    setApproveError('');
-    setApproveSuccess('');
-
-    if (approveCode.length < 6) {
-      setApproveError('Please enter a valid 6-character sync code.');
-      return;
-    }
-
-    setApproveLoading(true);
-    try {
-      await safeInvokeEdgeFn('hybrid-recovery-handler', {
-        action: 'qr-approve',
-        qrToken: approveCode.trim().toLowerCase(),
-        mobileUserId: user?.id
-      });
-      setApproveSuccess('✅ Computer login approved! Your PC browser will sign in automatically.');
-      setApproveCode('');
-    } catch (err) {
-      setApproveError(err.message || 'Failed to authorize computer login. Please check the code.');
-    } finally {
-      setApproveLoading(false);
-    }
-  };
-
   const formatCountdown = (secs) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  const isNative = Capacitor.isNativePlatform();
+
   return (
-    <div className="space-y-6">
-
-      {/* ── Section A: Generate code for PC ───────────────────────────── */}
-      <div className="card">
-        <div className="settings-header" style={{ marginBottom: '16px' }}>
-          <div className="icon-box" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
-            <Monitor size={20} />
-          </div>
-          <div className="text-content">
-            <h4>Login to PC from Mobile</h4>
-            <p>Generate a 6-digit code on your phone and enter it on the PC login screen to sign in.</p>
-          </div>
+    <div className="card">
+      <div className="settings-header" style={{ marginBottom: '16px' }}>
+        <div className="icon-box" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
+          {isNative ? <Smartphone size={20} /> : <Monitor size={20} />}
         </div>
-
-        {genError && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm font-semibold">
-            {genError}
-          </div>
-        )}
-
-        {genCode ? (
-          <div className="space-y-4">
-            {/* Code display */}
-            <div className="p-5 bg-violet-500/10 border-2 border-violet-500/30 rounded-2xl text-center space-y-2">
-              <p className="text-[10px] text-violet-400 font-bold uppercase tracking-widest">6-Digit Sync Code</p>
-              <div className="text-4xl font-black tracking-[0.3em] text-white">{genCode}</div>
-              <p className="text-xs text-slate-400">
-                Expires in <span className={`font-bold ${countdown <= 60 ? 'text-red-400' : 'text-emerald-400'}`}>
-                  {countdown !== null ? formatCountdown(countdown) : '5:00'}
-                </span>
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={handleCopy}
-                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-white/10 text-sm font-semibold text-slate-300 hover:bg-white/5 transition-all">
-                {copied ? <><CheckCircle2 size={14} className="text-emerald-400" /> Copied!</> : <><Copy size={14} /> Copy Code</>}
-              </button>
-              <button onClick={() => { setGenCode(''); setCountdown(null); }}
-                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-white/10 text-sm font-semibold text-slate-400 hover:bg-white/5 transition-all">
-                <RefreshCw size={14} /> New Code
-              </button>
-            </div>
-
-            <div className="p-3 bg-slate-800/50 rounded-xl text-xs text-slate-400 font-medium">
-              <strong className="text-slate-300">How to use:</strong> On the PC login screen, tap <em>"Account Help &amp; Recovery"</em> → <em>"Sync Login with Mobile App"</em> → enter this 6-digit code.
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleGenerateCode} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
-                <Lock size={10} className="inline mr-1" />Your Password
-              </label>
-              <input
-                type="password"
-                required
-                value={genPassword}
-                onChange={e => setGenPassword(e.target.value)}
-                className="sp-input"
-                placeholder="Enter your password to verify identity"
-              />
-              <p className="text-[10px] text-slate-500 mt-2 ml-1">Password is required to securely generate the sync code.</p>
-            </div>
-            <button type="submit" disabled={genLoading} className="btn accent w-full">
-              {genLoading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="animate-spin" size={16} />
-                  <span>Generating Code...</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-2">
-                  <Monitor size={16} />
-                  <span>Generate PC Login Code</span>
-                </div>
-              )}
-            </button>
-          </form>
-        )}
+        <div className="text-content">
+          <h4>{isNative ? 'Link PC Login (Admin Only)' : 'Link Mobile Login (Admin Only)'}</h4>
+          <p>
+            {isNative
+              ? 'Generate a sync code to log in on your computer without a password.'
+              : 'Generate a QR code or 6-digit sync code to log in on your mobile app.'}
+          </p>
+        </div>
       </div>
 
-      {/* ── Section B: Approve PC QR scan (legacy) ────────────────────── */}
-      <div className="card">
-        <div className="settings-header" style={{ marginBottom: '16px' }}>
-          <div className="icon-box" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4f46e5' }}>
-            <Smartphone size={20} />
-          </div>
-          <div className="text-content">
-            <h4>Approve PC QR Scan</h4>
-            <p>PC is showing a QR code? Enter the 6-character code from the QR screen to approve that login.</p>
-          </div>
+      {genError && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm font-semibold flex gap-2">
+          <ShieldAlert size={16} className="shrink-0 mt-0.5" />
+          <span>{genError}</span>
         </div>
+      )}
 
-        {approveError && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm font-semibold">
-            {approveError}
-          </div>
-        )}
-
-        {approveSuccess && (
-          <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm font-semibold">
-            {approveSuccess}
-          </div>
-        )}
-
-        <form onSubmit={handleApproveSync} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
-              6-Character Code from PC Screen
-            </label>
-            <input
-              type="text"
-              maxLength={6}
-              required
-              value={approveCode}
-              onChange={e => setApproveCode(e.target.value.toUpperCase())}
-              className="sp-input text-center text-lg tracking-[0.25em] font-black"
-              placeholder="A1B2C3"
-            />
-            <p className="text-[10px] text-slate-500 mt-2 ml-1">
-              Enter the 6-character code shown below the QR code on your computer screen.
-            </p>
+      {showQuiz ? (
+        <form onSubmit={handleVerifyQuiz} className="space-y-4">
+          <div className="flex items-center justify-between mb-1">
+            <h5 className="text-xs font-bold text-violet-400 uppercase tracking-widest">Identity Verification Required</h5>
+            <button type="button" onClick={() => setShowQuiz(false)} className="text-slate-400 hover:text-white p-1">
+              <X size={16} />
+            </button>
           </div>
 
-          <button type="submit" disabled={approveLoading} className="btn accent w-full">
-            {approveLoading ? (
+          <div style={{
+            padding: '14px',
+            background: 'var(--bg-main)',
+            border: '1px solid var(--card-border)',
+            borderRadius: '16px'
+          }} className="space-y-4">
+            {/* MCQ Staff Question */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Question 1: {mcqQuestion?.question}
+              </label>
+              <div className="space-y-2">
+                {mcqQuestion?.options.map((opt, i) => (
+                  <label key={i} className="flex items-center gap-2 p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer text-sm text-slate-200 transition-all">
+                    <input
+                      type="radio"
+                      name="staffMcq"
+                      required
+                      value={opt}
+                      checked={mcqAnswer === opt}
+                      onChange={e => setMcqAnswer(e.target.value)}
+                      className="accent-violet-500"
+                    />
+                    <span>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Dynamic Info Question */}
+            <div className="space-y-2 pt-3 border-t border-white/5">
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Question 2: {dynamicQuestion?.question}
+              </label>
+              {dynamicQuestion?.type === 'dob' ? (
+                <input
+                  type="date"
+                  required
+                  value={dynamicAnswer}
+                  onChange={e => setDynamicAnswer(e.target.value)}
+                  className="sp-input text-sm"
+                />
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={dynamicAnswer}
+                  onChange={e => setDynamicAnswer(e.target.value)}
+                  className="sp-input"
+                  placeholder="e.g. 9876543210"
+                />
+              )}
+            </div>
+          </div>
+
+          <button type="submit" disabled={genLoading} className="btn accent w-full">
+            {genLoading ? (
               <div className="flex items-center justify-center gap-2">
                 <Loader2 className="animate-spin" size={16} />
-                <span>Authorizing PC...</span>
+                <span>Verifying...</span>
               </div>
             ) : (
-              <div className="flex items-center justify-center gap-2">
-                <span>Approve PC Login</span>
-                <ArrowRight size={16} />
-              </div>
+              <span>Verify &amp; Generate Code</span>
             )}
           </button>
         </form>
-      </div>
+      ) : genCode ? (
+        <div className="space-y-4">
+          {/* QR code (PC only) */}
+          {!isNative && qrTokenState && (
+            <div className="p-4 bg-white rounded-2xl w-48 h-48 mx-auto flex items-center justify-center shadow-lg">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${qrTokenState}`}
+                alt="PC sync QR"
+                className="w-40 h-40"
+              />
+            </div>
+          )}
+
+          {/* Code display */}
+          <div className="p-5 bg-violet-500/10 border-2 border-violet-500/30 rounded-2xl text-center space-y-2">
+            <p className="text-[10px] text-violet-400 font-bold uppercase tracking-widest">
+              6-Digit Sync Code
+            </p>
+            <div className="text-4xl font-black tracking-[0.3em] text-white ml-[0.3em]">{genCode}</div>
+            <p className="text-xs text-slate-400 font-medium">
+              Expires in{' '}
+              <span className={`font-bold ${countdown <= 60 ? 'text-red-400' : 'text-emerald-400'}`}>
+                {countdown !== null ? formatCountdown(countdown) : '5:00'}
+              </span>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={handleCopy} className="btn outline">
+              {copied ? (
+                <div className="flex items-center justify-center gap-2">
+                  <CheckCircle2 size={14} className="text-emerald-400" />
+                  <span>Copied!</span>
+                </div>
+              ) : (
+                <span>Copy Code</span>
+              )}
+            </button>
+            <button onClick={handleGenerateCode} className="btn ghost text-slate-400">
+              <RefreshCw size={14} /> New Code
+            </button>
+          </div>
+
+          <div className="p-3 bg-slate-800/50 rounded-xl text-xs text-slate-400 font-medium leading-relaxed">
+            <strong className="text-slate-300">How to use:</strong>{' '}
+            {isNative ? (
+              <span>
+                On your PC login screen, tap <em>"Scan QR / Enter Code to Login (Only for Admin)"</em> and enter this 6-digit code.
+              </span>
+            ) : (
+              <span>
+                On your mobile app login screen, tap <em>"Scan QR / Enter Code to Login (Only for Admin)"</em> and scan this QR code or enter the 6-digit code manually.
+              </span>
+            )}
+          </div>
+        </div>
+      ) : (
+        <button onClick={handleGenerateCode} disabled={genLoading} className="btn accent w-full">
+          {genLoading ? (
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="animate-spin" size={16} />
+              <span>Initializing...</span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              {isNative ? <Smartphone size={16} /> : <Monitor size={16} />}
+              <span>Generate Sync Code</span>
+            </div>
+          )}
+        </button>
+      )}
     </div>
   );
 }

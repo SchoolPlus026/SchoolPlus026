@@ -155,16 +155,13 @@ serve(async (req) => {
         return errorResponse('Please enter either your Registered Contact Number or Date of Birth.')
       }
 
-      let query = supabaseAdmin
+      // Query by name (case-insensitive) and role
+      const { data: users, error: usersErr } = await supabaseAdmin
         .from('users')
-        .select('id, school_id, name, class')
-        .eq('name', name)
+        .select('id, school_id, name, class, contact, dob')
+        .ilike('name', name)
         .eq('role', role)
 
-      if (contact) query = query.eq('contact', contact)
-      if (dob) query = query.eq('dob', dob)
-
-      const { data: users, error: usersErr } = await query
       if (usersErr) {
         console.error('recover-school-code users query error:', usersErr)
         return errorResponse('Server error during identity lookup. Please try again.')
@@ -173,7 +170,40 @@ serve(async (req) => {
         return errorResponse('We could not verify your identity. Please contact your school administration.')
       }
 
-      const user = users[0] as { id: string; school_id: string; name: string; class: string }
+      // Perform matching in JS (allow either contact or DOB to match if both provided, soft match contact)
+      let user = null
+      for (const u of users) {
+        let contactMatches = false
+        let dobMatches = false
+
+        if (contact && u.contact) {
+          const cleanInput = contact.replace(/\D/g, '')
+          const cleanDb = u.contact.replace(/\D/g, '')
+          if (cleanInput && cleanDb && (cleanInput.endsWith(cleanDb) || cleanDb.endsWith(cleanInput))) {
+            contactMatches = true
+          }
+        }
+
+        if (dob && u.dob) {
+          try {
+            const inputDobStr = new Date(dob).toISOString().slice(0, 10)
+            const dbDobStr = new Date(u.dob).toISOString().slice(0, 10)
+            if (inputDobStr === dbDobStr) {
+              dobMatches = true
+            }
+          } catch (_) {}
+        }
+
+        // If either matched, we choose this user
+        if (contactMatches || dobMatches) {
+          user = u
+          break
+        }
+      }
+
+      if (!user) {
+        return errorResponse('We could not verify your identity. Please contact your school administration.')
+      }
 
       let challengeQuestion = ''
       let options: string[] = []
@@ -637,309 +667,360 @@ serve(async (req) => {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 5. QR CODE DEVICE SYNC
+    // 5. QR CODE DEVICE SYNC (REBUILT FOR ADMINS)
     // ─────────────────────────────────────────────────────────────────────────
 
-    if (action === 'qr-generate') {
-      const qrToken = crypto.randomUUID()
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
-
-      // NOTE: user_id is NULL here because no user has scanned yet.
-      // The v76 migration makes user_id nullable in this table.
-      const { data: session, error } = await supabaseAdmin
-        .from('recovery_ephemeral_sessions')
-        .insert({
-          user_id: null,        // Intentionally null — no user yet
-          school_id: null,      // Intentionally null — no user yet
-          qr_token: qrToken,
-          qr_verified: false,
-          expires_at: expiresAt
-        })
-        .select()
-        .single()
-
-      if (error) {
-        console.error('qr-generate insert error:', error)
-        return errorResponse(`Failed to generate QR session: ${error.message}`)
-      }
-
-      return jsonResponse({ qrToken, sessionId: (session as { id: string }).id })
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Flow B: Mobile generates a 6-digit code for PC login
-    // ─────────────────────────────────────────────────────────────────────────
-
-    if (action === 'qr-generate-mobile') {
+    if (action === 'get-sync-questions') {
       const userId = payload.userId as string | undefined
-      const password = payload.password as string | undefined
+      const clientPlatform = payload.clientPlatform as 'pc' | 'mobile' | undefined
 
-      if (!userId || !password) return errorResponse('Missing userId or password.')
+      if (!userId || !clientPlatform) return errorResponse('Missing userId or clientPlatform.')
 
-      // Look up user to get email and school_id
+      // Check role constraint
       const { data: userRow, error: userErr } = await supabaseAdmin
-        .from('users').select('email, school_id').eq('id', userId).maybeSingle()
-
-      if (userErr || !userRow) return errorResponse('User not found.')
-
-      const u = userRow as { email?: string; school_id: string }
-      const emailToUse = u.email || `${userId}@school.com`
-
-      // Verify password
-      const { error: authErr } = await supabaseAdmin.auth.signInWithPassword({
-        email: emailToUse,
-        password
-      })
-
-      if (authErr) return errorResponse('Incorrect password.')
-
-      // Generate 6-digit code
-      const displayCode = Math.floor(100000 + Math.random() * 900000).toString()
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
-
-      const { error: insertErr } = await supabaseAdmin
-        .from('recovery_ephemeral_sessions')
-        .insert({
-          user_id: userId,
-          school_id: u.school_id,
-          qr_token: displayCode,
-          qr_verified: false,
-          expires_at: expiresAt,
-          saved_answers: { displayCode, flow: 'mobile-to-pc' }
-        })
-
-      if (insertErr) {
-        console.error('qr-generate-mobile insert error:', insertErr)
-        return errorResponse('Failed to generate sync code. Please try again.')
-      }
-
-      return jsonResponse({ displayCode, expiresAt })
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Flow A: PC generates QR + code for Mobile login (verified)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    if (action === 'qr-generate-verified') {
-      const userId = payload.userId as string | undefined
-      const password = payload.password as string | undefined
-      const dob = payload.dob as string | undefined
-
-      if (!userId || !password || !dob) return errorResponse('Missing userId, password, or date of birth.')
-
-      // Look up user
-      const { data: userRow, error: userErr } = await supabaseAdmin
-        .from('users').select('email, school_id, dob').eq('id', userId).maybeSingle()
-
-      if (userErr || !userRow) return errorResponse('User not found.')
-
-      const u = userRow as { email?: string; school_id: string; dob?: string }
-      const emailToUse = u.email || `${userId}@school.com`
-
-      // Verify password
-      const { error: authErr } = await supabaseAdmin.auth.signInWithPassword({
-        email: emailToUse,
-        password
-      })
-
-      if (authErr) return errorResponse('Incorrect password.')
-
-      // Verify DOB matches
-      if (!u.dob || new Date(u.dob).toISOString().slice(0, 10) !== new Date(dob).toISOString().slice(0, 10)) {
-        return errorResponse('Date of birth does not match our records.')
-      }
-
-      // Generate QR token and 6-digit display code
-      const qrToken = crypto.randomUUID()
-      const displayCode = Math.floor(100000 + Math.random() * 900000).toString()
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
-
-      const { error: insertErr } = await supabaseAdmin
-        .from('recovery_ephemeral_sessions')
-        .insert({
-          user_id: userId,
-          school_id: u.school_id,
-          qr_token: qrToken,
-          qr_verified: false,
-          expires_at: expiresAt,
-          saved_answers: { displayCode, flow: 'pc-to-mobile', requiresPasswordChange: true }
-        })
-
-      if (insertErr) {
-        console.error('qr-generate-verified insert error:', insertErr)
-        return errorResponse('Failed to generate QR session. Please try again.')
-      }
-
-      return jsonResponse({ qrToken, displayCode, expiresAt })
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-
-    if (action === 'qr-poll') {
-      const qrToken = payload.qrToken as string | undefined
-      if (!qrToken) return errorResponse('Missing QR token')
-
-      const { data: session, error } = await supabaseAdmin
-        .from('recovery_ephemeral_sessions')
-        .select('*')
-        .eq('qr_token', qrToken)
+        .from('users')
+        .select('name, role, school_id, dob, contact, email')
+        .eq('id', userId)
         .maybeSingle()
 
-      if (error || !session) {
-        return jsonResponse({ expired: true })
+      if (userErr || !userRow) return errorResponse('User profile not found.')
+
+      const uRole = (userRow.role || '').toLowerCase()
+      if (uRole !== 'admin' && uRole !== 'platform_admin') {
+        return errorResponse('Unauthorized: Sync login is only available for Admins.')
       }
 
-      const s = session as { 
-        qr_verified: boolean; user_id: string | null; expires_at: string;
-        saved_answers?: { requiresPasswordChange?: boolean }
-      }
+      const hasDob = !!userRow.dob
+      const hasContact = !!userRow.contact
 
-      // Check expiry
-      if (s.expires_at && new Date(s.expires_at) < new Date()) {
-        await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('qr_token', qrToken)
-        return jsonResponse({ expired: true })
-      }
+      // If DB lacks basic info, skip questions and generate directly
+      if (!hasDob && !hasContact) {
+        const displayCode = Math.floor(100000 + Math.random() * 900000).toString()
+        const qrToken = crypto.randomUUID()
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
-      if (s.qr_verified && s.user_id) {
-        // Generate magic link for the verified user
-        const { data: userRow, error: userErr } = await supabaseAdmin
-          .from('users').select('email, username').eq('id', s.user_id).maybeSingle()
+        const flow = clientPlatform === 'pc' ? 'pc-to-mobile' : 'mobile-to-pc'
 
-        if (userErr || !userRow) return errorResponse('User email not found')
+        const { error: insertErr } = await supabaseAdmin
+          .from('recovery_ephemeral_sessions')
+          .insert({
+            user_id: userId,
+            school_id: userRow.school_id,
+            qr_token: clientPlatform === 'pc' ? qrToken : displayCode,
+            qr_verified: false,
+            expires_at: expiresAt,
+            saved_answers: { displayCode, flow, requiresPasswordChange: true }
+          })
 
-        const u = userRow as { email?: string; username?: string }
-        const emailToUse = u.email || `${s.user_id}@school.com`
-
-        const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'magiclink',
-          email: emailToUse
-        })
-
-        if (otpErr) {
-          console.error('Magic link generation error:', otpErr)
-          return errorResponse('Failed to generate login link. Please try again.')
+        if (insertErr) {
+          console.error('get-sync-questions skip-insert error:', insertErr)
+          return errorResponse('Failed to generate sync code. Please try again.')
         }
 
-        await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('qr_token', qrToken)
-
-        return jsonResponse({ 
-          verified: true, 
-          loginUrl: otpLink.properties.action_link,
-          requiresPasswordChange: s.saved_answers?.requiresPasswordChange ?? false 
+        return jsonResponse({
+          skipVerification: true,
+          displayCode,
+          qrToken: clientPlatform === 'pc' ? qrToken : undefined,
+          expiresAt
         })
       }
 
-      return jsonResponse({ verified: false })
+      // Generate verification questions
+      // Question 1: MCQ "Identify the Staff"
+      const { data: staffList } = await supabaseAdmin
+        .from('users')
+        .select('name')
+        .eq('school_id', userRow.school_id)
+        .in('role', ['admin', 'teacher', 'staff', 'app_manager'])
+        .neq('id', userId)
+        .limit(10)
+
+      let correctStaff = userRow.name || 'Admin'
+      if (staffList && staffList.length > 0) {
+        correctStaff = staffList[Math.floor(Math.random() * staffList.length)].name
+      }
+
+      const { data: studentList } = await supabaseAdmin
+        .from('users')
+        .select('name')
+        .eq('school_id', userRow.school_id)
+        .eq('role', 'student')
+        .limit(10)
+
+      let studentNames: string[] = []
+      if (studentList && studentList.length > 0) {
+        const shuffled = [...studentList].sort(() => Math.random() - 0.5)
+        studentNames = shuffled.slice(0, 2).map(s => s.name)
+      }
+      while (studentNames.length < 2) {
+        studentNames.push(`Student ${studentNames.length + 1}`)
+      }
+
+      const mcqOptions = [correctStaff, ...studentNames].sort(() => Math.random() - 0.5)
+
+      // Question 2: Dynamic Info (DOB or Contact)
+      let dynamicType = 'dob'
+      let dynamicQuestion = 'Verify your Date of Birth (YYYY-MM-DD)'
+      let correctDynamicValue = userRow.dob ? new Date(userRow.dob).toISOString().slice(0, 10) : ''
+
+      if (!hasDob && hasContact) {
+        dynamicType = 'contact'
+        dynamicQuestion = 'Verify your registered Contact Number'
+        correctDynamicValue = userRow.contact ? userRow.contact.trim() : ''
+      }
+
+      // Store pre-verification session
+      const verificationSessionId = crypto.randomUUID()
+      const { error: insertErr } = await supabaseAdmin
+        .from('recovery_ephemeral_sessions')
+        .insert({
+          user_id: userId,
+          school_id: userRow.school_id,
+          qr_token: verificationSessionId,
+          qr_verified: false,
+          expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+          saved_answers: {
+            flow: 'pre-sync-verification',
+            correctStaff,
+            correctDynamicValue,
+            dynamicType
+          }
+        })
+
+      if (insertErr) {
+        console.error('get-sync-questions insert error:', insertErr)
+        return errorResponse('Failed to prepare verification questions.')
+      }
+
+      return jsonResponse({
+        skipVerification: false,
+        sessionId: verificationSessionId,
+        mcqQuestion: {
+          question: 'Identify the Staff from the options below:',
+          options: mcqOptions
+        },
+        dynamicQuestion: {
+          type: dynamicType,
+          question: dynamicQuestion
+        }
+      })
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Mobile Login: scan QR OR enter 6-digit code from PC (Flow A → mobile receives)
-    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'verify-sync-questions') {
+      const sessionId = payload.sessionId as string | undefined
+      const staffAnswer = payload.staffAnswer as string | undefined
+      const dynamicAnswer = payload.dynamicAnswer as string | undefined
+      const clientPlatform = payload.clientPlatform as 'pc' | 'mobile' | undefined
+
+      if (!sessionId || !staffAnswer || !dynamicAnswer || !clientPlatform) {
+        return errorResponse('Missing verification parameters.')
+      }
+
+      const { data: session, error: sessErr } = await supabaseAdmin
+        .from('recovery_ephemeral_sessions')
+        .select('*')
+        .eq('qr_token', sessionId)
+        .maybeSingle()
+
+      if (sessErr || !session) return errorResponse('Verification session expired or invalid.')
+
+      const s = session as {
+        id: string; user_id: string; school_id: string; expires_at: string;
+        saved_answers?: { flow?: string; correctStaff?: string; correctDynamicValue?: string; dynamicType?: string }
+      }
+
+      if (s.saved_answers?.flow !== 'pre-sync-verification') {
+        return errorResponse('Invalid verification session.')
+      }
+
+      if (new Date(s.expires_at) < new Date()) {
+        await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', s.id)
+        return errorResponse('Verification session has expired.')
+      }
+
+      // Verify MCQ Staff
+      if (staffAnswer !== s.saved_answers.correctStaff) {
+        return errorResponse('Incorrect staff selection.')
+      }
+
+      // Verify Dynamic Info
+      let dynamicVerified = false
+      const inputVal = dynamicAnswer.trim()
+      const dbVal = s.saved_answers.correctDynamicValue || ''
+
+      if (s.saved_answers.dynamicType === 'dob') {
+        try {
+          if (new Date(inputVal).toISOString().slice(0, 10) === new Date(dbVal).toISOString().slice(0, 10)) {
+            dynamicVerified = true
+          }
+        } catch (_) {}
+      } else {
+        // Clean non-digits
+        if (inputVal.replace(/\D/g, '') === dbVal.replace(/\D/g, '')) {
+          dynamicVerified = true
+        }
+      }
+
+      if (!dynamicVerified) {
+        return errorResponse('Incorrect answer for personal profile question.')
+      }
+
+      // Clean up verification session
+      await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', s.id)
+
+      // Generate final sync code/session
+      const displayCode = Math.floor(100000 + Math.random() * 900000).toString()
+      const qrToken = crypto.randomUUID()
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+
+      const flow = clientPlatform === 'pc' ? 'pc-to-mobile' : 'mobile-to-pc'
+
+      const { error: insertErr } = await supabaseAdmin
+        .from('recovery_ephemeral_sessions')
+        .insert({
+          user_id: s.user_id,
+          school_id: s.school_id,
+          qr_token: clientPlatform === 'pc' ? qrToken : displayCode,
+          qr_verified: false,
+          expires_at: expiresAt,
+          saved_answers: { displayCode, flow, requiresPasswordChange: true }
+        })
+
+      if (insertErr) {
+        console.error('verify-sync-questions final insert error:', insertErr)
+        return errorResponse('Failed to generate final sync code.')
+      }
+
+      return jsonResponse({
+        success: true,
+        displayCode,
+        qrToken: clientPlatform === 'pc' ? qrToken : undefined,
+        expiresAt
+      })
+    }
 
     if (action === 'qr-mobile-login') {
       const displayCode = payload.displayCode as string | undefined
       const qrToken = payload.qrToken as string | undefined
-      const mobileUserId = payload.mobileUserId as string | undefined
 
-      if (!mobileUserId) return errorResponse('You must be logged into the mobile app to use this feature.')
-      if (!displayCode && !qrToken) return errorResponse('Please provide a sync code or scan the QR code.')
-
-      if (displayCode) {
-        const { data: sessions } = await supabaseAdmin
-          .from('recovery_ephemeral_sessions').select('*').eq('qr_verified', false).gt('expires_at', new Date().toISOString())
-
-        if (!sessions || sessions.length === 0) return errorResponse('Code not found or expired. Please ask for a new code.')
-
-        type SessionRow = { id: string; user_id: string | null; saved_answers?: { displayCode?: string; flow?: string } }
-        const matched = (sessions as SessionRow[]).find(s => s.saved_answers?.displayCode === displayCode && s.saved_answers?.flow === 'pc-to-mobile')
-        if (!matched) return errorResponse('Invalid code. Please check and try again.')
-
-        await supabaseAdmin.from('recovery_ephemeral_sessions').update({ qr_verified: true }).eq('id', matched.id)
-        return jsonResponse({ success: true, message: 'Code accepted! Logging you into your mobile app now.' })
+      if (!displayCode && !qrToken) {
+        return errorResponse('Please scan the QR code or enter the 6-digit sync code.')
       }
+
+      let matchedSession = null
 
       if (qrToken) {
         const { data: session } = await supabaseAdmin
-          .from('recovery_ephemeral_sessions').select('*').eq('qr_token', qrToken).maybeSingle()
+          .from('recovery_ephemeral_sessions')
+          .select('*')
+          .eq('qr_token', qrToken)
+          .eq('qr_verified', false)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle()
 
-        if (!session) return errorResponse('QR code has expired. Please scan a new QR code.')
-
-        const s = session as { id: string; expires_at: string; saved_answers?: { flow?: string } }
-        if (new Date(s.expires_at) < new Date()) {
-          await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', s.id)
-          return errorResponse('This QR code has expired. Please ask for a new one.')
+        if (session) {
+          const s = session as { saved_answers?: { flow?: string } }
+          if (s.saved_answers?.flow === 'pc-to-mobile') {
+            matchedSession = session
+          }
         }
-        if (s.saved_answers?.flow !== 'pc-to-mobile') return errorResponse('This QR code is not valid for mobile login.')
+      } else if (displayCode) {
+        const { data: sessions } = await supabaseAdmin
+          .from('recovery_ephemeral_sessions')
+          .select('*')
+          .eq('qr_verified', false)
+          .gt('expires_at', new Date().toISOString())
 
-        await supabaseAdmin.from('recovery_ephemeral_sessions').update({ qr_verified: true, user_id: mobileUserId }).eq('id', s.id)
-
-        const { data: userRow } = await supabaseAdmin.from('users').select('email, username').eq('id', mobileUserId).maybeSingle()
-        const u = userRow as { email?: string; username?: string } | null
-        const emailToUse = u?.email || `${mobileUserId}@school.com`
-
-        const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: emailToUse })
-        if (otpErr) return errorResponse('Could not create login session. Please try again.')
-
-        return jsonResponse({ success: true, loginUrl: otpLink.properties.action_link, requiresPasswordChange: true })
+        if (sessions) {
+          type SessionRow = { id: string; user_id: string | null; saved_answers?: { displayCode?: string; flow?: string } }
+          matchedSession = (sessions as SessionRow[]).find(s => s.saved_answers?.displayCode === displayCode && s.saved_answers?.flow === 'pc-to-mobile')
+        }
       }
 
-      return errorResponse('Invalid request parameters.')
-    }
+      if (!matchedSession || !matchedSession.user_id) {
+        return errorResponse('Code/QR has expired or is invalid. Please try again.')
+      }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PC Login: enter 6-digit code from Mobile (Flow B → PC receives)
-    // ─────────────────────────────────────────────────────────────────────────
+      // Clean up the session
+      await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', matchedSession.id)
+
+      const { data: userRow } = await supabaseAdmin
+        .from('users')
+        .select('email, username')
+        .eq('id', matchedSession.user_id)
+        .maybeSingle()
+
+      if (!userRow) return errorResponse('User profile not found.')
+
+      const u = userRow as { email?: string; username?: string }
+      const emailToUse = u.email || `${matchedSession.user_id}@school.com`
+
+      const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: emailToUse
+      })
+
+      if (otpErr) {
+        console.error('qr-mobile-login magic link error:', otpErr)
+        return errorResponse('Failed to create mobile login session. Please try again.')
+      }
+
+      return jsonResponse({
+        success: true,
+        loginUrl: otpLink.properties.action_link,
+        requiresPasswordChange: true
+      })
+    }
 
     if (action === 'qr-pc-login') {
       const displayCode = payload.displayCode as string | undefined
       if (!displayCode) return errorResponse('Please enter the 6-digit sync code.')
 
       const { data: sessions } = await supabaseAdmin
-        .from('recovery_ephemeral_sessions').select('*').eq('qr_verified', false).gt('expires_at', new Date().toISOString())
+        .from('recovery_ephemeral_sessions')
+        .select('*')
+        .eq('qr_verified', false)
+        .gt('expires_at', new Date().toISOString())
 
-      if (!sessions || sessions.length === 0) return errorResponse('Code not found or expired. Please generate a new code on your mobile app.')
+      if (!sessions || sessions.length === 0) {
+        return errorResponse('Code not found or expired. Please generate a new code on your mobile app.')
+      }
 
       type SessionRow = { id: string; user_id: string | null; saved_answers?: { displayCode?: string; flow?: string } }
       const matched = (sessions as SessionRow[]).find(s => s.saved_answers?.displayCode === displayCode && s.saved_answers?.flow === 'mobile-to-pc')
 
-      if (!matched) return errorResponse('Invalid code. Please check the 6-digit code shown on your mobile app.')
-      if (!matched.user_id) return errorResponse('Session error. Please generate a new code on your mobile.')
+      if (!matched || !matched.user_id) {
+        return errorResponse('Invalid or expired code. Please generate a new code on your mobile app.')
+      }
 
       await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', matched.id)
 
-      const { data: userRow } = await supabaseAdmin.from('users').select('email, username').eq('id', matched.user_id).maybeSingle()
-      const u = userRow as { email?: string; username?: string } | null
-      const emailToUse = u?.email || `${matched.user_id}@school.com`
+      const { data: userRow } = await supabaseAdmin
+        .from('users')
+        .select('email, username')
+        .eq('id', matched.user_id)
+        .maybeSingle()
 
-      const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: emailToUse })
-      if (otpErr) return errorResponse('Failed to create login session. Please try again.')
+      if (!userRow) return errorResponse('User profile not found.')
 
-      return jsonResponse({ success: true, loginUrl: otpLink.properties.action_link, requiresPasswordChange: true })
-    }
+      const u = userRow as { email?: string; username?: string }
+      const emailToUse = u.email || `${matched.user_id}@school.com`
 
-    // ─────────────────────────────────────────────────────────────────────────
+      const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: emailToUse
+      })
 
-    if (action === 'qr-approve') {
-      const qrToken = payload.qrToken as string | undefined
-      const mobileUserId = payload.mobileUserId as string | undefined
-      if (!qrToken || !mobileUserId) return errorResponse('Missing approval credentials')
+      if (otpErr) {
+        console.error('qr-pc-login magic link error:', otpErr)
+        return errorResponse('Failed to create PC login session. Please try again.')
+      }
 
-      const { data: session } = await supabaseAdmin
-        .from('recovery_ephemeral_sessions').select('*').eq('qr_token', qrToken).maybeSingle()
-
-      if (!session) return errorResponse('Session expired or invalid')
-
-      const { data: userProfile, error: userProfileErr } = await supabaseAdmin
-        .from('users').select('school_id').eq('id', mobileUserId).maybeSingle()
-
-      if (userProfileErr || !userProfile) return errorResponse('Mobile user profile not found')
-
-      await supabaseAdmin
-        .from('recovery_ephemeral_sessions')
-        .update({ qr_verified: true, user_id: mobileUserId, school_id: (userProfile as { school_id: string }).school_id })
-        .eq('qr_token', qrToken)
-
-      return jsonResponse({ success: true })
+      return jsonResponse({
+        success: true,
+        loginUrl: otpLink.properties.action_link,
+        requiresPasswordChange: true
+      })
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -950,19 +1031,46 @@ serve(async (req) => {
     if (action === 'generate-colleague-token') {
       const helperUserId = payload.helperUserId as string | undefined
       const colleagueUsername = (payload.colleagueUsername as string | undefined)?.trim()
+      const password = payload.password as string | undefined
+      const pin = payload.pin as string | undefined
 
       if (!helperUserId || !colleagueUsername) return errorResponse('Missing required fields.')
+      if (!password && !pin) {
+        return errorResponse('Identity verification required. Please enter your password or recovery PIN.')
+      }
 
       // Verify helper exists and is teacher/staff (not student/driver)
       const { data: helperProfile, error: helperErr } = await supabaseAdmin
-        .from('users').select('role, school_id, name').eq('id', helperUserId).maybeSingle()
+        .from('users').select('role, school_id, name, email').eq('id', helperUserId).maybeSingle()
 
       if (helperErr || !helperProfile) return errorResponse('Your account could not be verified. Please try again.')
 
-      const h = helperProfile as { role: string; school_id: string; name: string }
+      const h = helperProfile as { role: string; school_id: string; name: string; email?: string }
       const allowedHelperRoles = ['teacher', 'staff', 'admin']
       if (!allowedHelperRoles.includes(h.role)) {
         return errorResponse('Only teachers and staff members can generate colleague reset tokens.')
+      }
+
+      // Verify helper identity
+      if (password) {
+        const helperEmail = h.email || `${helperUserId}@school.com`
+        const { error: authErr } = await supabaseAdmin.auth.signInWithPassword({
+          email: helperEmail,
+          password: password
+        })
+        if (authErr) {
+          return errorResponse('Incorrect password. Identity verification failed.')
+        }
+      } else if (pin) {
+        const { data: recProfile, error: recErr } = await supabaseAdmin
+          .from('recovery_profiles').select('pin_hash').eq('user_id', helperUserId).maybeSingle()
+        
+        if (recErr || !recProfile || !(recProfile as { pin_hash?: string }).pin_hash) {
+          return errorResponse('No Recovery PIN is set on your account. Please verify with your Password instead.')
+        }
+        if ((recProfile as { pin_hash?: string }).pin_hash !== pin.trim()) {
+          return errorResponse('Incorrect Recovery PIN. Identity verification failed.')
+        }
       }
 
       // Find the colleague in the SAME school
