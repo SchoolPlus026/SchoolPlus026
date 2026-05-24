@@ -12,6 +12,7 @@ import { FileOpener } from '@capacitor-community/file-opener';
 import BiometricSetup from './BiometricSetup';
 import RecoverySetup from './RecoverySetup';
 import WebSyncPanel from './WebSyncPanel';
+import ColleagueAssistPanel from './ColleagueAssistPanel';
 /* ─── helpers ─── */
 function toast(msg, setT) {
   setT(msg);
@@ -355,6 +356,11 @@ export default function SharedSettings() {
 
       {/* ── 4.7 WEB PC SYNC PANEL ── */}
       <WebSyncPanel />
+
+      {/* ── 4.8 COLLEAGUE ASSIST (teacher & staff only) ── */}
+      {(userRole === 'teacher' || userRole === 'staff') && (
+        <ColleagueAssistPanel />
+      )}
 
       {/* ── 5. DATA MANAGEMENT (admin only) ── */}
       {userRole === 'admin' && (

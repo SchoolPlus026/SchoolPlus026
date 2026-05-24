@@ -68,6 +68,11 @@ export default function Login() {
   const [qrForceConfirmPassword, setQrForceConfirmPassword] = useState('');
   const [pendingMagicLink, setPendingMagicLink] = useState('');
 
+  // Colleague Token (Step 10)
+  const [colleagueToken, setColleagueToken] = useState('');
+  const [colleagueNewPassword, setColleagueNewPassword] = useState('');
+  const [colleagueConfirmPassword, setColleagueConfirmPassword] = useState('');
+
   const [globalApp, setGlobalApp] = useState({ name: 'SchoolOS+', logo: null });
   const { setUserAndRole, setSchoolSettings, schoolSettings } = useAppStore();
   const navigate = useNavigate();
@@ -371,6 +376,28 @@ export default function Login() {
       setSuccess(`✅ Your Username is: ${data.username}`);
       setUsername(data.username);
       setTimeout(() => { setSuccess(''); setStep(2); }, 8000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // COLLEAGUE TOKEN LOGIN (Step 10)
+  const handleColleagueTokenLogin = async (e) => {
+    e.preventDefault();
+    if (colleagueNewPassword !== colleagueConfirmPassword) { setError('Passwords do not match.'); return; }
+    if (colleagueNewPassword.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      await invokeEdgeFn('colleague-token-login', {
+        token: colleagueToken.trim(),
+        newPassword: colleagueNewPassword
+      });
+      setSuccess('✅ Password reset successfully! Please login with your new password.');
+      setColleagueToken(''); setColleagueNewPassword(''); setColleagueConfirmPassword('');
+      setTimeout(() => { setSuccess(''); setStep(2); }, 3000);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -685,6 +712,11 @@ export default function Login() {
                 <ChevronRight size={16} />
               </button>
             )}
+            {/* Colleague token option */}
+            <button onClick={() => { setError(''); setColleagueToken(''); setColleagueNewPassword(''); setColleagueConfirmPassword(''); setStep(10); }} className="w-full py-3 px-4 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-teal-300">
+              <span>🤝 Use Colleague Reset Token</span>
+              <ChevronRight size={16} />
+            </button>
           </div>
         )}
 
@@ -1074,6 +1106,41 @@ export default function Login() {
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold gap-2">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle2 size={16} /> Save &amp; Continue</>}
+            </button>
+          </form>
+        )}
+
+        {/* ── 10. Colleague Token Login ─────────────────────── */}
+        {step === 10 && (
+          <form onSubmit={handleColleagueTokenLogin} className="fade-in space-y-4">
+            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Back
+            </button>
+            <div className="text-center mb-2">
+              <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center bg-teal-500/20 border border-teal-500/30">
+                <span className="text-2xl">🤝</span>
+              </div>
+              <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Colleague Reset Token</h3>
+              <p className="text-xs text-slate-400 mt-1">A colleague generated a one-time 6-digit code for you.</p>
+            </div>
+            <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-xl text-xs text-teal-300 font-semibold">
+              🤝 Ask your teacher/staff colleague to go to <em>Settings → Assist a Colleague</em> and generate a token for your username.
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">6-Digit Token from Colleague</label>
+              <input type="text" inputMode="numeric" maxLength={6} required value={colleagueToken}
+                onChange={e => setColleagueToken(e.target.value.replace(/\D/g, ''))}
+                className="sp-input text-center text-2xl font-black tracking-[0.4em]" placeholder="000000" />
+            </div>
+            <div className="border-t border-white/5 pt-4 space-y-3">
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">Set New Password</label>
+              <input type="password" required value={colleagueNewPassword} onChange={e => setColleagueNewPassword(e.target.value)}
+                className="sp-input" placeholder="New Password (min 6 chars)" />
+              <input type="password" required value={colleagueConfirmPassword} onChange={e => setColleagueConfirmPassword(e.target.value)}
+                className="sp-input" placeholder="Confirm New Password" />
+            </div>
+            <button type="submit" disabled={loading || colleagueToken.length < 6} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold gap-2">
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Key size={16} /> Reset My Password</>}
             </button>
           </form>
         )}

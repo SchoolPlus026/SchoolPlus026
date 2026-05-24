@@ -381,18 +381,23 @@ serve(async (req) => {
           qIndex++
         }
 
+        // Attendance: only ask within last 7 days
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000)
         const { data: attendance } = await supabaseAdmin
           .from('attendance').select('attendance_data').eq('user_id', userProfile.id).limit(1).maybeSingle()
         if (attendance) {
           const ad = attendance as { attendance_data?: Record<string, string> }
-          const keys = ad.attendance_data ? Object.keys(ad.attendance_data) : []
-          if (keys.length > 0) {
-            const checkDate = keys[0]
+          const allKeys = ad.attendance_data ? Object.keys(ad.attendance_data) : []
+          // Filter to keys within last 7 days
+          const recentKeys = allKeys.filter(k => new Date(k) >= sevenDaysAgo)
+          if (recentKeys.length > 0) {
+            const checkDate = recentKeys[recentKeys.length - 1] // most recent
             const realStatus = ad.attendance_data![checkDate]
             questionsList.push({ id: qIndex, question: `What was your attendance status on ${checkDate}?`, options: ['Present', 'Absent', 'On Leave'].sort(() => Math.random() - 0.5) })
             answersMap[qIndex] = realStatus
             qIndex++
           }
+          // If no recent data, skip this question entirely (don't add it)
         }
       } else if (userProfile.role === 'teacher') {
         const { data: tt } = await supabaseAdmin
@@ -438,24 +443,51 @@ serve(async (req) => {
         }
       }
 
-      // Fill generic questions to reach 5
-      const genericQs = [
-        "What is the first name of your school's current principal?",
-        "Which state is your school located in?",
-        "What is the name of your school mascot?"
-      ]
-      let genIdx = 0
-      while (questionsList.length < 5) {
-        const qText = genericQs[genIdx] || `Verification Question ${qIndex}`
-        questionsList.push({ id: qIndex, question: qText, options: [] })
-        if (genIdx === 0) {
-          const { data: principal } = await supabaseAdmin
-            .from('users').select('name').eq('school_id', userProfile.school_id).eq('role', 'admin').limit(1).maybeSingle()
-          answersMap[qIndex] = (principal as { name?: string } | null)?.name ?? 'Principal'
-        } else {
-          answersMap[qIndex] = 'SchoolOS+'
+      // Fill generic questions to reach 5 — only add if data actually exists
+      if (questionsList.length < 5) {
+        // Principal name — only if admin exists
+        const { data: principal } = await supabaseAdmin
+          .from('users').select('name').eq('school_id', userProfile.school_id).eq('role', 'admin').limit(1).maybeSingle()
+        if (principal && (principal as { name?: string }).name && questionsList.length < 5) {
+          const principalName = (principal as { name: string }).name
+          const fakeName1 = 'Mr. Verma'
+          const fakeName2 = 'Mrs. Patel'
+          questionsList.push({
+            id: qIndex,
+            question: "What is the name of your school's Admin/Principal?",
+            options: [principalName, fakeName1, fakeName2].sort(() => Math.random() - 0.5)
+          })
+          answersMap[qIndex] = principalName
+          qIndex++
         }
-        genIdx++
+      }
+
+      if (questionsList.length < 5) {
+        // School state — only if state/city data exists in school_settings
+        const { data: school } = await supabaseAdmin
+          .from('school_settings').select('city, state').eq('school_id', userProfile.school_id).maybeSingle()
+        const schoolState = (school as { city?: string; state?: string } | null)?.state || null
+        if (schoolState) {
+          questionsList.push({
+            id: qIndex,
+            question: 'Which state is your school located in?',
+            options: [schoolState, 'Maharashtra', 'Gujarat'].sort(() => Math.random() - 0.5)
+          })
+          answersMap[qIndex] = schoolState
+          qIndex++
+        }
+      }
+
+      // Last resort: if still under 5, use a generic typed answer question
+      if (questionsList.length < 5) {
+        questionsList.push({
+          id: qIndex,
+          question: 'What is the name of your school? (Full name as registered)',
+          options: [] // free-text answer
+        })
+        const { data: sch } = await supabaseAdmin
+          .from('school_settings').select('name').eq('school_id', userProfile.school_id).maybeSingle()
+        answersMap[qIndex] = (sch as { name?: string } | null)?.name ?? ''
         qIndex++
       }
 
@@ -801,6 +833,145 @@ serve(async (req) => {
         .eq('qr_token', qrToken)
 
       return jsonResponse({ success: true })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 5b. PEER-TO-PEER TEACHER ASSIST — generate-colleague-token
+    // A logged-in teacher generates a 6-digit OTP for a locked-out colleague
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (action === 'generate-colleague-token') {
+      const helperUserId = payload.helperUserId as string | undefined
+      const colleagueUsername = (payload.colleagueUsername as string | undefined)?.trim()
+
+      if (!helperUserId || !colleagueUsername) return errorResponse('Missing required fields.')
+
+      // Verify helper exists and is teacher/staff (not student/driver)
+      const { data: helperProfile, error: helperErr } = await supabaseAdmin
+        .from('users').select('role, school_id, name').eq('id', helperUserId).maybeSingle()
+
+      if (helperErr || !helperProfile) return errorResponse('Your account could not be verified. Please try again.')
+
+      const h = helperProfile as { role: string; school_id: string; name: string }
+      const allowedHelperRoles = ['teacher', 'staff', 'admin']
+      if (!allowedHelperRoles.includes(h.role)) {
+        return errorResponse('Only teachers and staff members can generate colleague reset tokens.')
+      }
+
+      // Find the colleague in the SAME school
+      const { data: colleague, error: colErr } = await supabaseAdmin
+        .from('users').select('id, name, role, school_id').eq('username', colleagueUsername).eq('school_id', h.school_id).maybeSingle()
+
+      if (colErr || !colleague) {
+        return errorResponse(`No account found for username "${colleagueUsername}" in your school.`)
+      }
+
+      const c = colleague as { id: string; name: string; role: string; school_id: string }
+
+      // Students cannot be helped via peer-to-peer (security policy)
+      if (c.role === 'student') {
+        return errorResponse('Students are not eligible for peer-assisted recovery. Please contact your school Admin.')
+      }
+
+      // Cannot generate token for yourself
+      if (c.id === helperUserId) {
+        return errorResponse('You cannot generate a reset token for yourself. Use the normal recovery options.')
+      }
+
+      // Generate 6-digit numeric token
+      const token = Math.floor(100000 + Math.random() * 900000).toString()
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes
+
+      // Store in ephemeral sessions
+      const { error: insertErr } = await supabaseAdmin.from('recovery_ephemeral_sessions').insert({
+        user_id: c.id,
+        school_id: c.school_id,
+        qr_token: token, // reuse qr_token column for the OTP
+        qr_verified: false,
+        expires_at: expiresAt,
+        saved_answers: {
+          flow: 'colleague-token',
+          helperUserId,
+          helperName: h.name,
+          colleagueName: c.name
+        }
+      })
+
+      if (insertErr) {
+        console.error('generate-colleague-token insert error:', insertErr)
+        return errorResponse('Failed to generate token. Please try again.')
+      }
+
+      return jsonResponse({
+        success: true,
+        token,
+        colleagueName: c.name,
+        colleagueRole: c.role,
+        expiresAt
+      })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 5c. PEER-TO-PEER TEACHER ASSIST — colleague-token-login
+    // Locked-out user enters the 6-digit token from their colleague
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (action === 'colleague-token-login') {
+      const token = (payload.token as string | undefined)?.trim()
+      const newPassword = payload.newPassword as string | undefined
+
+      if (!token) return errorResponse('Please enter the 6-digit token given to you by your colleague.')
+      if (!newPassword) return errorResponse('Please enter your new password.')
+      if (newPassword.length < 6) return errorResponse('Password must be at least 6 characters.')
+
+      // Find the session by token
+      const { data: session, error: sessErr } = await supabaseAdmin
+        .from('recovery_ephemeral_sessions')
+        .select('*')
+        .eq('qr_token', token)
+        .eq('qr_verified', false)
+        .maybeSingle()
+
+      if (sessErr || !session) return errorResponse('Invalid or expired token. Please ask your colleague to generate a new one.')
+
+      const s = session as {
+        id: string; user_id: string; expires_at: string;
+        saved_answers?: { flow?: string; helperName?: string; colleagueName?: string }
+      }
+
+      if (s.saved_answers?.flow !== 'colleague-token') {
+        return errorResponse('This token is not valid for colleague-assisted login.')
+      }
+
+      if (new Date(s.expires_at) < new Date()) {
+        await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', s.id)
+        return errorResponse('This token has expired (tokens are valid for 30 minutes). Please ask your colleague to generate a new one.')
+      }
+
+      // Reset the password
+      const { error: resetErr } = await supabaseAdmin.auth.admin.updateUserById(s.user_id, { password: newPassword })
+
+      if (resetErr) {
+        console.error('colleague-token-login password reset error:', resetErr)
+        return errorResponse('Failed to reset your password. Please try again or contact your Admin.')
+      }
+
+      // Clean up the used session
+      await supabaseAdmin.from('recovery_ephemeral_sessions').delete().eq('id', s.id)
+
+      // Non-fatal security notification
+      try {
+        const { data: userRow } = await supabaseAdmin.from('users').select('school_id').eq('id', s.user_id).maybeSingle()
+        await supabaseAdmin.from('notifications').insert({
+          school_id: (userRow as { school_id?: string } | null)?.school_id,
+          to_user_id: s.user_id,
+          message: `Your password was reset by a colleague (${s.saved_answers?.helperName ?? 'Unknown'}). If this was not expected, contact your school Admin.`,
+          link: '/settings',
+          type: 'security_alert'
+        })
+      } catch (_) { /* non-fatal */ }
+
+      return jsonResponse({ success: true, message: 'Password reset successfully! Please login with your new password.' })
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -21,13 +21,33 @@ export const safeInvokeEdgeFn = async (fnName, body = {}) => {
     // 1. Invoke the cloud Edge Function
     const { data, error } = await supabase.functions.invoke(fnName, { body });
 
-    // If Supabase SDK itself throws a network/fetch error (FunctionsHttpError etc.)
     if (error) {
-      // FunctionsHttpError means the function returned a non-2xx response.
-      // In that case, the response body usually has { error: "..." }.
-      // Try to extract the message from the error object.
-      const msg = error?.message || error?.context?.json?.error || error?.context?.text || String(error);
-      throw new Error(msg);
+      // FunctionsHttpError — try to extract the REAL error message from the response body.
+      // The Supabase JS SDK exposes the raw response on error.context.
+      let humanMessage = null;
+
+      // Try reading JSON body from the error context (this is where backend { error: "..." } lives)
+      try {
+        const ctx = error?.context;
+        if (ctx && typeof ctx.json === 'function') {
+          const json = await ctx.json();
+          humanMessage = json?.error || json?.message || null;
+        } else if (ctx?.error) {
+          humanMessage = ctx.error;
+        }
+      } catch (_) { /* ignore parse failures */ }
+
+      // Fallback: use the SDK error message — but strip the generic non-2xx prefix
+      if (!humanMessage) {
+        const raw = error?.message || String(error);
+        // Remove SDK boilerplate so only the real reason shows
+        humanMessage = raw
+          .replace(/Edge Function returned a non-2xx status code\.?\s*/i, '')
+          .replace(/FunctionsHttpError:?\s*/i, '')
+          .trim() || 'An error occurred. Please try again.';
+      }
+
+      throw new Error(humanMessage);
     }
 
     // Business-logic error returned inside the 200 response body
@@ -36,12 +56,8 @@ export const safeInvokeEdgeFn = async (fnName, body = {}) => {
     return data;
 
   } catch (cloudErr) {
-    // ── Determine if this is a network-level failure (function unreachable)
-    // vs. a function-level failure (function ran but threw an error).
-    // Network-level errors are things like "Failed to fetch", "NetworkError", etc.
-    // Function-level errors already have a meaningful message from above.
-
     const errorMsg = cloudErr?.message || '';
+
     const isNetworkError =
       errorMsg.includes('Failed to fetch') ||
       errorMsg.includes('NetworkError') ||
@@ -49,8 +65,7 @@ export const safeInvokeEdgeFn = async (fnName, body = {}) => {
       errorMsg.includes('ERR_CONNECTION') ||
       errorMsg.includes('ECONNREFUSED');
 
-    // If it's NOT a network error, the function ran but returned an error.
-    // Re-throw the meaningful error directly — don't show a local fallback message.
+    // If it's NOT a network error, the function ran but returned a meaningful error — re-throw as-is.
     if (!isNetworkError) {
       throw cloudErr;
     }
@@ -70,32 +85,19 @@ export const safeInvokeEdgeFn = async (fnName, body = {}) => {
         const localUrl = `http://${hostname}:54321/functions/v1/${fnName}`;
         const response = await fetch(localUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey
-          },
+          headers: { 'Content-Type': 'application/json', 'apikey': supabaseAnonKey },
           body: JSON.stringify(body)
         });
-
         const localData = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(localData?.error || `Local function returned HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(localData?.error || `Server error (HTTP ${response.status})`);
         if (localData?.error) throw new Error(localData.error);
-
         return localData;
       } catch (localErr) {
         console.error('Local fallback also failed:', localErr);
-        // Only show the "start local server" message if we are actually on localhost
-        throw new Error(
-          'Cannot reach the Edge Function. ' +
-          'If you are testing locally, please run: supabase functions serve'
-        );
+        throw new Error('Cannot reach the server. If testing locally, run: supabase functions serve');
       }
     }
 
-    // Not local and cloud failed — generic network error
     throw new Error('Network error: Could not reach the server. Please check your internet connection.');
   }
 };

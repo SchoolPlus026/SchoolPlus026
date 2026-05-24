@@ -2,8 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, ArrowRight } from 'lucide-react';
+import { ShieldAlert, ArrowRight, X } from 'lucide-react';
 
+/**
+ * RecoveryNudgeBanner
+ * - Shows orange banner when user has not set up Recovery PIN
+ * - Has an X button to dismiss for the current session
+ * - Reappears on next page load / next login (session storage key)
+ */
 export default function RecoveryNudgeBanner() {
   const { user, role } = useAppStore();
   const navigate = useNavigate();
@@ -12,7 +18,10 @@ export default function RecoveryNudgeBanner() {
   useEffect(() => {
     if (!user) return;
 
-    // Check if recovery profile setup is completed
+    // Check if user dismissed it this session already
+    const sessionKey = `recovery_banner_dismissed_${user.id}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+
     const checkRecoveryStatus = async () => {
       try {
         const { data, error } = await supabase
@@ -23,11 +32,9 @@ export default function RecoveryNudgeBanner() {
 
         if (error) throw error;
 
-        // If no record exists or setup is incomplete, show the nudge
+        // Show banner if no profile or setup incomplete
         if (!data || !data.setup_completed) {
           setShowBanner(true);
-        } else {
-          setShowBanner(false);
         }
       } catch (err) {
         console.error('[RecoveryNudgeBanner] error checking status:', err);
@@ -37,7 +44,13 @@ export default function RecoveryNudgeBanner() {
     checkRecoveryStatus();
   }, [user]);
 
-  if (!showBanner) return null;
+  const handleDismiss = () => {
+    // Hide for this session
+    if (user?.id) {
+      sessionStorage.setItem(`recovery_banner_dismissed_${user.id}`, '1');
+    }
+    setShowBanner(false);
+  };
 
   const handleRedirect = () => {
     const cleanRole = (role || '').toLowerCase();
@@ -48,20 +61,32 @@ export default function RecoveryNudgeBanner() {
     else if (cleanRole === 'driver') navigate('/driver/settings');
   };
 
+  if (!showBanner) return null;
+
   return (
-    <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white py-3 px-4 shadow-lg border-b border-orange-500 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left animate-pulse">
-      <div className="flex items-center gap-2.5">
+    <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white py-3 px-4 shadow-lg border-b border-orange-500 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+      <div className="flex items-center gap-2.5 flex-1">
         <ShieldAlert className="flex-shrink-0 text-amber-100" size={18} />
         <span className="text-sm font-semibold tracking-wide">
           🔒 Keep Your Account Safe! Setup your 6-digit Recovery PIN and Fingerprint so you can easily reset your password if you ever forget it.
         </span>
       </div>
-      <button
-        onClick={handleRedirect}
-        className="flex items-center gap-1 bg-white text-orange-700 hover:bg-orange-50 px-4 py-1.5 rounded-full text-xs font-black shadow-md hover:shadow-lg transition-all"
-      >
-        Setup Now <ArrowRight size={14} />
-      </button>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={handleRedirect}
+          className="flex items-center gap-1 bg-white text-orange-700 hover:bg-orange-50 px-4 py-1.5 rounded-full text-xs font-black shadow-md hover:shadow-lg transition-all"
+        >
+          Setup Now <ArrowRight size={14} />
+        </button>
+        <button
+          onClick={handleDismiss}
+          title="Dismiss for this session"
+          className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition-all flex-shrink-0"
+          aria-label="Close banner"
+        >
+          <X size={14} />
+        </button>
+      </div>
     </div>
   );
 }
