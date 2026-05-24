@@ -158,6 +158,9 @@ export default function RecoverySetup() {
       setSuccess('Recovery credentials configured successfully!');
       setCurrentPassword('');
       fetchProfile();
+
+      // Notify the nudge banner to hide immediately
+      window.dispatchEvent(new Event('recovery-setup-completed'));
     } catch (err) {
       setError(err.message || 'Failed to configure recovery profile.');
     } finally {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
@@ -9,43 +9,65 @@ import { ShieldAlert, ArrowRight, X } from 'lucide-react';
  * - Shows orange banner when user has not set up Recovery PIN
  * - Has an X button to dismiss for the current session
  * - Reappears on next page load / next login (session storage key)
+ * - Listens to a custom event so it auto-hides after PIN setup completes
  */
 export default function RecoveryNudgeBanner() {
   const { user, role } = useAppStore();
   const navigate = useNavigate();
   const [showBanner, setShowBanner] = useState(false);
 
-  useEffect(() => {
+  const checkAndShow = useCallback(async () => {
     if (!user) return;
 
     // Check if user dismissed it this session already
     const sessionKey = `recovery_banner_dismissed_${user.id}`;
-    if (sessionStorage.getItem(sessionKey)) return;
+    if (sessionStorage.getItem(sessionKey)) {
+      setShowBanner(false);
+      return;
+    }
 
-    const checkRecoveryStatus = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('recovery_profiles')
-          .select('setup_completed')
-          .eq('user_id', user.id)
-          .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('recovery_profiles')
+        .select('setup_completed')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-        if (error) throw error;
+      if (error) throw error;
 
-        // Show banner if no profile or setup incomplete
-        if (!data || !data.setup_completed) {
-          setShowBanner(true);
-        }
-      } catch (err) {
-        console.error('[RecoveryNudgeBanner] error checking status:', err);
+      // Show banner only if no profile or setup incomplete
+      if (!data || !data.setup_completed) {
+        setShowBanner(true);
+      } else {
+        setShowBanner(false);
       }
-    };
-
-    checkRecoveryStatus();
+    } catch (err) {
+      console.error('[RecoveryNudgeBanner] error checking status:', err);
+    }
   }, [user]);
 
+  useEffect(() => {
+    checkAndShow();
+
+    // Listen for custom event dispatched after PIN setup
+    const handleSetupComplete = () => {
+      setShowBanner(false);
+    };
+
+    window.addEventListener('recovery-setup-completed', handleSetupComplete);
+    return () => window.removeEventListener('recovery-setup-completed', handleSetupComplete);
+  }, [checkAndShow]);
+
+  // Also re-check when navigating back to this page (visibility change)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') checkAndShow();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [checkAndShow]);
+
   const handleDismiss = () => {
-    // Hide for this session
     if (user?.id) {
       sessionStorage.setItem(`recovery_banner_dismissed_${user.id}`, '1');
     }

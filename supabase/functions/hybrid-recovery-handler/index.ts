@@ -667,6 +667,113 @@ serve(async (req) => {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Flow B: Mobile generates a 6-digit code for PC login
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (action === 'qr-generate-mobile') {
+      const userId = payload.userId as string | undefined
+      const password = payload.password as string | undefined
+
+      if (!userId || !password) return errorResponse('Missing userId or password.')
+
+      // Look up user to get email and school_id
+      const { data: userRow, error: userErr } = await supabaseAdmin
+        .from('users').select('email, school_id').eq('id', userId).maybeSingle()
+
+      if (userErr || !userRow) return errorResponse('User not found.')
+
+      const u = userRow as { email?: string; school_id: string }
+      const emailToUse = u.email || `${userId}@school.com`
+
+      // Verify password
+      const { error: authErr } = await supabaseAdmin.auth.signInWithPassword({
+        email: emailToUse,
+        password
+      })
+
+      if (authErr) return errorResponse('Incorrect password.')
+
+      // Generate 6-digit code
+      const displayCode = Math.floor(100000 + Math.random() * 900000).toString()
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+
+      const { error: insertErr } = await supabaseAdmin
+        .from('recovery_ephemeral_sessions')
+        .insert({
+          user_id: userId,
+          school_id: u.school_id,
+          qr_token: displayCode,
+          qr_verified: false,
+          expires_at: expiresAt,
+          saved_answers: { displayCode, flow: 'mobile-to-pc' }
+        })
+
+      if (insertErr) {
+        console.error('qr-generate-mobile insert error:', insertErr)
+        return errorResponse('Failed to generate sync code. Please try again.')
+      }
+
+      return jsonResponse({ displayCode, expiresAt })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Flow A: PC generates QR + code for Mobile login (verified)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (action === 'qr-generate-verified') {
+      const userId = payload.userId as string | undefined
+      const password = payload.password as string | undefined
+      const dob = payload.dob as string | undefined
+
+      if (!userId || !password || !dob) return errorResponse('Missing userId, password, or date of birth.')
+
+      // Look up user
+      const { data: userRow, error: userErr } = await supabaseAdmin
+        .from('users').select('email, school_id, dob').eq('id', userId).maybeSingle()
+
+      if (userErr || !userRow) return errorResponse('User not found.')
+
+      const u = userRow as { email?: string; school_id: string; dob?: string }
+      const emailToUse = u.email || `${userId}@school.com`
+
+      // Verify password
+      const { error: authErr } = await supabaseAdmin.auth.signInWithPassword({
+        email: emailToUse,
+        password
+      })
+
+      if (authErr) return errorResponse('Incorrect password.')
+
+      // Verify DOB matches
+      if (!u.dob || new Date(u.dob).toISOString().slice(0, 10) !== new Date(dob).toISOString().slice(0, 10)) {
+        return errorResponse('Date of birth does not match our records.')
+      }
+
+      // Generate QR token and 6-digit display code
+      const qrToken = crypto.randomUUID()
+      const displayCode = Math.floor(100000 + Math.random() * 900000).toString()
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+
+      const { error: insertErr } = await supabaseAdmin
+        .from('recovery_ephemeral_sessions')
+        .insert({
+          user_id: userId,
+          school_id: u.school_id,
+          qr_token: qrToken,
+          qr_verified: false,
+          expires_at: expiresAt,
+          saved_answers: { displayCode, flow: 'pc-to-mobile', requiresPasswordChange: true }
+        })
+
+      if (insertErr) {
+        console.error('qr-generate-verified insert error:', insertErr)
+        return errorResponse('Failed to generate QR session. Please try again.')
+      }
+
+      return jsonResponse({ qrToken, displayCode, expiresAt })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     if (action === 'qr-poll') {
       const qrToken = payload.qrToken as string | undefined
@@ -860,7 +967,7 @@ serve(async (req) => {
 
       // Find the colleague in the SAME school
       const { data: colleague, error: colErr } = await supabaseAdmin
-        .from('users').select('id, name, role, school_id').eq('username', colleagueUsername).eq('school_id', h.school_id).maybeSingle()
+        .from('users').select('id, name, role, school_id').ilike('username', colleagueUsername).eq('school_id', h.school_id).maybeSingle()
 
       if (colErr || !colleague) {
         return errorResponse(`No account found for username "${colleagueUsername}" in your school.`)
@@ -988,6 +1095,7 @@ serve(async (req) => {
       const username_input = (payload.username as string | undefined)?.trim()
       const name_input = (payload.name as string | undefined)?.trim()
       const role_input = payload.role as string | undefined
+      const dryRun = payload.dryRun === true // Step 1 of 2-step flow: verify only, no password change
 
       if (!credential_type || !school_code || !pin) return errorResponse('Missing required fields: school code and recovery PIN are required.')
       if (pin.length !== 6 || !/^\d+$/.test(pin)) return errorResponse('Recovery PIN must be exactly 6 digits.')
@@ -1002,12 +1110,12 @@ serve(async (req) => {
 
       if (credential_type === 'password') {
         if (!username_input) return errorResponse('Please enter your Username.')
-        const { data: uProf } = await supabaseAdmin.from('users').select('*').eq('username', username_input).eq('school_id', schoolId).maybeSingle()
+        const { data: uProf } = await supabaseAdmin.from('users').select('*').ilike('username', username_input).eq('school_id', schoolId).maybeSingle()
         if (!uProf) return errorResponse('No account found with this username in this school.')
         userProfile = uProf as Record<string, unknown>
       } else {
         if (!name_input) return errorResponse('Please enter your Full Name.')
-        let q = supabaseAdmin.from('users').select('*').eq('name', name_input).eq('school_id', schoolId)
+        let q = supabaseAdmin.from('users').select('*').ilike('name', name_input).eq('school_id', schoolId)
         if (role_input) q = q.eq('role', role_input)
         const { data: usersFound } = await q
         if (!usersFound || (usersFound as unknown[]).length === 0) return errorResponse('No account found matching your name in this school.')
@@ -1036,6 +1144,11 @@ serve(async (req) => {
         const lockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         await supabaseAdmin.from('recovery_profiles').update({ recovery_locked_until: lockUntil }).eq('user_id', userProfile.id)
         return errorResponse('Incorrect Recovery PIN. Recovery has been locked for 24 hours to protect your account.')
+      }
+
+      // ── DRY RUN: verification only (Step 1 of 2-step flow) ──
+      if (dryRun) {
+        return jsonResponse({ success: true, verified: true })
       }
 
       if (credential_type === 'password') {

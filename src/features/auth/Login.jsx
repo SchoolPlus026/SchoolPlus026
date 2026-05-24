@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff,
-  Fingerprint, RefreshCw, Key, HelpCircle, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2 } from 'lucide-react';
+  Fingerprint, RefreshCw, Key, HelpCircle, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorPasskey } from '@capgo/capacitor-passkey';
 import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
@@ -56,12 +56,14 @@ export default function Login() {
   const [recoveryPin, setRecoveryPin] = useState('');
   const [pinNewPassword, setPinNewPassword] = useState('');
   const [pinConfirmPassword, setPinConfirmPassword] = useState('');
+  const [pinVerified, setPinVerified] = useState(false); // 2-step flow: verify first, then show password fields
 
   // QR Sync State (PC login screen — Flow B: enter mobile-generated code)
   const [qrToken, setQrToken] = useState('');
   const [qrPollInterval, setQrPollInterval] = useState(null);
   const [qrSyncCode, setQrSyncCode] = useState(''); // 6-digit code entered on PC
   const [mobileQrCode, setMobileQrCode] = useState(''); // 6-digit code entered on Mobile (Flow A)
+  const [scannerActive, setScannerActive] = useState(false); // Camera QR scanner state
 
   // Forced password change after QR login
   const [qrForceNewPassword, setQrForceNewPassword] = useState('');
@@ -91,6 +93,44 @@ export default function Login() {
       if (qrPollInterval) clearInterval(qrPollInterval);
     };
   }, [qrPollInterval]);
+
+  // Camera QR Scanner — start/stop camera stream
+  useEffect(() => {
+    let stream = null;
+
+    const startCamera = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        const video = document.getElementById('qr-scanner-video');
+        if (video) {
+          video.srcObject = stream;
+        }
+      } catch (err) {
+        console.error('Camera access error:', err);
+        setError('Could not access camera. Please enter the code manually below.');
+        setScannerActive(false);
+      }
+    };
+
+    const stopCamera = () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      const video = document.getElementById('qr-scanner-video');
+      if (video) video.srcObject = null;
+    };
+
+    if (scannerActive) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+
+    return () => stopCamera();
+  }, [scannerActive]);
 
   const invokeEdgeFn = async (action, body) => {
     if (action === 'webauthn-start' || action === 'webauthn-verify') {
@@ -349,8 +389,34 @@ export default function Login() {
         newPassword: pinNewPassword
       });
       setSuccess('✅ Password updated successfully! Please login with your new password.');
-      setPinNewPassword(''); setPinConfirmPassword(''); setRecoveryPin('');
+      setPinNewPassword(''); setPinConfirmPassword(''); setRecoveryPin(''); setPinVerified(false);
       setTimeout(() => { setSuccess(''); setStep(2); }, 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // STEP 1 of 2-step flow: Verify identity details first (dry-run)
+  const handleVerifyPinDetails = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      // Call with dryRun: true — backend verifies PIN but does NOT reset password
+      await invokeEdgeFn('pin-recovery-verify', {
+        credential_type: 'password',
+        username: username,
+        school_code: schoolCode,
+        pin: recoveryPin,
+        dob: recoveryDob || null,
+        contact: recoveryContact.trim() || null,
+        dryRun: true
+      });
+      setPinVerified(true);
+      setSuccess('✅ Identity verified! Now set your new password below.');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -898,50 +964,66 @@ export default function Login() {
           </div>
         )}
 
-        {/* ── 63. Password PIN Recovery ─────────────────────────── */}
+        {/* ── 63. Password PIN Recovery (2-Step Flow) ─────────────── */}
         {step === 63 && (
-          <form onSubmit={handlePinRecoverPassword} className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(6)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+          <div className="fade-in space-y-4">
+            <button type="button" onClick={() => { setStep(6); setPinVerified(false); }} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Quick Password Reset</h3>
             <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-300 font-semibold">
               🔢 Use your Recovery PIN to instantly reset your password — no questions needed!
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username</label>
-              <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="sp-input" placeholder="Your username" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">School Code</label>
-              <input type="text" required value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} className="sp-input text-center font-black tracking-widest" placeholder="DEMO01" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Date of Birth</label>
-                <input type="date" value={recoveryDob} onChange={e => setRecoveryDob(e.target.value)} className="sp-input text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Mobile Number</label>
-                <input type="tel" value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Registered number" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">6-Digit Recovery PIN</label>
-              <input type="password" inputMode="numeric" maxLength={6} required value={recoveryPin}
-                onChange={e => setRecoveryPin(e.target.value.replace(/\D/g, ''))}
-                className="sp-input text-center text-xl tracking-[0.3em] font-black" placeholder="••••••" />
-            </div>
-            <div className="border-t border-white/5 pt-4">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
-              <input type="password" required value={pinNewPassword} onChange={e => setPinNewPassword(e.target.value)} className="sp-input mb-3" placeholder="New Password (min 6 chars)" />
-              <input type="password" required value={pinConfirmPassword} onChange={e => setPinConfirmPassword(e.target.value)} className="sp-input" placeholder="Confirm New Password" />
-            </div>
-            <p className="text-[10px] text-slate-500">Provide at least one: Date of Birth or Contact Number.</p>
-            <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Reset My Password'}
-            </button>
-          </form>
+
+            {/* STEP 1: Verify identity details */}
+            {!pinVerified ? (
+              <form onSubmit={handleVerifyPinDetails} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username</label>
+                  <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="sp-input" placeholder="Your username" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">School Code</label>
+                  <input type="text" required value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} className="sp-input text-center font-black tracking-widest" placeholder="DEMO01" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Date of Birth</label>
+                    <input type="date" value={recoveryDob} onChange={e => setRecoveryDob(e.target.value)} className="sp-input text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Mobile Number</label>
+                    <input type="tel" value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Registered number" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">6-Digit Recovery PIN</label>
+                  <input type="password" inputMode="numeric" maxLength={6} required value={recoveryPin}
+                    onChange={e => setRecoveryPin(e.target.value.replace(/\D/g, ''))}
+                    className="sp-input text-center text-xl tracking-[0.3em] font-black" placeholder="••••••" />
+                </div>
+                <p className="text-[10px] text-slate-500">Provide at least one: Date of Birth or Contact Number.</p>
+                <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold gap-2">
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Shield size={16} /> Verify My Details</>}
+                </button>
+              </form>
+            ) : (
+              /* STEP 2: Set new password (only visible after verification) */
+              <form onSubmit={handlePinRecoverPassword} className="space-y-4 fade-in">
+                <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 font-bold text-center">
+                  ✅ Identity Verified — now set your new password
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                  <input type="password" required value={pinNewPassword} onChange={e => setPinNewPassword(e.target.value)} className="sp-input mb-3" placeholder="New Password (min 6 chars)" />
+                  <input type="password" required value={pinConfirmPassword} onChange={e => setPinConfirmPassword(e.target.value)} className="sp-input" placeholder="Confirm New Password" />
+                </div>
+                <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold gap-2">
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Key size={16} /> Reset My Password</>}
+                </button>
+              </form>
+            )}
+          </div>
         )}
 
         {/* ── 52 & 62. Sequential 5-Question Recovery Wizard ──────── */}
@@ -1060,25 +1142,72 @@ export default function Login() {
 
         {/* ── 8. Mobile Login: Scan QR / Enter Code from PC (Flow A) ── */}
         {step === 8 && Capacitor.isNativePlatform() && (
-          <form onSubmit={handleMobileCodeLogin} className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+          <div className="fade-in space-y-4">
+            <button type="button" onClick={() => { setStep(3); setMobileQrCode(''); setScannerActive(false); }} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
-            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Login Using PC Code</h3>
-            <div className="p-3 bg-violet-500/10 border border-violet-500/20 rounded-xl text-xs text-violet-300 font-semibold">
-              📺 Your PC is showing a 6-digit code. Enter it below to log in here on your mobile.
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Login Using PC QR Code</h3>
+
+            {/* Camera Scanner */}
+            <div className="space-y-3">
+              {!scannerActive ? (
+                <button
+                  type="button"
+                  onClick={() => setScannerActive(true)}
+                  className="w-full py-4 bg-violet-500/10 hover:bg-violet-500/20 border-2 border-dashed border-violet-500/30 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all"
+                >
+                  <QrCode size={40} className="text-violet-400" />
+                  <span className="text-sm font-bold text-violet-300">Tap to Scan QR Code</span>
+                  <span className="text-[10px] text-slate-500">Opens camera to scan the QR on PC screen</span>
+                </button>
+              ) : (
+                <div className="relative overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: '1' }}>
+                  <video
+                    id="qr-scanner-video"
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    playsInline
+                    muted
+                  />
+                  {/* Scanner overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-48 h-48 border-2 border-violet-400 rounded-2xl" style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setScannerActive(false)}
+                    className="absolute top-3 right-3 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white z-10"
+                  >
+                    <X size={16} />
+                  </button>
+                  <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-white/80 font-semibold">
+                    Point camera at the QR code on your PC screen
+                  </p>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">6-Digit Code from PC Screen</label>
-              <input type="text" inputMode="numeric" maxLength={6} required value={mobileQrCode}
-                onChange={e => setMobileQrCode(e.target.value.replace(/\D/g, ''))}
-                className="sp-input text-center text-2xl font-black tracking-[0.4em]" placeholder="000000" />
-              <p className="text-[10px] text-slate-500 mt-2">Open your school app on PC → Account Help → Sync Login → you will see the 6-digit code.</p>
+
+            {/* Divider */}
+            <div className="relative flex items-center gap-3">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Or enter code manually</span>
+              <div className="flex-1 h-px bg-white/10" />
             </div>
-            <button type="submit" disabled={loading || mobileQrCode.length < 6} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold gap-2">
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Smartphone size={16} /> Login to Mobile</>}
-            </button>
-          </form>
+
+            {/* Manual 6-digit code entry */}
+            <form onSubmit={handleMobileCodeLogin} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">6-Digit Code from PC Screen</label>
+                <input type="text" inputMode="numeric" maxLength={6} required value={mobileQrCode}
+                  onChange={e => setMobileQrCode(e.target.value.replace(/\D/g, ''))}
+                  className="sp-input text-center text-2xl font-black tracking-[0.4em]" placeholder="000000" />
+                <p className="text-[10px] text-slate-500 mt-2">Open your school app on PC → Account Help → Sync Login → you will see the 6-digit code.</p>
+              </div>
+              <button type="submit" disabled={loading || mobileQrCode.length < 6} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold gap-2">
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Smartphone size={16} /> Login to Mobile</>}
+              </button>
+            </form>
+          </div>
         )}
 
         {/* ── 9. Forced Password Change after QR Login ─────────── */}
