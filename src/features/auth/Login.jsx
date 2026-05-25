@@ -104,12 +104,16 @@ export default function Login() {
     const startCamera = async () => {
       try {
         if (Capacitor.isNativePlatform()) {
-          const status = await Camera.checkPermissions();
-          if (status.camera !== 'granted') {
-            const reqStatus = await Camera.requestPermissions({ permissions: ['camera'] });
-            if (reqStatus.camera !== 'granted') {
-              throw new Error('Camera permission not granted by OS.');
+          try {
+            const status = await Camera.checkPermissions();
+            if (status.camera !== 'granted') {
+              const reqStatus = await Camera.requestPermissions({ permissions: ['camera'] });
+              if (reqStatus.camera !== 'granted') {
+                throw new Error('Camera permission not granted by OS.');
+              }
             }
+          } catch (permErr) {
+            console.warn('Native camera permission request failed, falling back to browser getUserMedia:', permErr);
           }
         }
 
@@ -1212,11 +1216,11 @@ export default function Login() {
             {/* Flow B: Enter 6-digit code generated on mobile */}
             <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-3">
               <p className="text-xs font-bold text-indigo-300">📱 Have your Mobile App open? Enter the 6-digit code shown there:</p>
-              <form onSubmit={handlePcCodeLogin} className="flex gap-2">
+              <form onSubmit={handlePcCodeLogin} className="flex gap-2 items-center">
                 <input type="text" inputMode="numeric" maxLength={6} value={qrSyncCode}
                   onChange={e => setQrSyncCode(e.target.value.replace(/\D/g, ''))}
-                  className="sp-input text-center text-xl font-black tracking-[0.3em] flex-1" placeholder="000000" />
-                <button type="submit" disabled={loading || qrSyncCode.length < 6} className="btn-primary px-4 py-2 font-bold">
+                  className="sp-input text-center text-xl font-black tracking-[0.3em] flex-1 min-w-0" placeholder="000000" />
+                <button type="submit" disabled={loading || qrSyncCode.length < 6} className="btn-primary px-4 py-2 font-bold w-auto shrink-0" style={{ width: 'auto' }}>
                   {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
                 </button>
               </form>
