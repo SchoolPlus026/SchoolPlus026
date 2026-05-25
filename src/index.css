@@ -761,6 +761,20 @@
     transform: scale(0.95) !important;
     transition: transform 0.1s ease !important;
   }
+
+  /* QR Scanner: animated sweep line */
+  @keyframes qrScanSweep {
+    0%   { top: 8%;  opacity: 1; }
+    48%  { opacity: 1; }
+    50%  { top: 88%; opacity: 0.6; }
+    52%  { opacity: 1; }
+    100% { top: 8%;  opacity: 1; }
+  }
+  .qr-scan-line {
+    animation: qrScanSweep 2s ease-in-out infinite;
+    position: absolute;
+    box-shadow: 0 0 8px 2px rgba(167, 139, 250, 0.7);
+  }
 }
 
 /* Hide Google Translate UI */
