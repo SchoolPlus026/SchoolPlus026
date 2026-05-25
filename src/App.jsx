@@ -354,6 +354,16 @@ function SyncPasswordResetModal() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  React.useEffect(() => {
+    const handleSyncSuccess = () => {
+      if (sessionStorage.getItem('show_sync_password_reset') === 'true') {
+        setShow(true);
+      }
+    };
+    window.addEventListener('sync_login_success', handleSyncSuccess);
+    return () => window.removeEventListener('sync_login_success', handleSyncSuccess);
+  }, []);
+
   if (!show) return null;
 
   const handleClose = () => {

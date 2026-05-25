@@ -946,13 +946,18 @@ serve(async (req) => {
 
       const { data: userRow } = await supabaseAdmin
         .from('users')
-        .select('email, username')
+        .select('email, username, role')
         .eq('id', matchedSession.user_id)
         .maybeSingle()
 
       if (!userRow) return errorResponse('User profile not found.')
 
-      const u = userRow as { email?: string; username?: string }
+      const u = userRow as { email?: string; username?: string; role?: string }
+      const uRole = (u.role || '').toLowerCase()
+      if (uRole !== 'admin' && uRole !== 'platform_admin') {
+        return errorResponse('Unauthorized: Sync login is only available for Admins.')
+      }
+
       const emailToUse = u.email || `${matchedSession.user_id}@school.com`
 
       const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({
@@ -965,9 +970,19 @@ serve(async (req) => {
         return errorResponse('Failed to create mobile login session. Please try again.')
       }
 
+      const actionLink = otpLink.properties.action_link
+      let tokenHash = ''
+      try {
+        const parsedUrl = new URL(actionLink)
+        tokenHash = parsedUrl.searchParams.get('token') || ''
+      } catch (e) {
+        console.error('Error parsing action_link URL:', e)
+      }
+
       return jsonResponse({
         success: true,
-        loginUrl: otpLink.properties.action_link,
+        loginUrl: actionLink,
+        tokenHash: tokenHash,
         requiresPasswordChange: true
       })
     }
@@ -997,13 +1012,18 @@ serve(async (req) => {
 
       const { data: userRow } = await supabaseAdmin
         .from('users')
-        .select('email, username')
+        .select('email, username, role')
         .eq('id', matched.user_id)
         .maybeSingle()
 
       if (!userRow) return errorResponse('User profile not found.')
 
-      const u = userRow as { email?: string; username?: string }
+      const u = userRow as { email?: string; username?: string; role?: string }
+      const uRole = (u.role || '').toLowerCase()
+      if (uRole !== 'admin' && uRole !== 'platform_admin') {
+        return errorResponse('Unauthorized: Sync login is only available for Admins.')
+      }
+
       const emailToUse = u.email || `${matched.user_id}@school.com`
 
       const { data: otpLink, error: otpErr } = await supabaseAdmin.auth.admin.generateLink({
@@ -1016,9 +1036,19 @@ serve(async (req) => {
         return errorResponse('Failed to create PC login session. Please try again.')
       }
 
+      const actionLink = otpLink.properties.action_link
+      let tokenHash = ''
+      try {
+        const parsedUrl = new URL(actionLink)
+        tokenHash = parsedUrl.searchParams.get('token') || ''
+      } catch (e) {
+        console.error('Error parsing action_link URL:', e)
+      }
+
       return jsonResponse({
         success: true,
-        loginUrl: otpLink.properties.action_link,
+        loginUrl: actionLink,
+        tokenHash: tokenHash,
         requiresPasswordChange: true
       })
     }

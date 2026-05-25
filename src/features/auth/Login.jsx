@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff,
   Fingerprint, RefreshCw, Key, HelpCircle, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { Camera } from '@capacitor/camera';
 import { CapacitorPasskey } from '@capgo/capacitor-passkey';
 import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
@@ -102,6 +103,16 @@ export default function Login() {
 
     const startCamera = async () => {
       try {
+        if (Capacitor.isNativePlatform()) {
+          const status = await Camera.checkPermissions();
+          if (status.camera !== 'granted') {
+            const reqStatus = await Camera.requestPermissions({ permissions: ['camera'] });
+            if (reqStatus.camera !== 'granted') {
+              throw new Error('Camera permission not granted by OS.');
+            }
+          }
+        }
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error('Camera not supported on this browser/device.');
         }
@@ -552,6 +563,65 @@ export default function Login() {
     }
   };
 
+  const performSyncLogin = async (data) => {
+    let tokenHash = data.tokenHash;
+    if (!tokenHash && data.loginUrl) {
+      try {
+        const parsedUrl = new URL(data.loginUrl);
+        tokenHash = parsedUrl.searchParams.get('token') || '';
+      } catch (e) {
+        console.error('Failed to parse token from loginUrl:', e);
+      }
+    }
+
+    if (!tokenHash) {
+      throw new Error('Failed to retrieve authentication token.');
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: 'magiclink'
+    });
+
+    if (authError) throw authError;
+    if (!authData?.user) {
+      throw new Error('Verification failed: No user session returned.');
+    }
+
+    // Fetch user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('users').select('role, school_id, name').eq('id', authData.user.id).single();
+
+    if (profileError || !profile) {
+      await supabase.auth.signOut();
+      throw new Error('Could not load your profile. Please contact your administrator.');
+    }
+
+    // Load school settings
+    if (profile.role !== 'platform_admin') {
+      const { data: settings, error: settingsError } = await supabase
+        .from('school_settings')
+        .select('*')
+        .eq('school_id', profile.school_id)
+        .single();
+      if (settingsError || !settings) {
+        await supabase.auth.signOut();
+        throw new Error('Could not load school settings for your account.');
+      }
+      setSchoolSettings(settings);
+    } else {
+      setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
+    }
+
+    // Set show sync password reset key in session storage & dispatch event
+    sessionStorage.setItem('show_sync_password_reset', 'true');
+    window.dispatchEvent(new Event('sync_login_success'));
+
+    // Set user and role, and navigate to dashboard
+    setUserAndRole(authData.user, profile.role);
+    navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
+  };
+
   // PC enters 6-digit code from Mobile (Flow B)
   const handlePcCodeLogin = async (e) => {
     e.preventDefault();
@@ -559,11 +629,8 @@ export default function Login() {
     setError('');
     try {
       const data = await invokeEdgeFn('qr-pc-login', { displayCode: qrSyncCode.trim() });
-      if (data.loginUrl) {
-        setSuccess('Logging you in...');
-        sessionStorage.setItem('show_sync_password_reset', 'true');
-        window.location.href = data.loginUrl;
-      }
+      setSuccess('Logging you in...');
+      await performSyncLogin(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -580,11 +647,8 @@ export default function Login() {
       const data = await invokeEdgeFn('qr-mobile-login', {
         displayCode: mobileQrCode.trim()
       });
-      if (data.loginUrl) {
-        setSuccess('Logging you in...');
-        sessionStorage.setItem('show_sync_password_reset', 'true');
-        window.location.href = data.loginUrl;
-      }
+      setSuccess('Logging you in...');
+      await performSyncLogin(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -600,11 +664,8 @@ export default function Login() {
       const data = await invokeEdgeFn('qr-mobile-login', {
         qrToken: token
       });
-      if (data.loginUrl) {
-        setSuccess('Logging you in...');
-        sessionStorage.setItem('show_sync_password_reset', 'true');
-        window.location.href = data.loginUrl;
-      }
+      setSuccess('Logging you in...');
+      await performSyncLogin(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -785,7 +846,7 @@ export default function Login() {
               </div>
               <div className="flex justify-between items-center mt-2">
                 <button type="button" onClick={() => setStep(3)} className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest">
-                  Account Help &amp; Recovery
+                  Login Help / Forgot Account
                 </button>
               </div>
               <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
@@ -806,7 +867,7 @@ export default function Login() {
             <button onClick={() => setStep(2)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 transition-colors mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back to Login
             </button>
-            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider mb-2">Account Help &amp; Recovery</h3>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider mb-2">Login Help</h3>
             <button onClick={() => { setError(''); setStep(6); }} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
               <span>🔑 Forgot Password?</span>
               <ChevronRight size={16} />
