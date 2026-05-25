@@ -58,6 +58,7 @@ export default function NotificationBell() {
         onClick={() => setOpen(o => !o)}
         className="relative p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-all"
         title="Notifications"
+        aria-label="Notifications"
       >
         <Bell size={18} />
         {notifications.length > 0 && (

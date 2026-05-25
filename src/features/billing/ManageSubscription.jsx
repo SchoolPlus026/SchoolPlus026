@@ -56,10 +56,10 @@ function Toast({ msg, type }) {
 function TransactionRow({ tx, isLast, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const statusColor = tx.status === 'SUCCESSFUL'
-    ? { bg: 'rgba(52,211,153,0.1)', fg: '#34d399' }
+    ? { bg: 'var(--success-bg)', fg: 'var(--success)' }
     : tx.status === 'FAILED'
-      ? { bg: 'rgba(248,113,113,0.1)', fg: '#f87171' }
-      : { bg: 'rgba(251,191,36,0.1)', fg: '#fbbf24' };
+      ? { bg: 'var(--danger-bg)', fg: 'var(--danger)' }
+      : { bg: 'var(--warn-bg)', fg: 'var(--warn)' };
 
   return (
     <div style={{ borderBottom: isLast ? 'none' : '1px solid var(--card-border)' }}>
@@ -295,7 +295,7 @@ export default function ManageSubscription() {
             <div style={{ fontSize: '10px', color: 'var(--text-faint)', fontWeight: 700, marginBottom: '4px' }}>PLAN</div>
             <div style={{ fontSize: '16px', fontWeight: 900, color: isFree ? 'var(--text-muted)' : '#818cf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
               {isCurrentlyPremium && <Crown size={14} color="#818cf8" />}
-              {isTrial && <Clock size={14} color="#fbbf24" />}
+              {isTrial && <Clock size={14} color="var(--warn)" />}
               {planType === 'free' ? 'Free' : planType === 'trial' ? '28-Day Trial' : 'Premium'}
             </div>
           </div>

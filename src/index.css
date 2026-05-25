@@ -74,8 +74,8 @@
     --glass:          rgba(0, 0, 0, 0.03);
 
     --text-main:      #0f172a;
-    --text-muted:     #64748b;
-    --text-faint:     #94a3b8;
+    --text-muted:     #475569;
+    --text-faint:     #64748b;
 
     --accent:         #4f46e5;
     --accent-hover:   #4338ca;
@@ -103,7 +103,7 @@
     --success-bg:     #ecfdf5;
     --success-border: #a7f3d0;
 
-    --warn:           #f59e0b;
+    --warn:           #b45309;
     --warn-bg:        #fffbeb;
     --warn-border:    #fde68a;
 

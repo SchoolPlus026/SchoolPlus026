@@ -100,6 +100,28 @@ export default function App() {
   useEffect(() => {
     async function initializeApp() {
       try {
+        // Early cleanup of old insecure credentials in localStorage to prevent state mismatch
+        let migrated = false;
+        try {
+          const keys = Object.keys(localStorage);
+          for (let key of keys) {
+            if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+              localStorage.removeItem(key);
+              migrated = true;
+            }
+          }
+          if (localStorage.getItem('school-os-storage')) {
+            localStorage.removeItem('school-os-storage');
+            migrated = true;
+          }
+        } catch (e) {
+          console.warn('Migration cleanup error:', e);
+        }
+
+        if (migrated) {
+          useAppStore.getState().clearSession();
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.user) {

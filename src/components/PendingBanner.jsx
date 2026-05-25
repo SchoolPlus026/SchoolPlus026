@@ -17,16 +17,16 @@ export default function PendingBanner() {
     return (
       <div style={{
         display: 'flex', gap: 12, alignItems: 'flex-start',
-        background: 'rgba(239,68,68,0.08)',
-        border: '1px solid rgba(239,68,68,0.3)',
+        background: 'var(--danger-bg)',
+        border: '1px solid var(--danger-border)',
         borderRadius: 14, padding: '14px 18px', marginBottom: 20,
       }}>
-        <XCircle size={20} color="#f87171" style={{ flexShrink: 0, marginTop: 2 }} />
+        <XCircle size={20} color="var(--danger)" style={{ flexShrink: 0, marginTop: 2 }} />
         <div>
-          <p style={{ margin: '0 0 4px', fontWeight: 800, fontSize: 13, color: '#f87171' }}>
+          <p style={{ margin: '0 0 4px', fontWeight: 800, fontSize: 13, color: 'var(--danger)' }}>
             Application Rejected
           </p>
-          <p style={{ margin: 0, fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
             Your school registration was declined by the Platform Admin. Please contact support for more information.
           </p>
         </div>
@@ -37,18 +37,18 @@ export default function PendingBanner() {
   return (
     <div style={{
       display: 'flex', gap: 12, alignItems: 'flex-start',
-      background: 'rgba(251,191,36,0.07)',
-      border: '1px solid rgba(251,191,36,0.3)',
+      background: 'var(--warn-bg)',
+      border: '1px solid var(--warn-border)',
       borderRadius: 14, padding: '14px 18px', marginBottom: 20,
     }}>
-      <Clock size={20} color="#fbbf24" style={{ flexShrink: 0, marginTop: 2 }} />
+      <Clock size={20} color="var(--warn)" style={{ flexShrink: 0, marginTop: 2 }} />
       <div>
-        <p style={{ margin: '0 0 4px', fontWeight: 800, fontSize: 13, color: '#fbbf24' }}>
+        <p style={{ margin: '0 0 4px', fontWeight: 800, fontSize: 13, color: 'var(--warn)' }}>
           Account Under Review
         </p>
-        <p style={{ margin: 0, fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
           Your application is currently being reviewed by the Platform Admin. You can explore the interface, but
-          <strong style={{ color: '#e2e8f0' }}> data entry and core features are disabled</strong> until your account is approved.
+          <strong style={{ color: 'var(--text-main)' }}> data entry and core features are disabled</strong> until your account is approved.
         </p>
       </div>
     </div>

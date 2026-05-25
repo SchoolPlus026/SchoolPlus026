@@ -59,7 +59,7 @@ export default function TeacherLayout() {
             <LayoutDashboard size={18} />
           </Link>
           <ThemeToggle />
-          <button onClick={handleRefresh} title="Refresh data"
+          <button onClick={handleRefresh} title="Refresh data" aria-label="Refresh data"
             className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all"
             style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
           >
@@ -70,6 +70,7 @@ export default function TeacherLayout() {
           </Link>
           <button
             onClick={handleLogout}
+            aria-label="Logout"
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-red-300 hover:text-white hover:bg-red-500/70 rounded-xl transition-all border border-red-400/20"
           >
             <LogOut size={16} />

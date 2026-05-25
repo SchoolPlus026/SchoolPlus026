@@ -5,7 +5,40 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder_key';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// A standard helper to manage cookies on the client side with Secure and SameSite=Strict.
+// Note: client-side scripts cannot set HttpOnly cookies. To satisfy this constraint, 
+// if a server/proxy is used, the cookies would be set as HttpOnly by the server.
+// On the client, we set Secure and SameSite=Strict to mitigate token theft via CSRF and limit access.
+const cookieStorage = {
+  getItem(key) {
+    if (typeof document === 'undefined') return null;
+    const name = encodeURIComponent(key) + '=';
+    const parts = document.cookie.split(';');
+    for (let i = 0; i < parts.length; i++) {
+      let part = parts[i].trim();
+      if (part.indexOf(name) === 0) {
+        return decodeURIComponent(part.substring(name.length));
+      }
+    }
+    return null;
+  },
+  setItem(key, value) {
+    if (typeof document === 'undefined') return;
+    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Strict; Secure`;
+  },
+  removeItem(key) {
+    if (typeof document === 'undefined') return;
+    document.cookie = `${encodeURIComponent(key)}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Strict; Secure`;
+  }
+};
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: cookieStorage,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
 /**
  * Invokes a Supabase Edge Function safely.

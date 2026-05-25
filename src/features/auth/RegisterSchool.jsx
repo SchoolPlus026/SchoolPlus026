@@ -248,9 +248,15 @@ export default function RegisterSchool() {
               Your account for <strong style={{ color: '#e2e8f0' }}>{form.school_name}</strong> has been created.
               You can now <strong style={{ color: '#a5b4fc' }}>log in immediately</strong> to explore the dashboard.
             </p>
-            <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 12, padding: '12px 16px', marginBottom: 24, textAlign: 'left' }}>
-              <p style={{ color: '#fbbf24', fontSize: 13, fontWeight: 700, margin: '0 0 4px' }}>⏳ Pending Approval</p>
-              <p style={{ color: '#94a3b8', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+            <div style={{
+            padding: '20px',
+            borderRadius: '16px',
+            background: 'var(--warn-bg)',
+            border: '1px solid var(--warn-border)',
+            marginBottom: '20px',
+          }}>
+            <p style={{ color: 'var(--warn)', fontSize: 13, fontWeight: 700, margin: '0 0 4px' }}>⏳ Pending Approval</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
                 Data entry and core features are disabled until your account is approved by the Platform Admin. Offline features like theme and language settings are available right away.
               </p>
             </div>

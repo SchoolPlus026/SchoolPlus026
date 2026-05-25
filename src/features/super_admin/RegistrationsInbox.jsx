@@ -7,9 +7,9 @@ import {
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
-  pending:  { color: '#fbbf24', bg: 'rgba(251,191,36,0.12)',  label: 'Pending Review' },
-  approved: { color: '#4ade80', bg: 'rgba(74,222,128,0.12)',  label: 'Approved'       },
-  rejected: { color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'Rejected'       },
+  pending:  { color: 'var(--warn)', bg: 'var(--warn-bg)',  label: 'Pending Review' },
+  approved: { color: 'var(--success)', bg: 'var(--success-bg)',  label: 'Approved'       },
+  rejected: { color: 'var(--danger)', bg: 'var(--danger-bg)', label: 'Rejected'       },
 };
 
 const PLAN_LABELS = { trial: '28-Day Trial', free: 'Free Plan', premium: 'Premium' };
@@ -263,7 +263,23 @@ export default function RegistrationsInbox() {
       <div style={{ display: 'flex', gap: 6, margin: '20px 0 16px', flexWrap: 'wrap' }}>
         {['pending', 'approved', 'rejected', 'all'].map(f => (
           <button key={f} onClick={() => setFilter(f)}
-            style={{ fontSize: 11, fontWeight: 700, textTransform: 'capitalize', letterSpacing: '0.06em', padding: '6px 14px', borderRadius: 20, cursor: 'pointer', border: 'none', background: filter === f ? (f === 'pending' ? '#fbbf24' : f === 'approved' ? '#4ade80' : f === 'rejected' ? '#f87171' : '#818cf8') : 'rgba(255,255,255,0.06)', color: filter === f ? '#0f172a' : '#64748b', transition: 'all 0.15s' }}>
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: 'capitalize',
+              letterSpacing: '0.06em',
+              padding: '6px 14px',
+              borderRadius: 20,
+              cursor: 'pointer',
+              border: 'none',
+              background: filter === f
+                ? (f === 'pending' ? 'var(--warn-bg)' : f === 'approved' ? 'var(--success-bg)' : f === 'rejected' ? 'var(--danger-bg)' : 'var(--accent-light)')
+                : 'rgba(255,255,255,0.06)',
+              color: filter === f
+                ? (f === 'pending' ? 'var(--warn)' : f === 'approved' ? 'var(--success)' : f === 'rejected' ? 'var(--danger)' : 'var(--accent)')
+                : 'var(--text-muted)',
+              transition: 'all 0.15s'
+            }}>
             {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}

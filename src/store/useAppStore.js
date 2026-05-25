@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export const useAppStore = create(
   persist(
@@ -59,6 +59,7 @@ export const useAppStore = create(
     }),
     {
       name: 'school-os-storage',
+      storage: createJSONStorage(() => sessionStorage),
       // We don't need to persist backgroundUploads or impersonation state ideally,
       // but for simplicity we can persist the whole store or use partialize.
       partialize: (state) => ({
