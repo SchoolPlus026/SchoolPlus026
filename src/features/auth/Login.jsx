@@ -109,24 +109,40 @@ export default function Login() {
     setScannerPermError(false);
 
     if (Capacitor.isNativePlatform()) {
-      // On Android: explicitly request camera permission via native Capacitor plugin
-      // This shows the OS-level "Allow camera" dialog.
-      // After granting, getUserMedia in the WebView inherits the permission.
       try {
-        const permStatus = await Camera.requestPermissions({ permissions: ['camera'] });
-        if (permStatus.camera !== 'granted') {
+        // 1. Check current native permission status
+        const checkStatus = await Camera.checkPermissions();
+        
+        // 2. If already granted, directly activate scanner
+        if (checkStatus.camera === 'granted') {
+          setScannerActive(true);
+          return;
+        }
+
+        // 3. If permanently denied (returns 'denied' directly on check), don't prompt but show Settings message
+        if (checkStatus.camera === 'denied') {
           setScannerPermError(true);
           setError('Camera permission denied. Please allow camera access in your phone Settings → Apps → SchoolOS+.');
           return;
         }
-      } catch (permErr) {
-        // If permission API fails (e.g., already granted), continue anyway
-        console.warn('Permission request failed, attempting getUserMedia anyway:', permErr);
-      }
-    }
 
-    // Start the live scanner
-    setScannerActive(true);
+        // 4. Otherwise ('prompt' or 'prompt-with-rationale'), request native permission explicitly
+        const permStatus = await Camera.requestPermissions({ permissions: ['camera'] });
+        if (permStatus.camera === 'granted') {
+          setScannerActive(true);
+        } else {
+          setScannerPermError(true);
+          setError('Camera permission denied. Please allow camera access in your phone Settings → Apps → SchoolOS+.');
+        }
+      } catch (permErr) {
+        console.warn('Native permission check/request failed, attempting fallback:', permErr);
+        // Fail-open: proceed to activate scanner and let browser getUserMedia handle it
+        setScannerActive(true);
+      }
+    } else {
+      // Non-native platform (Web): proceed directly to active state
+      setScannerActive(true);
+    }
   };
 
   // Universal live QR scanner — works on both web and native (after permission granted)
