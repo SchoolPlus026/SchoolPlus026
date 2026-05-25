@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff,
-  Fingerprint, RefreshCw, Key, HelpCircle, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X } from 'lucide-react';
+  Fingerprint, RefreshCw, Key, HelpCircle, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X, Camera as CameraIcon } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { Camera } from '@capacitor/camera';
+import { Camera, CameraResultType, CameraSource, CameraDirection } from '@capacitor/camera';
 import { CapacitorPasskey } from '@capgo/capacitor-passkey';
 import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
 
 export default function Login() {
@@ -60,12 +60,13 @@ export default function Login() {
   const [pinConfirmPassword, setPinConfirmPassword] = useState('');
   const [pinVerified, setPinVerified] = useState(false); // 2-step flow: verify first, then show password fields
 
-  // QR Sync State (PC login screen — Flow B: enter mobile-generated code)
+  // QR Sync State (PC login screen — Flow B: enter 6-digit code from Mobile)
   const [qrToken, setQrToken] = useState('');
   const [qrPollInterval, setQrPollInterval] = useState(null);
   const [qrSyncCode, setQrSyncCode] = useState(''); // 6-digit code entered on PC
   const [mobileQrCode, setMobileQrCode] = useState(''); // 6-digit code entered on Mobile (Flow A)
   const [scannerActive, setScannerActive] = useState(false); // Camera QR scanner state
+  const [nativeScanProcessing, setNativeScanProcessing] = useState(false); // Native camera capture in progress
 
   // Forced password change after QR login
   const [qrForceNewPassword, setQrForceNewPassword] = useState('');
@@ -96,29 +97,102 @@ export default function Login() {
     };
   }, [qrPollInterval]);
 
-  // Camera QR Scanner — start/stop camera stream with real-time decoding
+  // ─────────────────────────────────────────────────────────────────────────
+  // NATIVE QR SCAN: Use Capacitor Camera.getPhoto() on Android/iOS
+  // This avoids getUserMedia which fails in Capacitor WebView (needs HTTPS)
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleNativeCameraScan = async () => {
+    setNativeScanProcessing(true);
+    setError('');
+    try {
+      // Step 1: Request permission explicitly
+      const permStatus = await Camera.requestPermissions({ permissions: ['camera'] });
+      if (permStatus.camera !== 'granted') {
+        throw new Error('Camera permission denied. Please allow camera access in your phone Settings.');
+      }
+
+      // Step 2: Open native camera — user points at QR on PC screen
+      const photo = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+        direction: CameraDirection.Rear,
+        saveToGallery: false,
+        correctOrientation: true,
+        promptLabelHeader: 'Scan QR Code',
+        promptLabelPicture: 'Take Photo of QR',
+      });
+
+      if (!photo.base64String) {
+        throw new Error('No image captured. Please try again.');
+      }
+
+      // Step 3: Decode the base64 image using jsQR
+      const imageDataUrl = `data:image/jpeg;base64,${photo.base64String}`;
+      const img = new Image();
+      img.src = imageDataUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert',
+      });
+
+      if (!code || !code.data) {
+        // Try with attemptBoth inversion as fallback
+        const code2 = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'attemptBoth',
+        });
+        if (!code2 || !code2.data) {
+          throw new Error('No QR code found in the photo. Please try again — make sure the full QR code is visible and well-lit.');
+        }
+        let token2 = code2.data;
+        if (token2.includes('?token=')) {
+          try { token2 = new URL(token2).searchParams.get('token') || token2; } catch (_) {}
+        }
+        await handleMobileScannedCode(token2);
+        return;
+      }
+
+      let token = code.data;
+      if (token.includes('?token=')) {
+        try { token = new URL(token).searchParams.get('token') || token; } catch (_) {}
+      }
+
+      await handleMobileScannedCode(token);
+    } catch (err) {
+      // User cancelled camera — don't show error
+      if (err?.message?.includes('cancelled') || err?.message?.includes('canceled') || err?.message?.includes('dismissed')) {
+        return;
+      }
+      console.error('Native camera scan error:', err);
+      setError(err.message || 'Camera scan failed. Please enter the code manually.');
+    } finally {
+      setNativeScanProcessing(false);
+    }
+  };
+
+  // Web-only QR Scanner via getUserMedia live video stream
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) return; // Native uses Camera.getPhoto() instead
+
     let stream = null;
     let animationFrameId = null;
 
     const startCamera = async () => {
       try {
-        if (Capacitor.isNativePlatform()) {
-          try {
-            const status = await Camera.checkPermissions();
-            if (status.camera !== 'granted') {
-              const reqStatus = await Camera.requestPermissions({ permissions: ['camera'] });
-              if (reqStatus.camera !== 'granted') {
-                throw new Error('Camera permission not granted by OS.');
-              }
-            }
-          } catch (permErr) {
-            console.warn('Native camera permission request failed, falling back to browser getUserMedia:', permErr);
-          }
-        }
-
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error('Camera not supported on this browser/device.');
+          throw new Error('Camera not supported on this browser.');
         }
 
         stream = await navigator.mediaDevices.getUserMedia({
@@ -143,14 +217,10 @@ export default function Login() {
               });
 
               if (code && code.data) {
-                console.log('Found QR code:', code.data);
                 let token = code.data;
                 if (token.includes('?token=')) {
-                  const url = new URL(token);
-                  token = url.searchParams.get('token') || token;
+                  try { token = new URL(token).searchParams.get('token') || token; } catch (_) {}
                 }
-
-                // Call direct login handler
                 handleMobileScannedCode(token);
                 setScannerActive(false);
                 return;
@@ -164,8 +234,8 @@ export default function Login() {
           animationFrameId = requestAnimationFrame(scanFrame);
         }
       } catch (err) {
-        console.error('Camera access error:', err);
-        setError('Could not access camera. Please allow camera permissions in settings or enter the code manually.');
+        console.error('Web camera access error:', err);
+        setError('Could not access camera. Please allow camera permissions or enter the code manually.');
         setScannerActive(false);
       }
     };
@@ -1236,43 +1306,37 @@ export default function Login() {
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Login Using PC QR Code</h3>
 
-            {/* Camera Scanner */}
+            {/* Native Camera QR Scanner — uses Camera.getPhoto() */}
             <div className="space-y-3">
-              {!scannerActive ? (
-                <button
-                  type="button"
-                  onClick={() => setScannerActive(true)}
-                  className="w-full py-4 bg-violet-500/10 hover:bg-violet-500/20 border-2 border-dashed border-violet-500/30 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all"
-                >
-                  <QrCode size={40} className="text-violet-400" />
-                  <span className="text-sm font-bold text-violet-300">Tap to Scan QR Code</span>
-                  <span className="text-[10px] text-slate-500">Opens camera to scan the QR on PC screen</span>
-                </button>
-              ) : (
-                <div className="relative overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: '1' }}>
-                  <video
-                    id="qr-scanner-video"
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    playsInline
-                    muted
-                  />
-                  {/* Scanner overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-48 h-48 border-2 border-violet-400 rounded-2xl" style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }} />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setScannerActive(false)}
-                    className="absolute top-3 right-3 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white z-10"
-                  >
-                    <X size={16} />
-                  </button>
-                  <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-white/80 font-semibold">
-                    Point camera at the QR code on your PC screen
-                  </p>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={handleNativeCameraScan}
+                disabled={nativeScanProcessing}
+                className="w-full py-5 bg-violet-500/10 hover:bg-violet-500/20 active:bg-violet-500/30 border-2 border-dashed border-violet-500/40 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all disabled:opacity-60"
+              >
+                {nativeScanProcessing ? (
+                  <>
+                    <Loader2 size={36} className="text-violet-400 animate-spin" />
+                    <span className="text-sm font-bold text-violet-300">Processing photo...</span>
+                    <span className="text-[10px] text-slate-500">Decoding QR code from image</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center">
+                      <QrCode size={32} className="text-violet-400" />
+                    </div>
+                    <span className="text-sm font-bold text-violet-300">📷 Tap to Scan QR Code</span>
+                    <span className="text-[10px] text-slate-400 text-center px-4">Opens your camera — point it at the QR code shown on the PC screen</span>
+                  </>
+                )}
+              </button>
+
+              {/* Helper info box */}
+              <div className="p-3 bg-violet-500/5 border border-violet-500/10 rounded-xl">
+                <p className="text-[10px] text-violet-300/70 font-semibold text-center">
+                  💡 On PC: Go to Settings → Sync Login to see your QR code. Then take a photo of it here.
+                </p>
+              </div>
             </div>
 
             {/* Divider */}
@@ -1292,7 +1356,7 @@ export default function Login() {
                 <p className="text-[10px] text-slate-500 mt-2">Open your school app on PC → Account Help → Sync Login → you will see the 6-digit code.</p>
               </div>
               <button type="submit" disabled={loading || mobileQrCode.length < 6} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold gap-2">
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Smartphone size={16} /> Login to Mobile</>}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Smartphone size={16} /> Login to Mobile</> }
               </button>
             </form>
           </div>
