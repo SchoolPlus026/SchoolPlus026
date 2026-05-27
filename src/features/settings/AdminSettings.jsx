@@ -16,6 +16,9 @@ import BiometricSetup from './BiometricSetup';
 import RecoverySetup from './RecoverySetup';
 import WebSyncPanel from './WebSyncPanel';
 
+/* ── Protected Demo Schools (Sales Protection) ── */
+const PROTECTED_SCHOOL_CODES = ['120', '777'];
+
 /* ─────────────────────────
    TRANSLATION DICTIONARY
 ─────────────────────────── */
@@ -486,8 +489,19 @@ export default function AdminSettings() {
 
   /* ── Danger Zone ── */
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showDemoLockModal, setShowDemoLockModal] = useState(false);
   const [confirmPwd, setConfirmPwd] = useState('');
   const [resetting, setResetting]   = useState(false);
+
+  const handleOpenResetModal = () => {
+    // Check if this is a protected demo/test school
+    const code = String(schoolSettings?.school_code || '').trim();
+    if (PROTECTED_SCHOOL_CODES.includes(code)) {
+      setShowDemoLockModal(true);
+    } else {
+      setShowResetModal(true);
+    }
+  };
 
   const handleReset = async (e) => {
     e.preventDefault();
@@ -798,7 +812,7 @@ export default function AdminSettings() {
             <p style={{ color: 'var(--danger)' }}>{t.dangerDesc}</p>
           </div>
         </div>
-        <button className="btn danger w-full" onClick={() => setShowResetModal(true)}>
+        <button className="btn danger w-full" onClick={handleOpenResetModal}>
           <Trash2 size={16} /> {t.resetAll}
         </button>
       </div>
@@ -842,6 +856,34 @@ export default function AdminSettings() {
                 <button type="submit" disabled={resetting} className="btn danger" style={{ flex: 2 }}>{resetting ? t.purging : t.confirmPurge}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── DEMO LOCK MODAL (Sales Protection — School Codes 120 & 777) ── */}
+      {showDemoLockModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.70)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '440px', borderLeft: '4px solid #6366f1', textAlign: 'center', padding: '32px 24px' }}>
+            {/* Lock Icon */}
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 8px 24px rgba(99,102,241,0.3)' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '12px', lineHeight: 1.3 }}>Delete Function Temporarily Locked</h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.7, marginBottom: '20px' }}>
+              This is <strong>test data</strong>, so the delete function is temporarily locked to prevent accidental wipes.
+              However, in your <strong>actual registered school</strong>, there will be no locks — you will have
+              <strong> full control</strong> to permanently delete your data anytime.
+            </p>
+            <div style={{ background: 'rgba(99,102,241,0.08)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', border: '1px solid rgba(99,102,241,0.2)' }}>
+              <p style={{ fontSize: '12px', color: '#6366f1', fontWeight: 600, margin: 0 }}>💡 This demo environment is kept intact so you can freely explore all features without risk.</p>
+            </div>
+            <button
+              onClick={() => setShowDemoLockModal(false)}
+              className="btn accent w-full"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', borderColor: 'transparent' }}
+            >
+              Got it, Continue Exploring
+            </button>
           </div>
         </div>
       )}
