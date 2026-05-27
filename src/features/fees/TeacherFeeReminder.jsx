@@ -29,14 +29,72 @@ export function buildMessage(lang, { name, className, schoolName, amount, dueDat
    EXPORTED: ReminderConfiguratorModal
    Used by both TeacherFeeReminder and AdminFeeManager
 ───────────────────────────────────────────────────────── */
+function customizeMessageForStudent(text, firstStudent, targetStudent) {
+  if (!text || !firstStudent || !targetStudent || firstStudent.id === targetStudent.id) {
+    return text;
+  }
+  let result = text;
+  if (firstStudent.name && targetStudent.name) {
+    const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapeRegExp(firstStudent.name), 'gi');
+    result = result.replace(regex, targetStudent.name);
+  }
+  if (firstStudent.class && targetStudent.class && firstStudent.class !== targetStudent.class) {
+    const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapeRegExp(firstStudent.class), 'gi');
+    result = result.replace(regex, targetStudent.class);
+  }
+  return result;
+}
+
+/* ─────────────────────────────────────────────────────────
+   EXPORTED: ReminderConfiguratorModal
+   Used by both TeacherFeeReminder and AdminFeeManager
+   ───────────────────────────────────────────────────────── */
 export function ReminderConfiguratorModal({ students, schoolSettings, onClose, onSent }) {
   const [targetAmount, setTargetAmount] = useState('');
   const [dueDate, setDueDate]           = useState('');
   const [lang, setLang]                 = useState('en');
   const [sending, setSending]           = useState(false);
-  const [selected, setSelected]         = useState(students.map(s => s.id));
+  const [selected, setSelected]         = useState(() =>
+    students.filter(s => (s.dueAmount || 0) > 0).map(s => s.id)
+  );
+
+  const [messageText, setMessageText] = useState('');
+  const [prevInputs, setPrevInputs] = useState({ lang: 'en', targetAmount: '', dueDate: '', firstStudentId: '' });
 
   const schoolName = schoolSettings?.name || 'Your School';
+
+  const firstSelected = students.find(s => s.id === selected[0]);
+
+  // Synchronize text area with inputs/lang changes unless edited
+  React.useEffect(() => {
+    const currentStudentId = firstSelected?.id || '';
+    const inputsChanged = prevInputs.lang !== lang ||
+                          prevInputs.targetAmount !== targetAmount ||
+                          prevInputs.dueDate !== dueDate ||
+                          prevInputs.firstStudentId !== currentStudentId;
+
+    if (inputsChanged) {
+      setPrevInputs({ lang, targetAmount, dueDate, firstStudentId: currentStudentId });
+    }
+
+    if (targetAmount && dueDate && firstSelected) {
+      const msg = buildMessage(lang, {
+        name:      firstSelected.name,
+        className: firstSelected.class || '—',
+        schoolName,
+        amount:    targetAmount,
+        dueDate,
+      }).replace('[FEE_REMINDER] ', '');
+
+      if (inputsChanged || !messageText) {
+        setMessageText(msg);
+      }
+    } else if (!firstSelected || !targetAmount || !dueDate) {
+      setMessageText('');
+    }
+  }, [lang, targetAmount, dueDate, firstSelected, schoolName]);
 
   const toggleStudent = (id) =>
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -50,22 +108,22 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
       alert('Please select at least one student to remind.');
       return;
     }
+    if (!messageText.trim()) {
+      alert('Message preview/content cannot be empty.');
+      return;
+    }
     setSending(true);
     try {
       const toNotify = students.filter(s => selected.includes(s.id));
-      const rows = toNotify.map(student => ({
-        school_id: schoolSettings.school_id,
-        to_user:   student.email,
-        title:     `Fee Reminder — ${schoolName}`,
-        message:   buildMessage(lang, {
-          name:       student.name,
-          className:  student.class || '—',
-          schoolName,
-          amount:     targetAmount,
-          dueDate,
-        }),
-        is_read: false,
-      }));
+      const rows = toNotify.map(student => {
+        const personalizedMsg = customizeMessageForStudent(messageText, firstSelected, student);
+        return {
+          school_id: schoolSettings.school_id,
+          to_user:   student.email,
+          message:   `[FEE_REMINDER] ${personalizedMsg}`,
+          is_read:   false,
+        };
+      });
 
       const { error } = await supabase.from('notifications').insert(rows);
       if (error) throw error;
@@ -76,15 +134,6 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
       setSending(false);
     }
   };
-
-  const firstSelected = students.find(s => s.id === selected[0]);
-  const preview = targetAmount && dueDate && firstSelected
-    ? buildMessage(lang, {
-        name:      firstSelected.name,
-        className: firstSelected.class || '—',
-        schoolName, amount: targetAmount, dueDate,
-      })
-    : null;
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.65)' }}>
@@ -154,9 +203,10 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
                 onClick={() => setLang(l.code)}
                 style={{
                   padding: '8px 16px', borderRadius: '12px', fontSize: '12px',
-                  fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', border: 'none',
-                  background: lang === l.code ? 'var(--primary)' : 'var(--input-bg)',
-                  color: lang === l.code ? '#fff' : 'var(--text-muted)',
+                  fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                  border: lang === l.code ? '1px solid var(--accent)' : '1px solid var(--card-border)',
+                  background: lang === l.code ? 'var(--accent)' : 'var(--input-bg)',
+                  color: lang === l.code ? '#ffffff' : 'var(--text-main)',
                 }}
               >
                 {l.label}
@@ -173,7 +223,7 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
             </label>
             <button
               onClick={() => setSelected(selected.length === students.length ? [] : students.map(s => s.id))}
-              style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}
+              style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
             >
               {selected.length === students.length ? 'Deselect All' : 'Select All'}
             </button>
@@ -193,28 +243,48 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
                   type="checkbox"
                   checked={selected.includes(s.id)}
                   onChange={() => toggleStudent(s.id)}
-                  style={{ width: '15px', height: '15px', accentColor: 'var(--primary)', cursor: 'pointer', flexShrink: 0 }}
+                  style={{ width: '15px', height: '15px', accentColor: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }}
                 />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{s.name}</div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {s.class} • Due: ₹{s.dueAmount?.toLocaleString()}
+                    {s.class} • Due: ₹{s.dueAmount?.toLocaleString() || '0'}
                   </div>
                 </div>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#ef4444', flexShrink: 0 }}>₹{s.dueAmount?.toLocaleString()}</div>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: (s.dueAmount || 0) > 0 ? '#ef4444' : 'var(--text-muted)', flexShrink: 0 }}>
+                  ₹{s.dueAmount?.toLocaleString() || '0'}
+                </div>
               </label>
             ))}
           </div>
         </div>
 
         {/* ── Message Preview ── */}
-        {preview && (
+        {firstSelected && targetAmount && dueDate && (
           <div style={{ marginBottom: '20px', padding: '14px 16px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '14px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
-              📋 Message Preview (1st student)
+            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+              📋 Message Preview (Editable)
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-main)', lineHeight: 1.7, margin: 0, wordBreak: 'break-word' }}>
-              {preview.replace('[FEE_REMINDER] ', '')}
+            <textarea
+              value={messageText}
+              onChange={e => setMessageText(e.target.value)}
+              rows={4}
+              style={{
+                width: '100%',
+                fontSize: '12px',
+                color: 'var(--text-main)',
+                lineHeight: 1.6,
+                background: 'var(--bg-main)',
+                border: '1px solid var(--card-border)',
+                borderRadius: '12px',
+                padding: '10px 12px',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+              }}
+              placeholder="Type or edit the reminder message..."
+            />
+            <p style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '6px', marginBottom: 0 }}>
+              Tip: You can edit this text template. Student names and classes will be customized automatically for other recipients.
             </p>
           </div>
         )}
@@ -222,13 +292,13 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
         {/* ── Send Button ── */}
         <button
           onClick={handleSend}
-          disabled={sending || selected.length === 0 || !targetAmount || !dueDate}
+          disabled={sending || selected.length === 0 || !targetAmount || !dueDate || !messageText.trim()}
           style={{
             width: '100%', padding: '14px', borderRadius: '16px', border: 'none',
             background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
             color: '#fff', fontWeight: 800, fontSize: '14px', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-            opacity: (sending || selected.length === 0 || !targetAmount || !dueDate) ? 0.55 : 1,
+            opacity: (sending || selected.length === 0 || !targetAmount || !dueDate || !messageText.trim()) ? 0.55 : 1,
             transition: 'all 0.2s', boxShadow: '0 6px 20px rgba(79,70,229,0.35)',
           }}
         >
@@ -318,19 +388,25 @@ export default function TeacherFeeReminder() {
   const profileLoading = !teacherClass && !teacherProfile;
   const isLoading = profileLoading || studentsLoading || feesLoading || paymentsLoading;
 
-  // Compute defaulters from teacher's class only
-  const defaultersList = useMemo(() => {
+  // Compute dues for ALL students in class
+  const studentsWithDues = useMemo(() => {
     if (!students || !feesData || paymentsData === undefined) return [];
-    return students.reduce((acc, student) => {
+    return students.map(student => {
       const feeRecord = feesData.find(f => f.student_id === student.id);
-      if (!feeRecord) return acc;
-      const studentPayments = (paymentsData || []).filter(p => p.fee_id === feeRecord.id);
-      const totalPaid = studentPayments.reduce((s, p) => s + Number(p.amount), 0);
-      const dueAmount = (Number(feeRecord.last_year_pending || 0) + Number(feeRecord.total || 0)) - totalPaid;
-      if (dueAmount > 0) acc.push({ ...student, dueAmount });
-      return acc;
-    }, []);
+      let dueAmount = 0;
+      if (feeRecord) {
+        const studentPayments = (paymentsData || []).filter(p => p.fee_id === feeRecord.id);
+        const totalPaid = studentPayments.reduce((s, p) => s + Number(p.amount), 0);
+        dueAmount = (Number(feeRecord.last_year_pending || 0) + Number(feeRecord.total || 0)) - totalPaid;
+      }
+      return { ...student, dueAmount };
+    });
   }, [students, feesData, paymentsData]);
+
+  // Defaulters list for display cards (filter where dueAmount > 0)
+  const defaultersList = useMemo(() => {
+    return studentsWithDues.filter(s => s.dueAmount > 0);
+  }, [studentsWithDues]);
 
   const handleSent = (count) => {
     setShowConfigurator(false);
@@ -342,7 +418,7 @@ export default function TeacherFeeReminder() {
   if (isLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', gap: '12px' }}>
-        <Loader2 style={{ width: '40px', height: '40px', animation: 'spin 0.8s linear infinite', color: 'var(--primary)' }} />
+        <Loader2 style={{ width: '40px', height: '40px', animation: 'spin 0.8s linear infinite', color: 'var(--accent)' }} />
         <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Loading…</span>
       </div>
     );
@@ -368,7 +444,7 @@ export default function TeacherFeeReminder() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <IndianRupee size={20} color="var(--primary)" /> Fees — Class {teacherClass}
+            <IndianRupee size={20} color="var(--accent)" /> Fees — Class {teacherClass}
           </h2>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
             Send in-app fee reminders to defaulters in your assigned class.
@@ -376,9 +452,9 @@ export default function TeacherFeeReminder() {
         </div>
         <button
           onClick={() => setShowConfigurator(true)}
-          disabled={defaultersList.length === 0}
+          disabled={students?.length === 0}
           className="btn accent"
-          style={{ flexShrink: 0, whiteSpace: 'nowrap', opacity: defaultersList.length === 0 ? 0.5 : 1 }}
+          style={{ flexShrink: 0, whiteSpace: 'nowrap', opacity: students?.length === 0 ? 0.5 : 1 }}
         >
           <Send size={14} /> Send Reminder
         </button>
@@ -478,7 +554,7 @@ export default function TeacherFeeReminder() {
 
       {showConfigurator && (
         <ReminderConfiguratorModal
-          students={defaultersList}
+          students={studentsWithDues}
           schoolSettings={schoolSettings}
           onClose={() => setShowConfigurator(false)}
           onSent={handleSent}

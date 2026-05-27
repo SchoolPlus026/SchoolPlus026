@@ -127,30 +127,47 @@ export default function AdminFeeManager() {
     setFeePending(feeRecord?.last_year_pending || '');
   };
 
-  // Build defaulters list for selected class (for the reminder modal)
+  // Build list of all students in the selected class with calculated dues
   const classStudents = students?.filter(s => s.class === filterClass) || [];
-  const classDefaulters = classStudents.reduce((acc, student) => {
-    const feeRecord = feesData?.find(f => f.student_id === student.id);
-    if (!feeRecord) return acc;
-    const studentPayments = (paymentsData || []).filter(p => p.fee_id === feeRecord.id);
-    const totalPaid = studentPayments.reduce((s, p) => s + Number(p.amount), 0);
-    const dueAmount = (Number(feeRecord.last_year_pending || 0) + Number(feeRecord.total || 0)) - totalPaid;
-    // fetch email for reminder
-    if (dueAmount > 0) acc.push({ ...student, dueAmount });
-    return acc;
-  }, []);
+  const classStudentsWithDues = React.useMemo(() => {
+    return classStudents.map(student => {
+      const feeRecord = feesData?.find(f => f.student_id === student.id);
+      let dueAmount = 0;
+      if (feeRecord) {
+        const studentPayments = (paymentsData || []).filter(p => p.fee_id === feeRecord.id);
+        const totalPaid = studentPayments.reduce((s, p) => s + Number(p.amount), 0);
+        dueAmount = (Number(feeRecord.last_year_pending || 0) + Number(feeRecord.total || 0)) - totalPaid;
+      }
+      return { ...student, dueAmount };
+    });
+  }, [classStudents, feesData, paymentsData]);
 
-  // When class changes, reset checked list
+  // When class changes, reset selected student and pre-check defaulters
   const handleClassChange = (cls) => {
     setFilterClass(cls);
-    setCheckedStudents([]);
     setSelectedStudent(null);
+    if (!cls) {
+      setCheckedStudents([]);
+      return;
+    }
+    // Pre-select students who have dueAmount > 0
+    const classStudents = students?.filter(s => s.class === cls) || [];
+    const defaulterIds = classStudents.reduce((acc, student) => {
+      const feeRecord = feesData?.find(f => f.student_id === student.id);
+      if (!feeRecord) return acc;
+      const studentPayments = (paymentsData || []).filter(p => p.fee_id === feeRecord.id);
+      const totalPaid = studentPayments.reduce((s, p) => s + Number(p.amount), 0);
+      const dueAmount = (Number(feeRecord.last_year_pending || 0) + Number(feeRecord.total || 0)) - totalPaid;
+      if (dueAmount > 0) acc.push(student.id);
+      return acc;
+    }, []);
+    setCheckedStudents(defaulterIds);
   };
 
   const toggleCheck = (id) =>
     setCheckedStudents(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
-  const checkedDefaulters = classDefaulters.filter(s => checkedStudents.includes(s.id));
+  const selectedStudentsForModal = classStudentsWithDues.filter(s => checkedStudents.includes(s.id));
 
   const handleReminderSent = (count) => {
     setShowConfigurator(false);
@@ -208,16 +225,16 @@ export default function AdminFeeManager() {
                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                    <input
                      type="checkbox"
-                     checked={classDefaulters.length > 0 && checkedStudents.length === classDefaulters.length}
+                     checked={classStudentsWithDues.length > 0 && checkedStudents.length === classStudentsWithDues.length}
                      onChange={() =>
                        setCheckedStudents(
-                         checkedStudents.length === classDefaulters.length ? [] : classDefaulters.map(s => s.id)
+                         checkedStudents.length === classStudentsWithDues.length ? [] : classStudentsWithDues.map(s => s.id)
                        )
                      }
-                     style={{ width: '14px', height: '14px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                     style={{ width: '14px', height: '14px', accentColor: 'var(--accent)', cursor: 'pointer' }}
                    />
-                   Select All Defaulters
-                   {classDefaulters.length > 0 && <span style={{ color: '#ef4444', fontWeight: 800 }}>({classDefaulters.length})</span>}
+                   Select All Students
+                   {classStudentsWithDues.length > 0 && <span style={{ color: 'var(--text-muted)', fontWeight: 800, marginLeft: '4px' }}>({classStudentsWithDues.length})</span>}
                  </label>
 
                  {checkedStudents.length > 0 && (
@@ -239,21 +256,19 @@ export default function AdminFeeManager() {
                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">2. Select Student to Manage Fees</label>
                <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
                  <div className="divide-y divide-slate-200/60 max-h-96 overflow-y-auto custom-scrollbar">
-                   {students?.filter(s => s.class === filterClass).map(s => {
-                     const isDefaulter = classDefaulters.some(d => d.id === s.id);
+                   {classStudentsWithDues.map(s => {
+                     const isDefaulter = s.dueAmount > 0;
                      return (
                        <div key={s.id} className="flex items-center justify-between p-4 hover:bg-slate-100 transition-colors" style={{ gap: '10px' }}>
-                          {/* Checkbox — only for defaulters */}
+                          {/* Checkbox — for ALL students */}
                           <div style={{ width: '20px', flexShrink: 0 }}>
-                            {isDefaulter && (
                               <input
                                 type="checkbox"
                                 checked={checkedStudents.includes(s.id)}
                                 onChange={() => toggleCheck(s.id)}
                                 onClick={e => e.stopPropagation()}
-                                style={{ width: '15px', height: '15px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                                style={{ width: '15px', height: '15px', accentColor: 'var(--accent)', cursor: 'pointer' }}
                               />
-                            )}
                           </div>
 
                           <div style={{ flex: 1 }}>
@@ -262,7 +277,7 @@ export default function AdminFeeManager() {
                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">@{s.username}</span>
                                {isDefaulter && (
                                  <span style={{ fontSize: '9px', fontWeight: 800, color: '#ef4444', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '1px 6px', textTransform: 'uppercase' }}>
-                                   Due: ₹{classDefaulters.find(d => d.id === s.id)?.dueAmount?.toLocaleString()}
+                                   Due: ₹{s.dueAmount?.toLocaleString()}
                                  </span>
                                )}
                              </div>
@@ -277,7 +292,7 @@ export default function AdminFeeManager() {
                        </div>
                      );
                    })}
-                   {students?.filter(s => s.class === filterClass).length === 0 && (
+                   {classStudentsWithDues.length === 0 && (
                       <div className="p-8 text-center text-slate-500 font-medium text-sm">No students found in this class.</div>
                    )}
                  </div>
@@ -447,7 +462,7 @@ export default function AdminFeeManager() {
       )}
       {showConfigurator && (
         <ReminderConfiguratorModal
-          students={checkedDefaulters}
+          students={selectedStudentsForModal}
           schoolSettings={schoolSettings}
           onClose={() => setShowConfigurator(false)}
           onSent={handleReminderSent}
