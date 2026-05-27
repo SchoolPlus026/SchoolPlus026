@@ -1,0 +1,457 @@
+import React, { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../config/supabaseClient';
+import { useAppStore } from '../../store/useAppStore';
+import { Loader2, IndianRupee, Bell, CheckCircle, X, Send, AlertTriangle, Globe } from 'lucide-react';
+
+/* ─── Multi-language message templates ─── */
+const LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'hi', label: 'हिन्दी (Hindi)' },
+  { code: 'mr', label: 'मराठी (Marathi)' },
+];
+
+function buildMessage(lang, { name, className, schoolName, amount, dueDate }) {
+  const amt = Number(amount).toLocaleString('en-IN');
+  const due = dueDate ? new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+  if (lang === 'hi') {
+    return `[FEE_REMINDER] प्रिय ${name} के अभिभावक (कक्षा: ${className}), ${schoolName} की ओर से शुल्क अनुस्मारक। देय राशि: ₹${amt}। कृपया ${due} तक भुगतान करें। किसी भी सहायता के लिए कार्यालय से संपर्क करें।`;
+  }
+  if (lang === 'mr') {
+    return `[FEE_REMINDER] प्रिय ${name} यांच्या पालकांसाठी (इयत्ता: ${className}), ${schoolName} कडून शुल्क स्मरणपत्र। देय रक्कम: ₹${amt}. कृपया ${due} पर्यंत भरणा करा. अधिक माहितीसाठी कार्यालयाशी संपर्क साधा.`;
+  }
+  // Default: English
+  return `[FEE_REMINDER] Dear Parent of ${name} (Class: ${className}), this is a fee reminder from ${schoolName}. Amount due: ₹${amt}. Please clear the dues by ${due}. Contact the office for any assistance.`;
+}
+
+/* ─── Configurator Modal ─── */
+function ReminderConfiguratorModal({ students, schoolSettings, onClose, onSent }) {
+  const [targetAmount, setTargetAmount]   = useState('');
+  const [dueDate, setDueDate]             = useState('');
+  const [lang, setLang]                   = useState('en');
+  const [sending, setSending]             = useState(false);
+  const [selected, setSelected]           = useState(students.map(s => s.id));
+
+  const schoolName = schoolSettings?.name || 'Your School';
+
+  const toggleStudent = (id) => {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSend = async () => {
+    if (!targetAmount || !dueDate) {
+      alert('Please enter both Target Amount and Due Date before sending.');
+      return;
+    }
+    if (selected.length === 0) {
+      alert('Please select at least one student to remind.');
+      return;
+    }
+    setSending(true);
+    try {
+      const toNotify = students.filter(s => selected.includes(s.id));
+      const rows = toNotify.map(student => ({
+        school_id: schoolSettings.school_id,
+        to_user: student.email,
+        title: `Fee Reminder — ${schoolName}`,
+        message: buildMessage(lang, {
+          name: student.name,
+          className: student.class || '—',
+          schoolName,
+          amount: targetAmount,
+          dueDate,
+        }),
+        is_read: false,
+      }));
+
+      const { error } = await supabase.from('notifications').insert(rows);
+      if (error) throw error;
+
+      onSent(selected.length);
+    } catch (err) {
+      alert('Error sending reminders: ' + err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const preview = targetAmount && dueDate && selected.length > 0
+    ? buildMessage(lang, { name: students.find(s => s.id === selected[0])?.name || '…', className: students.find(s => s.id === selected[0])?.class || '…', schoolName, amount: targetAmount, dueDate })
+    : null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.65)', padding: '0' }}>
+      <div style={{
+        width: '100%', maxWidth: '560px', maxHeight: '92vh', overflowY: 'auto',
+        background: 'var(--card-bg)', borderRadius: '24px 24px 0 0',
+        padding: '28px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.25)',
+        border: '1px solid var(--card-border)',
+      }}>
+        {/* Handle bar */}
+        <div style={{ width: '40px', height: '4px', borderRadius: '999px', background: 'var(--card-border)', margin: '0 auto 24px' }} />
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-main)' }}>Fee Reminder Configurator</h3>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Customize and send in-app reminders to defaulting students</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'var(--input-bg)', border: 'none', borderRadius: '10px', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* ── Field 1: Target Amount ── */}
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+            Target Reminder Amount (₹)
+          </label>
+          <input
+            type="number"
+            value={targetAmount}
+            onChange={e => setTargetAmount(e.target.value)}
+            placeholder="e.g. 5000"
+            className="sp-input block w-full"
+            style={{ fontSize: '18px', fontWeight: 800 }}
+          />
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            This amount will appear in the reminder message. It can be the standard fee or a specific amount.
+          </p>
+        </div>
+
+        {/* ── Field 2: Due Date ── */}
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+            Payment Due Date
+          </label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={e => setDueDate(e.target.value)}
+            className="sp-input block w-full"
+          />
+        </div>
+
+        {/* ── Field 3: Language Selector ── */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+            <Globe size={12} style={{ display: 'inline', marginRight: '4px' }} />
+            Message Language
+          </label>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {LANGUAGES.map(l => (
+              <button
+                key={l.code}
+                onClick={() => setLang(l.code)}
+                style={{
+                  padding: '8px 16px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', border: 'none',
+                  background: lang === l.code ? 'var(--primary)' : 'var(--input-bg)',
+                  color: lang === l.code ? '#fff' : 'var(--text-muted)',
+                }}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Student Selection ── */}
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Students to Notify ({selected.length}/{students.length})
+            </label>
+            <button
+              onClick={() => setSelected(selected.length === students.length ? [] : students.map(s => s.id))}
+              style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              {selected.length === students.length ? 'Deselect All' : 'Select All'}
+            </button>
+          </div>
+          <div style={{ background: 'var(--bg-main)', border: '1px solid var(--card-border)', borderRadius: '16px', maxHeight: '200px', overflowY: 'auto' }}>
+            {students.map((s, idx) => (
+              <label
+                key={s.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', cursor: 'pointer',
+                  borderBottom: idx < students.length - 1 ? '1px solid var(--card-border)' : 'none',
+                  background: selected.includes(s.id) ? 'rgba(99,102,241,0.05)' : 'transparent',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(s.id)}
+                  onChange={() => toggleStudent(s.id)}
+                  style={{ width: '15px', height: '15px', accentColor: 'var(--primary)', cursor: 'pointer', flexShrink: 0 }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{s.name}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Due: ₹{s.dueAmount?.toLocaleString()}</div>
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#ef4444' }}>₹{s.dueAmount?.toLocaleString()}</div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Message Preview ── */}
+        {preview && (
+          <div style={{ marginBottom: '20px', padding: '14px 16px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '14px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+              📋 Message Preview (1st student)
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-main)', lineHeight: 1.7, margin: 0, wordBreak: 'break-word' }}>
+              {preview.replace('[FEE_REMINDER] ', '')}
+            </p>
+          </div>
+        )}
+
+        {/* ── Send Button ── */}
+        <button
+          onClick={handleSend}
+          disabled={sending || selected.length === 0 || !targetAmount || !dueDate}
+          style={{
+            width: '100%', padding: '14px', borderRadius: '16px', border: 'none',
+            background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+            color: '#fff', fontWeight: 800, fontSize: '14px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            opacity: (sending || selected.length === 0 || !targetAmount || !dueDate) ? 0.55 : 1,
+            transition: 'all 0.2s', boxShadow: '0 6px 20px rgba(79,70,229,0.35)',
+          }}
+        >
+          {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+          {sending ? 'Sending…' : `Send In-App Reminder to ${selected.length} Student${selected.length !== 1 ? 's' : ''}`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main: Teacher Fee Reminder Page ─── */
+export default function TeacherFeeReminder() {
+  const { user, schoolSettings } = useAppStore();
+  const queryClient = useQueryClient();
+  const currentYear = new Date().getFullYear();
+
+  // Teacher's assigned class (stored in user.class)
+  const teacherClass = user?.class || null;
+
+  const [showConfigurator, setShowConfigurator] = useState(false);
+  const [successCount, setSuccessCount] = useState(null);
+
+  // 1. Fetch students in teacher's class only
+  const { data: students, isLoading: studentsLoading } = useQuery({
+    queryKey: ['teacher-class-students', teacherClass, schoolSettings?.school_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, class, email')
+        .eq('role', 'student')
+        .eq('class', teacherClass)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!teacherClass && !!schoolSettings?.school_id,
+  });
+
+  // 2. Fetch fees for current year
+  const { data: feesData, isLoading: feesLoading } = useQuery({
+    queryKey: ['fees-teacher-view', currentYear, schoolSettings?.school_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('fees').select('*').eq('year', currentYear);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!schoolSettings?.school_id,
+  });
+
+  // 3. Fetch payments
+  const { data: paymentsData, isLoading: paymentsLoading } = useQuery({
+    queryKey: ['payments-teacher-view', currentYear, schoolSettings?.school_id],
+    queryFn: async () => {
+      if (!feesData || feesData.length === 0) return [];
+      const feeIds = feesData.map(f => f.id);
+      const { data, error } = await supabase.from('fees_payments').select('*').in('fee_id', feeIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!feesData && feesData.length > 0,
+  });
+
+  const isLoading = studentsLoading || feesLoading || paymentsLoading;
+
+  // Compute defaulters from teacher's class only
+  const defaultersList = useMemo(() => {
+    if (!students || !feesData || paymentsData === undefined) return [];
+    return students.reduce((acc, student) => {
+      const feeRecord = feesData.find(f => f.student_id === student.id);
+      if (!feeRecord) return acc;
+      const studentPayments = (paymentsData || []).filter(p => p.fee_id === feeRecord.id);
+      const totalPaid = studentPayments.reduce((s, p) => s + Number(p.amount), 0);
+      const dueAmount = (Number(feeRecord.last_year_pending || 0) + Number(feeRecord.total || 0)) - totalPaid;
+      if (dueAmount > 0) acc.push({ ...student, dueAmount });
+      return acc;
+    }, []);
+  }, [students, feesData, paymentsData]);
+
+  const handleSent = (count) => {
+    setShowConfigurator(false);
+    setSuccessCount(count);
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    setTimeout(() => setSuccessCount(null), 5000);
+  };
+
+  if (!teacherClass) {
+    return (
+      <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+        <div style={{ fontSize: '40px', marginBottom: '16px' }}>📋</div>
+        <h3 style={{ fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>No Class Assigned</h3>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: 1.6 }}>
+          Please ask the Admin to assign a class to your profile before you can send fee reminders.
+        </p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <span className="font-bold text-xs text-slate-400 uppercase tracking-widest">Loading Fee Data…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+
+      {/* ── Page Header ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+        <div>
+          <div className="section-title" style={{ padding: 0, marginTop: '4px' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Bell size={18} /> Fee Reminders — Class {teacherClass}
+            </h3>
+          </div>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Send in-app notifications to students in your class who have outstanding dues.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowConfigurator(true)}
+          disabled={defaultersList.length === 0}
+          className="btn accent"
+          style={{ flexShrink: 0, whiteSpace: 'nowrap', opacity: defaultersList.length === 0 ? 0.5 : 1 }}
+        >
+          <Send size={14} /> Send Reminder
+        </button>
+      </div>
+
+      {/* ── Success Toast ── */}
+      {successCount !== null && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          background: 'linear-gradient(135deg, #10b981, #059669)',
+          color: 'white', borderRadius: '16px', padding: '14px 20px',
+          animation: 'fadeIn 0.3s ease',
+        }}>
+          <CheckCircle size={20} />
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '14px' }}>Reminders Sent Successfully!</div>
+            <div style={{ fontSize: '12px', opacity: 0.85 }}>
+              In-app notifications delivered to {successCount} student{successCount !== 1 ? 's' : ''}. They will see a banner on their dashboard.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Summary Stats ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '20px', padding: '18px', color: 'white', textAlign: 'center' }}>
+          <div style={{ fontSize: '28px', fontWeight: 900 }}>{defaultersList.length}</div>
+          <div style={{ fontSize: '10px', fontWeight: 700, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>Defaulters in Class {teacherClass}</div>
+        </div>
+        <div style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', borderRadius: '20px', padding: '18px', color: 'white', textAlign: 'center' }}>
+          <div style={{ fontSize: '22px', fontWeight: 900 }}>
+            ₹{defaultersList.reduce((a, s) => a + s.dueAmount, 0).toLocaleString()}
+          </div>
+          <div style={{ fontSize: '10px', fontWeight: 700, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>Total Outstanding</div>
+        </div>
+      </div>
+
+      {/* ── Defaulters List ── */}
+      {defaultersList.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 24px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '24px' }}>
+          <CheckCircle size={40} color="#10b981" style={{ margin: '0 auto 12px' }} />
+          <h3 style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)', marginBottom: '6px' }}>All Clear! 🎉</h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No outstanding dues in Class {teacherClass}.</p>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--card-border)', background: 'var(--bg-main)' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <AlertTriangle size={12} style={{ display: 'inline', marginRight: '4px', color: '#ef4444' }} />
+              Defaulters — {defaultersList.length} student{defaultersList.length !== 1 ? 's' : ''} • Sorted by highest due
+            </span>
+          </div>
+          {defaultersList
+            .sort((a, b) => b.dueAmount - a.dueAmount)
+            .map((student, idx) => (
+            <div
+              key={student.id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 20px',
+                borderBottom: idx < defaultersList.length - 1 ? '1px solid var(--card-border)' : 'none',
+              }}
+            >
+              {/* Avatar */}
+              <div style={{
+                width: '38px', height: '38px', borderRadius: '12px', flexShrink: 0,
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '14px', fontWeight: 900, color: 'white',
+              }}>
+                {student.name?.charAt(0)?.toUpperCase()}
+              </div>
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {student.name}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {student.email || 'No email on file'}
+                </div>
+              </div>
+
+              {/* Due badge */}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontWeight: 900, fontSize: '15px', color: '#ef4444' }}>₹{student.dueAmount.toLocaleString()}</div>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Due</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Info Banner ── */}
+      <div style={{ padding: '12px 16px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.18)', borderRadius: '14px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+        <Bell size={15} color="#6366f1" style={{ flexShrink: 0, marginTop: '2px' }} />
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.7 }}>
+          <strong style={{ color: 'var(--text-main)' }}>How it works:</strong> Clicking "Send Reminder" opens a configurator where you set the amount, due date, and language. The message is then delivered as an <strong>in-app push notification</strong> directly to the student's account. They will also see a <strong>dismissible banner</strong> on their dashboard when they log in.
+        </p>
+      </div>
+
+      {/* ── Configurator Modal ── */}
+      {showConfigurator && (
+        <ReminderConfiguratorModal
+          students={defaultersList}
+          schoolSettings={schoolSettings}
+          onClose={() => setShowConfigurator(false)}
+          onSent={handleSent}
+        />
+      )}
+    </div>
+  );
+}

@@ -51,6 +51,7 @@ import UserProfile from './features/profile/UserProfile';
 // Fees
 import AdminFeeManager from './features/fees/AdminFeeManager';
 import StudentFeeLedger from './features/fees/StudentFeeLedger';
+import TeacherFeeReminder from './features/fees/TeacherFeeReminder';
 
 // Notices
 import NoticeManager from './features/notices/NoticeManager';
@@ -295,6 +296,7 @@ export default function App() {
           <Route path="emergency"        element={<FeatureGuard feature="emergency"><EmergencyManager /></FeatureGuard>} />
           <Route path="bus-alerts"        element={<FeatureGuard feature="bus_alerts"><LiveBusTracker /></FeatureGuard>} />
           <Route path="achievers"        element={<AchieversBoard />} />
+          <Route path="fees"             element={<TeacherFeeReminder />} />
         </Route>
       </Route>
 

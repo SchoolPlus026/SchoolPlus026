@@ -13,6 +13,7 @@ import { supabase } from '../../config/supabaseClient';
 import ModuleGuard from '../../components/ModuleGuard';
 import { X } from 'lucide-react';
 import { useUniversalModuleActivity } from '../../hooks/useUniversalModuleActivity';
+import FeeReminderBanner from '../../components/FeeReminderBanner';
 
 // Exact legacy module list for Student role:
 // My Profile, Attendance, Fees, Timetable, Notices, Leaves, Gallery, Contact, Settings
@@ -143,6 +144,7 @@ function StudentDashboardContent({ user, schoolSettings }) {
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
       <DashboardHero />
+      <FeeReminderBanner />
       <MorningCheckInBanner user={user} schoolId={schoolSettings.school_id} />
       <div>
         {/* Legacy exact title: "Student Panel" */}
