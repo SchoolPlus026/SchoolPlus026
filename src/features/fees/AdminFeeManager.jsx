@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { usePending } from '../../hooks/usePending';
-import { Loader2, IndianRupee, Calendar, ChevronLeft, CreditCard, History, CheckCircle } from 'lucide-react';
+import { Loader2, IndianRupee, Calendar, ChevronLeft, CreditCard, History, CheckCircle, Send, Bell } from 'lucide-react';
+import { ReminderConfiguratorModal } from './TeacherFeeReminder';
 
 export default function AdminFeeManager() {
   const { schoolSettings } = useAppStore();
@@ -13,6 +14,11 @@ export default function AdminFeeManager() {
 
   const [filterClass, setFilterClass] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
+  
+  // Reminder state
+  const [checkedStudents, setCheckedStudents] = useState([]);
+  const [showConfigurator, setShowConfigurator] = useState(false);
+  const [reminderSuccessCount, setReminderSuccessCount] = useState(null);
 
   // Fee state
   const [feeTotal, setFeeTotal] = useState('');
@@ -29,7 +35,7 @@ export default function AdminFeeManager() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, class, username')
+        .select('id, name, class, username, email')
         .eq('role', 'student')
         .order('name');
       if (error) throw error;
@@ -121,6 +127,38 @@ export default function AdminFeeManager() {
     setFeePending(feeRecord?.last_year_pending || '');
   };
 
+  // Build defaulters list for selected class (for the reminder modal)
+  const classStudents = students?.filter(s => s.class === filterClass) || [];
+  const classDefaulters = classStudents.reduce((acc, student) => {
+    const feeRecord = feesData?.find(f => f.student_id === student.id);
+    if (!feeRecord) return acc;
+    const studentPayments = (paymentsData || []).filter(p => p.fee_id === feeRecord.id);
+    const totalPaid = studentPayments.reduce((s, p) => s + Number(p.amount), 0);
+    const dueAmount = (Number(feeRecord.last_year_pending || 0) + Number(feeRecord.total || 0)) - totalPaid;
+    // fetch email for reminder
+    if (dueAmount > 0) acc.push({ ...student, dueAmount });
+    return acc;
+  }, []);
+
+  // When class changes, reset checked list
+  const handleClassChange = (cls) => {
+    setFilterClass(cls);
+    setCheckedStudents([]);
+    setSelectedStudent(null);
+  };
+
+  const toggleCheck = (id) =>
+    setCheckedStudents(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const checkedDefaulters = classDefaulters.filter(s => checkedStudents.includes(s.id));
+
+  const handleReminderSent = (count) => {
+    setShowConfigurator(false);
+    setCheckedStudents([]);
+    setReminderSuccessCount(count);
+    setTimeout(() => setReminderSuccessCount(null), 5000);
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -137,11 +175,25 @@ export default function AdminFeeManager() {
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl">
            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-6">Manage Fees</h2>
 
+           {/* ── Reminder Success Toast ── */}
+           {reminderSuccessCount !== null && (
+             <div style={{
+               display: 'flex', alignItems: 'center', gap: '10px',
+               background: 'linear-gradient(135deg, #10b981, #059669)',
+               color: 'white', borderRadius: '16px', padding: '12px 18px', marginBottom: '20px',
+             }}>
+               <CheckCircle size={18} />
+               <span style={{ fontWeight: 700, fontSize: '13px' }}>
+                 ✅ Reminders sent to {reminderSuccessCount} student{reminderSuccessCount !== 1 ? 's' : ''}!
+               </span>
+             </div>
+           )}
+
            <div className="mb-6">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">1. Select Class</label>
               <select
                 value={filterClass}
-                onChange={e => setFilterClass(e.target.value)}
+                onChange={e => handleClassChange(e.target.value)}
                 className="w-full sm:w-64 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-sm text-slate-600 focus:outline-none focus:border-primary transition-colors cursor-pointer"
               >
                 <option value="">-- Choose Class --</option>
@@ -151,23 +203,80 @@ export default function AdminFeeManager() {
 
            {filterClass && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">2. Select Student</label>
+               {/* ── Header row with Select All + Send Reminder ── */}
+               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                   <input
+                     type="checkbox"
+                     checked={classDefaulters.length > 0 && checkedStudents.length === classDefaulters.length}
+                     onChange={() =>
+                       setCheckedStudents(
+                         checkedStudents.length === classDefaulters.length ? [] : classDefaulters.map(s => s.id)
+                       )
+                     }
+                     style={{ width: '14px', height: '14px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                   />
+                   Select All Defaulters
+                   {classDefaulters.length > 0 && <span style={{ color: '#ef4444', fontWeight: 800 }}>({classDefaulters.length})</span>}
+                 </label>
+
+                 {checkedStudents.length > 0 && (
+                   <button
+                     onClick={() => setShowConfigurator(true)}
+                     style={{
+                       display: 'flex', alignItems: 'center', gap: '6px',
+                       background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                       color: 'white', border: 'none', borderRadius: '12px',
+                       padding: '8px 16px', fontSize: '12px', fontWeight: 800,
+                       cursor: 'pointer', boxShadow: '0 4px 12px rgba(79,70,229,0.3)',
+                     }}
+                   >
+                     <Bell size={13} /> Send Reminder ({checkedStudents.length})
+                   </button>
+                 )}
+               </div>
+
+               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">2. Select Student to Manage Fees</label>
                <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
                  <div className="divide-y divide-slate-200/60 max-h-96 overflow-y-auto custom-scrollbar">
-                   {students?.filter(s => s.class === filterClass).map(s => (
-                      <div key={s.id} className="flex items-center justify-between p-4 hover:bg-slate-100 transition-colors">
-                         <div>
-                            <div className="font-bold text-slate-800">{s.name}</div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">@{s.username}</div>
-                         </div>
-                         <button
-                           onClick={() => handleManageFeesClick(s)}
-                           className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm"
-                         >
-                            Manage Fees
-                         </button>
-                      </div>
-                   ))}
+                   {students?.filter(s => s.class === filterClass).map(s => {
+                     const isDefaulter = classDefaulters.some(d => d.id === s.id);
+                     return (
+                       <div key={s.id} className="flex items-center justify-between p-4 hover:bg-slate-100 transition-colors" style={{ gap: '10px' }}>
+                          {/* Checkbox — only for defaulters */}
+                          <div style={{ width: '20px', flexShrink: 0 }}>
+                            {isDefaulter && (
+                              <input
+                                type="checkbox"
+                                checked={checkedStudents.includes(s.id)}
+                                onChange={() => toggleCheck(s.id)}
+                                onClick={e => e.stopPropagation()}
+                                style={{ width: '15px', height: '15px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                              />
+                            )}
+                          </div>
+
+                          <div style={{ flex: 1 }}>
+                             <div className="font-bold text-slate-800">{s.name}</div>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">@{s.username}</span>
+                               {isDefaulter && (
+                                 <span style={{ fontSize: '9px', fontWeight: 800, color: '#ef4444', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '1px 6px', textTransform: 'uppercase' }}>
+                                   Due: ₹{classDefaulters.find(d => d.id === s.id)?.dueAmount?.toLocaleString()}
+                                 </span>
+                               )}
+                             </div>
+                          </div>
+                          <button
+                            onClick={() => handleManageFeesClick(s)}
+                            className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm"
+                            style={{ flexShrink: 0 }}
+                          >
+                             Manage Fees
+                          </button>
+                       </div>
+                     );
+                   })}
                    {students?.filter(s => s.class === filterClass).length === 0 && (
                       <div className="p-8 text-center text-slate-500 font-medium text-sm">No students found in this class.</div>
                    )}
@@ -335,6 +444,14 @@ export default function AdminFeeManager() {
               )}
            </div>
         </div>
+      )}
+      {showConfigurator && (
+        <ReminderConfiguratorModal
+          students={checkedDefaulters}
+          schoolSettings={schoolSettings}
+          onClose={() => setShowConfigurator(false)}
+          onSent={handleReminderSent}
+        />
       )}
     </div>
   );

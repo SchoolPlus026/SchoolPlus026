@@ -140,7 +140,7 @@ export default function App() {
         if (session?.user) {
           const { data: profile, error: profileError } = await supabase
             .from('users')
-            .select('role, school_id')
+            .select('role, school_id, class')
             .eq('id', session.user.id)
             .single();
 
@@ -151,10 +151,13 @@ export default function App() {
             return;
           }
 
+          // Merge profile fields (class, etc.) into the auth user object
+          const enrichedUser = { ...session.user, class: profile.class || null };
+
           // Platform Admin has no school — skip school settings lookup
           if (profile.role === 'platform_admin') {
             setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
-            setUserAndRole(session.user, profile.role);
+            setUserAndRole(enrichedUser, profile.role);
           } else {
             const { data: settings } = await supabase
               .from('school_settings')
@@ -164,7 +167,7 @@ export default function App() {
 
             if (settings) {
               setSchoolSettings(settings);
-              setUserAndRole(session.user, profile.role);
+              setUserAndRole(enrichedUser, profile.role);
             } else {
               // Sign out asynchronously without awaiting to prevent Capacitor freeze
               supabase.auth.signOut().catch(console.error);
