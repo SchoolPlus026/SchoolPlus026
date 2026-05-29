@@ -67,6 +67,48 @@ const EField = ({ label, field, type = 'text', options = null, allowCustom = fal
   </div>
 );
 
+const UserAvatar = ({ user }) => {
+  const [err, setErr] = useState(false);
+  
+  if (!user.avatar_url || err) {
+    return (
+      <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-primary flex items-center justify-center font-black text-lg group-hover:scale-110 transition-transform shrink-0">
+        {user.name?.charAt(0)?.toUpperCase()}
+      </div>
+    );
+  }
+  
+  const getThumbnailLink = (url) => {
+    if (!url) return '';
+    if (url.includes('drive.google.com/thumbnail') || url.includes('googleusercontent.com')) {
+      if (url.includes('&sz=')) {
+        return url.replace(/&sz=\w+/, '&sz=w100-h100');
+      }
+      return `${url}&sz=w100-h100`;
+    }
+    const match = url.match(/\/d\/(.*?)\//);
+    if (match && match[1]) {
+      return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w100-h100`;
+    }
+    if (url.match(/^[a-zA-Z0-9_-]{25,}$/)) {
+      return `https://drive.google.com/thumbnail?id=${url}&sz=w100-h100`;
+    }
+    return url;
+  };
+  
+  return (
+    <div className="w-12 h-12 rounded-2xl overflow-hidden border border-indigo-100 group-hover:scale-110 transition-transform bg-indigo-50 shrink-0">
+      <img 
+        src={getThumbnailLink(user.avatar_url)} 
+        alt="" 
+        className="w-full h-full object-cover" 
+        referrerPolicy="no-referrer"
+        onError={() => setErr(true)}
+      />
+    </div>
+  );
+};
+
 export default function UserManagement() {
   const { schoolSettings, setSchoolSettings, user: currentUser, role: currentRole } = useAppStore();
   const { isPending } = usePending();
@@ -409,9 +451,7 @@ export default function UserManagement() {
                   <tr key={user.id} className="hover:bg-slate-50/80 transition-colors group">
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-primary flex items-center justify-center font-black text-lg group-hover:scale-110 transition-transform">
-                          {user.name?.charAt(0)}
-                        </div>
+                        <UserAvatar user={user} />
                         <div>
                           <div className="font-bold text-slate-800 text-base flex items-center gap-2">
                             {user.name}
@@ -476,9 +516,21 @@ export default function UserManagement() {
               <button onClick={() => setEditingUser(null)} className="absolute top-5 right-5 p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors">
                 <X size={18} />
               </button>
-              <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center text-2xl font-black mb-3 border-2 border-white/30">
-                {editingUser.name?.charAt(0)}
-              </div>
+              {editingUser.avatar_url ? (
+                <div className="w-16 h-16 rounded-3xl overflow-hidden border-2 border-white/30 mb-3 bg-white/10 shrink-0">
+                  <img 
+                    src={editingUser.avatar_url.includes('drive.google.com/thumbnail') || editingUser.avatar_url.includes('googleusercontent.com') ? (editingUser.avatar_url.includes('&sz=') ? editingUser.avatar_url.replace(/&sz=\w+/, '&sz=w150-h150') : `${editingUser.avatar_url}&sz=w150-h150`) : (editingUser.avatar_url.match(/\/d\/(.*?)\//)?.[1] ? `https://drive.google.com/thumbnail?id=${editingUser.avatar_url.match(/\/d\/(.*?)\//)[1]}&sz=w150-h150` : editingUser.avatar_url)} 
+                    alt="" 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                </div>
+              ) : (
+                <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center text-2xl font-black mb-3 border-2 border-white/30">
+                  {editingUser.name?.charAt(0)}
+                </div>
+              )}
               <h2 className="text-lg font-black tracking-tight">{editingUser.name}</h2>
               <div className="flex flex-wrap gap-2 mt-2">
                 <span className="text-[10px] font-bold bg-white/20 px-3 py-1 rounded-full uppercase tracking-widest">@{editingUser.username}</span>

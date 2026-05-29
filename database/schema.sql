@@ -24,6 +24,8 @@ CREATE TABLE public.users (
     contact text,
     qualification text,
     aadhar_card text,
+    avatar_url text, -- Google Drive CDN thumbnail URL for user profile picture
+    avatar_file_id text, -- Google Drive File ID for cleanup
     created_at timestamp with time zone DEFAULT now()
 );
 
