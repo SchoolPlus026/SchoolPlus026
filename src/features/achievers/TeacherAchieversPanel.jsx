@@ -7,6 +7,7 @@ import {
   awardBadge, createCustomBadge, deleteCustomBadge
 } from '../../hooks/useAchievements';
 import { LucideBadgeIcon } from '../../components/LucideBadgeIcon';
+import UserAvatar from '../../components/UserAvatar';
 import { Star, Plus, Trash2, Loader2, BookOpen, Medal } from 'lucide-react';
 
 export default function TeacherAchieversPanel() {
@@ -84,6 +85,7 @@ export default function TeacherAchieversPanel() {
               {achievements.map(ach => (
                 <div key={ach.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '14px', background: 'var(--glass)', border: '1px solid var(--card-border)' }}>
                   <div style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0, background: `${ach.badges_master?.icon_color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LucideBadgeIcon iconKey={ach.badges_master?.icon_key} color={ach.badges_master?.icon_color} size={16} /></div>
+                  <UserAvatar user={ach.users} size="xs" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>{ach.users?.name}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{ach.badges_master?.name}</div>
@@ -161,6 +163,7 @@ export default function TeacherAchieversPanel() {
                     <div style={{ width: '30px', fontWeight: 900, color: colorStyle, fontSize: '14px' }}>#{rank}</div>
                     <div style={{ flex: 1, paddingLeft: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {badgeNode}
+                      <UserAvatar user={lb} size="xs" />
                       <div style={{ fontSize: '14px', fontWeight: rank <= 3 ? 800 : 600, color: rank <= 3 ? colorStyle : 'var(--text-main)' }}>{lb.name} <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>({lb.class})</span></div>
                     </div>
                     <div style={{ fontWeight: 900, color: 'var(--text-main)' }}>{lb.total} <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>BADGES</span></div>

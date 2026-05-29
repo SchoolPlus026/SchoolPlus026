@@ -18,9 +18,13 @@ export const useAppStore = create(
   // Background Uploads (Gallery)
   backgroundUploads: [],
   
+  // Global Avatar Preview Modal State
+  previewAvatarUrl: null,
+  
   // Actions
   setUserAndRole: (user, role) => set({ user, role }),
   setSchoolSettings: (settings) => set({ schoolSettings: settings }),
+  setPreviewAvatarUrl: (url) => set({ previewAvatarUrl: url }),
   
   setImpersonation: (schoolSettings) => set((state) => ({
     isImpersonating: true,

@@ -6,6 +6,7 @@ import {
   useStudentAchievements, useLeaderboard, usePinnableBadges, pinBadges, useBadgeCache, useBadgesMaster
 } from '../../hooks/useAchievements';
 import { LucideBadgeIcon } from '../../components/LucideBadgeIcon';
+import UserAvatar from '../../components/UserAvatar';
 import { Trophy, Medal, Star, Loader2, Pin, Filter } from 'lucide-react';
 import { CheckCircle2 } from 'lucide-react';
 
@@ -171,6 +172,7 @@ export default function StudentAchievementsView({ studentId }) {
                     <div style={{ width: '30px', fontWeight: 900, color: colorStyle, fontSize: '14px' }}>#{rank}</div>
                     <div style={{ flex: 1, paddingLeft: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {badgeNode}
+                      <UserAvatar user={lb} size="xs" />
                       <div style={{ fontSize: '14px', fontWeight: rank <= 3 ? 800 : 600, color: rank <= 3 ? colorStyle : 'var(--text-main)' }}>
                         {lb.name} {isMe && <span style={{ fontSize: '10px', background: 'var(--accent)', color: 'white', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>YOU</span>}
                         <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, marginLeft: '6px' }}>({lb.class})</span>

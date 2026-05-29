@@ -310,7 +310,10 @@ export default function Login() {
       try { await invokeEdgeFn('reset-failures', { username: rawInput }); } catch (_) {}
 
       const { data: profile, error: profileError } = await supabase
-        .from('users').select('role, school_id, name, class').eq('id', authData.user.id).single();
+        .from('users')
+        .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class')
+        .eq('id', authData.user.id)
+        .single();
 
       if (profileError || !profile) {
         await supabase.auth.signOut();
@@ -328,7 +331,13 @@ export default function Login() {
         setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
       }
 
-      const enrichedUser = { ...authData.user, class: profile.class || null };
+      const enrichedUser = { 
+        ...authData.user, 
+        class: profile.class || null,
+        avatar_url: profile.avatar_url || null,
+        avatar_file_id: profile.avatar_file_id || null,
+        hide_avatar_from_class: !!profile.hide_avatar_from_class
+      };
       setUserAndRole(enrichedUser, profile.role);
       navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
     } catch (err) {
@@ -638,7 +647,10 @@ export default function Login() {
 
     // Fetch user profile
     const { data: profile, error: profileError } = await supabase
-      .from('users').select('role, school_id, name, class').eq('id', authData.user.id).single();
+      .from('users')
+      .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class')
+      .eq('id', authData.user.id)
+      .single();
 
     if (profileError || !profile) {
       await supabase.auth.signOut();
@@ -666,7 +678,13 @@ export default function Login() {
     window.dispatchEvent(new Event('sync_login_success'));
 
     // Set user and role, and navigate to dashboard
-    const enrichedUser = { ...authData.user, class: profile.class || null };
+    const enrichedUser = { 
+      ...authData.user, 
+      class: profile.class || null,
+      avatar_url: profile.avatar_url || null,
+      avatar_file_id: profile.avatar_file_id || null,
+      hide_avatar_from_class: !!profile.hide_avatar_from_class
+    };
     setUserAndRole(enrichedUser, profile.role);
     navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
   };
@@ -750,9 +768,15 @@ export default function Login() {
       setSuccess('Password updated! Taking you to your dashboard...');
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase.from('users').select('role, school_id, class').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('users').select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class').eq('id', user.id).single();
         if (profile) {
-          const enrichedUser = { ...user, class: profile.class || null };
+          const enrichedUser = { 
+            ...user, 
+            class: profile.class || null,
+            avatar_url: profile.avatar_url || null,
+            avatar_file_id: profile.avatar_file_id || null,
+            hide_avatar_from_class: !!profile.hide_avatar_from_class
+          };
           setUserAndRole(enrichedUser, profile.role);
           navigate(`/${profile.role}`, { replace: true });
         }
@@ -785,8 +809,14 @@ export default function Login() {
         token_hash: verifyData.token_hash, type: 'magiclink'
       });
       if (authError) throw authError;
-      const { data: profile } = await supabase.from('users').select('role, school_id, class').eq('id', authData.user.id).single();
-      const enrichedUser = { ...authData.user, class: profile?.class || null };
+      const { data: profile } = await supabase.from('users').select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class').eq('id', authData.user.id).single();
+      const enrichedUser = { 
+        ...authData.user, 
+        class: profile?.class || null,
+        avatar_url: profile?.avatar_url || null,
+        avatar_file_id: profile?.avatar_file_id || null,
+        hide_avatar_from_class: !!profile?.hide_avatar_from_class
+      };
       setUserAndRole(enrichedUser, profile.role);
       navigate(`/${profile.role}`, { replace: true });
     } catch (err) {

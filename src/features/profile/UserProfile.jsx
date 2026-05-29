@@ -46,7 +46,7 @@ const compressImage = (file) => {
 };
 
 export default function UserProfile() {
-  const { user, role, schoolSettings } = useAppStore();
+  const { user, role, schoolSettings, setUserAndRole } = useAppStore();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -177,6 +177,7 @@ export default function UserProfile() {
       if (dbError) throw dbError;
 
       setProfile(prev => ({ ...prev, avatar_url: uploadedUrl, avatar_file_id: fileIdUploaded }));
+      setUserAndRole({ ...user, avatar_url: uploadedUrl, avatar_file_id: fileIdUploaded }, role);
       alert('Profile picture updated successfully!');
     } catch (err) {
       console.error('Profile image upload failed:', err);
@@ -212,12 +213,31 @@ export default function UserProfile() {
       if (dbError) throw dbError;
 
       setProfile(prev => ({ ...prev, avatar_url: null, avatar_file_id: null }));
+      setUserAndRole({ ...user, avatar_url: null, avatar_file_id: null }, role);
       alert('Profile picture removed successfully!');
     } catch (err) {
       console.error('Failed to remove profile picture:', err);
       alert(`Removal failed: ${err.message}`);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handlePrivacyToggle = async (e) => {
+    const newValue = e.target.checked;
+    try {
+      const { error: dbError } = await supabase
+        .from('users')
+        .update({ hide_avatar_from_class: newValue })
+        .eq('id', profile.id);
+
+      if (dbError) throw dbError;
+
+      setProfile(prev => ({ ...prev, hide_avatar_from_class: newValue }));
+      setUserAndRole({ ...user, hide_avatar_from_class: newValue }, role);
+    } catch (err) {
+      console.error('Failed to update privacy setting:', err);
+      alert(`Failed to update privacy settings: ${err.message}`);
     }
   };
 
@@ -251,7 +271,7 @@ export default function UserProfile() {
         {/* Profile Info Overlay */}
         <div className="px-6 pb-6 relative">
             {/* Avatar */}
-            <div className="absolute -top-16 md:-top-20 bg-slate-900 border-[6px] border-slate-900 shadow-2xl rounded-full w-32 h-32 md:w-40 md:h-40 flex items-center justify-center relative overflow-hidden group">
+            <div className="absolute -top-20 md:-top-24 bg-slate-900 border-[6px] border-slate-900 shadow-2xl rounded-3xl w-40 h-40 md:w-48 md:h-48 flex items-center justify-center relative overflow-hidden group">
                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-purple-500/20" />
                {profile.avatar_url && !imgError ? (
                   <img 
@@ -262,7 +282,7 @@ export default function UserProfile() {
                      onError={() => setImgError(true)}
                   />
                ) : (
-                  <span className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 z-10">{initial}</span>
+                  <span className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 z-10">{initial}</span>
                )}
 
                {/* Upload Overlay */}
@@ -292,7 +312,7 @@ export default function UserProfile() {
                className="hidden" 
             />
             
-            <div className="mt-20 md:mt-24 flex items-start justify-between flex-wrap gap-4">
+            <div className="mt-24 md:mt-28 flex items-start justify-between flex-wrap gap-4">
                <div>
                   <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white mb-1">{profile.name || 'Unknown User'}</h2>
                   <div className="flex items-center gap-3">
@@ -382,12 +402,34 @@ export default function UserProfile() {
                </div>
                
                <div className="space-y-4">
-                  {r === 'student' && (
-                     <div className="flex items-start gap-3">
-                        <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Users size={16} className="text-amber-400/70" /></div>
-                        <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Enrolled Class</div><div className="font-semibold text-xl text-white">{profile.class || 'Unassigned'}</div></div>
-                     </div>
-                  )}
+                   {r === 'student' && (
+                      <div className="space-y-4 w-full">
+                         <div className="flex items-start gap-3">
+                            <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Users size={16} className="text-amber-400/70" /></div>
+                            <div>
+                               <div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Enrolled Class</div>
+                               <div className="font-semibold text-xl text-white">{profile.class || 'Unassigned'}</div>
+                            </div>
+                         </div>
+                         {profile.id === user.id && (
+                            <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between gap-4">
+                               <div>
+                                  <div className="font-bold text-sm text-white">Hide profile pic from class</div>
+                                  <div className="text-xs text-[var(--muted)]">Only teacher and headmaster can see</div>
+                               </div>
+                               <label className="relative inline-flex items-center cursor-pointer select-none">
+                                  <input 
+                                     type="checkbox" 
+                                     checked={!!profile.hide_avatar_from_class} 
+                                     onChange={handlePrivacyToggle}
+                                     className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                               </label>
+                            </div>
+                         )}
+                      </div>
+                   )}
 
                   {r === 'teacher' && (
                      <>

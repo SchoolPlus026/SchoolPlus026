@@ -140,7 +140,7 @@ export default function App() {
         if (session?.user) {
           const { data: profile, error: profileError } = await supabase
             .from('users')
-            .select('role, school_id, class')
+            .select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class')
             .eq('id', session.user.id)
             .single();
 
@@ -151,8 +151,14 @@ export default function App() {
             return;
           }
 
-          // Merge profile fields (class, etc.) into the auth user object
-          const enrichedUser = { ...session.user, class: profile.class || null };
+          // Merge profile fields (class, avatar, etc.) into the auth user object
+          const enrichedUser = { 
+            ...session.user, 
+            class: profile.class || null,
+            avatar_url: profile.avatar_url || null,
+            avatar_file_id: profile.avatar_file_id || null,
+            hide_avatar_from_class: !!profile.hide_avatar_from_class
+          };
 
           // Platform Admin has no school — skip school settings lookup
           if (profile.role === 'platform_admin') {
@@ -235,6 +241,7 @@ export default function App() {
       {user && <EmergencyOverlay />}
       {user && <HelpButton />}
       {user && <SyncPasswordResetModal />}
+      {user && <GlobalAvatarPreviewModal />}
 
       <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
@@ -520,6 +527,47 @@ function SyncPasswordResetModal() {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function GlobalAvatarPreviewModal() {
+  const { previewAvatarUrl, setPreviewAvatarUrl } = useAppStore();
+
+  useEffect(() => {
+    if (previewAvatarUrl) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [previewAvatarUrl]);
+
+  if (!previewAvatarUrl) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200 cursor-pointer"
+      onClick={() => setPreviewAvatarUrl(null)}
+    >
+      <button 
+        onClick={() => setPreviewAvatarUrl(null)}
+        className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-white/30 backdrop-blur-md"
+      >
+        <X size={24} />
+      </button>
+
+      <div 
+        className="relative max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200"
+        onClick={e => e.stopPropagation()}
+      >
+        <img 
+          src={previewAvatarUrl} 
+          alt="Avatar Preview" 
+          className="max-w-full max-h-[85vh] object-contain block rounded-2xl"
+          referrerPolicy="no-referrer"
+        />
       </div>
     </div>
   );

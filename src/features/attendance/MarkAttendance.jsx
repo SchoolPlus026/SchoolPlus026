@@ -4,6 +4,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck, CheckCircle2, XCircle, AlertCircle, Filter, Download } from 'lucide-react';
 import { triggerStreakCheck } from '../../hooks/useAchievements';
+import UserAvatar from '../../components/UserAvatar';
 
 export default function MarkAttendance() {
   const { user, role, schoolSettings } = useAppStore();
@@ -42,7 +43,7 @@ export default function MarkAttendance() {
     queryFn: async () => {
       let query = supabase
         .from('users')
-        .select('id, name, username')
+        .select('id, name, username, role, avatar_url, avatar_file_id, hide_avatar_from_class')
         .eq('role', targetRole)
         .order('name');
         
@@ -303,9 +304,10 @@ export default function MarkAttendance() {
                  const isOnLeave = leavesList && leavesList.some(l => l.user_id === target.id);
                  const disabled = isAlreadyMarked && !isEditing;
                  return (
-                    <div key={target.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap', opacity: disabled ? 0.7 : 1 }}>
-                        <div style={{ flex: 1, minWidth: '150px' }}>
-                            <strong>{target.name}</strong>
+                     <div key={target.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap', opacity: disabled ? 0.7 : 1 }}>
+                         <UserAvatar user={target} size="xs" />
+                         <div style={{ flex: 1, minWidth: '150px' }}>
+                             <strong>{target.name}</strong>
                             {isOnLeave && <span className="badge ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Approved Leave</span>}
                             <br/>
                             <span className="muted small">{target.username}</span>

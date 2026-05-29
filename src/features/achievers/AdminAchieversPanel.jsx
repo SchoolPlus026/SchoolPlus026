@@ -7,6 +7,7 @@ import {
   awardBadge, revokeBadge, seedDefaultBadges, rolloverYearEnd, useClassAchievements
 } from '../../hooks/useAchievements';
 import { LucideBadgeIcon } from '../../components/LucideBadgeIcon';
+import UserAvatar from '../../components/UserAvatar';
 import {
   Trophy, Plus, Trash2, Loader2, Sparkles, Medal, Award, Edit3, BookOpen
 } from 'lucide-react';
@@ -148,9 +149,12 @@ export default function AdminAchieversPanel() {
                   <div style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0, background: `${ch.badges_master?.icon_color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <LucideBadgeIcon iconKey={ch.badges_master?.icon_key} color={ch.badges_master?.icon_color} size={16} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>{ch.users?.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{ch.badges_master?.name} · {ch.users?.class}</div>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <UserAvatar user={ch.users} size="xs" />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>{ch.users?.name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{ch.badges_master?.name} · {ch.users?.class}</div>
+                    </div>
                   </div>
                   <button onClick={() => handleRevoke(ch.id, ch.student_id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '6px', cursor: 'pointer' }}><Trash2 size={12} color="#EF4444" /></button>
                 </div>
@@ -183,9 +187,12 @@ export default function AdminAchieversPanel() {
                   <div style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0, background: `${ach.badges_master?.icon_color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <LucideBadgeIcon iconKey={ach.badges_master?.icon_key} color={ach.badges_master?.icon_color} size={16} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>{ach.users?.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{ach.badges_master?.name}</div>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <UserAvatar user={ach.users} size="xs" />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>{ach.users?.name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{ach.badges_master?.name}</div>
+                    </div>
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--text-faint)' }}>{new Date(ach.awarded_at).toLocaleDateString('en-IN')}</div>
                   <button onClick={() => handleRevoke(ach.id, ach.student_id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '6px', cursor: 'pointer' }}><Trash2 size={12} color="#EF4444" /></button>
@@ -264,6 +271,7 @@ export default function AdminAchieversPanel() {
                     <div style={{ width: '30px', fontWeight: 900, color: colorStyle, fontSize: '14px' }}>#{rank}</div>
                     <div style={{ flex: 1, minWidth: 0, paddingLeft: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {badgeNode}
+                      <UserAvatar user={lb} size="xs" />
                       <div style={{ fontSize: '14px', fontWeight: rank <= 3 ? 800 : 600, color: rank <= 3 ? colorStyle : 'var(--text-main)' }}>
                         {lb.name} <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, marginLeft: '4px' }}>({lb.class})</span>
                       </div>

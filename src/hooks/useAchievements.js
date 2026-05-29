@@ -135,7 +135,7 @@ export function useClassAchievements(schoolId, className) {
         .select(`
           id, student_id, note, awarded_at, class_name,
           badges_master ( name, icon_key, icon_color, tier ),
-          users!student_id ( name )
+          users!student_id ( id, name, avatar_url, avatar_file_id, hide_avatar_from_class, role )
         `)
         .eq('school_id', schoolId)
         .eq('class_name', className)
@@ -161,7 +161,7 @@ export function useSchoolChampions(schoolId) {
         .select(`
           id, student_id, note, awarded_at, is_active,
           badges_master!inner ( name, icon_key, icon_color, tier ),
-          users!student_id ( name, class )
+          users!student_id ( id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class, role )
         `)
         .eq('school_id', schoolId)
         .eq('badges_master.tier', 'school_champion')
@@ -188,7 +188,7 @@ export function useLeaderboard(schoolId, filterType = 'all', filterValue = null)
           academic_year,
           awarded_at,
           badges_master ( tier ),
-          users!student_id ( name, class )
+          users!student_id ( id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class, role )
         `)
         .eq('school_id', schoolId)
         .eq('is_active', true);
@@ -215,8 +215,13 @@ export function useLeaderboard(schoolId, filterType = 'all', filterValue = null)
         if (!map[sid]) {
           map[sid] = {
             student_id:    sid,
+            id:            sid,
             name:          row.users?.name || '—',
             class:         row.users?.class || '—',
+            avatar_url:    row.users?.avatar_url || null,
+            avatar_file_id: row.users?.avatar_file_id || null,
+            hide_avatar_from_class: !!row.users?.hide_avatar_from_class,
+            role:          row.users?.role || 'student',
             total:         0,
             class_stars:   0,
             school_champs: 0,
