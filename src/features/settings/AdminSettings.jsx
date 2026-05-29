@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
@@ -537,15 +538,21 @@ export default function AdminSettings() {
     }
   };
 
-  /* ── Body Scroll Lock ── */
+  /* ── Scroll Lock ── */
   React.useEffect(() => {
     const isAnyModalOpen = showResetModal || showSupportModal || showDemoLockModal || !!legalTab || showContactDetailsModal;
+    const mainEl = document.querySelector('main');
     if (isAnyModalOpen) {
       document.body.style.overflow = 'hidden';
+      if (mainEl) mainEl.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      if (mainEl) mainEl.style.overflow = '';
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+      if (mainEl) mainEl.style.overflow = '';
+    };
   }, [showResetModal, showSupportModal, showDemoLockModal, legalTab, showContactDetailsModal]);
 
   /* ──────── RENDER ──────── */
@@ -872,7 +879,7 @@ export default function AdminSettings() {
       </div>
 
       {/* ── RESET MODAL ── */}
-      {showResetModal && (
+      {showResetModal && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
           <div className="card" style={{ width: '100%', maxWidth: '420px', borderLeft: '4px solid #ef4444' }}>
             <h3 style={{ marginBottom: '8px' }}>{t.confirmTitle}</h3>
@@ -886,11 +893,12 @@ export default function AdminSettings() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── DEMO LOCK MODAL (Sales Protection — School Codes 120 & 777) ── */}
-      {showDemoLockModal && (
+      {showDemoLockModal && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.70)', padding: '16px' }}>
           <div className="card" style={{ width: '100%', maxWidth: '440px', borderLeft: '4px solid #6366f1', textAlign: 'center', padding: '32px 24px' }}>
             {/* Lock Icon */}
@@ -914,10 +922,12 @@ export default function AdminSettings() {
               Got it, Continue Exploring
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
       {/* ── SUPPORT MODAL ── */}
-      {showSupportModal && (
+      {showSupportModal && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
           <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
             <h3 style={{ marginBottom: '8px' }}>Submit Support Ticket</h3>
@@ -937,10 +947,12 @@ export default function AdminSettings() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
       {/* ── CONTACT DETAILS MODAL ── */}
-      {showContactDetailsModal && (
+      {showContactDetailsModal && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
           <div className="card flex flex-col" style={{ width: '100%', maxWidth: '460px' }}>
             <div className="flex justify-between items-center mb-4">
@@ -1005,10 +1017,12 @@ export default function AdminSettings() {
             
             <button onClick={() => setShowContactDetailsModal(false)} className="btn outline w-full mt-4">Close</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
       {/* ── LEGAL MODAL ── */}
-      {legalTab && (
+      {legalTab && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
           <div className="card flex flex-col" style={{ width: '100%', maxWidth: '600px', maxHeight: '80vh' }}>
             <div className="flex justify-between items-center mb-4">
@@ -1030,7 +1044,8 @@ export default function AdminSettings() {
             </div>
             <button onClick={() => setLegalTab(null)} className="btn outline w-full mt-4">Close</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

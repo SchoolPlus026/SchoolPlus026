@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { 
@@ -174,15 +175,21 @@ export default function SharedSettings() {
     fetchPlatformInfo();
   }, []);
 
-  /* ── Body Scroll Lock ── */
+  /* ── Scroll Lock ── */
   React.useEffect(() => {
     const isAnyModalOpen = showSupportModal || showContactDetailsModal;
+    const mainEl = document.querySelector('main');
     if (isAnyModalOpen) {
       document.body.style.overflow = 'hidden';
+      if (mainEl) mainEl.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      if (mainEl) mainEl.style.overflow = '';
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+      if (mainEl) mainEl.style.overflow = '';
+    };
   }, [showSupportModal, showContactDetailsModal]);
 
   const saveAboutText = async () => {
@@ -565,7 +572,7 @@ export default function SharedSettings() {
       </div>
 
       {/* ── SUPPORT MODAL ── */}
-      {showSupportModal && (
+      {showSupportModal && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
           <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
             <h3 style={{ marginBottom: '8px' }}>Submit Support Ticket</h3>
@@ -585,11 +592,12 @@ export default function SharedSettings() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── CONTACT DETAILS MODAL ── */}
-      {showContactDetailsModal && (
+      {showContactDetailsModal && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
           <div className="card flex flex-col" style={{ width: '100%', maxWidth: '460px' }}>
             <div className="flex justify-between items-center mb-4">
@@ -654,7 +662,8 @@ export default function SharedSettings() {
             
             <button onClick={() => setShowContactDetailsModal(false)} className="btn outline w-full mt-4">Close</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
