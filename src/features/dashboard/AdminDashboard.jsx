@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   Users, ClipboardList, DollarSign, Clock, CalendarHeart,
   Image, Bell, Calendar, LineChart, Settings, CalendarX,
-  Phone, Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus, Book, AlertTriangle, Search, Target, Radar, Trophy
+  Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus, Book, AlertTriangle, Search, Target, Radar, Trophy
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import PlanStatusBanner from '../../components/PlanStatusBanner';
@@ -29,7 +29,7 @@ const MODULES = [
   { name: 'Off Classes',    path: '/admin/off-classes',    icon: <CalendarX size={26} />,      colorHex: '#fb923c', bgRgb: '251,146,60',   moduleId: 'off_classes'   },
   { name: 'Leaves',         path: '/admin/leaves',         icon: <CalendarHeart size={26} />,  colorHex: '#fb7185', bgRgb: '251,113,133',  moduleId: 'leaves'        },
   { name: 'Reports',        path: '/admin/reports',        icon: <LineChart size={26} />,      colorHex: '#22d3ee', bgRgb: '34,211,238',   moduleId: 'reports'       },
-  { name: 'Contact',        path: '/admin/contact',        icon: <Phone size={26} />,          colorHex: '#94a3b8', bgRgb: '148,163,184',  moduleId: 'contact'       },
+
   { name: 'Complaint Box',  path: '/admin/complaint-box',  icon: <MessageSquare size={26} />,  colorHex: '#f43f5e', bgRgb: '244,63,94',    moduleId: 'complaint_box' },
   { name: 'Bus Tracker',     path: '/admin/bus-alerts',     icon: <Bus size={26} />,            colorHex: '#fbbf24', bgRgb: '251,191,36',   moduleId: 'bus_alerts'    },
   { name: 'Syllabus Tracker',path: '/admin/syllabus',      icon: <Book size={26} />,           colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'syllabus'      },

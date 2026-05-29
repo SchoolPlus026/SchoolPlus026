@@ -120,6 +120,7 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
         return {
           school_id: schoolSettings.school_id,
           to_user:   student.email,
+          title:     'Fee Reminder',
           message:   `[FEE_REMINDER] ${personalizedMsg}`,
           is_read:   false,
         };

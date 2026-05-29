@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   User, ClipboardCheck, Users, Clock, CalendarX,
-  Bell, CalendarHeart, Image, LineChart, Settings, Phone, Lock, BookOpen, MessageSquare, Book, HeartPulse, Search, AlertTriangle, Bus, Trophy, IndianRupee
+  Bell, CalendarHeart, Image, LineChart, Settings, Lock, BookOpen, MessageSquare, Book, HeartPulse, Search, AlertTriangle, Bus, Trophy, IndianRupee
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -32,9 +32,10 @@ const MODULES = [
   { name: 'Reports',            path: '/teacher/reports',           icon: <LineChart size={26} />,     colorHex: '#22d3ee', bgRgb: '34,211,238', moduleId: 'reports'   },
   { name: 'Syllabus Tracker',   path: '/teacher/syllabus',          icon: <Book size={26} />,          colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'syllabus'  },
   { name: 'Lost & Found',       path: '/teacher/lost-and-found',    icon: <Search size={26} />,        colorHex: '#10b981', bgRgb: '16,185,129', moduleId: 'lost_found' },
-  { name: 'Contact',            path: '/teacher/contact',           icon: <Phone size={26} />,         colorHex: '#94a3b8', bgRgb: '148,163,184', moduleId: 'contact'  },
+
   { name: 'Help',     path: '/teacher/knowledge-base',    icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
   { name: 'Complaint Box',      path: '/teacher/complaint-box',     icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
+  // Contact module removed — relocated to Settings > Contact Us
   { name: 'Mood Note',          path: '/teacher/mood-note',         icon: <HeartPulse size={26} />,    colorHex: '#ec4899', bgRgb: '236,72,153',  moduleId: 'mood_note' },
   { name: 'Emergency Alerts',   path: '/teacher/emergency',         icon: <AlertTriangle size={26} />, colorHex: '#ef4444', bgRgb: '239,68,68',   moduleId: 'emergency' },
   { name: 'Bus Tracker',        path: '/teacher/bus-alerts',        icon: <Bus size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36',  moduleId: 'bus_alerts' },
@@ -100,6 +101,15 @@ function TeacherDashboardContent() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { isFree } = usePlan();
   const { isPending } = usePending();
+
+  React.useEffect(() => {
+    if (showUpgradeModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showUpgradeModal]);
 
   const handleModuleClick = (e, mod) => {
     if (isFree && PREMIUM_MODULES.includes(mod.name)) {

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   User, ClipboardList, DollarSign, Clock,
-  Bell, CalendarHeart, Image, Phone, Settings, BookOpen, MessageSquare, Book, HeartPulse, Search, Bus, Trophy
+  Bell, CalendarHeart, Image, Settings, BookOpen, MessageSquare, Book, HeartPulse, Search, Bus, Trophy
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -27,9 +27,10 @@ const MODULES = [
   { name: 'Gallery',        path: '/student/gallery',         icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182', moduleId: 'gallery'  },
   { name: 'Syllabus Tracker',path: '/student/syllabus',       icon: <Book size={26} />,          colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'syllabus'  },
   { name: 'Lost & Found',    path: '/student/lost-and-found', icon: <Search size={26} />,        colorHex: '#10b981', bgRgb: '16,185,129', moduleId: 'lost_found' },
-  { name: 'Contact',        path: '/student/contact',         icon: <Phone size={26} />,         colorHex: '#2dd4bf', bgRgb: '45,212,191', moduleId: 'contact'   },
+
   { name: 'Help', path: '/student/knowledge-base',  icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248', moduleId: 'knowledge_base'   },
   { name: 'Complaint Box',  path: '/student/complaint-box',   icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',   moduleId: 'complaint_box' },
+  // Contact module removed — relocated to Settings > Contact Us
   { name: 'Mood Note',      path: '/student/mood-note',       icon: <HeartPulse size={26} />,    colorHex: '#ec4899', bgRgb: '236,72,153', moduleId: 'mood_note' },
   { name: 'Bus Tracker',   path: '/student/bus-alerts',      icon: <Bus size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36', moduleId: 'bus_alerts' },
   { name: 'Achievers Board', path: '/student/achievers',     icon: <Trophy size={26} />,       colorHex: '#F59E0B', bgRgb: '245,158,11', moduleId: 'default'},

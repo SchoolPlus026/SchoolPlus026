@@ -59,13 +59,11 @@ function StudentCompose({ schoolId, senderId, userClass, queryClient }) {
       // Notification: student → admin, or student → specific teacher
       const notif = {
         school_id: schoolId,
-        sender_id: senderId,
-        recipient_role: recipientType === 'teacher' ? 'teacher' : 'admin',
-        recipient_id: recipientType === 'teacher' ? (recipientId || null) : null,
-        type: 'complaint_received',
+        user_id: recipientType === 'teacher' ? (recipientId || null) : null,
+        target_role: recipientType === 'admin' ? 'admin' : null,
         title: 'New Complaint Received',
         body: isAnonymous ? `Anonymous: ${subject}` : `${subject}`,
-        is_ephemeral: false,
+        is_ephemeral: true,
         status: 'pending',
       };
       await supabase.from('app_notifications_queue').insert(notif);
@@ -213,13 +211,10 @@ function TeacherCompose({ schoolId, senderId, userClass, queryClient }) {
       // Notify student
       await supabase.from('app_notifications_queue').insert({
         school_id: schoolId,
-        sender_id: senderId,
-        recipient_role: 'student',
-        recipient_id: recipientId,
-        type: 'teacher_complaint',
+        user_id: recipientId,
         title: 'Message from your Teacher',
         body: subject,
-        is_ephemeral: false,
+        is_ephemeral: true,
         status: 'pending',
       });
     },

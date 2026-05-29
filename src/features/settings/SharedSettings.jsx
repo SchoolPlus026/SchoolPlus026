@@ -3,7 +3,8 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { 
   Sun, Moon, Globe, Lock, Database, ShieldAlert, Info,
-  Upload, Eye, EyeOff, Trash2
+  Upload, Eye, EyeOff, Trash2,
+  Phone, Mail, MapPin, Send, HelpCircle, X, Building
 } from 'lucide-react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -74,7 +75,7 @@ const T = {
 };
 
 export default function SharedSettings() {
-  const { user, role } = useAppStore();
+  const { user, role, schoolSettings } = useAppStore();
   const [toastMsg, setToastMsg] = useState('');
   const [loading, setLoading]   = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
@@ -89,6 +90,14 @@ export default function SharedSettings() {
   /* ── App Version & Update Check ── */
   const [appVersionName, setAppVersionName] = useState(import.meta.env.VITE_APP_VERSION_NAME || '1.0.0');
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  
+  /* ── Contact Details & Support Ticket ── */
+  const [platformSettings, setPlatformSettings] = useState(null);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showContactDetailsModal, setShowContactDetailsModal] = useState(false);
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [submittingTicket, setSubmittingTicket] = useState(false);
 
   React.useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -157,6 +166,25 @@ export default function SharedSettings() {
       });
   }, []);
 
+  React.useEffect(() => {
+    const fetchPlatformInfo = async () => {
+      const { data } = await supabase.from('platform_settings').select('*').single();
+      if (data) setPlatformSettings(data);
+    };
+    fetchPlatformInfo();
+  }, []);
+
+  /* ── Body Scroll Lock ── */
+  React.useEffect(() => {
+    const isAnyModalOpen = showSupportModal || showContactDetailsModal;
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showSupportModal, showContactDetailsModal]);
+
   const saveAboutText = async () => {
     setLoading(true);
     const { error } = await supabase.from('app_config').update({ value_content: newAbout }).eq('key_name', 'about_text');
@@ -220,6 +248,54 @@ export default function SharedSettings() {
     if (error) return toast('Error: ' + error.message, setToastMsg);
     toast('Password updated successfully!', setToastMsg);
     setOldPwd(''); setNewPwd('');
+  };
+
+  const handleSubmitTicket = async (e) => {
+    e.preventDefault();
+    if (!supportSubject.trim() || !supportMessage.trim()) return;
+    setSubmittingTicket(true);
+    
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      let finalSchoolId = schoolSettings?.school_id || null;
+      if (!finalSchoolId && currentUser) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('school_id')
+          .eq('id', currentUser.id)
+          .single();
+        if (userData) finalSchoolId = userData.school_id;
+      }
+
+      const { error } = await supabase.from('support_tickets').insert({
+        school_id: finalSchoolId,
+        admin_id: currentUser.id,
+        subject: supportSubject,
+        message: supportMessage
+      });
+      if (error) throw error;
+      
+      toast('Support ticket submitted successfully.', setToastMsg);
+      setShowSupportModal(false);
+      setSupportSubject('');
+      setSupportMessage('');
+    } catch (error) {
+      toast('Error: ' + error.message, setToastMsg);
+    } finally {
+      setSubmittingTicket(false);
+    }
+  };
+
+  const handleWhatsAppClick = () => {
+    const rawNumber = platformSettings?.contact_number || '';
+    const cleanNumber = rawNumber.replace(/\D/g, '');
+    if (!cleanNumber) {
+      alert('No contact number available for WhatsApp.');
+      return;
+    }
+    const waUrl = `https://wa.me/${cleanNumber}`;
+    window.open(waUrl, '_blank');
   };
 
   /* ── Export ── */
@@ -403,6 +479,25 @@ export default function SharedSettings() {
         </>
       )}
 
+      {/* ── CONTACT US ── */}
+      <div className="card">
+        <div className="settings-header">
+          <div className="icon-box"><HelpCircle size={20} /></div>
+          <div className="text-content">
+            <h4>Contact Us</h4>
+            <p>Need help? Reach out to support or view official details.</p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-2">
+          <button onClick={() => setShowSupportModal(true)} className="btn outline w-full text-left justify-start">
+            <Send size={16} /> Contact Support
+          </button>
+          <button onClick={() => setShowContactDetailsModal(true)} className="btn outline w-full text-left justify-start">
+            <Phone size={16} /> Contact Details
+          </button>
+        </div>
+      </div>
+
       {/* ── 6. ABOUT ── */}
       <div className="card">
         <div className="settings-header" style={{ marginBottom: '16px' }}>
@@ -468,6 +563,99 @@ export default function SharedSettings() {
           </p>
         )}
       </div>
+
+      {/* ── SUPPORT MODAL ── */}
+      {showSupportModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
+            <h3 style={{ marginBottom: '8px' }}>Submit Support Ticket</h3>
+            <p className="muted small" style={{ marginBottom: '18px' }}>Describe your issue and the Platform Admin will respond to you.</p>
+            <form onSubmit={handleSubmitTicket}>
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Subject</label>
+              <input type="text" required value={supportSubject} onChange={e => setSupportSubject(e.target.value)} placeholder="e.g. App Issue" className="sp-input block w-full mb-4" />
+              
+              <label className="muted small block" style={{ marginBottom: '6px' }}>Message</label>
+              <textarea required rows={4} value={supportMessage} onChange={e => setSupportMessage(e.target.value)} placeholder="Describe the problem in detail..." className="sp-input block w-full mb-6" />
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => { setShowSupportModal(false); setSupportSubject(''); setSupportMessage(''); }}>Cancel</button>
+                <button type="submit" disabled={submittingTicket} className="btn accent" style={{ flex: 2 }}>
+                  {submittingTicket ? 'Submitting...' : <><Send size={16} /> Submit Ticket</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONTACT DETAILS MODAL ── */}
+      {showContactDetailsModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card flex flex-col" style={{ width: '100%', maxWidth: '460px' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="m-0">Contact Details</h3>
+              <button onClick={() => setShowContactDetailsModal(false)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="space-y-3 text-sm flex-1">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                <Building size={18} className="text-slate-400 mt-0.5" />
+                <div>
+                  <span className="muted small block font-semibold mb-0.5">Developer</span>
+                  <span className="font-semibold text-slate-800 text-base">{platformSettings?.developer_name || 'SchoolOS+ Developer'}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <Phone size={18} className="text-slate-400 mt-0.5" />
+                  <div>
+                    <span className="muted small block font-semibold mb-0.5">Contact Number</span>
+                    <span className="font-semibold text-slate-800 text-base">{platformSettings?.contact_number || 'Not Available'}</span>
+                  </div>
+                </div>
+                {platformSettings?.contact_number && (
+                  <button 
+                    onClick={handleWhatsAppClick}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white font-semibold transition-all hover:opacity-90 active:scale-95"
+                    style={{ 
+                      backgroundColor: '#25D366', 
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '13px'
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.335 4.991L2 22l5.133-1.347A9.953 9.953 0 0 0 12.01 22c5.508 0 9.99-4.478 9.99-9.986 0-2.67-1.037-5.18-2.92-7.062A9.925 9.925 0 0 0 12.012 2zm5.727 14.18c-.313.882-1.815 1.706-2.5 1.764-.685.059-1.336.294-4.385-.97-3.666-1.52-5.908-5.32-6.09-5.566-.184-.247-1.48-1.968-1.48-3.753 0-1.786.93-2.664 1.263-3.018.33-.353.72-.44.96-.44.24 0 .48 0 .69.01.22.01.51-.08.8.61.3.73 1.02 2.48 1.11 2.66.09.18.15.39.03.63-.12.24-.18.38-.36.59-.18.21-.38.47-.54.63-.18.18-.37.38-.16.74.21.36.93 1.53 1.99 2.48 1.36 1.22 2.51 1.6 2.87 1.78.36.18.57.15.78-.09.21-.24.9-1.05 1.14-1.41.24-.36.48-.3.8-.18.33.12 2.07 1.02 2.43 1.2.36.18.6.27.69.42.09.15.09.88-.22 1.76z"/>
+                    </svg>
+                    WhatsApp
+                  </button>
+                )}
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                <Mail size={18} className="text-slate-400 mt-0.5" />
+                <div>
+                  <span className="muted small block font-semibold mb-0.5">Email Address</span>
+                  <span className="font-semibold text-slate-800 text-base">{platformSettings?.contact_email || 'Not Available'}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                <MapPin size={18} className="text-slate-400 mt-0.5" />
+                <div>
+                  <span className="muted small block font-semibold mb-0.5">Address</span>
+                  <span className="font-semibold text-slate-800 text-base">{platformSettings?.contact_address || 'Parli Vaijnath, Maharashtra'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <button onClick={() => setShowContactDetailsModal(false)} className="btn outline w-full mt-4">Close</button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

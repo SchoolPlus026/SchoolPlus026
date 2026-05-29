@@ -4,7 +4,8 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { 
   Building, Sun, Globe, Lock, Database, ShieldAlert, 
-  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus, X
+  Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus, X,
+  Phone, Mail, MapPin
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { logAuditAction } from '../../utils/auditLogger';
@@ -145,6 +146,7 @@ export default function AdminSettings() {
 
   /* ── Support Ticket State ── */
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showContactDetailsModal, setShowContactDetailsModal] = useState(false);
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [submittingTicket, setSubmittingTicket] = useState(false);
@@ -218,11 +220,22 @@ export default function AdminSettings() {
       setShowSupportModal(false);
       setSupportSubject('');
       setSupportMessage('');
-    } catch (err) {
-      alert('Error submitting ticket: ' + err.message);
+    } catch (error) {
+      alert('Error submitting ticket: ' + error.message);
     } finally {
       setSubmittingTicket(false);
     }
+  };
+
+  const handleWhatsAppClick = () => {
+    const rawNumber = platformSettings?.contact_number || '';
+    const cleanNumber = rawNumber.replace(/\D/g, '');
+    if (!cleanNumber) {
+      alert('No contact number available for WhatsApp.');
+      return;
+    }
+    const waUrl = `https://wa.me/${cleanNumber}`;
+    window.open(waUrl, '_blank');
   };
 
   const handleConnectDrive = async () => {
@@ -524,6 +537,17 @@ export default function AdminSettings() {
     }
   };
 
+  /* ── Body Scroll Lock ── */
+  React.useEffect(() => {
+    const isAnyModalOpen = showResetModal || showSupportModal || showDemoLockModal || !!legalTab || showContactDetailsModal;
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showResetModal, showSupportModal, showDemoLockModal, legalTab, showContactDetailsModal]);
+
   /* ──────── RENDER ──────── */
   return (
     <div className="space-y-4 fade-in pb-12 max-w-2xl mx-auto">
@@ -755,18 +779,23 @@ export default function AdminSettings() {
         })()}
       </div>
 
-      {/* ── 5.6 HELP & SUPPORT ── */}
+      {/* ── 5.6 CONTACT US ── */}
       <div className="card">
         <div className="settings-header">
           <div className="icon-box"><HelpCircle size={20} /></div>
           <div className="text-content">
-            <h4>Help & Support</h4>
-            <p>Need help? Submit a ticket to the Platform Admin.</p>
+            <h4>Contact Us</h4>
+            <p>Need help? Reach out to support or view official details.</p>
           </div>
         </div>
-        <button onClick={() => setShowSupportModal(true)} className="btn outline w-full mt-2">
-          Contact Support
-        </button>
+        <div className="mt-4 flex flex-col gap-2">
+          <button onClick={() => setShowSupportModal(true)} className="btn outline w-full text-left justify-start">
+            <Send size={16} /> Contact Support
+          </button>
+          <button onClick={() => setShowContactDetailsModal(true)} className="btn outline w-full text-left justify-start">
+            <Phone size={16} /> Contact Details
+          </button>
+        </div>
       </div>
 
       {/* ── 5.7 ABOUT PLATFORM (LEGAL) ── */}
@@ -907,6 +936,74 @@ export default function AdminSettings() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ── CONTACT DETAILS MODAL ── */}
+      {showContactDetailsModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card flex flex-col" style={{ width: '100%', maxWidth: '460px' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="m-0">Contact Details</h3>
+              <button onClick={() => setShowContactDetailsModal(false)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="space-y-3 text-sm flex-1">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                <Building size={18} className="text-slate-400 mt-0.5" />
+                <div>
+                  <span className="muted small block font-semibold mb-0.5">Developer</span>
+                  <span className="font-semibold text-slate-800 text-base">{platformSettings?.developer_name || 'SchoolOS+ Developer'}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <Phone size={18} className="text-slate-400 mt-0.5" />
+                  <div>
+                    <span className="muted small block font-semibold mb-0.5">Contact Number</span>
+                    <span className="font-semibold text-slate-800 text-base">{platformSettings?.contact_number || 'Not Available'}</span>
+                  </div>
+                </div>
+                {platformSettings?.contact_number && (
+                  <button 
+                    onClick={handleWhatsAppClick}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white font-semibold transition-all hover:opacity-90 active:scale-95"
+                    style={{ 
+                      backgroundColor: '#25D366', 
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '13px'
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.335 4.991L2 22l5.133-1.347A9.953 9.953 0 0 0 12.01 22c5.508 0 9.99-4.478 9.99-9.986 0-2.67-1.037-5.18-2.92-7.062A9.925 9.925 0 0 0 12.012 2zm5.727 14.18c-.313.882-1.815 1.706-2.5 1.764-.685.059-1.336.294-4.385-.97-3.666-1.52-5.908-5.32-6.09-5.566-.184-.247-1.48-1.968-1.48-3.753 0-1.786.93-2.664 1.263-3.018.33-.353.72-.44.96-.44.24 0 .48 0 .69.01.22.01.51-.08.8.61.3.73 1.02 2.48 1.11 2.66.09.18.15.39.03.63-.12.24-.18.38-.36.59-.18.21-.38.47-.54.63-.18.18-.37.38-.16.74.21.36.93 1.53 1.99 2.48 1.36 1.22 2.51 1.6 2.87 1.78.36.18.57.15.78-.09.21-.24.9-1.05 1.14-1.41.24-.36.48-.3.8-.18.33.12 2.07 1.02 2.43 1.2.36.18.6.27.69.42.09.15.09.88-.22 1.76z"/>
+                    </svg>
+                    WhatsApp
+                  </button>
+                )}
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                <Mail size={18} className="text-slate-400 mt-0.5" />
+                <div>
+                  <span className="muted small block font-semibold mb-0.5">Email Address</span>
+                  <span className="font-semibold text-slate-800 text-base">{platformSettings?.contact_email || 'Not Available'}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                <MapPin size={18} className="text-slate-400 mt-0.5" />
+                <div>
+                  <span className="muted small block font-semibold mb-0.5">Address</span>
+                  <span className="font-semibold text-slate-800 text-base">{platformSettings?.contact_address || 'Parli Vaijnath, Maharashtra'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <button onClick={() => setShowContactDetailsModal(false)} className="btn outline w-full mt-4">Close</button>
           </div>
         </div>
       )}

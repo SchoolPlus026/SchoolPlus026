@@ -71,6 +71,10 @@ export default function PlatformAdminDashboard() {
   const [refundPolicy, setRefundPolicy] = useState('');
   const [privacyPolicy, setPrivacyPolicy] = useState('');
   const [supportEmail, setSupportEmail] = useState('');
+  const [developerName, setDeveloperName] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactAddress, setContactAddress] = useState('Parli Vaijnath, Maharashtra');
   const [savingPlatform, setSavingPlatform] = useState(false);
   const [paGdriveConfig, setPaGdriveConfig] = useState([]);
   const [connectingDrive, setConnectingDrive] = useState(false);
@@ -454,6 +458,10 @@ export default function PlatformAdminDashboard() {
       setRefundPolicy(data.refund_policy || '');
       setPrivacyPolicy(data.privacy_policy || '');
       setSupportEmail(data.support_email || 'schoolpro026@gmail.com');
+      setDeveloperName(data.developer_name || '');
+      setContactNumber(data.contact_number || '');
+      setContactEmail(data.contact_email || '');
+      setContactAddress(data.contact_address || 'Parli Vaijnath, Maharashtra');
       const gd = Array.isArray(data.pa_gdrive_config) ? data.pa_gdrive_config : (data.pa_gdrive_config ? [data.pa_gdrive_config] : []);
       setPaGdriveConfig(gd);
     }
@@ -498,7 +506,11 @@ export default function PlatformAdminDashboard() {
       about_app: aboutApp,
       refund_policy: refundPolicy,
       privacy_policy: privacyPolicy,
-      support_email: supportEmail
+      support_email: supportEmail,
+      developer_name: developerName,
+      contact_number: contactNumber,
+      contact_email: contactEmail,
+      contact_address: contactAddress || 'Parli Vaijnath, Maharashtra'
     }).neq('id', '00000000-0000-0000-0000-000000000000'); // Update all (there's only 1 row)
 
     setSavingPlatform(false);
@@ -1247,6 +1259,56 @@ export default function PlatformAdminDashboard() {
                 value={supportEmail}
                 onChange={e => setSupportEmail(e.target.value)}
               />
+            </div>
+
+            <div className="border-t border-[var(--card-border)] pt-4 mt-4">
+              <h5 className="font-semibold text-sm mb-3">Platform Developer & Contact Details</h5>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="muted small block mb-2 font-semibold">Developer Name</label>
+                  <input
+                    type="text"
+                    className="sp-input"
+                    placeholder="e.g. SchoolOS+ Support Team"
+                    value={developerName}
+                    onChange={e => setDeveloperName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="muted small block mb-2 font-semibold">Contact Number</label>
+                  <input
+                    type="text"
+                    className="sp-input"
+                    placeholder="e.g. +91 9876543210"
+                    value={contactNumber}
+                    onChange={e => setContactNumber(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="muted small block mb-2 font-semibold">Contact Email</label>
+                  <input
+                    type="email"
+                    className="sp-input"
+                    placeholder="e.g. info@schoolos.com"
+                    value={contactEmail}
+                    onChange={e => setContactEmail(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="muted small block mb-2 font-semibold">Contact Address</label>
+                  <textarea
+                    rows={2}
+                    className="sp-input"
+                    placeholder="e.g. Parli Vaijnath, Maharashtra"
+                    value={contactAddress}
+                    onChange={e => setContactAddress(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
 
             <button onClick={handleSavePlatform} disabled={savingPlatform} className="btn accent w-full mt-4">
