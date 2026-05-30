@@ -487,23 +487,25 @@ export default function SharedSettings() {
       )}
 
       {/* ── CONTACT US ── */}
-      <div className="card">
-        <div className="settings-header">
-          <div className="icon-box"><HelpCircle size={20} /></div>
-          <div className="text-content">
-            <h4>Contact Us</h4>
-            <p>Need help? Reach out to support or view official details.</p>
+      {(userRole === 'admin' || userRole === 'platform_admin') && (
+        <div className="card">
+          <div className="settings-header">
+            <div className="icon-box"><HelpCircle size={20} /></div>
+            <div className="text-content">
+              <h4>Contact Us</h4>
+              <p>Need help? Reach out to support or view official details.</p>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col gap-2">
+            <button onClick={() => setShowSupportModal(true)} className="btn outline w-full text-left justify-start">
+              <Send size={16} /> Contact Support
+            </button>
+            <button onClick={() => setShowContactDetailsModal(true)} className="btn outline w-full text-left justify-start">
+              <Phone size={16} /> Contact Details
+            </button>
           </div>
         </div>
-        <div className="mt-4 flex flex-col gap-2">
-          <button onClick={() => setShowSupportModal(true)} className="btn outline w-full text-left justify-start">
-            <Send size={16} /> Contact Support
-          </button>
-          <button onClick={() => setShowContactDetailsModal(true)} className="btn outline w-full text-left justify-start">
-            <Phone size={16} /> Contact Details
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* ── 6. ABOUT ── */}
       <div className="card">
@@ -537,14 +539,6 @@ export default function SharedSettings() {
               {aboutText || 'Loading…'}
             </div>
           )}
-        </div>
-
-        <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--icon-bg)', color: 'var(--icon-color)', borderRadius: '12px' }}>
-          <p className="muted small" style={{ margin: 0 }}>
-            <strong>Backend:</strong> Supabase &nbsp;&bull;&nbsp;
-            <strong>Frontend:</strong> React &nbsp;&bull;&nbsp;
-            <strong>Hosting:</strong> Netlify
-          </p>
         </div>
       </div>
 

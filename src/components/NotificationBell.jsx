@@ -69,7 +69,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute top-12 right-0 w-80 max-h-96 overflow-y-auto rounded-2xl shadow-2xl z-50 border border-white/10"
+        <div className="absolute top-12 right-0 w-80 max-w-[calc(100vw-32px)] origin-top-right max-h-96 overflow-y-auto rounded-2xl shadow-2xl z-50 border border-white/10"
           style={{ background: 'rgba(15,23,42,0.97)', backdropFilter: 'blur(16px)' }}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
             <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Notifications</span>

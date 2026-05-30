@@ -132,7 +132,8 @@ const T = {
 const TABLES_EXPORT = ['users', 'notices', 'attendance', 'fees', 'fees_payments', 'leaves', 'gallery', 'timetable', 'calendar_events'];
 
 export default function AdminSettings() {
-  const { user, schoolSettings, setSchoolSettings } = useAppStore();
+  const { user, role, schoolSettings, setSchoolSettings } = useAppStore();
+  const userRole = (role || '').toLowerCase();
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -826,7 +827,7 @@ export default function AdminSettings() {
             </button>
           )}
 
-          {platformSettings?.refund_policy && (
+          {platformSettings?.refund_policy && (userRole === 'admin' || userRole === 'platform_admin') && (
             <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('refund')}>
               <FileText size={16} /> Refund Policy
             </button>
