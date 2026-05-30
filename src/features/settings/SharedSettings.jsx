@@ -5,7 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { 
   Sun, Moon, Globe, Lock, Database, ShieldAlert, Info,
   Upload, Eye, EyeOff, Trash2,
-  Phone, Mail, MapPin, Send, HelpCircle, X, Building
+  Phone, Mail, MapPin, Send, HelpCircle, X, Building, FileText
 } from 'lucide-react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -96,6 +96,7 @@ export default function SharedSettings() {
   const [platformSettings, setPlatformSettings] = useState(null);
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showContactDetailsModal, setShowContactDetailsModal] = useState(false);
+  const [legalTab, setLegalTab] = useState(null); // 'about' | 'terms' | 'refund' | 'privacy' | null
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [submittingTicket, setSubmittingTicket] = useState(false);
@@ -177,7 +178,7 @@ export default function SharedSettings() {
 
   /* ── Scroll Lock ── */
   React.useEffect(() => {
-    const isAnyModalOpen = showSupportModal || showContactDetailsModal;
+    const isAnyModalOpen = showSupportModal || showContactDetailsModal || !!legalTab;
     const mainEl = document.querySelector('main');
     if (isAnyModalOpen) {
       document.body.style.overflow = 'hidden';
@@ -190,7 +191,7 @@ export default function SharedSettings() {
       document.body.style.overflow = '';
       if (mainEl) mainEl.style.overflow = '';
     };
-  }, [showSupportModal, showContactDetailsModal]);
+  }, [showSupportModal, showContactDetailsModal, legalTab]);
 
   const saveAboutText = async () => {
     setLoading(true);
@@ -542,6 +543,39 @@ export default function SharedSettings() {
         </div>
       </div>
 
+      {/* ── ABOUT PLATFORM (LEGAL) ── */}
+      <div className="card">
+        <div className="settings-header">
+          <div className="icon-box"><FileText size={20} /></div>
+          <div className="text-content">
+            <h4>About {platformSettings?.app_name || 'SchoolOS+'}</h4>
+            <p>Platform information and terms of service</p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-2">
+          {platformSettings?.about_app && (
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('about')}>
+              <FileText size={16} /> About App
+            </button>
+          )}
+          {platformSettings?.terms_conditions && (
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('terms')}>
+              <FileText size={16} /> Terms & Conditions
+            </button>
+          )}
+          {platformSettings?.refund_policy && (userRole === 'admin' || userRole === 'platform_admin') && (
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('refund')}>
+              <FileText size={16} /> Refund Policy
+            </button>
+          )}
+          {platformSettings?.privacy_policy && (
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('privacy')}>
+              <FileText size={16} /> Privacy Policy
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ── 7. APP UPDATES & VERSION ── */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px 20px', alignItems: 'center', textAlign: 'center' }}>
         <p className="muted small" style={{ margin: 0 }}>
@@ -655,6 +689,33 @@ export default function SharedSettings() {
             </div>
             
             <button onClick={() => setShowContactDetailsModal(false)} className="btn outline w-full mt-4">Close</button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── LEGAL MODAL ── */}
+      {legalTab && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card flex flex-col" style={{ width: '100%', maxWidth: '600px', maxHeight: '80%' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="m-0">
+                {legalTab === 'about' ? 'About App' : 
+                 legalTab === 'terms' ? 'Terms & Conditions' : 
+                 legalTab === 'refund' ? 'Refund Policy' : 
+                 'Privacy Policy'}
+              </h3>
+              <button onClick={() => setLegalTab(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 text-sm leading-relaxed whitespace-pre-wrap pr-2 text-slate-700" style={{ maxHeight: 'calc(80vh - 120px)' }}>
+              {legalTab === 'about' ? platformSettings?.about_app : 
+               legalTab === 'terms' ? platformSettings?.terms_conditions : 
+               legalTab === 'refund' ? platformSettings?.refund_policy : 
+               platformSettings?.privacy_policy}
+            </div>
+            <button onClick={() => setLegalTab(null)} className="btn outline w-full mt-4">Close</button>
           </div>
         </div>,
         document.body
