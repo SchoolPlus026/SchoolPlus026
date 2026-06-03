@@ -124,18 +124,25 @@ export default function Reports() {
     } else if (reportType === 'fees') {
       let q = supabase
         .from('fees')
-        .select('*, student:users(username, name, class), fees_payments(amount)')
+        .select('id, yr:year, lyp:last_year_pending, tot:total, student:users(username, name, class), fees_payments(amount)')
         .eq('school_id', schoolSettings.school_id);
         
       const { data: rawRecords, error } = await q;
       if (error) throw new Error(`Failed to fetch fees: ${error.message}`);
 
-      let records = rawRecords || [];
+      let records = (rawRecords || []).map(f => ({
+        id: f.id,
+        year: f.yr,
+        last_year_pending: Number(f.lyp || 0),
+        total: Number(f.tot || 0),
+        student: f.student,
+        fees_payments: f.fees_payments
+      }));
       if (filterClass) records = records.filter(f => f.student?.class === filterClass);
 
       headers = ['Student Name', 'Username', 'Class', 'Year', 'Last Year Due', 'Total Fee', 'Total Paid', 'Due Amount'];
       data = records.map(f => {
-        const paid = (f.fees_payments || []).reduce((sum, p) => sum + p.amount, 0);
+        const paid = (f.fees_payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
         const due  = (f.last_year_pending || 0) + f.total - paid;
         return {
           'Student Name':   f.student?.name     || 'Unknown',

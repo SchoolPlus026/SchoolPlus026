@@ -6,6 +6,48 @@ import { Loader2, Save, Calendar as CalendarIcon, Users, UserCheck, CheckCircle2
 import { triggerStreakCheck } from '../../hooks/useAchievements';
 import UserAvatar from '../../components/UserAvatar';
 
+// ─── Attendance JSONB Compression Codec (v82_attendance_jsonb_compression) ───
+// Database stores: { "1": "P", "31": "A" } — day-of-month key, single-char value
+// UI displays:     { "2026-05-01": "Present", "2026-05-31": "Absent" }
+//
+// Encode: called on WRITE — converts UI value+date to compressed DB format
+// Decode: called on READ  — converts DB compressed key+value to UI format
+
+const STATUS_ENCODE = { Present: 'P', Absent: 'A', Late: 'L', Half_day: 'H', Leave: 'V' };
+const STATUS_DECODE = { P: 'Present', A: 'Absent', L: 'Late', H: 'Half_day', V: 'Leave' };
+
+/**
+ * Extracts the day-of-month key from a full ISO date string.
+ * "2026-05-01" → "1"  (leading zero stripped)
+ * "2026-05-31" → "31"
+ */
+function dateToDayKey(dateStr) {
+  return String(parseInt(dateStr.split('-')[2], 10));
+}
+
+/**
+ * Reconstructs a full ISO date string from a month_year and a compressed day key.
+ * monthYear="2026-05", dayKey="1" → "2026-05-01"
+ */
+function dayKeyToDate(monthYear, dayKey) {
+  const day = String(dayKey).padStart(2, '0');
+  return `${monthYear}-${day}`;
+}
+
+/**
+ * Reads the status for a given full ISO date from a compressed attendance_data object.
+ * Returns the full UI label (e.g. "Present") or undefined if not found.
+ */
+function readCompressedStatus(attendanceData, isoDate) {
+  if (!attendanceData) return undefined;
+  // First try the compressed day key (new format after v82)
+  const dayKey = dateToDayKey(isoDate);
+  if (attendanceData[dayKey]) return STATUS_DECODE[attendanceData[dayKey]] || attendanceData[dayKey];
+  // Fallback: try the full date key (legacy rows not yet migrated)
+  if (attendanceData[isoDate]) return attendanceData[isoDate];
+  return undefined;
+}
+
 export default function MarkAttendance() {
   const { user, role, schoolSettings } = useAppStore();
   const queryClient = useQueryClient();
@@ -65,11 +107,15 @@ export default function MarkAttendance() {
       const monthYear = selectedDate.substring(0, 7);
       const { data, error } = await supabase
         .from('attendance')
-        .select('*')
+        .select('user_id, ad:attendance_data, my:month_year')
         .eq('month_year', monthYear)
         .in('user_id', targets?.map(s => s.id) || []);
       if (error) throw error;
-      return data || [];
+      return (data || []).map(a => ({
+        user_id: a.user_id,
+        attendance_data: a.ad,
+        month_year: a.my
+      }));
     },
     enabled: !!targets && targets.length > 0
   });
@@ -100,14 +146,18 @@ export default function MarkAttendance() {
         // Find existing record to preserve other days in the month
         const existingRow = existingAttendance?.find(a => a.user_id === item.user_id);
         const currentData = existingRow?.attendance_data || {};
-        
+
+        // Encode to compressed format: day key + single-char status code
+        const dayKey   = dateToDayKey(date);             // "2026-05-31" → "31"
+        const encoded  = STATUS_ENCODE[item.status] || item.status; // "Present" → "P"
+
         return {
           school_id: item.school_id,
           user_id: item.user_id,
           month_year: item.month_year,
           attendance_data: {
             ...currentData,
-            [date]: item.status
+            [dayKey]: encoded   // e.g. { ...existing, "31": "P" }
           }
         };
       });
@@ -121,8 +171,9 @@ export default function MarkAttendance() {
       const notifications = [];
       payload.forEach(item => {
         const existingRow = existingAttendance?.find(a => a.user_id === item.user_id);
-        const currentStatus = existingRow?.attendance_data?.[date];
-        
+        // Read previous status using the codec-aware helper (handles both old + new format)
+        const currentStatus = readCompressedStatus(existingRow?.attendance_data, date);
+
         // If the status has changed (or is newly marked) and it's for a student
         if (currentStatus !== item.status && item.role === 'student') {
            notifications.push({
@@ -172,9 +223,9 @@ export default function MarkAttendance() {
   const currentStatusFor = (targetId) => {
     if (attendanceEdits[targetId]) return attendanceEdits[targetId];
     const record = existingAttendance?.find(a => a.user_id === targetId);
-    if (record?.attendance_data?.[selectedDate]) {
-       return record.attendance_data[selectedDate];
-    }
+    // Use codec-aware helper — handles both compressed ("31":"P") and legacy ("2026-05-31":"Present") formats
+    const existingStatus = readCompressedStatus(record?.attendance_data, selectedDate);
+    if (existingStatus) return existingStatus;
     if (leavesList && leavesList.some(l => l.user_id === targetId)) {
        return 'Leave';
     }
@@ -182,9 +233,12 @@ export default function MarkAttendance() {
   };
 
   // True if attendance has already been submitted for this date/class
-  const isAlreadyMarked = existingAttendance && existingAttendance.some(
-    a => a.attendance_data && typeof a.attendance_data === 'object' && Object.keys(a.attendance_data).includes(selectedDate)
-  );
+  // Checks both compressed day key ("31") and legacy full-date key ("2026-05-31")
+  const isAlreadyMarked = existingAttendance && existingAttendance.some(a => {
+    if (!a.attendance_data || typeof a.attendance_data !== 'object') return false;
+    const dayKey = dateToDayKey(selectedDate);
+    return (dayKey in a.attendance_data) || (selectedDate in a.attendance_data);
+  });
   const hasEdits = Object.keys(attendanceEdits).length > 0;
 
   const handleSave = () => {

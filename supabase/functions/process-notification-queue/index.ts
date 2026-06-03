@@ -80,6 +80,95 @@ async function sendFCMMessage(
   return { token, success: true };
 }
 
+async function sendFCMMulticast(
+  projectId: string, tokens: string[], title: string, body: string, route: string, accessToken: string
+): Promise<FCMResult[]> {
+  try {
+    const boundary = "subrequest_boundary_" + Math.random().toString(36).slice(2);
+    let bodyParts = "";
+
+    for (const token of tokens) {
+      const messageBody = JSON.stringify({
+        message: {
+          token,
+          notification: { title: title.substring(0, 100), body: body.substring(0, 200) },
+          android: { priority: "high", notification: { click_action: "FLUTTER_NOTIFICATION_CLICK", sound: "default" } },
+          data: { route: route || "/", type: "master_notification" },
+        },
+      });
+
+      bodyParts += `--${boundary}\r\n`;
+      bodyParts += "Content-Type: application/http\r\n";
+      bodyParts += "Content-Transfer-Encoding: binary\r\n\r\n";
+      bodyParts += `POST /v1/projects/${projectId}/messages:send HTTP/1.1\r\n`;
+      bodyParts += "Content-Type: application/json\r\n\r\n";
+      bodyParts += `${messageBody}\r\n`;
+    }
+    bodyParts += `--${boundary}--\r\n`;
+
+    const resp = await fetch("https://fcm.googleapis.com/batch", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": `multipart/mixed; boundary=${boundary}`,
+      },
+      body: bodyParts,
+    });
+
+    if (!resp.ok) {
+      console.warn(`FCM Batch API returned status ${resp.status}. Falling back to parallel unicast sending.`);
+      return await sendFCMParallelFallback(projectId, tokens, title, body, route, accessToken);
+    }
+
+    const responseText = await resp.text();
+    const parts = responseText.split(`--${boundary}`);
+    const results: FCMResult[] = [];
+    const jsonParts = parts.filter(part => part.includes("{"));
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      const part = jsonParts[i];
+      if (!part) {
+        results.push({ token, success: false, errorCode: "NO_RESPONSE", errorMessage: "No response part found" });
+        continue;
+      }
+
+      try {
+        const jsonStart = part.indexOf("{");
+        const jsonEnd = part.lastIndexOf("}") + 1;
+        const jsonStr = part.substring(jsonStart, jsonEnd);
+        const resData = JSON.parse(jsonStr);
+
+        if (resData.name) {
+          results.push({ token, success: true });
+        } else if (resData.error) {
+          const errorCode = resData.error.details?.[0]?.errorCode ?? resData.error.status ?? "UNKNOWN";
+          results.push({ token, success: false, errorCode, errorMessage: JSON.stringify(resData.error) });
+        } else {
+          results.push({ token, success: false, errorCode: "UNKNOWN", errorMessage: jsonStr });
+        }
+      } catch (err: any) {
+        results.push({ token, success: false, errorCode: "PARSE_ERROR", errorMessage: err.message });
+      }
+    }
+
+    return results;
+  } catch (batchErr) {
+    console.warn("FCM Batch API request failed entirely. Falling back to parallel unicast sending:", batchErr);
+    return await sendFCMParallelFallback(projectId, tokens, title, body, route, accessToken);
+  }
+}
+
+async function sendFCMParallelFallback(
+  projectId: string, tokens: string[], title: string, body: string, route: string, accessToken: string
+): Promise<FCMResult[]> {
+  return await Promise.all(
+    tokens.map((token) =>
+      sendFCMMessage(projectId, token, title, body, route || "", accessToken)
+    )
+  );
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -158,11 +247,17 @@ serve(async (req) => {
           continue;
         }
 
-        const results = await Promise.all(
-          tokenRows.map((row: any) =>
-            sendFCMMessage(projectId, row.fcm_token, record.title, record.body, record.route || "", accessToken)
-          )
-        );
+        const tokens = tokenRows.map((row: any) => row.fcm_token);
+        const batches: string[][] = [];
+        for (let i = 0; i < tokens.length; i += 500) {
+          batches.push(tokens.slice(i, i + 500));
+        }
+
+        const results: FCMResult[] = [];
+        for (const batch of batches) {
+          const batchResults = await sendFCMMulticast(projectId, batch, record.title, record.body, record.route || "", accessToken);
+          results.push(...batchResults);
+        }
 
         const STALE_ERROR_CODES = new Set(["UNREGISTERED", "INVALID_ARGUMENT", "NOT_FOUND"]);
         const staleTokens = results.filter(r => !r.success && r.errorCode && STALE_ERROR_CODES.has(r.errorCode)).map(r => r.token);

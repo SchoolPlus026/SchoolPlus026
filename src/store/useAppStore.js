@@ -21,10 +21,14 @@ export const useAppStore = create(
   // Global Avatar Preview Modal State
   previewAvatarUrl: null,
   
+  // Cache variables for profile fetching
+  profileLastFetched: null,
+  
   // Actions
   setUserAndRole: (user, role) => set({ user, role }),
   setSchoolSettings: (settings) => set({ schoolSettings: settings }),
   setPreviewAvatarUrl: (url) => set({ previewAvatarUrl: url }),
+  setProfileLastFetched: (timestamp) => set({ profileLastFetched: timestamp }),
   
   setImpersonation: (schoolSettings) => set((state) => ({
     isImpersonating: true,
@@ -59,17 +63,18 @@ export const useAppStore = create(
   })),
   
   // Logout action resets everything
-  clearSession: () => set({ user: null, role: null, schoolSettings: null, isImpersonating: false, originalSession: null, backgroundUploads: [] }),
+  clearSession: () => set({ user: null, role: null, schoolSettings: null, isImpersonating: false, originalSession: null, backgroundUploads: [], profileLastFetched: null }),
     }),
     {
       name: 'school-os-storage',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
       // We don't need to persist backgroundUploads or impersonation state ideally,
       // but for simplicity we can persist the whole store or use partialize.
       partialize: (state) => ({
         user: state.user,
         role: state.role,
         schoolSettings: state.schoolSettings,
+        profileLastFetched: state.profileLastFetched,
       }),
     }
   )

@@ -365,9 +365,18 @@ export default function TeacherFeeReminder() {
   const { data: feesData, isLoading: feesLoading } = useQuery({
     queryKey: ['fees-teacher-view', currentYear, schoolSettings?.school_id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('fees').select('*').eq('year', currentYear);
+      const { data, error } = await supabase
+        .from('fees')
+        .select('id, sid:student_id, tot:total, lyp:last_year_pending')
+        .eq('year', currentYear);
       if (error) throw error;
-      return data || [];
+      return (data || []).map(f => ({
+        id: f.id,
+        student_id: f.sid,
+        total: Number(f.tot || 0),
+        last_year_pending: Number(f.lyp || 0),
+        year: currentYear
+      }));
     },
     enabled: !!schoolSettings?.school_id,
   });
@@ -378,9 +387,16 @@ export default function TeacherFeeReminder() {
     queryFn: async () => {
       if (!feesData || feesData.length === 0) return [];
       const feeIds = feesData.map(f => f.id);
-      const { data, error } = await supabase.from('fees_payments').select('*').in('fee_id', feeIds);
+      const { data, error } = await supabase
+        .from('fees_payments')
+        .select('id, fid:fee_id, amt:amount')
+        .in('fee_id', feeIds);
       if (error) throw error;
-      return data || [];
+      return (data || []).map(p => ({
+        id: p.id,
+        fee_id: p.fid,
+        amount: Number(p.amt || 0)
+      }));
     },
     enabled: !!feesData && feesData.length > 0,
   });

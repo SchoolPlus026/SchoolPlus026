@@ -14,12 +14,18 @@ export default function StudentFeeLedger() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('fees')
-        .select('*')
+        .select('id, tot:total, lyp:last_year_pending, sid:student_id, yr:year')
         .eq('student_id', user.id)
         .eq('year', currentYear)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data ? {
+        id: data.id,
+        total: Number(data.tot || 0),
+        last_year_pending: Number(data.lyp || 0),
+        student_id: data.sid,
+        year: data.yr
+      } : null;
     },
     enabled: !!user?.id
   });
@@ -30,11 +36,16 @@ export default function StudentFeeLedger() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('fees_payments')
-        .select('*')
+        .select('id, amt:amount, dt:payment_date, meth:method')
         .eq('fee_id', feeEntry.id)
         .order('payment_date', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []).map(p => ({
+        id: p.id,
+        amount: Number(p.amt || 0),
+        payment_date: p.dt,
+        method: p.meth
+      }));
     },
     enabled: !!feeEntry?.id
   });

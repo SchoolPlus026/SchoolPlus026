@@ -59,6 +59,18 @@ export default function TimetableViewer({ adminPreviewClass }) {
      if (adminPreviewClass) setTargetClass(adminPreviewClass);
   }, [adminPreviewClass]);
 
+  const cacheKey = `sp_timetable_${schoolSettings?.school_id || 'default'}_${user?.id || 'guest'}_${targetClass || 'none'}_${viewMode || 'self'}`;
+
+  const initialData = useMemo(() => {
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      return cached ? JSON.parse(cached) : undefined;
+    } catch (e) {
+      console.warn("Failed to retrieve timetable cache:", e);
+      return undefined;
+    }
+  }, [cacheKey]);
+
   const { data: scheduleRaw, isLoading } = useQuery({
     queryKey: ['timetable', schoolSettings?.school_id, user?.id, targetClass, viewMode, role],
     queryFn: async () => {
@@ -105,15 +117,26 @@ export default function TimetableViewer({ adminPreviewClass }) {
          teacherProfiles?.forEach(t => { teacherMap[t.id] = t.name; });
       }
 
-      return data.map(slot => ({
+      const processed = data.map(slot => ({
          ...slot,
          // If teacher field is a UUID, look up name; otherwise it's already a name string (legacy rows)
          teacher_name: uuidPattern.test(slot.teacher || '')
            ? (teacherMap[slot.teacher] || 'Staff')
            : (slot.teacher || 'Unassigned')
       }));
+
+      // Cache the result locally for future offline/SWR views
+      try {
+         localStorage.setItem(cacheKey, JSON.stringify(processed));
+      } catch (e) {
+         console.warn("Failed to write timetable cache:", e);
+      }
+
+      return processed;
     },
-    enabled: !!schoolSettings?.school_id
+    enabled: !!schoolSettings?.school_id,
+    initialData,
+    staleTime: 10 * 60 * 1000 // 10 minutes stale time (timetable is highly static)
   });
 
   const getCurrentActiveContext = () => {

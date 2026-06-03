@@ -7,6 +7,11 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Loader2, CalendarHeart, CheckCircle2, XCircle, Clock, TrendingUp } from 'lucide-react';
 
+// ─── Attendance JSONB Decode Codec (v82_attendance_jsonb_compression) ───
+// DB stores compressed format: { "1": "P", "31": "A" }
+// This file reads and decodes to full labels for display.
+const STATUS_DECODE = { P: 'Present', A: 'Absent', L: 'Late', H: 'Half_day', V: 'Leave' };
+
 /* ─── useCountUp hook ───────────────────────────────────────────── */
 function useCountUp(target, duration = 1400, start = false) {
   const [value, setValue] = useState(0);
@@ -271,16 +276,33 @@ export default function StudentAttendanceChart() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('attendance')
-        .select('*')
+        .select('ad:attendance_data, my:month_year')
         .eq('user_id', user.id);
       if (error) throw error;
       
       const flatAttendance = [];
-      data?.forEach(row => {
+      const mappedData = (data || []).map(row => ({
+        attendance_data: row.ad,
+        month_year: row.my
+      }));
+      mappedData.forEach(row => {
         if (row.attendance_data) {
-           Object.entries(row.attendance_data).forEach(([date, status]) => {
-              // Add id just for react key purposes, though not strictly required
-              flatAttendance.push({ id: `${row.id}-${date}`, date, status });
+           Object.entries(row.attendance_data).forEach(([key, rawStatus]) => {
+              // Determine if key is compressed (day integer e.g. "1", "31")
+              // or legacy full ISO date (e.g. "2026-05-01").
+              let isoDate;
+              if (key.includes('-')) {
+                // Legacy uncompressed key: already a full ISO date
+                isoDate = key;
+              } else {
+                // Compressed key: day-of-month integer string
+                // Reconstruct full date using the parent row's month_year
+                const day = String(key).padStart(2, '0');
+                isoDate = `${row.month_year}-${day}`;
+              }
+              // Decode single-char status or pass through full-word (legacy)
+              const status = STATUS_DECODE[rawStatus] || rawStatus;
+              flatAttendance.push({ id: `${row.id}-${key}`, date: isoDate, status });
            });
         }
       });

@@ -52,10 +52,16 @@ export default function AdminFeeManager() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('fees')
-        .select('*')
+        .select('id, sid:student_id, tot:total, lyp:last_year_pending')
         .eq('year', currentYear);
       if (error) throw error;
-      return data || [];
+      return (data || []).map(f => ({
+        id: f.id,
+        student_id: f.sid,
+        total: Number(f.tot || 0),
+        last_year_pending: Number(f.lyp || 0),
+        year: currentYear
+      }));
     },
     enabled: !!schoolSettings?.school_id
   });
@@ -68,11 +74,17 @@ export default function AdminFeeManager() {
       const feeIds = feesData.map(f => f.id);
       const { data, error } = await supabase
         .from('fees_payments')
-        .select('*')
+        .select('id, fid:fee_id, amt:amount, dt:payment_date, meth:method')
         .in('fee_id', feeIds)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []).map(p => ({
+        id: p.id,
+        fee_id: p.fid,
+        amount: Number(p.amt || 0),
+        payment_date: p.dt,
+        method: p.meth
+      }));
     },
     enabled: !!feesData && feesData.length > 0
   });

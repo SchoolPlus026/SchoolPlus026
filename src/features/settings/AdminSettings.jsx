@@ -17,6 +17,7 @@ import { App } from '@capacitor/app';
 import BiometricSetup from './BiometricSetup';
 import RecoverySetup from './RecoverySetup';
 import WebSyncPanel from './WebSyncPanel';
+import ArchiveConsole from './ArchiveConsole';
 
 /* ── Protected Demo Schools (Sales Protection) ── */
 const PROTECTED_SCHOOL_CODES = ['120', '777'];
@@ -731,6 +732,22 @@ export default function AdminSettings() {
         <button onClick={handleExport} disabled={exporting} className="btn outline w-full">
           <Upload size={16} /> {exporting ? t.exporting : t.exportJson}
         </button>
+      </div>
+
+      {/* ── 5.4 ACADEMIC YEAR ARCHIVAL ── */}
+      <div className="card">
+        <div className="settings-header">
+          <div className="icon-box" style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}>
+            <HardDrive size={20} />
+          </div>
+          <div className="text-content">
+            <h4>Academic Year Archival</h4>
+            <p>Archive past year data to free storage &amp; download secure JSON snapshots.</p>
+          </div>
+        </div>
+        <div className="mt-4">
+          <ArchiveConsole />
+        </div>
       </div>
 
       {/* ── 5.5 GOOGLE DRIVE STORAGE ── */}

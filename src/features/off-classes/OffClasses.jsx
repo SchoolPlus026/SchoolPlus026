@@ -3,6 +3,21 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { AlertTriangle, Loader2, UserX } from 'lucide-react';
 
+// ─── Attendance JSONB Decode Codec (v82_attendance_jsonb_compression) ───
+// Checks both compressed day key ("31") and legacy full ISO date key ("2026-05-31")
+// and decodes status codes back to full labels for comparison.
+const STATUS_DECODE = { P: 'Present', A: 'Absent', L: 'Late', H: 'Half_day', V: 'Leave' };
+function getStatusForDate(attendanceData, isoDate) {
+  if (!attendanceData) return null;
+  // Try compressed key first (new format after v82)
+  const dayKey = String(parseInt(isoDate.split('-')[2], 10));
+  if (attendanceData[dayKey]) return STATUS_DECODE[attendanceData[dayKey]] || attendanceData[dayKey];
+  // Fallback: legacy full ISO date key
+  if (attendanceData[isoDate]) return attendanceData[isoDate];
+  return null;
+}
+
+
 export default function OffClasses() {
   const { role, schoolSettings } = useAppStore();
   const [data, setData] = useState(null);
@@ -37,8 +52,12 @@ export default function OffClasses() {
     if (attErr) { console.error('OffClasses attendance error:', attErr); setData([]); setLoading(false); return; }
 
     // Filter to find who is absent or on leave TODAY
+    // Uses codec-aware helper to handle both compressed ("31":"A") and legacy ("2026-05-31":"Absent") formats
     const absentUserIds = (monthAtt || [])
-      .filter(a => a.attendance_data && (a.attendance_data[today] === 'Absent' || a.attendance_data[today] === 'Leave'))
+      .filter(a => {
+        const status = getStatusForDate(a.attendance_data, today);
+        return status === 'Absent' || status === 'Leave';
+      })
       .map(a => a.user_id);
 
     if (absentUserIds.length === 0) { setData([]); setLoading(false); return; }

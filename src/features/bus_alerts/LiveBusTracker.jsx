@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
-import { rtdb, fbAuth } from '../../config/firebaseClient';
-import { ref, onValue, off } from 'firebase/database';
+import { fbAuth } from '../../config/firebaseClient';
 import { signInAnonymously } from 'firebase/auth';
 import { useAppStore } from '../../store/useAppStore';
 import { Bus, MapPin, School, Clock, Loader2, RefreshCw, Navigation, WifiOff } from 'lucide-react';
@@ -23,106 +22,110 @@ export default function LiveBusTracker() {
   const [fbError,       setFbError]       = useState(null);
   const [isConnecting,  setIsConnecting]  = useState(false);
 
-  const listenerUnsubRef = useRef(null);
   const schoolId = schoolSettings?.school_id;
-
-  // ─── Bus list ─────────────────────────────────────────────────────────────
-  const { data: buses = [], isLoading: busesLoading, error: busListError } = useQuery({
-    queryKey: ['bus-list', schoolId],
-    queryFn: async () => {
-      console.log('[LiveBusTracker] fetching bus list for school:', schoolId);
-      const { data, error } = await supabase
-        .from('bus_assignments')
-        .select('bus_number, route_name, driver_name')
-        .eq('school_id', schoolId)
-        .eq('is_active', true)
-        .order('bus_number', { ascending: true });
-      if (error) throw error;
-      console.log('[LiveBusTracker] bus list:', data);
-      return data || [];
-    },
-    enabled: !!schoolId,
-    retry: 2,
-  });
-
-  // ─── Firebase Anonymous Auth ───────────────────────────
-  const authFirebase = useCallback(async () => {
-    setIsConnecting(true);
-    setFbError(null);
-    try {
-      if (!fbAuth || !rtdb) throw new Error('Firebase env vars (VITE_FIREBASE_*) are not configured.');
-      if (fbAuth.currentUser) {
-        console.log('[LiveBusTracker] reusing existing Firebase user:', fbAuth.currentUser.uid);
-        setFbReady(true);
-        return;
-      }
-      console.log('[LiveBusTracker] signing in anonymously...');
-      const cred = await signInAnonymously(fbAuth);
-      console.log('[LiveBusTracker] anonymous auth OK, uid:', cred.user.uid);
-      setFbReady(true);
-    } catch (err) {
-      console.error('[LiveBusTracker] Firebase auth FAILED:', err.message);
-      setFbError(err.message);
-      setFbReady(false);
-    } finally {
-      setIsConnecting(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    authFirebase();
-    // No cleanup needed — anonymous auth has no refresh timers
-  }, [authFirebase]);
-
-  // ─── RTDB listener ───────────────────────────────────────────────────────
-  useEffect(() => {
-    // Detach any previous listener
-    if (listenerUnsubRef.current) {
-      listenerUnsubRef.current();
-      listenerUnsubRef.current = null;
-    }
-
-    if (!selectedBus || !schoolId || !rtdb) {
-      setTrackingData(undefined);
-      return;
-    }
-
-    const busKey = toBusKey(selectedBus);
-    const path   = `tracking/${schoolId}/${busKey}`;
-    console.log('[LiveBusTracker] attaching RTDB listener →', path);
-
-    const trackRef = ref(rtdb, path);
-    setTrackingData(undefined); // reset to "waiting" while listener connects
-
-    const unsub = onValue(
-      trackRef,
-      (snapshot) => {
-        const val = snapshot.exists() ? snapshot.val() : null;
-        console.log('[LiveBusTracker] RTDB data received:', val);
-        setTrackingData(val); // null means no data in RTDB (route not started)
-      },
-      (err) => {
-        console.error('[LiveBusTracker] RTDB listener error:', err.message);
-        setFbError(`Live data error: ${err.message}`);
-        setTrackingData(null);
-      }
-    );
-
-    listenerUnsubRef.current = unsub;
-    return () => {
-      unsub();
-      off(trackRef);
-      listenerUnsubRef.current = null;
-    };
-  }, [selectedBus, schoolId]);
-
-  // ─── Unmount cleanup ─────────────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      if (listenerUnsubRef.current) listenerUnsubRef.current();
-      // No token timer to clear — using anonymous auth
-    };
-  }, []);
+ 
+   // ─── Bus list ─────────────────────────────────────────────────────────────
+   const { data: buses = [], isLoading: busesLoading, error: busListError } = useQuery({
+     queryKey: ['bus-list', schoolId],
+     queryFn: async () => {
+       console.log('[LiveBusTracker] fetching bus list for school:', schoolId);
+       const { data, error } = await supabase
+         .from('bus_assignments')
+         .select('bus_number, route_name, driver_name')
+         .eq('school_id', schoolId)
+         .eq('is_active', true)
+         .order('bus_number', { ascending: true });
+       if (error) throw error;
+       console.log('[LiveBusTracker] bus list:', data);
+       return data || [];
+     },
+     enabled: !!schoolId,
+     retry: 2,
+   });
+ 
+   // ─── Firebase Anonymous Auth ───────────────────────────
+   const authFirebase = useCallback(async () => {
+     setIsConnecting(true);
+     setFbError(null);
+     try {
+       const rawDbUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
+       if (!fbAuth || !rawDbUrl) throw new Error('Firebase env vars (VITE_FIREBASE_*) are not configured.');
+       if (fbAuth.currentUser) {
+         console.log('[LiveBusTracker] reusing existing Firebase user:', fbAuth.currentUser.uid);
+         setFbReady(true);
+         return;
+       }
+       console.log('[LiveBusTracker] signing in anonymously...');
+       const cred = await signInAnonymously(fbAuth);
+       console.log('[LiveBusTracker] anonymous auth OK, uid:', cred.user.uid);
+       setFbReady(true);
+     } catch (err) {
+       console.error('[LiveBusTracker] Firebase auth FAILED:', err.message);
+       setFbError(err.message);
+       setFbReady(false);
+     } finally {
+       setIsConnecting(false);
+     }
+   }, []);
+ 
+   useEffect(() => {
+     authFirebase();
+   }, [authFirebase]);
+ 
+   // ─── Fetch tracking data via REST fetch() ────────────────────────────────
+   const fetchTrackingData = useCallback(async () => {
+     if (!selectedBus || !schoolId) {
+       setTrackingData(undefined);
+       return;
+     }
+ 
+     try {
+       const busKey = toBusKey(selectedBus);
+       const rawDbUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
+       const databaseUrl = rawDbUrl.endsWith('/') ? rawDbUrl.slice(0, -1) : rawDbUrl;
+       
+       let idToken = '';
+       if (fbAuth?.currentUser) {
+         idToken = await fbAuth.currentUser.getIdToken();
+       }
+ 
+       const url = idToken 
+         ? `${databaseUrl}/tracking/${schoolId}/${busKey}.json?auth=${idToken}`
+         : `${databaseUrl}/tracking/${schoolId}/${busKey}.json`;
+ 
+       const response = await fetch(url);
+       if (!response.ok) {
+         throw new Error(`HTTP Error ${response.status}`);
+       }
+ 
+       const val = await response.json();
+       console.log('[LiveBusTracker] REST data received:', val);
+       setTrackingData(val); // null means route not started
+       setFbError(null);
+     } catch (err) {
+       console.error('[LiveBusTracker] REST fetch error:', err.message);
+       setFbError(`Live data error: ${err.message}`);
+     }
+   }, [selectedBus, schoolId]);
+ 
+   // ─── Polling interval ───────────────────────────────────────────────────
+   useEffect(() => {
+     if (!selectedBus || !schoolId) {
+       setTrackingData(undefined);
+       return;
+     }
+ 
+     // Trigger initial fetch
+     setTrackingData(undefined);
+     fetchTrackingData();
+ 
+     // Set up polling interval (every 30 seconds)
+     const intervalId = setInterval(() => {
+       fetchTrackingData();
+     }, 30000);
+ 
+     return () => clearInterval(intervalId);
+   }, [selectedBus, schoolId, fetchTrackingData]);
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
   const fmt = (ts) =>

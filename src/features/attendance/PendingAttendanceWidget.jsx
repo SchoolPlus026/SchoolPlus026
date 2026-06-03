@@ -5,6 +5,16 @@ import { Radar, Loader2, Send, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
+// ─── Attendance JSONB Decode Codec (v82_attendance_jsonb_compression) ───
+// Checks both compressed day key ("31") and legacy full ISO date key ("2026-05-31")
+function hasAttendanceForDate(attendanceData, isoDate) {
+  if (!attendanceData) return false;
+  // Compressed key: strip month prefix, parse integer (strips leading zero)
+  const dayKey = String(parseInt(isoDate.split('-')[2], 10));
+  return !!(attendanceData[dayKey] || attendanceData[isoDate]);
+}
+
+
 export default function PendingAttendanceWidget({ forceShow = false }) {
   const { schoolSettings } = useAppStore();
   const navigate = useNavigate();
@@ -64,7 +74,7 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       const submittedClasses = new Set();
       
       attendanceData.forEach(a => {
-         if (a.attendance_data && a.attendance_data[todayDate]) {
+         if (hasAttendanceForDate(a.attendance_data, todayDate)) {
             const student = students.find(s => s.id === a.user_id);
             if (student && student.class) {
                submittedClasses.add(student.class);

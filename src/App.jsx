@@ -111,10 +111,6 @@ export default function App() {
               migrated = true;
             }
           }
-          if (localStorage.getItem('school-os-storage')) {
-            localStorage.removeItem('school-os-storage');
-            migrated = true;
-          }
         } catch (e) {
           console.warn('Migration cleanup error:', e);
         }
@@ -127,6 +123,16 @@ export default function App() {
         
         if (!session?.user) {
           useAppStore.getState().clearSession();
+          setIsInitializing(false);
+          return;
+        }
+
+        // Cache bypass check: if we already have a persistent user session and profile,
+        // and it was fetched within the last 30 minutes, skip remote database queries to save egress.
+        const store = useAppStore.getState();
+        const cacheFresh = store.user && store.role && store.profileLastFetched && (Date.now() - store.profileLastFetched < 30 * 60 * 1000);
+
+        if (cacheFresh && store.user.id === session.user.id) {
           setIsInitializing(false);
           return;
         }
@@ -164,6 +170,7 @@ export default function App() {
           if (profile.role === 'platform_admin') {
             setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
             setUserAndRole(enrichedUser, profile.role);
+            store.setProfileLastFetched(Date.now());
           } else {
             const { data: settings } = await supabase
               .from('school_settings')
@@ -174,6 +181,7 @@ export default function App() {
             if (settings) {
               setSchoolSettings(settings);
               setUserAndRole(enrichedUser, profile.role);
+              store.setProfileLastFetched(Date.now());
             } else {
               // Sign out asynchronously without awaiting to prevent Capacitor freeze
               supabase.auth.signOut().catch(console.error);
