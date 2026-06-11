@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { fbAuth } from '../../config/firebaseClient';
-import { signInAnonymously } from 'firebase/auth';
 import { useAppStore } from '../../store/useAppStore';
 import { Bus, MapPin, School, Clock, Loader2, RefreshCw, Navigation, WifiOff } from 'lucide-react';
 import ModuleGuard from '../../components/ModuleGuard';
+import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 
 // Anonymous auth token never expires on the client — no refresh timer needed.
 
@@ -13,6 +13,14 @@ import ModuleGuard from '../../components/ModuleGuard';
 function toBusKey(busNumber) {
   return `bus_${String(busNumber).trim().toLowerCase().replace(/\s+/g, '_')}`;
 }
+
+// Module-level cache to persist data across component unmount/remount (anti-spam re-entry)
+let lastFetchCache = {
+  schoolId: null,
+  busKey: null,
+  data: null,
+  timestamp: 0
+};
 
 export default function LiveBusTracker() {
   const { schoolSettings } = useAppStore();
@@ -22,110 +30,211 @@ export default function LiveBusTracker() {
   const [fbError,       setFbError]       = useState(null);
   const [isConnecting,  setIsConnecting]  = useState(false);
 
+  // Local ticker states for zero-bandwidth countdown and offline status
+  const [countdown,     setCountdown]     = useState(30);
+  const [isOffline,     setIsOffline]     = useState(!navigator.onLine);
+
+  const countdownTimerRef = useRef(null);
+  const pollTimerRef      = useRef(null);
+
   const schoolId = schoolSettings?.school_id;
- 
-   // ─── Bus list ─────────────────────────────────────────────────────────────
-   const { data: buses = [], isLoading: busesLoading, error: busListError } = useQuery({
-     queryKey: ['bus-list', schoolId],
-     queryFn: async () => {
-       console.log('[LiveBusTracker] fetching bus list for school:', schoolId);
-       const { data, error } = await supabase
-         .from('bus_assignments')
-         .select('bus_number, route_name, driver_name')
-         .eq('school_id', schoolId)
-         .eq('is_active', true)
-         .order('bus_number', { ascending: true });
-       if (error) throw error;
-       console.log('[LiveBusTracker] bus list:', data);
-       return data || [];
-     },
-     enabled: !!schoolId,
-     retry: 2,
-   });
- 
-   // ─── Firebase Anonymous Auth ───────────────────────────
-   const authFirebase = useCallback(async () => {
-     setIsConnecting(true);
-     setFbError(null);
-     try {
-       const rawDbUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
-       if (!fbAuth || !rawDbUrl) throw new Error('Firebase env vars (VITE_FIREBASE_*) are not configured.');
-       if (fbAuth.currentUser) {
-         console.log('[LiveBusTracker] reusing existing Firebase user:', fbAuth.currentUser.uid);
-         setFbReady(true);
-         return;
-       }
-       console.log('[LiveBusTracker] signing in anonymously...');
-       const cred = await signInAnonymously(fbAuth);
-       console.log('[LiveBusTracker] anonymous auth OK, uid:', cred.user.uid);
-       setFbReady(true);
-     } catch (err) {
-       console.error('[LiveBusTracker] Firebase auth FAILED:', err.message);
-       setFbError(err.message);
-       setFbReady(false);
-     } finally {
-       setIsConnecting(false);
-     }
-   }, []);
- 
-   useEffect(() => {
-     authFirebase();
-   }, [authFirebase]);
- 
-   // ─── Fetch tracking data via REST fetch() ────────────────────────────────
-   const fetchTrackingData = useCallback(async () => {
-     if (!selectedBus || !schoolId) {
-       setTrackingData(undefined);
-       return;
-     }
- 
-     try {
-       const busKey = toBusKey(selectedBus);
-       const rawDbUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
-       const databaseUrl = rawDbUrl.endsWith('/') ? rawDbUrl.slice(0, -1) : rawDbUrl;
-       
-       let idToken = '';
-       if (fbAuth?.currentUser) {
-         idToken = await fbAuth.currentUser.getIdToken();
-       }
- 
-       const url = idToken 
-         ? `${databaseUrl}/tracking/${schoolId}/${busKey}.json?auth=${idToken}`
-         : `${databaseUrl}/tracking/${schoolId}/${busKey}.json`;
- 
-       const response = await fetch(url);
-       if (!response.ok) {
-         throw new Error(`HTTP Error ${response.status}`);
-       }
- 
-       const val = await response.json();
-       console.log('[LiveBusTracker] REST data received:', val);
-       setTrackingData(val); // null means route not started
-       setFbError(null);
-     } catch (err) {
-       console.error('[LiveBusTracker] REST fetch error:', err.message);
-       setFbError(`Live data error: ${err.message}`);
-     }
-   }, [selectedBus, schoolId]);
- 
-   // ─── Polling interval ───────────────────────────────────────────────────
-   useEffect(() => {
-     if (!selectedBus || !schoolId) {
-       setTrackingData(undefined);
-       return;
-     }
- 
-     // Trigger initial fetch
-     setTrackingData(undefined);
-     fetchTrackingData();
- 
-     // Set up polling interval (every 30 seconds)
-     const intervalId = setInterval(() => {
-       fetchTrackingData();
-     }, 30000);
- 
-     return () => clearInterval(intervalId);
-   }, [selectedBus, schoolId, fetchTrackingData]);
+
+  // Monitor online status
+  useEffect(() => {
+    const handleOnline  = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // ─── Bus list ─────────────────────────────────────────────────────────────
+  const { data: buses = [], isLoading: busesLoading, error: busListError } = useQuery({
+    queryKey: ['bus-list', schoolId],
+    queryFn: async () => {
+      console.log('[LiveBusTracker] fetching bus list for school:', schoolId);
+      const { data, error } = await supabase
+        .from('bus_assignments')
+        .select('bus_number, route_name, driver_name')
+        .eq('school_id', schoolId)
+        .eq('is_active', true)
+        .order('bus_number', { ascending: true });
+      if (error) throw error;
+      console.log('[LiveBusTracker] bus list:', data);
+      return data || [];
+    },
+    enabled: !!schoolId,
+    retry: 2,
+  });
+
+  // ─── Firebase Custom Token Auth Bridge ───────────────────────────────────
+  const authFirebase = useCallback(async () => {
+    setIsConnecting(true);
+    setFbError(null);
+    try {
+      await ensureFirebaseAuthenticated();
+      setFbReady(true);
+    } catch (err) {
+      console.error('[LiveBusTracker] Firebase auth FAILED:', err.message);
+      setFbError(`Connection error: ${err.message}`);
+      setFbReady(false);
+    } finally {
+      setIsConnecting(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    authFirebase();
+  }, [authFirebase]);
+
+  // ─── Fetch tracking data via REST fetch() ────────────────────────────────
+  const fetchTrackingData = useCallback(async () => {
+    if (!selectedBus || !schoolId) {
+      setTrackingData(undefined);
+      return;
+    }
+
+    try {
+      const busKey = toBusKey(selectedBus);
+      const rawDbUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
+      const databaseUrl = rawDbUrl.endsWith('/') ? rawDbUrl.slice(0, -1) : rawDbUrl;
+      
+      let idToken = '';
+      if (fbAuth?.currentUser) {
+        idToken = await fbAuth.currentUser.getIdToken();
+      }
+
+      const url = idToken 
+        ? `${databaseUrl}/tracking/${schoolId}/${busKey}.json?auth=${idToken}`
+        : `${databaseUrl}/tracking/${schoolId}/${busKey}.json`;
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP Error ${response.status}`);
+      }
+
+      const val = await response.json();
+      console.log('[LiveBusTracker] REST data received:', val);
+
+      // Update the anti-spam cache
+      lastFetchCache = {
+        schoolId,
+        busKey,
+        data: val,
+        timestamp: Date.now()
+      };
+
+      setTrackingData(val); // null means route not started
+      setFbError(null);
+    } catch (err) {
+      console.error('[LiveBusTracker] REST fetch error:', err.message);
+      setFbError(`Live data error: ${err.message}`);
+    }
+  }, [selectedBus, schoolId]);
+
+  // ─── Polling and Ticker Control (Visibility-aware + Cache-safe) ───────────
+  useEffect(() => {
+    if (!selectedBus || !schoolId) {
+      setTrackingData(undefined);
+      setCountdown(30);
+      return;
+    }
+
+    const busKey = toBusKey(selectedBus);
+
+    const clearTimers = () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+      if (pollTimerRef.current) {
+        clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+
+    const runTicker = (initialSeconds) => {
+      clearTimers();
+      
+      let secondsLeft = initialSeconds;
+      setCountdown(secondsLeft);
+
+      // Local ticker counting down seconds on the client
+      countdownTimerRef.current = setInterval(() => {
+        // Freeze countdown if device is offline or screen is in background
+        if (document.visibilityState !== 'visible' || !navigator.onLine) {
+          return;
+        }
+
+        secondsLeft -= 1;
+        
+        if (secondsLeft <= 0) {
+          fetchTrackingData();
+          
+          // Adaptive polling: 180s for idle routes, 30s for active ones
+          const isRouteActive = lastFetchCache.data?.status === 'en_route';
+          secondsLeft = isRouteActive ? 30 : 180;
+        }
+        
+        setCountdown(secondsLeft);
+      }, 1000);
+    };
+
+    // Anti-spam re-entry check: check if cache is fresh (< 30 seconds)
+    const cacheAge = Date.now() - lastFetchCache.timestamp;
+    const isCacheValid = 
+      lastFetchCache.schoolId === schoolId &&
+      lastFetchCache.busKey === busKey &&
+      cacheAge < 30000;
+
+    if (isCacheValid) {
+      console.log('[LiveBusTracker] Reusing cached tracking details (anti-spam)');
+      setTrackingData(lastFetchCache.data);
+      
+      const elapsed = Math.floor(cacheAge / 1000);
+      const remaining = Math.max(1, 30 - elapsed);
+      runTicker(remaining);
+    } else {
+      console.log('[LiveBusTracker] Cache cold. Requesting fresh state...');
+      setTrackingData(undefined);
+      fetchTrackingData().then(() => {
+        const isRouteActive = lastFetchCache.data?.status === 'en_route';
+        runTicker(isRouteActive ? 30 : 180);
+      });
+    }
+
+    // Visibility event listener
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[LiveBusTracker] Visited again. Evaluating fresh fetch...');
+        const age = Date.now() - lastFetchCache.timestamp;
+        const isActive = lastFetchCache.data?.status === 'en_route';
+        const refreshThreshold = isActive ? 30000 : 180000;
+
+        if (age >= refreshThreshold) {
+          fetchTrackingData().then(() => {
+            runTicker(isActive ? 30 : 180);
+          });
+        } else {
+          const remaining = Math.max(1, Math.floor((refreshThreshold - age) / 1000));
+          runTicker(remaining);
+        }
+      } else {
+        console.log('[LiveBusTracker] Page minimized/backgrounded. Suspending intervals.');
+        clearTimers();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearTimers();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [selectedBus, schoolId, fetchTrackingData]);
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
   const fmt = (ts) =>
@@ -275,6 +384,19 @@ export default function LiveBusTracker() {
                     </span>
                   </div>
                 ) : null}
+
+                {/* Client-side Zero-Bandwidth countdown indicator */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', background: 'var(--input-bg)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--card-border)' }}>
+                  <RefreshCw size={10} className={isConnecting ? "animate-spin" : ""} color="var(--text-faint)" />
+                  <span style={{ fontSize: '11px', color: 'var(--text-faint)', fontWeight: 600 }}>
+                    {isOffline 
+                      ? 'Connection offline. Refresh paused.'
+                      : isConnecting 
+                        ? 'Fetching latest location…'
+                        : `Next dynamic refresh in ${countdown}s`
+                    }
+                  </span>
+                </div>
               </div>
             )}
 
@@ -307,10 +429,14 @@ export default function LiveBusTracker() {
                     {isTripEnded ? `Ended at ${fmt(trackingData?.last_updated_ts)}` : (schoolSettings?.name || 'School')}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '3px' }}>
-                    {isConnecting ? 'Connecting to live tracking…'
+                    {isOffline ? 'Connection offline. Refresh paused.'
+                      : isConnecting ? 'Connecting to live tracking…'
                       : fbError ? 'Live tracking unavailable'
-                      : fbReady ? "Driver hasn't started the route yet"
-                      : 'Waiting for location data…'}
+                      : fbReady 
+                        ? (isTripEnded 
+                            ? `Route completed. Checking again in ${countdown}s.` 
+                            : `Driver hasn't started the route yet. Checking again in ${countdown}s.`)
+                        : 'Waiting for location data…'}
                   </div>
                 </div>
               </div>

@@ -7,6 +7,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { Bus, Navigation, Loader2, Wifi, WifiOff, Clock, CheckCircle2, MapPinOff } from 'lucide-react';
 import ModuleGuard from '../../components/ModuleGuard';
 import { Geolocation } from '@capacitor/geolocation';
+import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const GEOCODE_INTERVAL_MS = 30000; // 30s push to Firebase (Nominatim safe rate)
@@ -77,9 +78,30 @@ export default function BusAlerts() {
   const [isOnline,      setIsOnline]      = useState(navigator.onLine);
   const [gpsError,      setGpsError]      = useState(null);
 
+  const [fbReady,       setFbReady]       = useState(false);
+  const [fbError,       setFbError]       = useState(null);
+
   const coordsRef       = useRef(null);   // latest GPS coords buffer
   const geocodeTimerRef = useRef(null);   // setInterval handle
   const watchIdRef      = useRef(null);   // Capacitor watchPosition id
+
+  // ─── Firebase Authentication Bridge ───────────────────────────────────────
+  useEffect(() => {
+    async function authFirebase() {
+      try {
+        console.log('[BusAlerts] Authenticating driver with Firebase...');
+        await ensureFirebaseAuthenticated();
+        setFbReady(true);
+        setFbError(null);
+      } catch (err) {
+        console.error('[BusAlerts] Firebase auth failed:', err.message);
+        setFbError(`Firebase Connection Error: ${err.message}`);
+      }
+    }
+    if (user?.id) {
+      authFirebase();
+    }
+  }, [user?.id]);
 
   // ─── Bus assignment ─────────────────────────────────────────────────────
   const { data: assignment, isLoading: assignmentLoading } = useQuery({
@@ -183,6 +205,15 @@ export default function BusAlerts() {
   const startTracking = useCallback(async () => {
     setGpsError(null);
     setIsStarting(true);
+
+    // ── Step 0: Ensure Firebase is authenticated before starting ──
+    try {
+      await ensureFirebaseAuthenticated();
+    } catch (authErr) {
+      setGpsError(`Firebase Connection Error: ${authErr.message}`);
+      setIsStarting(false);
+      return;
+    }
 
     // ── Step 1: Request permission via Capacitor plugin ──────────────────
     console.log('[GPS] requesting permissions via Capacitor plugin...');
@@ -323,7 +354,7 @@ export default function BusAlerts() {
   }, []);
 
   // ─── Derived button state ────────────────────────────────────────────────
-  const startDisabled = isActive || isStarting || !assignment || assignmentLoading;
+  const startDisabled = isActive || isStarting || !assignment || assignmentLoading || !fbReady;
   const stopDisabled  = !isActive || isStarting;
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -430,6 +461,25 @@ export default function BusAlerts() {
                 allowFullScreen
               />
             )}
+          </div>
+        )}
+
+        {/* ── Firebase Auth Error ── */}
+        {fbError && (
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: '12px',
+            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: '14px', padding: '14px 16px', marginBottom: '16px',
+          }}>
+            <MapPinOff size={18} color="#ef4444" style={{ flexShrink: 0, marginTop: '1px' }} />
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, color: '#ef4444', fontSize: '13px', fontWeight: 600, lineHeight: 1.5 }}>
+                {fbError}
+              </p>
+              <p style={{ margin: '4px 0 0', color: '#fca5a5', fontSize: '11px', lineHeight: 1.4 }}>
+                If you are testing locally, make sure the mint-firebase-token Edge Function is running and FCM_SERVICE_ACCOUNT_KEY is configured in Supabase.
+              </p>
+            </div>
           </div>
         )}
 

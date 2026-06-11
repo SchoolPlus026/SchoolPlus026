@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X, Save, MapPin, Clock } from 'lucide-react';
 import { rtdb } from '../../config/firebaseClient';
 import { ref, onValue, off } from 'firebase/database';
+import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 
 // ── Bus key helper (must match BusAlerts.jsx + LiveBusTracker.jsx) ─────────────
 function toBusKey(n) {
@@ -13,18 +14,24 @@ function toBusKey(n) {
 
 // ── Per-bus live map card (subscribes to RTDB for a single bus) ─────────────
 // Renders a Google Maps iframe if the driver has pushed lat/lng.
-function BusLiveCard({ schoolId, busNumber }) {
+function BusLiveCard({ schoolId, busNumber, fbReady }) {
   const [live, setLive] = useState(null);
 
   useEffect(() => {
-    if (!schoolId || !busNumber || !rtdb) return;
+    if (!schoolId || !busNumber || !rtdb || !fbReady) return;
     const path = `tracking/${schoolId}/${toBusKey(busNumber)}`;
     const trackRef = ref(rtdb, path);
     const unsub = onValue(trackRef, (snap) => {
       setLive(snap.exists() ? snap.val() : null);
     }, () => setLive(null));
     return () => { unsub(); off(trackRef); };
-  }, [schoolId, busNumber]);
+  }, [schoolId, busNumber, fbReady]);
+
+  if (!fbReady) return (
+    <div style={{ fontSize: '12px', color: 'var(--text-faint)', padding: '8px 0 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <Loader2 size={11} className="animate-spin" color="var(--text-muted)" /> Connecting to live tracking…
+    </div>
+  );
 
   if (!live) return (
     <div style={{ fontSize: '12px', color: 'var(--text-faint)', padding: '8px 0 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -72,6 +79,25 @@ export default function AdminBusMonitor() {
   const { schoolSettings } = useAppStore();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('monitor');
+  const [fbReady, setFbReady] = useState(false);
+  const [fbError, setFbError] = useState(null);
+
+  useEffect(() => {
+    async function authAdmin() {
+      try {
+        console.log('[AdminBusMonitor] Authenticating admin with Firebase...');
+        await ensureFirebaseAuthenticated();
+        setFbReady(true);
+        setFbError(null);
+      } catch (err) {
+        console.error('[AdminBusMonitor] Firebase auth failed:', err.message);
+        setFbError(`Live tracking connection failed: ${err.message}`);
+      }
+    }
+    if (schoolSettings?.school_id) {
+      authAdmin();
+    }
+  }, [schoolSettings?.school_id]);
 
   // ── Add form state ──────────────────────────────────────────────────────────
   const [form, setForm] = useState({ bus_number: '', route_name: '', driver_id: '' });
@@ -206,6 +232,24 @@ export default function AdminBusMonitor() {
       {/* ── TAB: MONITOR ───────────────────────────────────────────────────── */}
       {tab === 'monitor' && (
         <div>
+          {fbError && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: '12px',
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+              borderRadius: '14px', padding: '14px 16px', marginBottom: '16px',
+            }}>
+              <AlertCircle size={18} color="#ef4444" style={{ flexShrink: 0, marginTop: '1px' }} />
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, color: '#ef4444', fontSize: '13px', fontWeight: 600, lineHeight: 1.5 }}>
+                  {fbError}
+                </p>
+                <p style={{ margin: '4px 0 0', color: '#fca5a5', fontSize: '11px', lineHeight: 1.4 }}>
+                  Ensure that your Supabase instance has the FCM_SERVICE_ACCOUNT_KEY secret set and that the mint-firebase-token Edge Function is deployed.
+                </p>
+              </div>
+            </div>
+          )}
+
           {loadingAssign
             ? <div className="card" style={{ textAlign: 'center', padding: '32px' }}><Loader2 className="animate-spin mx-auto" size={28} color="#fbbf24" /></div>
             : assignments.length === 0
@@ -234,7 +278,7 @@ export default function AdminBusMonitor() {
                         </div>
                       </div>
                       {/* ── Live map (reads from Firebase RTDB) ── */}
-                      <BusLiveCard schoolId={schoolId} busNumber={a.bus_number} />
+                      <BusLiveCard schoolId={schoolId} busNumber={a.bus_number} fbReady={fbReady} />
                     </div>
                   ))}
                 </div>
