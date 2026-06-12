@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X, Save, MapPin, Clock } from 'lucide-react';
+import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X, Save, MapPin, Clock, RefreshCw } from 'lucide-react';
 import { rtdb } from '../../config/firebaseClient';
 import { ref, onValue, off } from 'firebase/database';
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
@@ -15,7 +15,8 @@ function toBusKey(n) {
 // ── Per-bus live map card (subscribes to RTDB for a single bus) ─────────────
 // Renders a Google Maps iframe if the driver has pushed lat/lng.
 function BusLiveCard({ schoolId, busNumber, fbReady }) {
-  const [live, setLive] = useState(null);
+  const [live,   setLive]   = useState(null);
+  const [secAgo, setSecAgo] = useState(null); // seconds since driver's last push
 
   useEffect(() => {
     if (!schoolId || !busNumber || !rtdb || !fbReady) return;
@@ -26,6 +27,15 @@ function BusLiveCard({ schoolId, busNumber, fbReady }) {
     }, () => setLive(null));
     return () => { unsub(); off(trackRef); };
   }, [schoolId, busNumber, fbReady]);
+
+  // Tick "X sec ago" counter based on the driver's last_updated_ts from Firebase
+  useEffect(() => {
+    if (!live?.last_updated_ts) { setSecAgo(null); return; }
+    const compute = () => Math.floor((Date.now() - live.last_updated_ts) / 1000);
+    setSecAgo(compute());
+    const ticker = setInterval(() => setSecAgo(compute()), 5000);
+    return () => clearInterval(ticker);
+  }, [live?.last_updated_ts]);
 
   if (!fbReady) return (
     <div style={{ fontSize: '12px', color: 'var(--text-faint)', padding: '8px 0 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -53,11 +63,26 @@ function BusLiveCard({ schoolId, busNumber, fbReady }) {
           {isLive ? '🟢 LIVE' : '✅ Done'}
         </span>
       </div>
+
+      {/* ── Refresh info bar (admin equivalent of the viewer countdown) ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', background: 'var(--input-bg)', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--card-border)' }}>
+        <RefreshCw size={10} color="var(--text-faint)" />
+        <span style={{ fontSize: '11px', color: 'var(--text-faint)', fontWeight: 600 }}>
+          {isLive
+            ? secAgo === null
+              ? 'Real-time sync active'
+              : secAgo < 5
+                ? 'Just updated · Real-time sync active'
+                : `Driver updated ${secAgo}s ago · Next push ~${Math.max(0, 30 - secAgo)}s`
+            : 'Route ended · Monitoring idle'}
+        </span>
+      </div>
+
       {live.lat && live.lng ? (
         <iframe
           key={`admin-map-${live.lat}-${live.lng}`}
           src={`https://maps.google.com/maps?q=${live.lat},${live.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
-          style={{ width: '100%', height: '180px', borderRadius: '12px', border: `2px solid ${isLive ? 'rgba(16,185,129,0.2)' : 'var(--card-border)'}`, display: 'block', pointerEvents: 'none' }}
+          style={{ width: '100%', height: '180px', borderRadius: '12px', border: `2px solid ${isLive ? 'rgba(16,185,129,0.2)' : 'var(--card-border)'}`, display: 'block' }}
           title={`Bus ${busNumber} Live Location`}
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"

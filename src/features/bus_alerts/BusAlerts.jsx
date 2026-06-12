@@ -81,9 +81,11 @@ export default function BusAlerts() {
   const [fbReady,       setFbReady]       = useState(false);
   const [fbError,       setFbError]       = useState(null);
 
-  const coordsRef       = useRef(null);   // latest GPS coords buffer
-  const geocodeTimerRef = useRef(null);   // setInterval handle
-  const watchIdRef      = useRef(null);   // Capacitor watchPosition id
+  const coordsRef            = useRef(null);   // latest GPS coords buffer
+  const geocodeTimerRef      = useRef(null);   // setInterval handle
+  const watchIdRef           = useRef(null);   // Capacitor watchPosition id
+  const lastPushTimeRef      = useRef(0);      // timestamp of last Firebase push (background sync guard)
+  const runGeocodeAndPushRef = useRef(null);   // stable ref so watchPosition callback never goes stale
 
   // ─── Firebase Authentication Bridge ───────────────────────────────────────
   useEffect(() => {
@@ -186,6 +188,7 @@ export default function BusAlerts() {
     setLocationName(locationLabel);
     setDisplayCoords({ lat, lng }); // update map iframe
     setLastUpdated(new Date());
+    lastPushTimeRef.current = Date.now(); // record push time (background sync guard)
     await pushToFirebase({
       location_name:   locationLabel,
       status:          'en_route',
@@ -196,6 +199,10 @@ export default function BusAlerts() {
       driver_name:     assignment?.driver_name || user?.email || '',
     });
   }, [isOnline, reverseGeocode, pushToFirebase, assignment, user]);
+
+  // Keep a stable ref to runGeocodeAndPush so the native watchPosition callback
+  // (captured at mount time) always calls the latest version without stale closures.
+  useEffect(() => { runGeocodeAndPushRef.current = runGeocodeAndPush; }, [runGeocodeAndPush]);
 
   // ─── GPS Permission + Start flow ─────────────────────────────────────────
   // Strategy: always attempt Geolocation.requestPermissions() first.
@@ -268,6 +275,15 @@ export default function BusAlerts() {
             const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
             console.log('[GPS] position update:', coords);
             coordsRef.current = coords;
+
+            // Background-sync guard: setInterval is throttled/frozen by the OS when the
+            // app goes to background on Android. The native GPS watchPosition callback
+            // continues running. We use it as a fallback push trigger.
+            const now = Date.now();
+            if (now - lastPushTimeRef.current >= GEOCODE_INTERVAL_MS) {
+              lastPushTimeRef.current = now; // lock immediately — prevents double-push
+              runGeocodeAndPushRef.current?.();
+            }
           }
         }
       );
@@ -453,7 +469,6 @@ export default function BusAlerts() {
                 style={{
                   width: '100%', height: '200px', borderRadius: '12px',
                   border: 'none', marginTop: '14px', display: 'block',
-                  pointerEvents: 'none'
                 }}
                 title="Live Location Map"
                 loading="lazy"

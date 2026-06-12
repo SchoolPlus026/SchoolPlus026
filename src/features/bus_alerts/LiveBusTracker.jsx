@@ -23,7 +23,7 @@ let lastFetchCache = {
 };
 
 export default function LiveBusTracker() {
-  const { schoolSettings } = useAppStore();
+  const { schoolSettings, role } = useAppStore();
   const [selectedBus,   setSelectedBus]   = useState('');
   const [trackingData,  setTrackingData]  = useState(undefined); // undefined = not yet received
   const [fbReady,       setFbReady]       = useState(false);
@@ -137,9 +137,14 @@ export default function LiveBusTracker() {
 
   // ─── Polling and Ticker Control (Visibility-aware + Cache-safe) ───────────
   useEffect(() => {
+    // Role-based polling: Admin/Headmaster gets faster refresh (15s), others get 30s
+    // Bandwidth note: Admin is 1-2 users max — doubling their polls adds <1 KB/hour, negligible
+    const pollIntervalMs = (role === 'admin') ? 15000 : 30000;
+    const pollIntervalS  = pollIntervalMs / 1000;
+
     if (!selectedBus || !schoolId) {
       setTrackingData(undefined);
-      setCountdown(30);
+      setCountdown(pollIntervalS);
       return;
     }
 
@@ -174,35 +179,35 @@ export default function LiveBusTracker() {
         if (secondsLeft <= 0) {
           fetchTrackingData();
           
-          // Adaptive polling: 180s for idle routes, 30s for active ones
+          // Adaptive polling: 180s for idle routes, role-based interval for active
           const isRouteActive = lastFetchCache.data?.status === 'en_route';
-          secondsLeft = isRouteActive ? 30 : 180;
+          secondsLeft = isRouteActive ? pollIntervalS : 180;
         }
         
         setCountdown(secondsLeft);
       }, 1000);
     };
 
-    // Anti-spam re-entry check: check if cache is fresh (< 30 seconds)
+    // Anti-spam re-entry check: cache valid for one full poll interval
     const cacheAge = Date.now() - lastFetchCache.timestamp;
     const isCacheValid = 
       lastFetchCache.schoolId === schoolId &&
       lastFetchCache.busKey === busKey &&
-      cacheAge < 30000;
+      cacheAge < pollIntervalMs;
 
     if (isCacheValid) {
       console.log('[LiveBusTracker] Reusing cached tracking details (anti-spam)');
       setTrackingData(lastFetchCache.data);
       
       const elapsed = Math.floor(cacheAge / 1000);
-      const remaining = Math.max(1, 30 - elapsed);
+      const remaining = Math.max(1, pollIntervalS - elapsed);
       runTicker(remaining);
     } else {
       console.log('[LiveBusTracker] Cache cold. Requesting fresh state...');
       setTrackingData(undefined);
       fetchTrackingData().then(() => {
         const isRouteActive = lastFetchCache.data?.status === 'en_route';
-        runTicker(isRouteActive ? 30 : 180);
+        runTicker(isRouteActive ? pollIntervalS : 180);
       });
     }
 
@@ -212,11 +217,11 @@ export default function LiveBusTracker() {
         console.log('[LiveBusTracker] Visited again. Evaluating fresh fetch...');
         const age = Date.now() - lastFetchCache.timestamp;
         const isActive = lastFetchCache.data?.status === 'en_route';
-        const refreshThreshold = isActive ? 30000 : 180000;
+        const refreshThreshold = isActive ? pollIntervalMs : 180000;
 
         if (age >= refreshThreshold) {
           fetchTrackingData().then(() => {
-            runTicker(isActive ? 30 : 180);
+            runTicker(isActive ? pollIntervalS : 180);
           });
         } else {
           const remaining = Math.max(1, Math.floor((refreshThreshold - age) / 1000));
@@ -234,7 +239,7 @@ export default function LiveBusTracker() {
       clearTimers();
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [selectedBus, schoolId, fetchTrackingData]);
+  }, [selectedBus, schoolId, fetchTrackingData, role]);
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
   const fmt = (ts) =>
@@ -408,7 +413,7 @@ export default function LiveBusTracker() {
                 style={{
                   width: '100%', height: '260px', borderRadius: '14px',
                   border: isLive ? '2px solid rgba(16,185,129,0.25)' : '2px solid var(--card-border)',
-                  display: 'block', pointerEvents: 'none',
+                  display: 'block',
                 }}
                 title="Bus Live Location"
                 loading="lazy"
