@@ -265,6 +265,7 @@ function ReminderButton({ leave, user, schoolSettings }) {
          title: 'Leave Reminder',
          body: `Reminder: Pending leave application from ${user.name}`,
          route: '/leaves',
+         is_ephemeral: false,
          status: 'pending'
       });
 
@@ -283,6 +284,7 @@ function ReminderButton({ leave, user, schoolSettings }) {
                title: 'Leave Reminder',
                body: `Reminder: Pending leave application from ${user.name}`,
                route: '/leaves',
+               is_ephemeral: false,
                status: 'pending'
             });
          }

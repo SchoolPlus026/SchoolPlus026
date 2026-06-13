@@ -1,3 +1,5 @@
+import { supabase } from '../config/supabaseClient';
+
 /**
  * FCM Push Notification Utility (Placeholder)
  * 
@@ -9,29 +11,21 @@
  */
 
 export const triggerFCMNotification = async (noticeTitle, scope, schoolId) => {
-    // We simulate the backend transmission execution delay
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            console.log(`[========= FCM BROADCAST INITIATED =========]`);
-            console.log(`📡 Target Topic: ${schoolId}_${scope}`);
-            console.log(`📄 Payload String: ${noticeTitle}`);
-            console.log(`⚠️ Physical Capacitor/FCM Bridge Hook required for actual delivery.`);
-            
-            /* 
-            Example Node.js/Edge Function POST outline:
-            await fetch('https://fcm.googleapis.com/v1/projects/YOUR_PROJECT_ID/messages:send', {
-               method: 'POST',
-               headers: { 'Authorization': `Bearer ${OAUTH2_TOKEN}`, 'Content-Type': 'application/json' },
-               body: JSON.stringify({
-                 message: {
-                   topic: `${schoolId}_${scope}`,
-                   notification: { title: "New School Notice", body: noticeTitle }
-                 }
-               })
-            });
-            */
-            
-            resolve(true);
-        }, 800);
+  try {
+    const { error } = await supabase.from('app_notifications_queue').insert({
+      school_id: schoolId,
+      target_role: scope === 'all' ? 'all' : (scope === 'teachers' ? 'teacher' : 'student'),
+      title: 'New Notice Board Post',
+      body: noticeTitle,
+      route: '/notices',
+      is_ephemeral: false, // Notices must replicate to the bell table
+      status: 'pending'
     });
+    if (error) throw error;
+    console.log(`[FCM] Notice notification queued successfully for scope: ${scope}`);
+    return true;
+  } catch (err) {
+    console.error('[FCM] Failed to queue notice notification:', err.message);
+    return false;
+  }
 };

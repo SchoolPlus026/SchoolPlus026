@@ -118,15 +118,17 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
       const rows = toNotify.map(student => {
         const personalizedMsg = customizeMessageForStudent(messageText, firstSelected, student);
         return {
-          school_id: schoolSettings.school_id,
-          to_user:   student.email,
-          title:     'Fee Reminder',
-          message:   `[FEE_REMINDER] ${personalizedMsg}`,
-          is_read:   false,
+          school_id:    schoolSettings.school_id,
+          user_id:      student.id,
+          title:        'Fee Reminder',
+          body:         personalizedMsg,
+          route:        '/fees',
+          is_ephemeral: false, // Replicate to bell
+          status:       'pending'
         };
       });
 
-      const { error } = await supabase.from('notifications').insert(rows);
+      const { error } = await supabase.from('app_notifications_queue').insert(rows);
       if (error) throw error;
       onSent(selected.length);
     } catch (err) {
