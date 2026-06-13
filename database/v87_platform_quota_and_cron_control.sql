@@ -108,7 +108,7 @@ BEGIN
   PERFORM cron.schedule(
     'notification-batch-processor-free-tier',
     v_cron_expr,
-    $$
+    $cron$
     SELECT net.http_post(
       url     := 'https://nnaqayemfogpfehiaifw.supabase.co/functions/v1/process-notification-queue',
       headers := jsonb_build_object(
@@ -117,7 +117,7 @@ BEGIN
       ),
       body    := '{}'::jsonb
     );
-    $$
+    $cron$
   );
 
   RETURN jsonb_build_object('success', true, 'minutes', p_minutes, 'schedule', v_cron_expr);
