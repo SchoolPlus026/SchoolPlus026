@@ -50,7 +50,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  * - If neither works, we throw with a meaningful message.
  */
 export const safeInvokeEdgeFn = async (fnName, body = {}) => {
+  const startTime = performance.now();
+  let isCloudCallExecuted = false;
   try {
+    isCloudCallExecuted = true;
     // 1. Invoke the cloud Edge Function
     const { data, error } = await supabase.functions.invoke(fnName, { body });
 
@@ -132,5 +135,14 @@ export const safeInvokeEdgeFn = async (fnName, body = {}) => {
     }
 
     throw new Error('Network error: Could not reach the server. Please check your internet connection.');
+  } finally {
+    if (isCloudCallExecuted) {
+      const duration = Math.round(performance.now() - startTime);
+      supabase.from('edge_function_usage')
+        .insert({ function_name: fnName, execution_time_ms: duration })
+        .then(({ error: logErr }) => {
+          if (logErr) console.warn('Failed to log Edge Function usage:', logErr.message);
+        });
+    }
   }
 };

@@ -19,6 +19,7 @@ export default function PlatformAdminDashboard() {
 
   const PA_MODULES = [
     { id: 'analytics',     name: 'Analytics',       icon: <Activity size={26} />,      colorHex: '#22d3ee', bgRgb: '34,211,238' },
+    { id: 'quota-manager', name: 'Quota Control',   icon: <HardDrive size={26} />,     colorHex: '#f43f5e', bgRgb: '244,63,94' },
     { id: 'schools',       name: 'Manage Schools',  icon: <Building size={26} />,      colorHex: '#60a5fa', bgRgb: '96,165,250' },
     { id: 'registrations', name: 'Registrations',   icon: <Users size={26} />,         colorHex: '#fb7185', bgRgb: '251,113,133', badge: true },
     { id: 'plans',         name: 'Pricing Plans',   icon: <CreditCard size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153' },
@@ -137,6 +138,17 @@ export default function PlatformAdminDashboard() {
   // Registrations State — pending count for badge
   const [pendingRegCount, setPendingRegCount] = useState(0);
 
+  // Quota Control State
+  const [quotaLoading, setQuotaLoading] = useState(false);
+  const [throttleMode, setThrottleMode] = useState('Normal');
+  const [totalMonthlyCalls, setTotalMonthlyCalls] = useState(0);
+  const [monthlyLimit, setMonthlyLimit] = useState(500000);
+  const [cronMinutes, setCronMinutes] = useState(15);
+  const [disabledModules, setDisabledModules] = useState([]);
+  const [functionUsageList, setFunctionUsageList] = useState([]);
+  const [updatingCron, setUpdatingCron] = useState(false);
+  const [togglingModule, setTogglingModule] = useState(null);
+
   // Ref guard: ensures the OAuth code from the URL is consumed exactly once,
   // regardless of how many times searchParams or any state changes trigger re-renders.
   const codeHandledRef = useRef(false);
@@ -152,6 +164,7 @@ export default function PlatformAdminDashboard() {
     fetchPlans();
     fetchAllTransactions();
     fetchPendingRegCount();
+    fetchQuotaData();
 
     // Capacitor: listen for browser close after native OAuth redirect.
     // When the in-app browser finishes, re-fetch settings to pick up the
@@ -467,6 +480,95 @@ export default function PlatformAdminDashboard() {
     }
   };
 
+  const fetchQuotaData = async () => {
+    setQuotaLoading(true);
+    try {
+      const { data: throttleData, error: throttleErr } = await supabase.rpc('get_auto_throttle_status');
+      if (throttleErr) throw throttleErr;
+
+      if (throttleData) {
+        setThrottleMode(throttleData.mode || 'Normal');
+        setTotalMonthlyCalls(throttleData.call_count || 0);
+        setMonthlyLimit(throttleData.limit || 500000);
+        setCronMinutes(throttleData.cron_minutes || 15);
+        setDisabledModules(throttleData.disabled_modules || []);
+      }
+
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const { data: usageData, error: usageErr } = await supabase
+        .from('edge_function_usage')
+        .select('function_name, execution_time_ms')
+        .gt('called_at', startOfMonth);
+      
+      if (!usageErr && usageData) {
+        const aggregates = {};
+        usageData.forEach(row => {
+          const fn = row.function_name;
+          if (!aggregates[fn]) {
+            aggregates[fn] = { count: 0, total_time: 0 };
+          }
+          aggregates[fn].count += 1;
+          aggregates[fn].total_time += row.execution_time_ms || 0;
+        });
+
+        const formatted = Object.keys(aggregates).map(fn => ({
+          function_name: fn,
+          count: aggregates[fn].count,
+          avg_execution_time: Math.round(aggregates[fn].total_time / aggregates[fn].count)
+        }));
+
+        setFunctionUsageList(formatted.sort((a, b) => b.count - a.count));
+      }
+    } catch (err) {
+      console.error('Error fetching quota controls:', err.message);
+    } finally {
+      setQuotaLoading(false);
+    }
+  };
+
+  const handleUpdateCronSchedule = async (minutes) => {
+    setUpdatingCron(true);
+    try {
+      const { data, error } = await supabase.rpc('update_cron_schedule', { p_minutes: parseInt(minutes) });
+      if (error) throw error;
+      if (data?.success) {
+        setCronMinutes(minutes);
+        alert(`Free Tier cron interval successfully updated to ${minutes} minutes.`);
+      } else {
+        alert(data?.error || 'Failed to update cron schedule');
+      }
+    } catch (err) {
+      alert('Error updating cron schedule: ' + err.message);
+    } finally {
+      setUpdatingCron(false);
+    }
+  };
+
+  const handleToggleModule = async (moduleKey) => {
+    setTogglingModule(moduleKey);
+    try {
+      const isCurrentlyDisabled = disabledModules.includes(moduleKey);
+      let updatedModules;
+      if (isCurrentlyDisabled) {
+        updatedModules = disabledModules.filter(m => m !== moduleKey);
+      } else {
+        updatedModules = [...disabledModules, moduleKey];
+      }
+
+      const { error } = await supabase
+        .from('platform_settings')
+        .update({ disabled_notification_modules: updatedModules })
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      if (error) throw error;
+      setDisabledModules(updatedModules);
+    } catch (err) {
+      alert('Failed to update module delivery toggles: ' + err.message);
+    } finally {
+      setTogglingModule(null);
+    }
+  };
+
   const fetchAnnouncements = async () => {
     setLoadingBroadcasts(true);
     const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
@@ -594,7 +696,11 @@ export default function PlatformAdminDashboard() {
             {PA_MODULES.map((mod) => (
               <button
                 key={mod.id}
-                onClick={() => { setActiveTab(mod.id); if (mod.id === 'registrations') fetchPendingRegCount(); }}
+                onClick={() => { 
+                  setActiveTab(mod.id); 
+                  if (mod.id === 'registrations') fetchPendingRegCount(); 
+                  if (mod.id === 'quota-manager') fetchQuotaData();
+                }}
                 className="module-card text-left"
                 style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative', border: 'none', background: 'var(--card-bg)', width: '100%', cursor: 'pointer' }}
               >
@@ -661,6 +767,208 @@ export default function PlatformAdminDashboard() {
               <div className="text-xs font-bold uppercase tracking-widest text-purple-300">Total Teachers</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── SECTION: QUOTA MANAGER ── */}
+      {activeTab === 'quota-manager' && (
+        <div className="card fade-in">
+          <div className="settings-header flex justify-between items-center mb-6">
+            <div className="flex gap-4 items-center">
+              <div className="icon-box" style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.2)', color: '#f43f5e' }}>
+                <HardDrive size={20} />
+              </div>
+              <div className="text-content">
+                <h4>Quota & Budget Control Panel</h4>
+                <p>Monitor real-time Supabase allocations, configure background crons, and manage notification triggers.</p>
+              </div>
+            </div>
+            <button 
+              className="btn outline sm flex items-center gap-1.5" 
+              onClick={fetchQuotaData}
+              disabled={quotaLoading}
+            >
+              {quotaLoading ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />} 
+              {quotaLoading ? 'Refreshing...' : 'Refresh Quotas'}
+            </button>
+          </div>
+
+          {quotaLoading && functionUsageList.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-4">
+              <Loader2 className="w-10 h-10 animate-spin text-rose-500" />
+              <span className="font-bold text-xs uppercase tracking-widest">Aggregating live resource consumption data...</span>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Top Row: Usage & Throttle Indicator */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 1. Monthly Invocation Gauge */}
+                <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/50 relative overflow-hidden backdrop-blur-md">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Monthly Edge Function Budget</span>
+                      <div className="text-3xl font-black text-white mt-1">
+                        {totalMonthlyCalls.toLocaleString()} <span className="text-sm font-medium text-slate-400">/ {monthlyLimit.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-xs font-bold text-slate-300">
+                      {((totalMonthlyCalls / monthlyLimit) * 100).toFixed(2)}% Used
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full bg-slate-900/60 rounded-full h-3 overflow-hidden border border-slate-700/30">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        throttleMode === 'Critical' ? 'bg-gradient-to-r from-rose-600 to-red-500' :
+                        throttleMode === 'Economy' ? 'bg-gradient-to-r from-amber-500 to-yellow-400' :
+                        'bg-gradient-to-r from-emerald-500 to-teal-400'
+                      }`}
+                      style={{ width: `${Math.min(100, (totalMonthlyCalls / monthlyLimit) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Auto-Throttle Mode Card */}
+                <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/50 flex flex-col justify-between backdrop-blur-md relative overflow-hidden">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">System Optimization Mode</span>
+                      <div className="flex items-center gap-2.5 mt-2">
+                        <div className={`w-3.5 h-3.5 rounded-full animate-pulse ${
+                          throttleMode === 'Critical' ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]' :
+                          throttleMode === 'Economy' ? 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)]' :
+                          'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)]'
+                        }`} />
+                        <h4 className={`text-xl font-black uppercase tracking-wider ${
+                          throttleMode === 'Critical' ? 'text-rose-400' :
+                          throttleMode === 'Economy' ? 'text-amber-400' :
+                          'text-emerald-400'
+                        }`}>
+                          {throttleMode} Mode
+                        </h4>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-400 leading-relaxed mt-4">
+                    {throttleMode === 'Normal' && 'System is running normally. Free tier cron scheduler is active, and Firebase token caching is active.'}
+                    {throttleMode === 'Economy' && 'Egress saving active. Polling intervals reduced, background tasks throttled, and pre-auth deactivated.'}
+                    {throttleMode === 'Critical' && 'Strict limit restrictions active. All non-urgent crons stopped. Only Emergency notification routes enabled.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Middle Row: Cron Slider & Module Toggles */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 1. Dynamic Cron Scheduler Slider */}
+                <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-md">
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Free Tier Cron Frequency</span>
+                    {updatingCron && <Loader2 size={14} className="animate-spin text-slate-400" />}
+                  </div>
+
+                  <div className="bg-slate-900/40 border border-slate-700/30 rounded-2xl p-5 mb-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-sm font-semibold text-slate-300">Reschedule Interval</span>
+                      <span className="text-lg font-black text-rose-400">{cronMinutes} <span className="text-xs font-bold text-slate-400 uppercase">Mins</span></span>
+                    </div>
+
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="60" 
+                      value={cronMinutes} 
+                      onChange={(e) => setCronMinutes(parseInt(e.target.value))}
+                      onMouseUp={(e) => handleUpdateCronSchedule(e.target.value)}
+                      onTouchEnd={(e) => handleUpdateCronSchedule(e.target.value)}
+                      className="w-full accent-rose-500 cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none"
+                    />
+
+                    <div className="flex justify-between text-[10px] text-slate-500 font-bold mt-2">
+                      <span>1m (High Load)</span>
+                      <span>15m (Normal)</span>
+                      <span>30m</span>
+                      <span>60m (Safe)</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-normal mt-2">
+                    💡 Rescheduling drops and re-registers the <code>notification-batch-processor-free-tier</code> job in the database runtime, altering how frequently queued student, leave, and complaint notifications batch and deliver.
+                  </p>
+                </div>
+
+                {/* 2. Module Delivery Toggles */}
+                <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-md">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-4">Module-Wise Delivery Toggles</span>
+                  
+                  <div className="space-y-3">
+                    {[
+                      { key: 'attendance',  label: 'Attendance Alerts' },
+                      { key: 'leaves',      label: 'Leave Updates' },
+                      { key: 'complaints',  label: 'Complaint Box / Desk' },
+                      { key: 'achievers',   label: 'Achievement Badges' },
+                      { key: 'lost_found',  label: 'Lost & Found Claims' }
+                    ].map(mod => {
+                      const isDisabled = disabledModules.includes(mod.key);
+                      return (
+                        <div key={mod.key} className="flex justify-between items-center bg-slate-900/30 border border-slate-800 rounded-xl px-4 py-3">
+                          <span className="text-xs font-bold text-slate-200">{mod.label}</span>
+                          <button
+                            onClick={() => handleToggleModule(mod.key)}
+                            disabled={togglingModule === mod.key}
+                            className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
+                              isDisabled ? 'bg-slate-800 border border-slate-700' : 'bg-rose-500'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                                isDisabled ? 'translate-x-1' : 'translate-x-6'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Table: Module-wise Call Breakdown */}
+              <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-md">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-4">Module-Wise Invocation Breakdown</span>
+                
+                <div className="table-responsive overflow-x-auto border border-slate-700/50 rounded-xl overflow-hidden">
+                  <table className="legacy-table">
+                    <thead>
+                      <tr className="bg-slate-900/60">
+                        <th>Edge Function Name</th>
+                        <th className="text-center">Invocations (This Month)</th>
+                        <th className="text-right">Avg Execution Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {functionUsageList.length === 0 ? (
+                        <tr>
+                          <td colSpan="3" className="text-center py-8 text-slate-500 font-bold text-xs uppercase tracking-wider">
+                            No Edge Function usage logged in this billing period.
+                          </td>
+                        </tr>
+                      ) : (
+                        functionUsageList.map(usage => (
+                          <tr key={usage.function_name} className="hover:bg-slate-800/30">
+                            <td className="font-mono text-xs font-bold text-rose-400">{usage.function_name}</td>
+                            <td className="text-center font-black text-white">{usage.count}</td>
+                            <td className="text-right font-mono text-xs text-emerald-400">{usage.avg_execution_time} ms</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
