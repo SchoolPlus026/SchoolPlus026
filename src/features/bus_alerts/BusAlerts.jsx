@@ -11,7 +11,24 @@ import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const GEOCODE_INTERVAL_MS = 30000; // 30s push to Firebase (Nominatim safe rate)
-const LS_KEY = 'schoolos_bus_tracking'; // localStorage persistence key
+const LS_KEY = 'sp_driver_tracking_active'; // localStorage persistence key
+
+// Haversine formula to compute distance in meters between two lat/lng coordinates
+function getHaversineDistance(coords1, coords2) {
+  if (!coords1 || !coords2) return 0;
+  const toRad = (x) => (x * Math.PI) / 180;
+  const R = 6371000; // Earth's mean radius in meters
+  const dLat = toRad(coords2.lat - coords1.lat);
+  const dLng = toRad(coords2.lng - coords1.lng);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(coords1.lat)) *
+      Math.cos(toRad(coords2.lat)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 // ─── Helper: normalise bus_number → Firebase key ─────────────────────────────
 // MUST stay identical to the key used in LiveBusTracker.jsx
@@ -86,6 +103,10 @@ export default function BusAlerts() {
   const watchIdRef           = useRef(null);   // Capacitor watchPosition id
   const lastPushTimeRef      = useRef(0);      // timestamp of last Firebase push (background sync guard)
   const runGeocodeAndPushRef = useRef(null);   // stable ref so watchPosition callback never goes stale
+  
+  const lastPushedCoordsRef  = useRef(null);   // coords of last successful Firebase push
+  const lastGeocodedCoordsRef = useRef(null);   // coords of last successful Nominatim geocode
+  const cachedLocationNameRef = useRef('');     // cached reverse geocoding address label
 
   // ─── Firebase Authentication Bridge ───────────────────────────────────────
   useEffect(() => {
@@ -180,15 +201,40 @@ export default function BusAlerts() {
       return;
     }
     const { lat, lng } = coordsRef.current;
-    const name = await reverseGeocode(lat, lng);
 
-    // If Nominatim fails, fall back to coordinate string rather than skipping the push
-    const locationLabel = name || `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    // 1. Distance-based throttling (skip write if bus hasn't moved >20m and less than 3 minutes elapsed)
+    if (lastPushedCoordsRef.current) {
+      const distanceMoved = getHaversineDistance(lastPushedCoordsRef.current, { lat, lng });
+      const timeElapsed = Date.now() - lastPushTimeRef.current;
+      if (distanceMoved < 20 && timeElapsed < 3 * 60 * 1000) {
+        console.log(`[GPS] Skipping Firebase push — bus is static. Moved: ${distanceMoved.toFixed(1)}m, Elapsed: ${Math.floor(timeElapsed / 1000)}s`);
+        return;
+      }
+    }
+
+    // 2. Distance-based geocoding (skip Nominatim request if moved <100m)
+    let locationLabel = '';
+    if (lastGeocodedCoordsRef.current) {
+      const geocodeDistance = getHaversineDistance(lastGeocodedCoordsRef.current, { lat, lng });
+      if (geocodeDistance < 100 && cachedLocationNameRef.current) {
+        console.log(`[Geocode] Reusing cached address — distance moved since last geocode is ${geocodeDistance.toFixed(1)}m`);
+        locationLabel = cachedLocationNameRef.current;
+      }
+    }
+
+    if (!locationLabel) {
+      const name = await reverseGeocode(lat, lng);
+      locationLabel = name || `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      lastGeocodedCoordsRef.current = { lat, lng };
+      cachedLocationNameRef.current = locationLabel;
+    }
 
     setLocationName(locationLabel);
     setDisplayCoords({ lat, lng }); // update map iframe
     setLastUpdated(new Date());
     lastPushTimeRef.current = Date.now(); // record push time (background sync guard)
+    lastPushedCoordsRef.current = { lat, lng };
+
     await pushToFirebase({
       location_name:   locationLabel,
       status:          'en_route',
@@ -329,6 +375,11 @@ export default function BusAlerts() {
     // 2. Wipe local persistence
     localStorage.removeItem(LS_KEY);
     coordsRef.current = null;
+
+    // Reset caching refs
+    lastPushedCoordsRef.current = null;
+    lastGeocodedCoordsRef.current = null;
+    cachedLocationNameRef.current = '';
 
     // 3. Update React state IMMEDIATELY (no await — UI must flip instantly)
     setIsActive(false);

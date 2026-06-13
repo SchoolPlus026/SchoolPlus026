@@ -15,7 +15,7 @@ import ExecutiveBriefingWidget from './ExecutiveBriefingWidget';
 import PendingAttendanceWidget from '../attendance/PendingAttendanceWidget';
 import { usePlan } from '../../hooks/usePlan';
 import { usePending } from '../../hooks/usePending';
-import { useUniversalModuleActivity } from '../../hooks/useUniversalModuleActivity';
+import { useAllModuleActivities, useMarkModuleViewed } from '../../hooks/useAllModuleActivities';
 
 // All toggleable school modules. Each MUST have a matching moduleId for the guard.
 const MODULES = [
@@ -46,8 +46,8 @@ const MODULES = [
 // Premium plan lock — redirects to billing if on free tier
 const PREMIUM_MODULES = ['Fees', 'Timetable', 'Leaves', 'Reports'];
 
-function ActivityModuleCard({ mod, isLocked, onClick }) {
-  const { hasActivity, markViewed } = useUniversalModuleActivity(mod.moduleId);
+function ActivityModuleCard({ mod, isLocked, hasActivity, onClick }) {
+  const { mutate: markViewed } = useMarkModuleViewed(mod.moduleId);
 
   const handleClick = (e) => {
     markViewed();
@@ -106,6 +106,7 @@ export default function AdminDashboard() {
   const { isFree } = usePlan();
   const { isPending } = usePending();
   const navigate = useNavigate();
+  const { data: activities = {} } = useAllModuleActivities();
 
   const handleModuleClick = (e, mod) => {
     if (isFree && PREMIUM_MODULES.includes(mod.name)) {
@@ -172,11 +173,13 @@ export default function AdminDashboard() {
           {/* ── ALL OTHER MODULES ─ Respect the toggle (hide admin too) ───── */}
           {MODULES.map((mod) => {
             const isLocked = isFree && PREMIUM_MODULES.includes(mod.name);
+            const hasActivity = activities[mod.moduleId]?.hasActivity || false;
             return (
               <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
                 <ActivityModuleCard
                   mod={mod}
                   isLocked={isLocked}
+                  hasActivity={hasActivity}
                   onClick={(e) => handleModuleClick(e, mod)}
                 />
               </ModuleGuard>

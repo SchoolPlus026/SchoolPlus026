@@ -6,7 +6,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { 
   Building, Sun, Globe, Lock, Database, ShieldAlert, 
   Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus, X,
-  Phone, Mail, MapPin
+  Phone, Mail, MapPin, Sparkles
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { logAuditAction } from '../../utils/auditLogger';
@@ -143,6 +143,7 @@ export default function AdminSettings() {
   /* ── Google Drive State ── */
   const [connectingDrive, setConnectingDrive] = useState(false);
   const [disconnectingDrive, setDisconnectingDrive] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   /* ── Platform Settings & Legal ── */
   const [platformSettings, setPlatformSettings] = useState(null);
@@ -243,10 +244,8 @@ export default function AdminSettings() {
 
   const handleConnectDrive = async () => {
     const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
-    if (isFree && drives.length >= 1) {
-       if (window.confirm('The Free plan is strictly limited to 1 Google Drive connection. Upgrade to Premium to connect multiple drives. Go to Billing now?')) {
-          window.location.href = '/admin/billing';
-       }
+    if (isFree && drives.length >= 3) {
+       setShowUpgradeModal(true);
        return;
     }
 
@@ -542,7 +541,7 @@ export default function AdminSettings() {
 
   /* ── Scroll Lock ── */
   React.useEffect(() => {
-    const isAnyModalOpen = showResetModal || showSupportModal || showDemoLockModal || !!legalTab || showContactDetailsModal;
+    const isAnyModalOpen = showResetModal || showSupportModal || showDemoLockModal || !!legalTab || showContactDetailsModal || showUpgradeModal;
     const mainEl = document.querySelector('main');
     if (isAnyModalOpen) {
       document.body.style.overflow = 'hidden';
@@ -555,7 +554,7 @@ export default function AdminSettings() {
       document.body.style.overflow = '';
       if (mainEl) mainEl.style.overflow = '';
     };
-  }, [showResetModal, showSupportModal, showDemoLockModal, legalTab, showContactDetailsModal]);
+  }, [showResetModal, showSupportModal, showDemoLockModal, legalTab, showContactDetailsModal, showUpgradeModal]);
 
   /* ──────── RENDER ──────── */
   return (
@@ -791,14 +790,31 @@ export default function AdminSettings() {
                  </div>
               ))}
               
-              <button 
-                onClick={handleConnectDrive} 
-                disabled={connectingDrive} 
-                className="btn outline w-full flex justify-center items-center gap-2 mt-2"
-              >
-                {connectingDrive ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} 
-                {drives.length > 0 ? 'Add Another Drive' : 'Connect School Google Drive'}
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 items-center justify-between mt-2">
+                <button 
+                  onClick={handleConnectDrive} 
+                  disabled={connectingDrive} 
+                  className="btn outline flex-1 flex justify-center items-center gap-2"
+                  style={{ width: '100%' }}
+                >
+                  {connectingDrive ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} 
+                  {drives.length > 0 ? 'Add Another Drive' : 'Connect School Google Drive'}
+                </button>
+                {isFree ? (
+                  <span className="text-sm font-semibold text-slate-400 whitespace-nowrap bg-slate-800/20 px-3 py-2 rounded-lg border border-slate-700/30">
+                    Connected: {drives.length}/3
+                  </span>
+                ) : (
+                  <span className="text-sm font-bold text-amber-500 whitespace-nowrap bg-amber-500/10 px-3 py-2 rounded-lg border border-amber-500/20 flex items-center gap-1.5 animate-pulse" style={{ color: '#f59e0b' }}>
+                    <Sparkles size={14} /> Unlimited drives
+                  </span>
+                )}
+              </div>
+              {!isFree && (
+                <div className="text-[10px] font-bold mt-1 px-1 flex items-center gap-1 animate-pulse" style={{ color: '#f59e0b' }}>
+                  <Sparkles size={10} /> Unlimited Storage & GDrive Connections
+                </div>
+              )}
             </div>
           )
         })()}
@@ -964,6 +980,43 @@ export default function AdminSettings() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── UPGRADE PLAN MODAL ── */}
+      {showUpgradeModal && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card flex flex-col items-center text-center" style={{ width: '100%', maxWidth: '440px', border: '1px solid rgba(245, 158, 11, 0.35)', boxShadow: '0 10px 40px rgba(245, 158, 11, 0.15)' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', marginBottom: '16px' }}>
+              <Sparkles size={32} className="animate-pulse" />
+            </div>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>Upgrade to Premium</h3>
+            <p className="muted small" style={{ marginBottom: '24px', lineHeight: 1.5 }}>
+              You have reached the maximum limit of **3 Google Drive connections** allowed on the Free plan. Upgrade to Premium for unlimited storage, unlimited connections, real-time bus tracking, and full analytics.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+              <button 
+                type="button" 
+                className="btn outline" 
+                style={{ flex: 1 }} 
+                onClick={() => setShowUpgradeModal(false)}
+              >
+                Dismiss
+              </button>
+              <button 
+                type="button" 
+                className="btn accent" 
+                style={{ flex: 2, background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', color: '#fff' }} 
+                onClick={() => {
+                  setShowUpgradeModal(false);
+                  window.location.href = '/admin/billing';
+                }}
+              >
+                Upgrade Plan
+              </button>
+            </div>
           </div>
         </div>,
         document.body

@@ -67,77 +67,10 @@ serve(async (req) => {
 
   try {
     // ─────────────────────────────────────────────────────────────────────────
-    // 1. BRUTE-FORCE PROTECTION
+    // 1. BRUTE-FORCE PROTECTION (DEPRECATED & SECURED VIA SQL RPC)
     // ─────────────────────────────────────────────────────────────────────────
-
-    if (action === 'check-brute-force') {
-      const username = (payload.username as string | undefined)?.trim().toLowerCase()
-      if (!username) return errorResponse('Username is required')
-
-      const { data: log, error } = await supabaseAdmin
-        .from('login_brute_force_logs')
-        .select('*')
-        .eq('username', username)
-        .maybeSingle()
-
-      if (error) {
-        console.error('check-brute-force DB error:', error)
-        // Fail open — don't block login on DB errors
-        return jsonResponse({ locked: false })
-      }
-
-      if (log?.locked_until && new Date(log.locked_until) > new Date()) {
-        return jsonResponse({ locked: true, lockedUntil: log.locked_until })
-      }
-
-      return jsonResponse({ locked: false })
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-
-    if (action === 'log-failure') {
-      const username = (payload.username as string | undefined)?.trim().toLowerCase()
-      if (!username) return errorResponse('Username is required')
-
-      const { data: log } = await supabaseAdmin
-        .from('login_brute_force_logs')
-        .select('*')
-        .eq('username', username)
-        .maybeSingle()
-
-      let attempts = 1
-      let lockedUntil: string | null = null
-
-      if (log) {
-        attempts = (log.failed_attempts as number) + 1
-        if (attempts >= 5) {
-          lockedUntil = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
-        }
-        await supabaseAdmin
-          .from('login_brute_force_logs')
-          .update({ failed_attempts: attempts, locked_until: lockedUntil, last_attempt_at: new Date().toISOString() })
-          .eq('username', username)
-      } else {
-        await supabaseAdmin
-          .from('login_brute_force_logs')
-          .insert({ username, failed_attempts: 1 })
-      }
-
-      return jsonResponse({ attempts, locked: attempts >= 5, lockedUntil })
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-
-    if (action === 'reset-failures') {
-      const username = (payload.username as string | undefined)?.trim().toLowerCase()
-      if (!username) return errorResponse('Username is required')
-
-      await supabaseAdmin
-        .from('login_brute_force_logs')
-        .delete()
-        .eq('username', username)
-
-      return jsonResponse({ success: true })
+    if (action === 'check-brute-force' || action === 'log-failure' || action === 'reset-failures') {
+      return errorResponse('Brute-force check is now secured inside the database RPC and is deprecated on this function.', 403)
     }
 
     // ─────────────────────────────────────────────────────────────────────────

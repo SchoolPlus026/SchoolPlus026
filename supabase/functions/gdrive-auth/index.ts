@@ -98,7 +98,7 @@ async function processDriveAuth(code: string, school_id: string, redirect_uri: s
     // Normal school flow — save to school_settings
     const { data: currentSettings } = await supabaseAdmin
       .from('school_settings')
-      .select('gdrive_config')
+      .select('gdrive_config, plan_type')
       .eq('school_id', school_id)
       .single();
 
@@ -106,6 +106,11 @@ async function processDriveAuth(code: string, school_id: string, redirect_uri: s
       ? currentSettings.gdrive_config
       : (currentSettings?.gdrive_config ? [currentSettings.gdrive_config] : []);
     existingConfig = existingConfig.filter(Boolean);
+
+    // Enforce strict limit of 3 GDrive accounts on Free tier
+    if (currentSettings?.plan_type === 'free' && existingConfig.length >= 3) {
+      throw new Error('Google Drive connection limit (3) reached on the Free plan. Please upgrade to Paid.');
+    }
 
     if (existingConfig.some((d: any) => d.email === email)) {
       throw new Error(`Google account ${email} is already connected.`)

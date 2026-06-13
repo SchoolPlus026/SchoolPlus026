@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import ModuleGuard from '../../components/ModuleGuard';
 import { X } from 'lucide-react';
-import { useUniversalModuleActivity } from '../../hooks/useUniversalModuleActivity';
+import { useAllModuleActivities, useMarkModuleViewed } from '../../hooks/useAllModuleActivities';
 import FeeReminderBanner from '../../components/FeeReminderBanner';
 
 // Exact legacy module list for Student role:
@@ -100,8 +100,8 @@ function MorningCheckInBanner({ user, schoolId }) {
   );
 }
 
-function ActivityModuleCard({ mod }) {
-  const { hasActivity, markViewed } = useUniversalModuleActivity(mod.moduleId);
+function ActivityModuleCard({ mod, hasActivity }) {
+  const { mutate: markViewed } = useMarkModuleViewed(mod.moduleId);
 
   return (
     <motion.div
@@ -142,6 +142,8 @@ function ActivityModuleCard({ mod }) {
 }
 
 function StudentDashboardContent({ user, schoolSettings }) {
+  const { data: activities = {} } = useAllModuleActivities();
+
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
       <DashboardHero />
@@ -169,11 +171,14 @@ function StudentDashboardContent({ user, schoolSettings }) {
           gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
           gap: '14px',
         }}>
-          {MODULES.map((mod) => (
-            <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
-              <ActivityModuleCard mod={mod} />
-            </ModuleGuard>
-          ))}
+          {MODULES.map((mod) => {
+            const hasActivity = activities[mod.moduleId]?.hasActivity || false;
+            return (
+              <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
+                <ActivityModuleCard mod={mod} hasActivity={hasActivity} />
+              </ModuleGuard>
+            );
+          })}
         </div>
       </div>
     </div>

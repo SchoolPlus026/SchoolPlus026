@@ -276,7 +276,11 @@ export default function Login() {
     try {
       const rawInput = username.trim();
       try {
-        const bfCheck = await invokeEdgeFn('check-brute-force', { username: rawInput });
+        const { data: bfCheck, error: rpcErr } = await supabase.rpc('check_and_log_login_attempt', {
+          p_username: rawInput,
+          p_action: 'check'
+        });
+        if (rpcErr) throw rpcErr;
         if (bfCheck?.locked) {
           const unlockTime = new Date(bfCheck.lockedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           throw new Error(`🔒 Account Temporarily Locked: Too many incorrect login attempts. For security, this username is locked for 2 hours. Please try again after ${unlockTime}.`);
@@ -303,11 +307,21 @@ export default function Login() {
       });
 
       if (authError) {
-        try { await invokeEdgeFn('log-failure', { username: rawInput }); } catch (_) {}
+        try {
+          await supabase.rpc('check_and_log_login_attempt', {
+            p_username: rawInput,
+            p_action: 'fail'
+          });
+        } catch (_) {}
         throw new Error('Incorrect password or account not found.');
       }
 
-      try { await invokeEdgeFn('reset-failures', { username: rawInput }); } catch (_) {}
+      try {
+        await supabase.rpc('check_and_log_login_attempt', {
+          p_username: rawInput,
+          p_action: 'success'
+        });
+      } catch (_) {}
 
       const { data: profile, error: profileError } = await supabase
         .from('users')

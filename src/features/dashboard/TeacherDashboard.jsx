@@ -9,7 +9,7 @@ import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
 import { usePlan } from '../../hooks/usePlan';
 import { usePending } from '../../hooks/usePending';
-import { useUniversalModuleActivity } from '../../hooks/useUniversalModuleActivity';
+import { useAllModuleActivities, useMarkModuleViewed } from '../../hooks/useAllModuleActivities';
 import PendingBanner from '../../components/PendingBanner';
 import ModuleGuard from '../../components/ModuleGuard';
 import TeacherDutyBanner from '../attendance/TeacherDutyBanner';
@@ -45,8 +45,8 @@ const MODULES = [
 
 const PREMIUM_MODULES = ['Timetable', 'Gallery'];
 
-function ActivityModuleCard({ mod, isLocked, onClick }) {
-  const { hasActivity, markViewed } = useUniversalModuleActivity(mod.moduleId);
+function ActivityModuleCard({ mod, isLocked, hasActivity, onClick }) {
+  const { mutate: markViewed } = useMarkModuleViewed(mod.moduleId);
 
   const handleClick = (e) => {
     markViewed();
@@ -101,6 +101,7 @@ function TeacherDashboardContent() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { isFree } = usePlan();
   const { isPending } = usePending();
+  const { data: activities = {} } = useAllModuleActivities();
 
   React.useEffect(() => {
     if (showUpgradeModal) {
@@ -145,11 +146,13 @@ function TeacherDashboardContent() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '14px' }}>
           {MODULES.map((mod) => {
             const isLocked = (isFree && PREMIUM_MODULES.includes(mod.name));
+            const hasActivity = activities[mod.moduleId]?.hasActivity || false;
             return (
               <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
                 <ActivityModuleCard
                   mod={mod}
                   isLocked={isLocked}
+                  hasActivity={hasActivity}
                   onClick={(e) => handleModuleClick(e, mod)}
                 />
               </ModuleGuard>
