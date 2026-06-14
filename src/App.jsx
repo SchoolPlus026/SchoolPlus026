@@ -101,23 +101,7 @@ export default function App() {
   useEffect(() => {
     async function initializeApp() {
       try {
-        // Early cleanup of old insecure credentials in localStorage to prevent state mismatch
-        let migrated = false;
-        try {
-          const keys = Object.keys(localStorage);
-          for (let key of keys) {
-            if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-              localStorage.removeItem(key);
-              migrated = true;
-            }
-          }
-        } catch (e) {
-          console.warn('Migration cleanup error:', e);
-        }
 
-        if (migrated) {
-          useAppStore.getState().clearSession();
-        }
 
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -299,6 +283,7 @@ export default function App() {
           <Route path="attendance"       element={<MarkAttendance />} />
           <Route path="users"            element={<UserManagement />} />
           <Route path="timetable"        element={<TimetableViewer />} />
+          <Route path="calendar"         element={<CalendarEvents />} />
           <Route path="off-classes"      element={<OffClasses />} />
           <Route path="notices"          element={<NoticeManager />} />
           <Route path="leaves"           element={<LeavesManager />} />
@@ -327,6 +312,7 @@ export default function App() {
           <Route path="attendance"  element={<StudentAttendanceChart />} />
           <Route path="fees"        element={<StudentFeeLedger />} />
           <Route path="timetable"   element={<TimetableViewer />} />
+          <Route path="calendar"    element={<CalendarEvents />} />
           <Route path="notices"     element={<NoticeBoard />} />
           <Route path="leaves"      element={<LeavesManager />} />
           <Route path="gallery"     element={<GalleryManager />} />
@@ -349,6 +335,7 @@ export default function App() {
           <Route path="dashboard"    element={<StaffDashboard />} />
           <Route path="profile"      element={<UserProfile />} />
           <Route path="notices"      element={<NoticeBoard />} />
+          <Route path="calendar"     element={<CalendarEvents />} />
           <Route path="leaves"       element={<LeavesManager />} />
           <Route path="gallery"      element={<GalleryManager />} />
           <Route path="contact"      element={<Contact />} />

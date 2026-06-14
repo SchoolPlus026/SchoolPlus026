@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  User, Bell, CalendarHeart, Image,
+  User, Bell, CalendarHeart, Image, Calendar,
   BookOpen, MessageSquare, Settings, AlertTriangle
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
@@ -14,6 +14,7 @@ import ModuleGuard from '../../components/ModuleGuard';
 // and that are relevant to a non-teaching, non-driving employee.
 const MODULES = [
   { name: 'My Profile',    path: '/staff/profile',       icon: <User size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
+  { name: 'Calendar',      path: '/staff/calendar',      icon: <Calendar size={26} />,      colorHex: '#2dd4bf', bgRgb: '45,212,191',   moduleId: 'calendar'      },
   { name: 'Notices',       path: '/staff/notices',       icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36',   moduleId: 'notices'       },
   { name: 'Leaves',        path: '/staff/leaves',        icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133',  moduleId: 'leaves'        },
   { name: 'Gallery',       path: '/staff/gallery',       icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182',  moduleId: 'gallery'       },

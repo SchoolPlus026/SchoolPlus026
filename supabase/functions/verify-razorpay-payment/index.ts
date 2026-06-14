@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { HmacSha256 } from 'https://deno.land/std@0.160.0/hash/sha256.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,15 +47,28 @@ serve(async (req) => {
       throw new Error('Unauthorized for this school');
     }
 
-    // 4. Verify Razorpay Signature
+    // 4. Verify Razorpay Signature using native Web Crypto
     const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
     if (!keySecret) {
       throw new Error('Razorpay secret key not configured');
     }
 
-    const hmac = new HmacSha256(keySecret);
-    hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-    const expectedSignature = hmac.toString();
+    const encoder = new TextEncoder();
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(keySecret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const signatureBuffer = await crypto.subtle.sign(
+      "HMAC",
+      cryptoKey,
+      encoder.encode(`${razorpay_order_id}|${razorpay_payment_id}`)
+    );
+    const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
 
     if (expectedSignature !== razorpay_signature) {
       throw new Error('Payment signature verification failed');

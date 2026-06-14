@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  User, ClipboardCheck, Users, Clock, CalendarX,
+  User, ClipboardCheck, Users, Clock, CalendarX, Calendar,
   Bell, CalendarHeart, Image, LineChart, Settings, Lock, BookOpen, MessageSquare, Book, HeartPulse, Search, AlertTriangle, Bus, Trophy, IndianRupee
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
@@ -26,6 +26,7 @@ const MODULES = [
   { name: 'Manage Students',    path: '/teacher/users',             icon: <Users size={26} />,         colorHex: '#6366f1', bgRgb: '99,102,241', moduleId: 'users'   },
   { name: 'Timetable',          path: '/teacher/timetable',        icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252', moduleId: 'timetable'  },
   { name: 'Off Classes',        path: '/teacher/off-classes',      icon: <CalendarX size={26} />,     colorHex: '#fb923c', bgRgb: '251,146,60', moduleId: 'off_classes'   },
+  { name: 'Calendar',           path: '/teacher/calendar',         icon: <Calendar size={26} />,      colorHex: '#2dd4bf', bgRgb: '45,212,191',   moduleId: 'calendar'  },
   { name: 'Notices',            path: '/teacher/notices',          icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36', moduleId: 'notices'   },
   { name: 'Leaves',             path: '/teacher/leaves',           icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133', moduleId: 'leaves'  },
   { name: 'Gallery',            path: '/teacher/gallery',          icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182', moduleId: 'gallery'  },

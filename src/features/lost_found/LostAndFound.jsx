@@ -227,15 +227,33 @@ export default function LostAndFound() {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Photo Upload (Required)</label>
-              <div className="relative">
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  required 
-                  onChange={e => setFile(e.target.files[0])} 
-                  className="sp-input w-full file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30 cursor-pointer" 
-                />
-              </div>
+              {file ? (
+                <div className="space-y-3 p-4 bg-indigo-950/20 border border-indigo-500/20 rounded-2xl">
+                  <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/5">
+                    <span className="text-xs text-indigo-300 font-semibold truncate flex-1">{file.name}</span>
+                    <button type="button" onClick={() => setFile(null)} className="p-1 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="relative w-40 h-28 rounded-xl overflow-hidden border border-white/10 bg-slate-900 shadow-md">
+                    <img 
+                      src={URL.createObjectURL(file)} 
+                      alt="Local preview" 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    required 
+                    onChange={e => setFile(e.target.files[0])} 
+                    className="sp-input w-full file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30 cursor-pointer" 
+                  />
+                </div>
+              )}
             </div>
           </div>
           <div>

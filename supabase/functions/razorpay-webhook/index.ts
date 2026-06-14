@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { HmacSha256 } from 'https://deno.land/std@0.160.0/hash/sha256.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,10 +22,23 @@ serve(async (req) => {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    // Verify Signature
-    const hmac = new HmacSha256(secret);
-    hmac.update(rawBody);
-    const expectedSignature = hmac.toString();
+    // Verify Signature using native Web Crypto
+    const encoder = new TextEncoder();
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const signatureBuffer = await crypto.subtle.sign(
+      "HMAC",
+      cryptoKey,
+      encoder.encode(rawBody)
+    );
+    const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
 
     if (expectedSignature !== signature) {
       console.error('Invalid signature');

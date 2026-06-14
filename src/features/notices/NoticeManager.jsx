@@ -201,13 +201,24 @@ export default function NoticeManager() {
 
               {gdriveConnected ? (
                 imageFile ? (
-                  /* File selected — show preview chip */
-                  <div className="flex items-center gap-3 p-3 bg-emerald-900/30 border border-emerald-700/50 rounded-xl">
-                    <ImageIcon size={18} className="text-emerald-400 flex-shrink-0" />
-                    <span className="text-sm text-emerald-300 font-semibold truncate flex-1">{imageFile.name}</span>
-                    <button type="button" onClick={handleRemoveImage} className="text-red-400 hover:text-red-300">
-                      <X size={16} />
-                    </button>
+                  /* File selected — show preview chip + visual thumbnail */
+                  <div className="space-y-3 p-4 bg-emerald-950/20 border border-emerald-500/20 rounded-2xl">
+                    <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ImageIcon size={16} className="text-emerald-400 flex-shrink-0" />
+                        <span className="text-xs text-emerald-300 font-semibold truncate">{imageFile.name}</span>
+                      </div>
+                      <button type="button" onClick={handleRemoveImage} className="p-1 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors">
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="relative w-40 h-28 rounded-xl overflow-hidden border border-white/10 bg-slate-900 shadow-md">
+                      <img 
+                        src={URL.createObjectURL(imageFile)} 
+                        alt="Local preview" 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
                   </div>
                 ) : (
                   /* GDrive connected — show drag-to-upload zone */

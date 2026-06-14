@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  User, ClipboardList, DollarSign, Clock,
+  User, ClipboardList, DollarSign, Clock, Calendar,
   Bell, CalendarHeart, Image, Settings, BookOpen, MessageSquare, Book, HeartPulse, Search, Bus, Trophy
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
@@ -22,6 +22,7 @@ const MODULES = [
   { name: 'Attendance',  path: '/student/attendance', icon: <ClipboardList size={26} />, colorHex: '#818cf8', bgRgb: '129,140,248', moduleId: 'attendance'  },
   { name: 'Fees',        path: '/student/fees',       icon: <DollarSign size={26} />,    colorHex: '#34d399', bgRgb: '52,211,153', moduleId: 'fees'   },
   { name: 'Timetable',   path: '/student/timetable',  icon: <Clock size={26} />,         colorHex: '#c084fc', bgRgb: '192,132,252', moduleId: 'timetable'  },
+  { name: 'Calendar',    path: '/student/calendar',   icon: <Calendar size={26} />,      colorHex: '#2dd4bf', bgRgb: '45,212,191',   moduleId: 'calendar'  },
   { name: 'Notices',     path: '/student/notices',    icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36', moduleId: 'notices'   },
   { name: 'Leaves',      path: '/student/leaves',     icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133', moduleId: 'leaves'  },
   { name: 'Gallery',        path: '/student/gallery',         icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182', moduleId: 'gallery'  },

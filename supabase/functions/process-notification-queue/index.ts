@@ -192,23 +192,15 @@ serve(async (req) => {
       throw new Error("Could not authenticate with FCM: " + tokenErr.message);
     }
 
-    // Fetch up to 100 pending notifications
+    // Fetch and claim up to 100 pending notifications atomically using the claim_pending_notifications RPC
     const { data: pendingRecords, error: fetchErr } = await supabase
-      .from("app_notifications_queue")
-      .select("*")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true })
-      .limit(100);
+      .rpc("claim_pending_notifications", { p_limit: 100 });
 
     if (fetchErr) throw fetchErr;
 
     if (!pendingRecords || pendingRecords.length === 0) {
       return new Response(JSON.stringify({ ok: true, message: "No pending notifications" }), { headers: corsHeaders });
     }
-
-    // Mark all as processing to prevent concurrent cron runs from duplicating work
-    const recordIds = pendingRecords.map(r => r.id);
-    await supabase.from("app_notifications_queue").update({ status: 'processing' }).in("id", recordIds);
 
     let totalSent = 0;
     let totalFailed = 0;
