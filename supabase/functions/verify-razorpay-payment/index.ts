@@ -13,13 +13,17 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseAdmin = createClient(
-    supabaseUrl,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  );
+  let supabaseAdmin: any = null;
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Supabase URL or Service Role Key not configured');
+    }
+    
+    supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
     // 1. Authenticate caller
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -43,7 +47,7 @@ serve(async (req) => {
       .select('school_id')
       .eq('id', user.id)
       .single();
-    if (userCheckError || userData.school_id !== school_id) {
+    if (userCheckError || !userData || userData.school_id !== school_id) {
       throw new Error('Unauthorized for this school');
     }
 
@@ -155,20 +159,26 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Verification error:', error.message);
+    console.error('Verification error:', error.message, error.stack);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     });
   } finally {
-    // Log edge function usage
     const duration = Date.now() - startTime;
-    await supabaseAdmin
-      .from('edge_function_usage')
-      .insert({
-        function_name: 'verify-razorpay-payment',
-        execution_time_ms: duration
-      })
-      .catch((e) => console.error('Logging failed:', e.message));
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (supabaseUrl && serviceRoleKey) {
+        const loggingClient = createClient(supabaseUrl, serviceRoleKey);
+        await loggingClient.from('edge_function_usage').insert({
+          function_name: 'verify-razorpay-payment',
+          execution_time_ms: duration
+        });
+      }
+    } catch (logErr: any) {
+      console.error('Logging failed inside finally block:', logErr.message);
+    }
   }
+
 });
