@@ -34,11 +34,34 @@ const cookieStorage = {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: cookieStorage,
     persistSession: true,
     detectSessionInUrl: true
   }
 });
+
+// Backup and override supabase.functions.invoke to automatically log all client-side function calls
+const originalInvoke = supabase.functions.invoke.bind(supabase.functions);
+supabase.functions.invoke = async function (functionName, options) {
+  const startTime = performance.now();
+  try {
+    const result = await originalInvoke(functionName, options);
+    const duration = Math.round(performance.now() - startTime);
+    supabase.from('edge_function_usage')
+      .insert({ function_name: functionName, execution_time_ms: duration })
+      .then(({ error }) => {
+        if (error) console.warn('Failed to log Edge Function usage:', error.message);
+      });
+    return result;
+  } catch (err) {
+    const duration = Math.round(performance.now() - startTime);
+    supabase.from('edge_function_usage')
+      .insert({ function_name: functionName, execution_time_ms: duration })
+      .then(({ error }) => {
+        if (error) console.warn('Failed to log Edge Function usage:', error.message);
+      });
+    throw err;
+  }
+};
 
 /**
  * Invokes a Supabase Edge Function safely.
@@ -50,7 +73,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  * - If neither works, we throw with a meaningful message.
  */
 export const safeInvokeEdgeFn = async (fnName, body = {}) => {
-  const startTime = performance.now();
   let isCloudCallExecuted = false;
   try {
     isCloudCallExecuted = true;
@@ -136,13 +158,6 @@ export const safeInvokeEdgeFn = async (fnName, body = {}) => {
 
     throw new Error('Network error: Could not reach the server. Please check your internet connection.');
   } finally {
-    if (isCloudCallExecuted) {
-      const duration = Math.round(performance.now() - startTime);
-      supabase.from('edge_function_usage')
-        .insert({ function_name: fnName, execution_time_ms: duration })
-        .then(({ error: logErr }) => {
-          if (logErr) console.warn('Failed to log Edge Function usage:', logErr.message);
-        });
-    }
+    // Client-side logging is handled globally by overriding supabase.functions.invoke
   }
 };

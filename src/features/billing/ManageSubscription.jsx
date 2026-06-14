@@ -224,27 +224,36 @@ export default function ManageSubscription() {
         description: `${plan.name} Subscription`,
         order_id: data.order_id,
         notes: { school_id: schoolSettings.school_id, plan_type: plan.name },
-        handler: async function () {
+        handler: async function (response) {
           showToast('Payment Processing... Activating Premium.', 'success');
-          let attempts = 0;
-          const pollInterval = setInterval(async () => {
-            attempts++;
-            const { data: s } = await supabase
-              .from('school_settings')
-              .select('*')
-              .eq('school_id', schoolSettings.school_id)
-              .single();
-            if (s?.subscription_tier === 'Premium') {
-              clearInterval(pollInterval);
-              useAppStore.getState().setSchoolSettings(s);
+          try {
+            const { data: verifyData, error: verifyErr } = await supabase.functions.invoke('verify-razorpay-payment', {
+              body: {
+                razorpay_order_id: response.razorpay_order_id || data.order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                school_id: schoolSettings.school_id
+              }
+            });
+            if (verifyErr) throw verifyErr;
+            if (verifyData?.success) {
+              const { data: s } = await supabase
+                .from('school_settings')
+                .select('*')
+                .eq('school_id', schoolSettings.school_id)
+                .single();
+              if (s) {
+                useAppStore.getState().setSchoolSettings(s);
+              }
               showToast('✨ Premium Activated Successfully!', 'success');
               setTimeout(() => window.location.reload(), 1500);
+            } else {
+              throw new Error(verifyData?.error || 'Verification failed');
             }
-            if (attempts >= 8) {
-              clearInterval(pollInterval);
-              showToast('Taking longer than expected. Please refresh in a minute.', 'error');
-            }
-          }, 2000);
+          } catch (err) {
+            console.error('Verification error:', err);
+            showToast('Verification failed: ' + err.message, 'error');
+          }
         },
         prefill: { name: schoolSettings.name },
         theme: { color: '#4f46e5' },

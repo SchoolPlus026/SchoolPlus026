@@ -80,12 +80,16 @@ function showInAppToast(title, body) {
           </svg>
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;color:#f1f5f9;margin-bottom:3px;font-size:13px;line-height:1.3;">${title || 'Notification'}</div>
-          <div style="color:#94a3b8;font-size:12px;line-height:1.4;word-break:break-word;">${body || ''}</div>
+          <div id="fcm-toast-title" style="font-weight:700;color:#f1f5f9;margin-bottom:3px;font-size:13px;line-height:1.3;"></div>
+          <div id="fcm-toast-body" style="color:#94a3b8;font-size:12px;line-height:1.4;word-break:break-word;"></div>
         </div>
         <button onclick="this.closest('[data-fcm-toast]').remove()" style="background:none;border:none;color:#64748b;cursor:pointer;padding:0;line-height:1;font-size:18px;flex-shrink:0;">×</button>
       </div>
     `;
+    const titleEl = toast.querySelector('#fcm-toast-title');
+    const bodyEl = toast.querySelector('#fcm-toast-body');
+    if (titleEl) titleEl.textContent = title || 'Notification';
+    if (bodyEl) bodyEl.textContent = body || '';
     toast.setAttribute('data-fcm-toast', 'true');
 
     container.appendChild(toast);

@@ -113,6 +113,14 @@ export default function EmergencyOverlay() {
       <div className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 ${bgColor} text-white animate-in fade-in duration-300`}>
         <div className="absolute inset-0 bg-black/40" />
         <div className="relative z-10 flex flex-col items-center text-center max-w-lg w-full bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/20 shadow-2xl">
+          {/* Close button in the top-right corner of the overlay card */}
+          <button 
+            onClick={() => handleDismiss(fullScreenAlert.id)}
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors cursor-pointer border-0 flex items-center justify-center"
+            title="Dismiss Alert"
+          >
+            <X size={18} />
+          </button>
           <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
             <Icon size={48} className="text-white" />
           </div>
@@ -128,14 +136,17 @@ export default function EmergencyOverlay() {
                 await supabase.from('emergency_alerts').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', fullScreenAlert.id);
                 setActiveAlerts(prev => prev.filter(a => a.id !== fullScreenAlert.id));
               }}
-              className="w-full py-4 bg-white text-red-600 rounded-xl font-black text-lg shadow-xl hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 bg-white text-red-600 rounded-xl font-black text-lg shadow-xl hover:bg-slate-100 transition-colors flex items-center justify-center gap-2 cursor-pointer border-0"
             >
               <CheckCircle2 /> Dismiss & Resolve Alert
             </button>
           ) : (
-            <p className="text-xs font-bold uppercase tracking-widest opacity-60">
-              Please follow instructions immediately. This alert cannot be dismissed.
-            </p>
+            <button 
+              onClick={() => handleDismiss(fullScreenAlert.id)}
+              className="w-full py-4 bg-white/20 hover:bg-white/30 text-white rounded-xl font-black text-lg shadow-xl transition-colors flex items-center justify-center gap-2 cursor-pointer border-0"
+            >
+              Dismiss Alert <X size={18} />
+            </button>
           )}
         </div>
       </div>

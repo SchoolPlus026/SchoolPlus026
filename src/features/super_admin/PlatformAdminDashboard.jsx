@@ -461,6 +461,35 @@ export default function PlatformAdminDashboard() {
     }
   };
 
+  const handleDeletePlan = async (plan) => {
+    if (!window.confirm(`Are you sure you want to delete the plan "${plan.name}"?`)) return;
+    try {
+      const { error } = await supabase
+        .from('subscription_plans')
+        .delete()
+        .eq('id', plan.id);
+      
+      if (error) {
+        if (error.code === '23503') {
+          const { error: updateError } = await supabase
+            .from('subscription_plans')
+            .update({ is_active: false })
+            .eq('id', plan.id);
+          
+          if (updateError) throw updateError;
+          alert(`Plan "${plan.name}" cannot be deleted because it is referenced by existing transactions. It has been deactivated/hidden instead.`);
+        } else {
+          throw error;
+        }
+      } else {
+        alert(`Plan "${plan.name}" deleted successfully.`);
+      }
+      fetchPlans();
+    } catch (err) {
+      alert('Error deleting plan: ' + err.message);
+    }
+  };
+
   const fetchPlatformSettings = async () => {
     const { data } = await supabase.from('platform_settings').select('*').single();
     if (data) {
@@ -1024,15 +1053,24 @@ export default function PlatformAdminDashboard() {
                         </span>
                       </td>
                       <td>
-                        <button className="btn outline sm" onClick={() => {
-                          setEditingPlan(plan);
-                          setEditPlanName(plan.name);
-                          setEditPlanAmount((plan.amount_paise / 100).toString());
-                          setEditPlanValidity(plan.validity_days.toString());
-                          setEditPlanActive(plan.is_active);
-                        }}>
-                          Edit
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button className="btn outline sm" onClick={() => {
+                            setEditingPlan(plan);
+                            setEditPlanName(plan.name);
+                            setEditPlanAmount((plan.amount_paise / 100).toString());
+                            setEditPlanValidity(plan.validity_days.toString());
+                            setEditPlanActive(plan.is_active);
+                          }}>
+                            Edit
+                          </button>
+                          <button 
+                            className="text-red-400 hover:text-red-300 transition-colors text-xs font-semibold" 
+                            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                            onClick={() => handleDeletePlan(plan)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

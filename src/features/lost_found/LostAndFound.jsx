@@ -66,8 +66,18 @@ export default function LostAndFound() {
       // 1. Convert file to base64
       const fileBase64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
+        reader.onload = () => {
+          const result = reader.result;
+          if (typeof result === 'string') {
+            resolve(result.split(',')[1]);
+          } else {
+            reject(new Error("File reader did not return a string."));
+          }
+        };
+        reader.onerror = () => {
+          const errorMsg = reader.error ? reader.error.message : "Unknown file read error";
+          reject(new Error(`Failed to read image file: ${errorMsg}`));
+        };
         reader.readAsDataURL(file);
       });
 
@@ -137,7 +147,7 @@ export default function LostAndFound() {
       if (err?.context && typeof err.context.text === 'function') {
         try { errMsg = await err.context.text(); } catch(e){}
       }
-      alert(`Error: ${errMsg || JSON.stringify(err)}`);
+      alert(`Error: ${errMsg || (typeof err === 'string' ? err : JSON.stringify(err)) || 'Unknown error occurred'}`);
     } finally {
       setSubmitting(false);
     }

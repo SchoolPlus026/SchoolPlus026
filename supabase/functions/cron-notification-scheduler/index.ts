@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  const startTime = Date.now();
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -88,5 +89,20 @@ serve(async (req) => {
   } catch (err: any) {
     console.error(err);
     return new Response(JSON.stringify({ error: err.message }), { headers: corsHeaders, status: 500 });
+  } finally {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (supabaseUrl && serviceRoleKey) {
+      try {
+        const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+        const duration = Date.now() - startTime;
+        await supabaseAdmin.from("edge_function_usage").insert({
+          function_name: "cron-notification-scheduler",
+          execution_time_ms: duration
+        });
+      } catch (logErr: any) {
+        console.error("Logging failed inside finally block:", logErr.message);
+      }
+    }
   }
 });

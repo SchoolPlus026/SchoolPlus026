@@ -4,6 +4,17 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Loader2, Megaphone, Calendar, Users, Briefcase, Trash2, PenTool } from 'lucide-react';
 
+const getDirectGDriveImageUrl = (url) => {
+  if (!url) return '';
+  if (url.includes('drive.google.com')) {
+    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    }
+  }
+  return url;
+};
+
 export default function NoticeBoard() {
   const { role, schoolSettings } = useAppStore();
   const queryClient = useQueryClient();
@@ -141,9 +152,10 @@ export default function NoticeBoard() {
                         {notice.photo_url && (
                             <div className="mt-4 border border-glass rounded-xl overflow-hidden shadow-sm bg-slate-900 w-full max-w-sm">
                                 <img 
-                                src={notice.photo_url} 
+                                src={getDirectGDriveImageUrl(notice.photo_url)} 
                                 alt="Notice Attachment" 
                                 className="w-full h-auto object-contain" 
+                                referrerPolicy="no-referrer"
                                 onError={(e) => e.target.style.display = 'none'}
                                 />
                             </div>
