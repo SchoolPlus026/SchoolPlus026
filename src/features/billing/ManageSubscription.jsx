@@ -200,6 +200,47 @@ export default function ManageSubscription() {
     showToast('Transaction deleted.', 'success');
   };
 
+  /**
+   * Extracts a human-readable error message from a Supabase FunctionsHttpError or standard Error.
+   * The Supabase JS SDK wraps 4xx responses in FunctionsHttpError whose .message is just
+   * "Edge Function returned a non-2xx status code". The real error JSON lives in error.context.
+   */
+  const extractEdgeFnError = async (err) => {
+    try {
+      const ctx = err?.context;
+      if (ctx && typeof ctx.json === 'function') {
+        const json = await ctx.json();
+        return json?.error || json?.message || err.message;
+      }
+    } catch (_) { /* ignore */ }
+    return err?.message || 'An unknown error occurred';
+  };
+
+  /**
+   * Calls verify-razorpay-payment. On first failure, waits 2s and retries once.
+   * Returns the verifyData on success, throws on failure.
+   */
+  const verifyPaymentWithRetry = async (payload, attempt = 1) => {
+    const { data: verifyData, error: verifyErr } = await supabase.functions.invoke('verify-razorpay-payment', {
+      body: payload
+    });
+
+    if (verifyErr) {
+      const errMsg = await extractEdgeFnError(verifyErr);
+      if (attempt < 2) {
+        console.warn(`[Billing] Verification attempt ${attempt} failed: ${errMsg}. Retrying in 2s...`);
+        await new Promise(r => setTimeout(r, 2000));
+        return verifyPaymentWithRetry(payload, attempt + 1);
+      }
+      throw new Error(errMsg);
+    }
+
+    if (verifyData?.error) throw new Error(verifyData.error);
+    if (!verifyData?.success) throw new Error('Verification returned unexpected response');
+
+    return verifyData;
+  };
+
   const handleBuyPlan = async (plan) => {
     if (!window.Razorpay) {
       showToast('Razorpay SDK failed to load. Are you online?', 'error');
@@ -225,34 +266,38 @@ export default function ManageSubscription() {
         order_id: data.order_id,
         notes: { school_id: schoolSettings.school_id, plan_type: plan.name },
         handler: async function (response) {
-          showToast('Payment Processing... Activating Premium.', 'success');
+          showToast('Payment received. Activating Premium...', 'success');
+          const paymentId = response.razorpay_payment_id;
+          const orderId = response.razorpay_order_id;
           try {
-            const { data: verifyData, error: verifyErr } = await supabase.functions.invoke('verify-razorpay-payment', {
-              body: {
-                razorpay_order_id: response.razorpay_order_id || data.order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                school_id: schoolSettings.school_id
-              }
-            });
-            if (verifyErr) throw verifyErr;
-            if (verifyData?.success) {
-              const { data: s } = await supabase
-                .from('school_settings')
-                .select('*')
-                .eq('school_id', schoolSettings.school_id)
-                .single();
-              if (s) {
-                useAppStore.getState().setSchoolSettings(s);
-              }
-              showToast('✨ Premium Activated Successfully!', 'success');
-              setTimeout(() => window.location.reload(), 1500);
-            } else {
-              throw new Error(verifyData?.error || 'Verification failed');
+            if (!orderId || !paymentId) {
+              throw new Error('Razorpay did not return required payment fields. Please contact support.');
             }
+
+            await verifyPaymentWithRetry({
+              razorpay_order_id: orderId,
+              razorpay_payment_id: paymentId,
+              school_id: schoolSettings.school_id,
+            });
+
+            // Refresh school settings in the store
+            const { data: s } = await supabase
+              .from('school_settings')
+              .select('*')
+              .eq('school_id', schoolSettings.school_id)
+              .single();
+            if (s) useAppStore.getState().setSchoolSettings(s);
+
+            showToast('✨ Premium Activated Successfully!', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+
           } catch (err) {
-            console.error('Verification error:', err);
-            showToast('Verification failed: ' + err.message, 'error');
+            console.error('[Billing] Verification error:', err);
+            // Surface the payment ID so the user can contact support if needed
+            const supportMsg = paymentId
+              ? `Verification failed. Your payment (${paymentId}) was received. Please contact support if premium is not activated within 10 minutes.`
+              : `Verification failed: ${err.message}`;
+            showToast(supportMsg, 'error');
           }
         },
         prefill: { name: schoolSettings.name },
