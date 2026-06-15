@@ -93,7 +93,10 @@ export default function Login() {
 
   useEffect(() => {
     return () => {
-      if (qrPollInterval) clearInterval(qrPollInterval);
+      if (qrPollInterval) {
+        clearTimeout(qrPollInterval);
+        clearInterval(qrPollInterval);
+      }
     };
   }, [qrPollInterval]);
 
@@ -608,14 +611,19 @@ export default function Login() {
       const data = await invokeEdgeFn('qr-generate', {});
       setQrToken(data.qrToken);
       setStep(7);
-      const interval = setInterval(async () => {
+
+      let delay = 5000; // start at 5 seconds
+      const maxTime = 90000; // 90 seconds timeout
+      let elapsed = 0;
+      let timerId = null;
+
+      const poll = async () => {
         try {
           const status = await invokeEdgeFn('qr-poll', { qrToken: data.qrToken });
           if (status.expired) {
-            clearInterval(interval);
             setError('QR session expired. Please refresh.');
+            return;
           } else if (status.verified) {
-            clearInterval(interval);
             if (status.requiresPasswordChange) {
               setPendingMagicLink(status.loginUrl);
               setStep(9);
@@ -623,10 +631,30 @@ export default function Login() {
               setSuccess('Device verified! Logging you in...');
               window.location.href = status.loginUrl;
             }
+            return;
           }
-        } catch (e) { console.error(e); }
-      }, 3000);
-      setQrPollInterval(interval);
+        } catch (e) {
+          console.error(e);
+        }
+
+        // Increment elapsed time and check if timeout reached
+        elapsed += delay;
+        if (elapsed >= maxTime) {
+          setError('QR session timed out. Please try again.');
+          return;
+        }
+
+        // Apply backoff: increase delay by 1.5x, up to a maximum of 15 seconds
+        delay = Math.min(delay * 1.5, 15000);
+
+        // Schedule next poll
+        timerId = setTimeout(poll, delay);
+        setQrPollInterval(timerId);
+      };
+
+      // Start the first poll after 5 seconds
+      timerId = setTimeout(poll, delay);
+      setQrPollInterval(timerId);
     } catch (err) {
       setError(err.message);
     } finally {

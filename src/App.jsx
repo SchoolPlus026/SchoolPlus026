@@ -112,13 +112,50 @@ export default function App() {
         }
 
         // Cache bypass check: if we already have a persistent user session and profile,
-        // and it was fetched within the last 30 minutes, skip remote database queries to save egress.
+        // and it is within the dynamic cache window hours, skip remote database queries to save egress.
         const store = useAppStore.getState();
-        const cacheFresh = store.user && store.role && store.profileLastFetched && (Date.now() - store.profileLastFetched < 30 * 60 * 1000);
 
-        if (cacheFresh && store.user.id === session.user.id) {
-          setIsInitializing(false);
-          return;
+        // Fetch/refresh platform settings if they are older than 1 hour or missing
+        const isPlatformSettingsFresh = store.platformSettings && store.platformSettingsLastFetched && (Date.now() - store.platformSettingsLastFetched < 60 * 60 * 1000);
+        let platSettings = store.platformSettings;
+
+        if (!isPlatformSettingsFresh) {
+          try {
+            const { data } = await supabase
+              .from('platform_settings')
+              .select('free_tier_refresh_cooldown, premium_tier_refresh_cooldown, night_mode_enabled, night_start_time, night_end_time, free_tier_cache_hours, premium_tier_cache_hours')
+              .single();
+            if (data) {
+              platSettings = data;
+              store.setPlatformSettings(data);
+              store.setPlatformSettingsLastFetched(Date.now());
+            }
+          } catch (platErr) {
+            console.warn('Failed to fetch platform optimization settings:', platErr.message);
+          }
+        }
+
+        const isFree = store.schoolSettings?.subscription_tier === 'Free' || store.schoolSettings?.plan_type === 'free' || !store.schoolSettings?.subscription_tier;
+        const cacheHours = isFree 
+          ? (platSettings?.free_tier_cache_hours ?? 6)
+          : (platSettings?.premium_tier_cache_hours ?? 1);
+        const cacheFresh = store.user && store.role && store.profileLastFetched && (Date.now() - store.profileLastFetched < cacheHours * 60 * 60 * 1000);
+
+        if (cacheFresh && store.user.id === session.user.id && store.schoolSettings?.school_id) {
+          try {
+            const { data: verData } = await supabase
+              .from('school_settings')
+              .select('data_version')
+              .eq('school_id', store.schoolSettings.school_id)
+              .maybeSingle();
+
+            if (verData && verData.data_version === store.schoolSettings.data_version) {
+              setIsInitializing(false);
+              return;
+            }
+          } catch (err) {
+            console.warn('Failed to verify data version stamp:', err.message);
+          }
         }
 
         // If we already have the user in Zustand cache, we unblock the UI instantly 

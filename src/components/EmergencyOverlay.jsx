@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { AlertTriangle, Info, CheckCircle2, X } from 'lucide-react';
+import { ref, onValue, set } from 'firebase/database';
+import { rtdb } from '../config/firebaseClient';
+import { usePlan } from '../hooks/usePlan';
 
 export default function EmergencyOverlay() {
   const { schoolSettings, user, role } = useAppStore();
@@ -13,6 +16,8 @@ export default function EmergencyOverlay() {
       return [];
     }
   });
+
+  const { isFree } = usePlan();
 
   useEffect(() => {
     if (!schoolSettings?.school_id || !user) return;
@@ -38,39 +43,26 @@ export default function EmergencyOverlay() {
 
     fetchActiveAlerts();
 
-    // Subscribe to realtime changes
-    const channel = supabase
-      .channel('public:emergency_alerts')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'emergency_alerts',
-          filter: `school_id=eq.${schoolSettings.school_id}`,
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const newRecord = payload.new;
-            if (newRecord.status === 'active' && isTargeted(newRecord)) {
-              setActiveAlerts(prev => {
-                if (prev.find(p => p.id === newRecord.id)) return prev;
-                return [newRecord, ...prev];
-              });
-            } else if (newRecord.status === 'resolved') {
-              setActiveAlerts(prev => prev.filter(a => a.id !== newRecord.id));
-            }
-          } else if (payload.eventType === 'DELETE') {
-            setActiveAlerts(prev => prev.filter(a => a.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
+    // 1. Subscribe to Firebase RTDB changes (Premium only)
+    let unsubscribeFirebase = null;
+    if (!isFree && rtdb) {
+      const alertUpdateRef = ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`);
+      unsubscribeFirebase = onValue(alertUpdateRef, (snapshot) => {
+        fetchActiveAlerts();
+      });
+    }
+
+    // 2. Subscribe to foreground Capacitor Push event (Free & Premium)
+    const handlePushReceived = () => {
+      fetchActiveAlerts();
+    };
+    window.addEventListener('sp-push-received', handlePushReceived);
 
     return () => {
-      supabase.removeChannel(channel);
+      if (unsubscribeFirebase) unsubscribeFirebase();
+      window.removeEventListener('sp-push-received', handlePushReceived);
     };
-  }, [schoolSettings?.school_id, user, role]);
+  }, [schoolSettings?.school_id, user, role, isFree]);
 
   const isTargeted = (alert) => {
     if (!role) return false;
@@ -134,6 +126,9 @@ export default function EmergencyOverlay() {
             <button 
               onClick={async () => {
                 await supabase.from('emergency_alerts').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', fullScreenAlert.id);
+                if (rtdb && schoolSettings?.school_id) {
+                  set(ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`), Date.now()).catch(console.error);
+                }
                 setActiveAlerts(prev => prev.filter(a => a.id !== fullScreenAlert.id));
               }}
               className="w-full py-4 bg-white text-red-600 rounded-xl font-black text-lg shadow-xl hover:bg-slate-100 transition-colors flex items-center justify-center gap-2 cursor-pointer border-0"
@@ -174,6 +169,9 @@ export default function EmergencyOverlay() {
               <button 
                 onClick={async () => {
                   await supabase.from('emergency_alerts').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', alert.id);
+                  if (rtdb && schoolSettings?.school_id) {
+                    set(ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`), Date.now()).catch(console.error);
+                  }
                   setActiveAlerts(prev => prev.filter(a => a.id !== alert.id));
                 }}
                 className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-none"

@@ -1,0 +1,20 @@
+name: Supabase Project Keepalive
+
+on:
+  schedule:
+    - cron: '0 0 */6 * *'  # Runs every 6 days at midnight
+  workflow_dispatch:      # Allows manual trigger from the GitHub UI
+
+jobs:
+  keepalive:
+    name: 🔄 Ping Supabase API
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🌐 Send Ping Request
+        run: |
+          echo "Pinging Supabase project to prevent inactive pause..."
+          curl -s -f -o /dev/null -w "%{http_code}" \
+            "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.VITE_SUPABASE_ANON_KEY }}"
+          echo "Ping completed."

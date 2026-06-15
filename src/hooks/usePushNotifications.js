@@ -254,6 +254,7 @@ export function usePushNotifications() {
             try {
               console.info('[FCM] Foreground notification:', notification.title);
               showInAppToast(notification.title, notification.body);
+              window.dispatchEvent(new CustomEvent('sp-push-received', { detail: notification }));
             } catch (e) {
               console.error('[FCM] Error in notification handler:', e);
             }

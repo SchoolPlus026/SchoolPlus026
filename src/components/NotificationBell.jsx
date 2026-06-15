@@ -2,34 +2,104 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
+import { usePlan } from '../hooks/usePlan';
+import { isNightTime } from '../hooks/useTieredCache';
 
 export default function NotificationBell() {
   const { user } = useAppStore();
+  const { isFree } = usePlan();
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
 
   // The legacy uses username as to_user. We use the auth user's email as identifier
-  // since the new app uses Supabase Auth (email), but the notifications table uses to_user text.
-  // We'll match on user.email (which acts as the username in the new system).
+  // since the new system uses Supabase Auth (email), but the notifications table uses to_user text.
   const identifier = user?.email;
+
+  // 1. Load from localStorage cache on mount
+  useEffect(() => {
+    if (!identifier) return;
+    const cacheKey = `unread_notifications_${identifier}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        setNotifications(JSON.parse(cached));
+      } catch (e) {
+        console.warn('Failed to parse cached notifications:', e);
+      }
+    }
+  }, [identifier]);
+
+  // Helper to save notifications to cache
+  const updateNotifications = (newList) => {
+    setNotifications(newList);
+    if (identifier) {
+      localStorage.setItem(`unread_notifications_${identifier}`, JSON.stringify(newList));
+    }
+  };
 
   const fetchNotifications = async () => {
     if (!identifier) return;
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('to_user', identifier)
-      .eq('is_read', false)
-      .order('created_at', { ascending: false });
-    setNotifications(data || []);
+    try {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('to_user', identifier)
+        .eq('is_read', false)
+        .order('created_at', { ascending: false });
+      updateNotifications(data || []);
+    } catch (err) {
+      console.warn('Failed to fetch notifications:', err.message);
+    }
   };
 
+  // 2. Setup periodic polling & listen to FCM events
   useEffect(() => {
+    if (!identifier) return;
+
+    // Fetch once on mount
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
-    return () => clearInterval(interval);
-  }, [identifier]);
+
+    // Setup polling (Premium only + not at night)
+    const night = isNightTime();
+    let interval = null;
+    if (!isFree && !night) {
+      const store = useAppStore.getState();
+      const pollMinutes = store.platformSettings?.free_tier_cron_minutes ?? 1; // default to 1 min
+      const pollMs = pollMinutes * 60 * 1000;
+      interval = setInterval(fetchNotifications, pollMs);
+    }
+
+    // 3. Listen to FCM foreground pushes to increment counter client-side
+    const handlePushReceived = (e) => {
+      const notification = e.detail;
+      const virtualNotification = {
+        id: `fcm-${Date.now()}`,
+        message: notification.body || notification.title || 'New notification received',
+        created_at: new Date().toISOString(),
+        is_read: false
+      };
+      setNotifications((prev) => {
+        const updated = [virtualNotification, ...prev];
+        localStorage.setItem(`unread_notifications_${identifier}`, JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    window.addEventListener('sp-push-received', handlePushReceived);
+
+    return () => {
+      if (interval) clearInterval(interval);
+      window.removeEventListener('sp-push-received', handlePushReceived);
+    };
+  }, [identifier, isFree]);
+
+  // Fetch when user opens the bell to ensure fresh data
+  useEffect(() => {
+    if (open) {
+      fetchNotifications();
+    }
+  }, [open]);
 
   // Close panel on outside click
   useEffect(() => {
@@ -42,14 +112,34 @@ export default function NotificationBell() {
 
   const markAllRead = async () => {
     if (!identifier || notifications.length === 0) return;
-    await supabase.from('notifications').update({ is_read: true }).eq('to_user', identifier);
-    setNotifications([]);
-    setOpen(false);
+    try {
+      // Filter out virtual IDs before hitting database update
+      const dbIds = notifications
+        .filter(n => !n.id.toString().startsWith('fcm-'))
+        .map(n => n.id);
+      
+      if (dbIds.length > 0) {
+        await supabase.from('notifications').update({ is_read: true }).in('id', dbIds);
+      }
+      // Clean up virtual notifications that don't exist in DB too
+      await supabase.from('notifications').update({ is_read: true }).eq('to_user', identifier);
+      
+      updateNotifications([]);
+      setOpen(false);
+    } catch (err) {
+      console.warn('Failed to mark all read:', err.message);
+    }
   };
 
   const markOneRead = async (id) => {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      if (!id.toString().startsWith('fcm-')) {
+        await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+      }
+      updateNotifications(notifications.filter(n => n.id !== id));
+    } catch (err) {
+      console.warn('Failed to mark one read:', err.message);
+    }
   };
 
   return (

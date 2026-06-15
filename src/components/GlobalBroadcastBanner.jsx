@@ -2,11 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { Megaphone, X, AlertTriangle, Info, CheckCircle } from 'lucide-react';
+import { ref, onValue } from 'firebase/database';
+import { rtdb } from '../config/firebaseClient';
+import { usePlan } from '../hooks/usePlan';
 
 export default function GlobalBroadcastBanner() {
   const { role } = useAppStore();
   const [announcement, setAnnouncement] = useState(null);
   const [dismissed, setDismissed] = useState(false);
+  const { isFree } = usePlan();
 
   useEffect(() => {
     if (!role) return;
@@ -27,28 +31,33 @@ export default function GlobalBroadcastBanner() {
         const dismissedIds = JSON.parse(localStorage.getItem('dismissed_broadcasts') || '[]');
         if (!dismissedIds.includes(data.id)) {
           setAnnouncement(data);
+          setDismissed(false);
         }
       }
     };
 
     fetchBroadcast();
 
-    // Optionally set up real-time listener if we want instant broadcasts without refresh
-    const channel = supabase
-      .channel('public:announcements')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => {
-         const newA = payload.new;
-         if (newA.target_role === 'all' || newA.target_role === role) {
-            setAnnouncement(newA);
-            setDismissed(false);
-         }
-      })
-      .subscribe();
+    // 1. Subscribe to Firebase RTDB changes (Premium only)
+    let unsubscribeFirebase = null;
+    if (!isFree && rtdb) {
+      const broadcastUpdateRef = ref(rtdb, 'global/announcements_update');
+      unsubscribeFirebase = onValue(broadcastUpdateRef, (snapshot) => {
+        fetchBroadcast();
+      });
+    }
+
+    // 2. Subscribe to foreground Capacitor Push event (Free & Premium)
+    const handlePushReceived = () => {
+      fetchBroadcast();
+    };
+    window.addEventListener('sp-push-received', handlePushReceived);
 
     return () => {
-      supabase.removeChannel(channel);
+      if (unsubscribeFirebase) unsubscribeFirebase();
+      window.removeEventListener('sp-push-received', handlePushReceived);
     };
-  }, [role]);
+  }, [role, isFree]);
 
   if (!announcement || dismissed) return null;
 

@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { AlertTriangle, Send, Loader2, Info } from 'lucide-react';
+import { ref, set } from 'firebase/database';
+import { rtdb } from '../../config/firebaseClient';
+import { usePlan } from '../../hooks/usePlan';
 
 export default function EmergencyManager() {
   const { schoolSettings, user, role } = useAppStore();
+  const { isFree } = usePlan();
   const [type, setType] = useState('general');
   const [audience, setAudience] = useState(role === 'teacher' ? 'admin' : 'all');
   const [message, setMessage] = useState('');
@@ -13,32 +17,27 @@ export default function EmergencyManager() {
   const [success, setSuccess] = useState('');
   
   // Specific student targeting
-  const [selectedClass, setSelectedClass] = useState('');
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('');
+  const [selectedClass, setSelectedClass] = useState('');
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
-  // Default class to the first assigned class if teacher
   useEffect(() => {
-    if (role === 'teacher' && user?.assigned_classes?.length > 0 && !selectedClass) {
-      setSelectedClass(user.assigned_classes[0]);
-    }
-  }, [role, user, selectedClass]);
-
-  // Fetch students for the selected class (works for both teachers and admins)
-  useEffect(() => {
-    if (selectedClass) {
-      const fetchStudents = async () => {
-        const { data } = await supabase
-          .from('users')
-          .select('id, name, class')
-          .eq('role', 'student')
-          .eq('school_id', schoolSettings.school_id)
-          .eq('class', selectedClass);
-        if (data) setStudents(data);
-      };
+    if (audience === 'specific_students' && schoolSettings?.school_id) {
       fetchStudents();
     }
-  }, [role, selectedClass, schoolSettings?.school_id]);
+  }, [audience, selectedClass, schoolSettings?.school_id]);
+
+  const fetchStudents = async () => {
+    setLoadingStudents(true);
+    let q = supabase.from('users').select('id, name').eq('role', 'student').eq('school_id', schoolSettings.school_id);
+    if (selectedClass) {
+      q = q.eq('class', selectedClass);
+    }
+    const { data } = await q;
+    if (data) setStudents(data);
+    setLoadingStudents(false);
+  };
 
   const handleTrigger = async (e) => {
     e.preventDefault();
@@ -48,6 +47,24 @@ export default function EmergencyManager() {
     }
     
     setLoading(true); setError(''); setSuccess('');
+
+    if (isFree) {
+      // Check emergency alerts count for current month
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const { count, error: countErr } = await supabase
+        .from('emergency_alerts')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', schoolSettings.school_id)
+        .gte('created_at', startOfMonth);
+
+      if (countErr) {
+        console.error('Error checking emergency alert count:', countErr);
+      } else if (count >= 5) {
+        setError('Free Plan limit reached: You can trigger a maximum of 5 emergency alerts per month on the Free Plan. Please upgrade to the Premium Plan.');
+        setLoading(false);
+        return;
+      }
+    }
     
     let target_users = null;
     if (audience === 'specific_students') {
@@ -67,6 +84,10 @@ export default function EmergencyManager() {
     if (insertErr) {
       setError(insertErr.message);
     } else {
+      // Broadcast real-time signal via Firebase RTDB
+      if (rtdb && schoolSettings?.school_id) {
+        set(ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`), Date.now()).catch(console.error);
+      }
       setSuccess('Alert broadcasted successfully. Targeted clients will see it immediately.');
       setMessage('');
       setSelectedStudent('');

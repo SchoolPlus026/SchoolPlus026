@@ -2,10 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { usePlan } from './usePlan';
+import { isNightTime } from './useTieredCache';
 
 export function useAllModuleActivities() {
   const { user, role, schoolSettings } = useAppStore();
   const { isFree } = usePlan();
+  const night = isNightTime();
 
   return useQuery({
     queryKey: ['all-module-activities', user?.id, schoolSettings?.school_id, role],
@@ -28,9 +30,9 @@ export function useAllModuleActivities() {
       return data || {};
     },
     enabled: !!user?.id && !!schoolSettings?.school_id && !!role,
-    // Paid plan polls every 60s; Free plan does not poll in background (only fetches on mount/navigation)
-    refetchInterval: isFree ? false : 60000,
-    staleTime: 30000, // 30s stale time to allow fast back-and-forth transitions without querying
+    // Paid plan polls every 60s; Free plan or night-time does not poll in background
+    refetchInterval: (isFree || night) ? false : 60000,
+    staleTime: night ? 3600000 : 30000, // 1h stale time at night, 30s otherwise
   });
 }
 

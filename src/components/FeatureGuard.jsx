@@ -27,15 +27,15 @@ import { useAppStore } from '../store/useAppStore';
 const FREE_FEATURES = {
   // Fully locked on Free
   fees:                    false,
-  timetable:               false,
-  leaves:                  false,
+  timetable:               true,   // Available on free plan
+  leaves:                  true,   // Available on free plan
   reports:                 false,
   users_manage:            true,   // User management is free
   // Partially locked on Free
   calendar_add:            false,  // calendar VIEW is free, ADD/EDIT is not
   notifications_targeted:  false,  // global ok, targeting class/role is not
   // Always free
-  gallery:                 true,
+  gallery:                 false,  // Gallery is premium only
   attendance_view:         true,
   notices:                 true,
   calendar_view:           true,

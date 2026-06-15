@@ -7,6 +7,7 @@ import {
   CheckCircle2, ChevronDown, User, ShieldCheck
 } from 'lucide-react';
 import ModuleGuard from '../../components/ModuleGuard';
+import { usePlan } from '../../hooks/usePlan';
 
 /* ─── helpers ─────────────────────────────────────────────────────────────── */
 const fmt = (ts) => new Date(ts).toLocaleDateString('en-IN', {
@@ -16,6 +17,7 @@ const fmt = (ts) => new Date(ts).toLocaleDateString('en-IN', {
 
 /* ─── Compose Form (Students) ──────────────────────────────────────────────── */
 function StudentCompose({ schoolId, senderId, userClass, queryClient }) {
+  const { isFree } = usePlan();
   const [recipientType, setRecipientType] = useState('admin'); // 'admin' | 'teacher'
   const [recipientId, setRecipientId] = useState('');
   const [subject, setSubject] = useState('');
@@ -43,6 +45,21 @@ function StudentCompose({ schoolId, senderId, userClass, queryClient }) {
 
   const submit = useMutation({
     mutationFn: async () => {
+      if (isFree) {
+        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+        const { count, error: countErr } = await supabase
+          .from('complaint_box')
+          .select('*', { count: 'exact', head: true })
+          .eq('school_id', schoolId)
+          .gte('created_at', startOfMonth);
+
+        if (countErr) {
+          console.error('Error checking complaint count:', countErr);
+        } else if (count >= 10) {
+          throw new Error('Free Plan limit reached: You can submit a maximum of 10 complaints/suggestions per month on the Free Plan. Please upgrade to the Premium Plan.');
+        }
+      }
+
       const payload = {
         school_id: schoolId,
         sender_id: senderId,
@@ -171,6 +188,7 @@ function StudentCompose({ schoolId, senderId, userClass, queryClient }) {
 
 /* ─── Teacher Compose Form ─────────────────────────────────────────────────── */
 function TeacherCompose({ schoolId, senderId, userClass, queryClient }) {
+  const { isFree } = usePlan();
   const [recipientId, setRecipientId] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -196,6 +214,21 @@ function TeacherCompose({ schoolId, senderId, userClass, queryClient }) {
 
   const submit = useMutation({
     mutationFn: async () => {
+      if (isFree) {
+        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+        const { count, error: countErr } = await supabase
+          .from('complaint_box')
+          .select('*', { count: 'exact', head: true })
+          .eq('school_id', schoolId)
+          .gte('created_at', startOfMonth);
+
+        if (countErr) {
+          console.error('Error checking complaint count:', countErr);
+        } else if (count >= 10) {
+          throw new Error('Free Plan limit reached: You can submit a maximum of 10 complaints/suggestions per month on the Free Plan. Please upgrade to the Premium Plan.');
+        }
+      }
+
       const { error } = await supabase.from('complaint_box').insert({
         school_id: schoolId,
         sender_id: senderId,

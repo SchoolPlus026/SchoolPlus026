@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft, Lock } from 'lucide-react';
+import { ref, set } from 'firebase/database';
+import { rtdb } from '../../config/firebaseClient';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft, Lock, Clock, Sliders } from 'lucide-react';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -80,6 +82,16 @@ export default function PlatformAdminDashboard() {
   const [paGdriveConfig, setPaGdriveConfig] = useState([]);
   const [connectingDrive, setConnectingDrive] = useState(false);
   const [disconnectingDrive, setDisconnectingDrive] = useState(false);
+
+  // Advanced Optimization Settings State
+  const [nightModeEnabled, setNightModeEnabled] = useState(true);
+  const [nightStartTime, setNightStartTime] = useState('23:00');
+  const [nightEndTime, setNightEndTime] = useState('05:30');
+  const [freeRefreshCooldown, setFreeRefreshCooldown] = useState(30);
+  const [premiumRefreshCooldown, setPremiumRefreshCooldown] = useState(10);
+  const [freeCacheHours, setFreeCacheHours] = useState(6);
+  const [premiumCacheHours, setPremiumCacheHours] = useState(1);
+  const [savingOptimizationSettings, setSavingOptimizationSettings] = useState(false);
 
   // Broadcast State
   const [bMessage, setBMessage] = useState('');
@@ -293,6 +305,12 @@ export default function PlatformAdminDashboard() {
       })
       .eq('id', editingBroadcast.id);
     if (error) { alert('Error updating broadcast: ' + error.message); return; }
+    
+    // Broadcast real-time signal via Firebase RTDB
+    if (rtdb) {
+      set(ref(rtdb, 'global/announcements_update'), Date.now()).catch(console.error);
+    }
+    
     setEditingBroadcast(null);
     fetchAnnouncements();
   };
@@ -548,6 +566,18 @@ export default function PlatformAdminDashboard() {
 
         setFunctionUsageList(formatted.sort((a, b) => b.count - a.count));
       }
+
+      // Fetch platform settings for optimization values
+      const { data: platSettings } = await supabase.from('platform_settings').select('*').single();
+      if (platSettings) {
+        setNightModeEnabled(platSettings.night_mode_enabled !== false);
+        setNightStartTime(platSettings.night_start_time || '23:00');
+        setNightEndTime(platSettings.night_end_time || '05:30');
+        setFreeRefreshCooldown(platSettings.free_tier_refresh_cooldown ?? 30);
+        setPremiumRefreshCooldown(platSettings.premium_tier_refresh_cooldown ?? 10);
+        setFreeCacheHours(platSettings.free_tier_cache_hours ?? 6);
+        setPremiumCacheHours(platSettings.premium_tier_cache_hours ?? 1);
+      }
     } catch (err) {
       console.error('Error fetching quota controls:', err.message);
     } finally {
@@ -570,6 +600,31 @@ export default function PlatformAdminDashboard() {
       alert('Error updating cron schedule: ' + err.message);
     } finally {
       setUpdatingCron(false);
+    }
+  };
+
+  const handleSaveOptimizationSettings = async () => {
+    setSavingOptimizationSettings(true);
+    try {
+      const { error } = await supabase
+        .from('platform_settings')
+        .update({
+          night_mode_enabled: nightModeEnabled,
+          night_start_time: nightStartTime,
+          night_end_time: nightEndTime,
+          free_tier_refresh_cooldown: parseInt(freeRefreshCooldown),
+          premium_tier_refresh_cooldown: parseInt(premiumRefreshCooldown),
+          free_tier_cache_hours: parseInt(freeCacheHours),
+          premium_tier_cache_hours: parseInt(premiumCacheHours),
+        })
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // updates the single platform_settings row
+
+      if (error) throw error;
+      alert('Advanced Optimization Settings saved successfully!');
+    } catch (err) {
+      alert('Failed to save optimization settings: ' + err.message);
+    } finally {
+      setSavingOptimizationSettings(false);
     }
   };
 
@@ -625,7 +680,13 @@ export default function PlatformAdminDashboard() {
     if (!window.confirm('Delete this announcement?')) return;
     const { error } = await supabase.from('announcements').delete().eq('id', id);
     if (error) alert('Error: ' + error.message);
-    else fetchAnnouncements();
+    else {
+      // Broadcast real-time signal via Firebase RTDB
+      if (rtdb) {
+        set(ref(rtdb, 'global/announcements_update'), Date.now()).catch(console.error);
+      }
+      fetchAnnouncements();
+    }
   };
 
   const handleSavePlatform = async () => {
@@ -666,6 +727,10 @@ export default function PlatformAdminDashboard() {
     if (error) {
       alert('Error: ' + error.message);
     } else {
+      // Broadcast real-time signal via Firebase RTDB
+      if (rtdb) {
+        set(ref(rtdb, 'global/announcements_update'), Date.now()).catch(console.error);
+      }
       setBMessage('');
       setBStartDate('');
       setBExpiryDate('');
@@ -959,6 +1024,135 @@ export default function PlatformAdminDashboard() {
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Advanced Optimization Controls Card */}
+              <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-md">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Sliders size={18} />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-black text-slate-200 uppercase tracking-widest">Advanced Optimization Controls</h5>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Customize Cache Tiers, Cooldowns, & Night mode</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSaveOptimizationSettings}
+                    disabled={savingOptimizationSettings}
+                    className="btn accent sm flex items-center gap-1.5"
+                  >
+                    {savingOptimizationSettings ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                    {savingOptimizationSettings ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  {/* Night Mode Config */}
+                  <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-700/30">
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center gap-2">
+                        <Clock size={16} className="text-indigo-400" />
+                        <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Night-Time Power Saver Mode</span>
+                      </div>
+                      <button
+                        onClick={() => setNightModeEnabled(prev => !prev)}
+                        className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
+                          nightModeEnabled ? 'bg-rose-500' : 'bg-slate-800 border border-slate-700'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                            nightModeEnabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 leading-normal mb-4">
+                      When active, all background queries, badge counts, and polling are paused between the specified hours to save database egress and calls.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Start Time (Shutdown)</label>
+                        <input
+                          type="time"
+                          value={nightStartTime}
+                          onChange={(e) => setNightStartTime(e.target.value)}
+                          disabled={!nightModeEnabled}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none focus:border-rose-500/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">End Time (Wakeup)</label>
+                        <input
+                          type="time"
+                          value={nightEndTime}
+                          onChange={(e) => setNightEndTime(e.target.value)}
+                          disabled={!nightModeEnabled}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none focus:border-rose-500/50"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cache and Cooldown Limits */}
+                  <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-700/30 space-y-4">
+                    <span className="text-xs font-black text-slate-200 uppercase tracking-widest block">Cache Tiers & Button Throttling</span>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Free Settings Cache (Hours)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="24"
+                          value={freeCacheHours}
+                          onChange={(e) => setFreeCacheHours(parseInt(e.target.value) || 6)}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Paid Settings Cache (Hours)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="24"
+                          value={premiumCacheHours}
+                          onChange={(e) => setPremiumCacheHours(parseInt(e.target.value) || 1)}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Free Refresh Cooldown (s)</label>
+                        <input
+                          type="number"
+                          min="5"
+                          max="300"
+                          value={freeRefreshCooldown}
+                          onChange={(e) => setFreeRefreshCooldown(parseInt(e.target.value) || 30)}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Paid Refresh Cooldown (s)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="300"
+                          value={premiumRefreshCooldown}
+                          onChange={(e) => setPremiumRefreshCooldown(parseInt(e.target.value) || 10)}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

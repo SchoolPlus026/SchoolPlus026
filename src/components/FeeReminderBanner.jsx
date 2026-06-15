@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { X, IndianRupee, Bell } from 'lucide-react';
+import { usePlan } from '../hooks/usePlan';
+import { isNightTime } from '../hooks/useTieredCache';
 
 /**
  * FeeReminderBanner
@@ -11,14 +13,17 @@ import { X, IndianRupee, Bell } from 'lucide-react';
  */
 export default function FeeReminderBanner() {
   const { user } = useAppStore();
+  const { isFree } = usePlan();
   const [reminder, setReminder] = useState(null);   // the most recent unread fee_reminder
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (!user?.email) return;
+    if (!user?.email || isFree) return;
     let cancelled = false;
 
     const fetchReminder = async () => {
+      if (isNightTime()) return;
+      
       const { data } = await supabase
         .from('notifications')
         .select('*')
@@ -36,10 +41,14 @@ export default function FeeReminderBanner() {
     };
 
     fetchReminder();
-    // Refresh every 30 s so newly sent reminders appear without a full reload
-    const interval = setInterval(fetchReminder, 30000);
+    // Refresh every 10 minutes for Premium tier, skip at night
+    const interval = setInterval(() => {
+      if (!isNightTime()) {
+        fetchReminder();
+      }
+    }, 600000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [user?.email]);
+  }, [user?.email, isFree]);
 
   const handleDismiss = async () => {
     setDismissed(true);

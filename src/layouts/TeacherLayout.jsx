@@ -3,7 +3,7 @@ import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, LayoutDashboard, Settings, ChevronLeft, RefreshCw } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useThrottledRefresh } from '../hooks/useThrottledRefresh';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
@@ -15,15 +15,8 @@ export default function TeacherLayout() {
   const { user, schoolSettings } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const queryClient = useQueryClient();
-  const [refreshing, setRefreshing] = React.useState(false);
+  const { refreshing, cooldownLeft, handleRefresh } = useThrottledRefresh();
   const isDashboard = location.pathname.endsWith('/dashboard') || location.pathname === '/teacher';
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await queryClient.invalidateQueries();
-    setTimeout(() => setRefreshing(false), 600);
-  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -59,11 +52,15 @@ export default function TeacherLayout() {
             <LayoutDashboard size={18} />
           </Link>
           <ThemeToggle />
-          <button onClick={handleRefresh} title="Refresh data" aria-label="Refresh data"
-            className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all"
-            style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+          <button onClick={handleRefresh}
+            disabled={refreshing || cooldownLeft > 0}
+            title={cooldownLeft > 0 ? `Please wait ${cooldownLeft}s` : "Refresh data"}
+            aria-label={cooldownLeft > 0 ? `Please wait ${cooldownLeft}s` : "Refresh data"}
+            className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all flex items-center gap-1"
+            style={{ border: 'none', background: 'transparent', cursor: cooldownLeft > 0 ? 'not-allowed' : 'pointer', opacity: cooldownLeft > 0 ? 0.6 : 1 }}
           >
             <RefreshCw size={17} style={{ transition: 'transform 0.5s ease', transform: refreshing ? 'rotate(360deg)' : 'rotate(0deg)' }} />
+            {cooldownLeft > 0 && <span style={{ fontSize: '10px', fontWeight: 'bold' }}>{cooldownLeft}s</span>}
           </button>
           <Link to="/teacher/settings" className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all" title="Settings">
             <Settings size={18} />

@@ -29,31 +29,36 @@ export default function AdminFeeManager() {
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // 1. Fetch Students
-  const { data: students, isLoading: studentsLoading } = useQuery({
-    queryKey: ['students-fees', schoolSettings?.school_id],
+  // 1. Fetch Students (Filtered by Class)
+  const { data: students = [], isLoading: studentsLoading } = useQuery({
+    queryKey: ['students-fees', schoolSettings?.school_id, filterClass],
     queryFn: async () => {
+      if (!filterClass) return [];
       const { data, error } = await supabase
         .from('users')
         .select('id, name, class, username, email')
         .eq('role', 'student')
+        .eq('class', filterClass)
         .order('name');
       if (error) throw error;
       return data || [];
     },
-    enabled: !!schoolSettings?.school_id
+    enabled: !!schoolSettings?.school_id && !!filterClass
   });
 
   const uniqueClasses = schoolSettings?.classes || [];
 
-  // 2. Fetch Fees master ledgers
-  const { data: feesData, isLoading: feesLoading } = useQuery({
-    queryKey: ['fees', currentYear, schoolSettings?.school_id],
+  // 2. Fetch Fees master ledgers (Filtered by Class student IDs)
+  const studentIds = students.map(s => s.id);
+  const { data: feesData = [], isLoading: feesLoading } = useQuery({
+    queryKey: ['fees', currentYear, schoolSettings?.school_id, filterClass, studentIds],
     queryFn: async () => {
+      if (studentIds.length === 0) return [];
       const { data, error } = await supabase
         .from('fees')
         .select('id, sid:student_id, tot:total, lyp:last_year_pending')
-        .eq('year', currentYear);
+        .eq('year', currentYear)
+        .in('student_id', studentIds);
       if (error) throw error;
       return (data || []).map(f => ({
         id: f.id,
@@ -63,12 +68,12 @@ export default function AdminFeeManager() {
         year: currentYear
       }));
     },
-    enabled: !!schoolSettings?.school_id
+    enabled: !!schoolSettings?.school_id && studentIds.length > 0
   });
 
-  // 3. Fetch all payments
-  const { data: paymentsData, isLoading: paymentsLoading } = useQuery({
-    queryKey: ['fees_payments', currentYear, schoolSettings?.school_id],
+  // 3. Fetch all payments (Filtered by Class fee IDs)
+  const { data: paymentsData = [], isLoading: paymentsLoading } = useQuery({
+    queryKey: ['fees_payments', currentYear, schoolSettings?.school_id, filterClass],
     queryFn: async () => {
       if (!feesData || feesData.length === 0) return [];
       const feeIds = feesData.map(f => f.id);
@@ -140,7 +145,7 @@ export default function AdminFeeManager() {
   };
 
   // Build list of all students in the selected class with calculated dues
-  const classStudents = students?.filter(s => s.class === filterClass) || [];
+  const classStudents = students || [];
   const classStudentsWithDues = React.useMemo(() => {
     return classStudents.map(student => {
       const feeRecord = feesData?.find(f => f.student_id === student.id);
@@ -154,18 +159,14 @@ export default function AdminFeeManager() {
     });
   }, [classStudents, feesData, paymentsData]);
 
-  // When class changes, reset selected student and pre-check defaulters
-  const handleClassChange = (cls) => {
-    setFilterClass(cls);
-    setSelectedStudent(null);
-    if (!cls) {
+  // Reactive effect to pre-check defaulters once class data is loaded
+  React.useEffect(() => {
+    if (!filterClass || students.length === 0 || feesData.length === 0) {
       setCheckedStudents([]);
       return;
     }
-    // Pre-select students who have dueAmount > 0
-    const classStudents = students?.filter(s => s.class === cls) || [];
-    const defaulterIds = classStudents.reduce((acc, student) => {
-      const feeRecord = feesData?.find(f => f.student_id === student.id);
+    const defaulterIds = students.reduce((acc, student) => {
+      const feeRecord = feesData.find(f => f.student_id === student.id);
       if (!feeRecord) return acc;
       const studentPayments = (paymentsData || []).filter(p => p.fee_id === feeRecord.id);
       const totalPaid = studentPayments.reduce((s, p) => s + Number(p.amount), 0);
@@ -174,6 +175,13 @@ export default function AdminFeeManager() {
       return acc;
     }, []);
     setCheckedStudents(defaulterIds);
+  }, [filterClass, students, feesData, paymentsData]);
+
+  // When class changes, reset selected student
+  const handleClassChange = (cls) => {
+    setFilterClass(cls);
+    setSelectedStudent(null);
+    setCheckedStudents([]);
   };
 
   const toggleCheck = (id) =>

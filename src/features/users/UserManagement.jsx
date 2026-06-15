@@ -76,6 +76,12 @@ export default function UserManagement() {
   const [activeTab, setActiveTab] = useState(currentRole === 'teacher' ? 'student' : 'teacher');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState(currentRole === 'teacher' ? (currentUser?.user_metadata?.class || '') : '');
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
+
+  useEffect(() => {
+    setPage(0);
+  }, [activeTab, searchTerm, selectedClass]);
 
   /* ── Create Class Modal State ── */
   const [isCreateClassModalOpen, setIsCreateClassModalOpen] = useState(false);
@@ -118,28 +124,43 @@ export default function UserManagement() {
   });
 
   /* ── Data Fetching ── */
-  const { data: users, isLoading } = useQuery({
-    queryKey: ['users-list', activeTab, schoolSettings?.school_id],
+  const { data, isLoading } = useQuery({
+    queryKey: ['users-list', activeTab, schoolSettings?.school_id, page, searchTerm, selectedClass],
     queryFn: async () => {
-      let q = supabase.from('users').select('*').order('name');
+      let q = supabase.from('users').select('*', { count: 'exact' });
+      q = q.eq('school_id', schoolSettings.school_id);
+
       if (activeTab === 'staff') {
-        q = q.or('role.eq.staff,role.eq.admin'); // show admin + staff in staff tab? Or just staff
-        q = supabase.from('users').select('*').eq('role', 'staff').order('name');
+        q = q.eq('role', 'staff');
       } else {
-        q = supabase.from('users').select('*').eq('role', activeTab).order('name');
+        q = q.eq('role', activeTab);
       }
-      const { data, error } = await q;
+
+      if (activeTab === 'student' && selectedClass) {
+        q = q.eq('class', selectedClass);
+      }
+
+      if (searchTerm.trim()) {
+        const term = `%${searchTerm.trim()}%`;
+        q = q.or(`name.ilike.${term},username.ilike.${term}`);
+      }
+
+      q = q.order('name');
+
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      q = q.range(from, to);
+
+      const { data: resData, count, error } = await q;
       if (error) throw error;
-      return data;
+      return { users: resData || [], totalCount: count || 0 };
     },
     enabled: !!schoolSettings?.school_id,
   });
 
-  const filteredUsers = users?.filter(u =>
-    (u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.username?.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (selectedClass ? u.class === selectedClass : true)
-  );
+  const usersList = data?.users || [];
+  const totalCount = data?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   /* ── Mutations ── */
   const createUserMutation = useMutation({
@@ -386,7 +407,7 @@ export default function UserManagement() {
               </div>
             ))}
           </div>
-        ) : filteredUsers?.length === 0 ? (
+        ) : usersList.length === 0 ? (
           <div className="text-center py-24">
             <p className="text-slate-500 font-medium">No {activeTab}s found.</p>
           </div>
@@ -408,7 +429,7 @@ export default function UserManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredUsers.map(user => (
+                {usersList.map(user => (
                   <tr key={user.id} className="hover:bg-slate-50/80 transition-colors group">
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-4">
@@ -460,6 +481,30 @@ export default function UserManagement() {
               </tbody>
             </table>
           </div>
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 bg-slate-50 border-t border-border flex items-center justify-between">
+              <div className="text-xs font-semibold text-slate-500">
+                Showing {page * pageSize + 1} to {Math.min((page + 1) * pageSize, totalCount)} of {totalCount} entries
+              </div>
+              <div className="flex gap-2">
+                <button
+                  disabled={page === 0}
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Previous
+                </button>
+                <button
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage(p => p + 1)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
           </div>
         )}
       </div>

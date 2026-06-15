@@ -6,6 +6,7 @@ import { usePending } from '../../hooks/usePending';
 import { triggerFCMNotification } from '../../utils/notifications';
 import { Loader2, Send, PenTool, Image as ImageIcon, CloudOff, X, Folder } from 'lucide-react';
 import NoticeBoard from './NoticeBoard';
+import { usePlan } from '../../hooks/usePlan';
 
 function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
@@ -20,6 +21,7 @@ export default function NoticeManager() {
   const { schoolSettings, role } = useAppStore();
   const { isPending } = usePending();
   const queryClient = useQueryClient();
+  const { isFree } = usePlan();
 
   const [title, setTitle]           = useState('');
   const [content, setContent]       = useState('');
@@ -107,6 +109,11 @@ export default function NoticeManager() {
   }
 
   const handleFileSelect = (e) => {
+    if (isFree) {
+      alert('Free Plan limitation: Notice images are only available on the Premium Plan.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     const file = e.target.files[0];
     if (!file) return;
     setImageFile(file);
@@ -123,6 +130,30 @@ export default function NoticeManager() {
     e.preventDefault();
     if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
     if (!title.trim() || !content.trim()) return;
+
+    if (isFree) {
+      // Check notice count for current month
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const { count, error } = await supabase
+        .from('notices')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', schoolSettings.school_id)
+        .gte('created_at', startOfMonth);
+
+      if (error) {
+        console.error('Error checking notice count:', error);
+      } else if (count >= 5) {
+        alert('Free Plan limit reached: You can create a maximum of 5 notices per month on the Free Plan. Please upgrade to the Premium Plan for unlimited notices.');
+        return;
+      }
+
+      if (imageFile) {
+        alert('Free Plan limitation: Notice images are only available on the Premium Plan.');
+        setImageFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+    }
 
     let photoUrl = null;
 

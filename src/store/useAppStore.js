@@ -23,12 +23,18 @@ export const useAppStore = create(
   
   // Cache variables for profile fetching
   profileLastFetched: null,
+  platformSettings: null,
+  platformSettingsLastFetched: null,
+  lastRefreshedAt: null,
   
   // Actions
   setUserAndRole: (user, role) => set({ user, role }),
   setSchoolSettings: (settings) => set({ schoolSettings: settings }),
   setPreviewAvatarUrl: (url) => set({ previewAvatarUrl: url }),
   setProfileLastFetched: (timestamp) => set({ profileLastFetched: timestamp }),
+  setPlatformSettings: (settings) => set({ platformSettings: settings }),
+  setPlatformSettingsLastFetched: (timestamp) => set({ platformSettingsLastFetched: timestamp }),
+  setLastRefreshedAt: (timestamp) => set({ lastRefreshedAt: timestamp }),
   
   setImpersonation: (schoolSettings) => set((state) => ({
     isImpersonating: true,
@@ -63,7 +69,7 @@ export const useAppStore = create(
   })),
   
   // Logout action resets everything
-  clearSession: () => set({ user: null, role: null, schoolSettings: null, isImpersonating: false, originalSession: null, backgroundUploads: [], profileLastFetched: null }),
+  clearSession: () => set({ user: null, role: null, schoolSettings: null, isImpersonating: false, originalSession: null, backgroundUploads: [], profileLastFetched: null, platformSettings: null, platformSettingsLastFetched: null, lastRefreshedAt: null }),
     }),
     {
       name: 'school-os-storage',
@@ -75,6 +81,9 @@ export const useAppStore = create(
         role: state.role,
         schoolSettings: state.schoolSettings,
         profileLastFetched: state.profileLastFetched,
+        platformSettings: state.platformSettings,
+        platformSettingsLastFetched: state.platformSettingsLastFetched,
+        lastRefreshedAt: state.lastRefreshedAt,
       }),
     }
   )
