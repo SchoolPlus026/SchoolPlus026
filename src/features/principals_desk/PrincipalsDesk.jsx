@@ -72,18 +72,6 @@ function StudentCompose({ schoolId, senderId, userClass, queryClient }) {
       };
       const { error } = await supabase.from('complaint_box').insert(payload);
       if (error) throw error;
-
-      // Notification: student → admin, or student → specific teacher
-      const notif = {
-        school_id: schoolId,
-        user_id: recipientType === 'teacher' ? (recipientId || null) : null,
-        target_role: recipientType === 'admin' ? 'admin' : null,
-        title: 'New Complaint Received',
-        body: isAnonymous ? `Anonymous: ${subject}` : `${subject}`,
-        is_ephemeral: false,
-        status: 'pending',
-      };
-      await supabase.from('app_notifications_queue').insert(notif);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['complaint-box']);
@@ -240,16 +228,6 @@ function TeacherCompose({ schoolId, senderId, userClass, queryClient }) {
         message,
       });
       if (error) throw error;
-
-      // Notify student
-      await supabase.from('app_notifications_queue').insert({
-        school_id: schoolId,
-        user_id: recipientId,
-        title: 'Message from your Teacher',
-        body: subject,
-        is_ephemeral: false,
-        status: 'pending',
-      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['complaint-box']);
@@ -345,11 +323,26 @@ export default function ComplaintBox() {
 
   const replyMutation = useMutation({
     mutationFn: async ({ id, reply }) => {
+      const complaint = messages.find(m => m.id === id);
+      if (!complaint) throw new Error("Complaint not found");
+
       const { error } = await supabase
         .from('complaint_box')
         .update({ reply_text: reply, status: 'replied', replied_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
+
+      // Enqueue notification for the student (sender of the complaint)
+      const notif = {
+        school_id: schoolSettings.school_id,
+        user_id: complaint.sender_id,
+        title: 'New Reply to your Complaint',
+        body: `Reply: ${complaint.subject}`,
+        is_ephemeral: false,
+        status: 'pending',
+        route: '/complaint-box'
+      };
+      await supabase.from('app_notifications_queue').insert(notif);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['complaint-box']);

@@ -17,7 +17,17 @@ export default function TeacherDutyBanner() {
       });
       if (error) throw error;
       // Filter down to just this teacher's periods
-      return (data || []).filter(d => d.teacher_id === user.id);
+      const teacherPeriods = (data || []).filter(d => d.teacher_id === user.id);
+
+      // Deduplicate by class_name (keeping the 1st period by period_order)
+      const uniqueClasses = {};
+      teacherPeriods.forEach(p => {
+        if (!uniqueClasses[p.class_name] || p.period_order < uniqueClasses[p.class_name].period_order) {
+          uniqueClasses[p.class_name] = p;
+        }
+      });
+
+      return Object.values(uniqueClasses).sort((a, b) => a.period_order - b.period_order);
     },
     enabled: !!schoolSettings?.school_id && role === 'teacher' && !!user?.id,
     refetchInterval: 60000, // Check every minute as fallback

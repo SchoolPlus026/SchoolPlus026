@@ -82,6 +82,17 @@ export default function LeavesManager() {
   const handleApply = (e) => {
     e.preventDefault();
     if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+    
+    const today = new Date().toISOString().split('T')[0];
+    if (fromDate < today) {
+      alert('From Date cannot be in the past.');
+      return;
+    }
+    if (toDate < fromDate) {
+      alert('To Date cannot be before From Date.');
+      return;
+    }
+
     applyMutation.mutate({
       school_id: schoolSettings.school_id,
       user_id: user.id,
@@ -122,11 +133,11 @@ export default function LeavesManager() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-text mb-1.5">From Date</label>
-                <input required type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm" />
+                <input required type="date" min={new Date().toISOString().split('T')[0]} value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-text mb-1.5">To Date</label>
-                <input required type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm" />
+                <input required type="date" min={fromDate || new Date().toISOString().split('T')[0]} value={toDate} onChange={e => setToDate(e.target.value)} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm" />
               </div>
             </div>
             <div>

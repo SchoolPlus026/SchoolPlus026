@@ -64,6 +64,59 @@ async function triggerDownload(blob, filename) {
   }
 }
 
+const STATUS_DECODE = { P: 'Present', A: 'Absent', L: 'Late', H: 'Half_day', V: 'Leave' };
+
+// Reconstruct list of individual date records from JSONB Monthly Rollup
+function reconstructAttendanceRows(records, fromDate, toDate) {
+  const rows = [];
+  
+  records.forEach(rec => {
+    const data = rec.attendance_data || {};
+    const monthYear = rec.month_year; // e.g. "2026-06"
+    
+    Object.keys(data).forEach(key => {
+      let dateStr;
+      if (key.includes('-')) {
+        // Legacy full ISO date key
+        dateStr = key;
+      } else {
+        // Compressed day key
+        const day = key.padStart(2, '0');
+        dateStr = `${monthYear}-${day}`;
+      }
+      
+      // Filter by fromDate and toDate if provided
+      if (fromDate && dateStr < fromDate) return;
+      if (toDate && dateStr > toDate) return;
+      
+      const rawStatus = data[key];
+      const decodedStatus = STATUS_DECODE[rawStatus] || rawStatus;
+      
+      rows.push({
+        date: dateStr,
+        user: rec.user,
+        // role is now sourced from the joined user record (v48 removed top-level role column)
+        role: rec.user?.role || '',
+        status: decodedStatus
+      });
+    });
+  });
+  
+  // Sort by date descending, then by class, then by user name
+  rows.sort((a, b) => {
+    if (a.date !== b.date) return b.date.localeCompare(a.date);
+    const classA = a.user?.class || '';
+    const classB = b.user?.class || '';
+    if (classA !== classB) return classA.localeCompare(classB);
+    const nameA = a.user?.name || '';
+    const nameB = b.user?.name || '';
+    return nameA.localeCompare(nameB);
+  });
+  
+  return rows;
+}
+
+
 export default function Reports() {
   const { role, schoolSettings } = useAppStore();
   const [reportType, setReportType] = useState('attendance');
@@ -76,9 +129,28 @@ export default function Reports() {
   const [toDate, setToDate] = useState('');
   const [filterClass, setFilterClass] = useState('');
   const [filterRole, setFilterRole] = useState(''); // 'student' or 'teacher' or ''
+  const [teachers, setTeachers] = useState([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
   
   const userRole = (role || '').toLowerCase();
   const classes = schoolSettings?.classes || [];
+
+  React.useEffect(() => {
+    if (reportType === 'leaves' && schoolSettings?.school_id) {
+      const fetchTeachers = async () => {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, name')
+          .eq('school_id', schoolSettings.school_id)
+          .eq('role', 'teacher')
+          .order('name');
+        if (!error && data) {
+          setTeachers(data);
+        }
+      };
+      fetchTeachers();
+    }
+  }, [reportType, schoolSettings?.school_id]);
 
   function showToast(msg, type = 'success') {
     setToastMsg(msg);
@@ -97,19 +169,23 @@ export default function Reports() {
     if (reportType === 'attendance') {
       let q = supabase
         .from('attendance')
-        .select('date, role, status, user:users(name, class, username)')
-        .eq('school_id', schoolSettings.school_id)
-        .order('date', { ascending: false });
+        // 'role' column was removed from attendance table in v48 JSONB refactor.
+        // It is now derived from the joined users record.
+        .select('month_year, attendance_data, user:users(name, class, username, role)')
+        .eq('school_id', schoolSettings.school_id);
         
-      if (fromDate) q = q.gte('date', fromDate);
-      if (toDate)   q = q.lte('date', toDate);
+      if (fromDate) q = q.gte('month_year', fromDate.substring(0, 7));
+      if (toDate)   q = q.lte('month_year', toDate.substring(0, 7));
       
       const { data: rawRecords, error } = await q;
       if (error) throw new Error(`Failed to fetch attendance: ${error.message}`);
       
-      let records = rawRecords || [];
-      if (filterRole)  records = records.filter(r => r.role === filterRole);
-      if (filterClass) records = records.filter(r => r.user?.class === filterClass);
+      let filteredRaw = rawRecords || [];
+      // Filter by role via the joined user record (not a top-level column post-v48)
+      if (filterRole)  filteredRaw = filteredRaw.filter(r => r.user?.role === filterRole);
+      if (filterClass) filteredRaw = filteredRaw.filter(r => r.user?.class === filterClass);
+
+      const records = reconstructAttendanceRows(filteredRaw, fromDate, toDate);
 
       headers = ['Date', 'Name', 'Username', 'Class', 'Role', 'Status'];
       data = records.map(r => ({
@@ -117,8 +193,44 @@ export default function Reports() {
         Name:     r.user?.name     || 'Unknown',
         Username: r.user?.username || '',
         Class:    r.user?.class    || '-',
-        Role:     r.role,
+        Role:     r.user?.role     || r.role || '-',
         Status:   r.status,
+      }));
+
+    } else if (reportType === 'leaves') {
+      let q = supabase
+        .from('leaves')
+        .select('*, user:users(name, class, username)')
+        .eq('school_id', schoolSettings.school_id)
+        .order('from_date', { ascending: false });
+
+      if (fromDate) q = q.gte('from_date', fromDate);
+      if (toDate)   q = q.lte('to_date', toDate);
+
+      const { data: rawRecords, error } = await q;
+      if (error) throw new Error(`Failed to fetch leaves: ${error.message}`);
+
+      let records = rawRecords || [];
+
+      if (filterRole) {
+        records = records.filter(r => r.role === filterRole);
+      }
+      if (filterRole === 'student' && filterClass) {
+        records = records.filter(r => r.user?.class === filterClass);
+      }
+      if (filterRole === 'teacher' && selectedTeacherId) {
+        records = records.filter(r => r.user_id === selectedTeacherId);
+      }
+
+      headers = ['From Date', 'To Date', 'Name', 'Username', 'Class/Role', 'Reason', 'Status'];
+      data = records.map(r => ({
+        'From Date':  r.from_date,
+        'To Date':    r.to_date,
+        'Name':       r.user?.name || 'Unknown',
+        'Username':   r.user?.username || '',
+        'Class/Role': r.role === 'student' ? (r.user?.class || '-') : 'Teacher',
+        'Reason':     r.reason || '',
+        'Status':     r.status,
       }));
 
     } else if (reportType === 'fees') {
@@ -273,15 +385,16 @@ export default function Reports() {
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Report Type</label>
             <select
               value={reportType}
-              onChange={e => { setReportType(e.target.value); setFilterRole(''); }}
+              onChange={e => { setReportType(e.target.value); setFilterRole(''); setFilterClass(''); setSelectedTeacherId(''); }}
               className="sp-input"
             >
                <option value="attendance">Attendance Log</option>
                <option value="fees">Fees Outstanding</option>
+               <option value="leaves">Leave Log</option>
             </select>
           </div>
 
-          {reportType === 'attendance' && (
+          {(reportType === 'attendance' || reportType === 'leaves') && (
             <>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">From Date</label>
@@ -293,7 +406,7 @@ export default function Reports() {
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Target Persona</label>
-                <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="sp-input">
+                <select value={filterRole} onChange={e => { setFilterRole(e.target.value); setFilterClass(''); setSelectedTeacherId(''); }} className="sp-input">
                   <option value="">All Personas</option>
                   <option value="student">Students Only</option>
                   <option value="teacher">Teachers Only</option>
@@ -302,12 +415,22 @@ export default function Reports() {
             </>
           )}
 
-          {(reportType === 'fees' || filterRole === 'student') && (
+          {((reportType === 'fees') || (reportType === 'attendance' && filterRole === 'student') || (reportType === 'leaves' && filterRole === 'student')) && (
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Class Filter</label>
               <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="sp-input">
                 <option value="">All Classes</option>
                 {classes.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          )}
+
+          {reportType === 'leaves' && filterRole === 'teacher' && (
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Teacher Filter</label>
+              <select value={selectedTeacherId} onChange={e => setSelectedTeacherId(e.target.value)} className="sp-input">
+                <option value="">All Teachers</option>
+                {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
           )}

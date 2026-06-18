@@ -6,6 +6,47 @@ import { ref, onValue, set } from 'firebase/database';
 import { rtdb } from '../config/firebaseClient';
 import { usePlan } from '../hooks/usePlan';
 
+const playSiren = () => {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return null;
+  const ctx = new AudioContext();
+  
+  // Create oscillator and gain node
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+  
+  // Add a siren modulation effect (frequency sweeping up and down)
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.frequency.value = 2.0; // 2 Hz frequency sweep
+  lfoGain.gain.value = 150; // Sweeping +/- 150 Hz
+  
+  lfo.connect(lfoGain);
+  lfoGain.connect(osc.frequency);
+  
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  
+  // Set volume and loop
+  gain.gain.setValueAtTime(0.5, ctx.currentTime);
+  
+  lfo.start();
+  osc.start();
+  
+  return {
+    stop: () => {
+      try {
+        osc.stop();
+        lfo.stop();
+        ctx.close();
+      } catch (e) {}
+    }
+  };
+};
+
 export default function EmergencyOverlay() {
   const { schoolSettings, user, role } = useAppStore();
   const [activeAlerts, setActiveAlerts] = useState([]);
@@ -58,9 +99,24 @@ export default function EmergencyOverlay() {
     };
     window.addEventListener('sp-push-received', handlePushReceived);
 
+    // 3. Subscribe to Supabase Realtime changes (Free & Premium / Web & Native)
+    const channel = supabase
+      .channel('emergency-alerts-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'emergency_alerts',
+        filter: `school_id=eq.${schoolSettings.school_id}`
+      }, (payload) => {
+        console.info('[EmergencyOverlay] Realtime event received:', payload);
+        fetchActiveAlerts();
+      })
+      .subscribe();
+
     return () => {
       if (unsubscribeFirebase) unsubscribeFirebase();
       window.removeEventListener('sp-push-received', handlePushReceived);
+      supabase.removeChannel(channel);
     };
   }, [schoolSettings?.school_id, user, role, isFree]);
 
@@ -89,11 +145,21 @@ export default function EmergencyOverlay() {
 
   const visibleAlerts = activeAlerts.filter(a => !dismissedAlerts.includes(a.id));
 
+  // Handle siren audio ringtone loop
+  useEffect(() => {
+    let siren = null;
+    if (visibleAlerts.length > 0) {
+      siren = playSiren();
+    }
+    return () => {
+      if (siren) siren.stop();
+    };
+  }, [visibleAlerts.length]);
+
   if (visibleAlerts.length === 0) return null;
 
-  // Global full-screen overrides (only for 'all', 'staff', 'students' target_audience sent by admins)
-  // Or targeted alerts that are NOT specific_students / admin
-  const fullScreenAlert = visibleAlerts.find(a => ['all', 'staff', 'students'].includes(a.target_audience));
+  // Any alert that targets the current active user should trigger the fullscreen warning card
+  const fullScreenAlert = visibleAlerts[0];
   
   if (fullScreenAlert) {
     const isLockdown = fullScreenAlert.alert_type === 'lockdown';

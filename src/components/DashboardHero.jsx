@@ -3,11 +3,24 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { Bell, Calendar, Loader2, Megaphone, Sparkles } from 'lucide-react';
+import { useTieredCache } from '../hooks/useTieredCache';
 
 export default function DashboardHero() {
   const { schoolSettings, user } = useAppStore();
 
   const schoolId = schoolSettings?.school_id ?? null;
+
+  const noticeCacheKey = `sp_latest_notice_${schoolId || 'default'}`;
+  const initialNotice = React.useMemo(() => {
+    try {
+      const cached = localStorage.getItem(noticeCacheKey);
+      return cached ? JSON.parse(cached) : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [noticeCacheKey]);
+
+  const tieredCacheNotice = useTieredCache();
 
   const { data: latestNotice, isLoading: noticeLoading } = useQuery({
     queryKey: ['latest-notice', schoolId],
@@ -20,10 +33,31 @@ export default function DashboardHero() {
         .limit(1)
         .single();
       if (error && error.code !== 'PGRST116') throw error;
-      return data || null;
+      
+      const res = data || null;
+      try {
+        localStorage.setItem(noticeCacheKey, JSON.stringify(res));
+      } catch (e) {
+        console.warn("Failed to write notice cache:", e);
+      }
+      return res;
     },
-    enabled: !!schoolId
+    enabled: !!schoolId,
+    initialData: initialNotice,
+    ...tieredCacheNotice
   });
+
+  const eventsCacheKey = `sp_upcoming_events_${schoolId || 'default'}`;
+  const initialEvents = React.useMemo(() => {
+    try {
+      const cached = localStorage.getItem(eventsCacheKey);
+      return cached ? JSON.parse(cached) : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [eventsCacheKey]);
+
+  const tieredCacheEvents = useTieredCache();
 
   const { data: upcomingEvents, isLoading: eventsLoading } = useQuery({
     queryKey: ['upcoming-events', schoolId],
@@ -36,9 +70,17 @@ export default function DashboardHero() {
         .order('start_date', { ascending: true })
         .limit(2);
       if (error) throw error;
+      
+      try {
+        localStorage.setItem(eventsCacheKey, JSON.stringify(data || []));
+      } catch (e) {
+        console.warn("Failed to write events cache:", e);
+      }
       return data || [];
     },
-    enabled: !!schoolId
+    enabled: !!schoolId,
+    initialData: initialEvents,
+    ...tieredCacheEvents
   });
 
   return (

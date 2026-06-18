@@ -6,15 +6,19 @@ import { Loader2, CalendarClock, Pencil, X, Save } from 'lucide-react';
 
 export default function TimetableViewer({ adminPreviewClass }) {
   const { role, user, schoolSettings } = useAppStore();
-  const [viewMode, setViewMode] = React.useState('self'); // 'self', 'class', 'school'
 
   const isTeacher = role === 'teacher';
   const isStudent = role === 'student';
   const isAdmin = role === 'admin';
 
-  // For Class Timetable view
+  // Teachers default to 'self' (their own schedule); admins/others default to 'school'
+  const [viewMode, setViewMode] = React.useState(isTeacher ? 'self' : 'school');
+
+  // For Class / Teacher filtered view
   const [targetClass, setTargetClass] = useState(adminPreviewClass || '');
+  const [targetTeacher, setTargetTeacher] = useState('');
   const queryClient = useQueryClient();
+
 
   // In-line editing states
   const [editingSlot, setEditingSlot] = useState(null);
@@ -23,10 +27,15 @@ export default function TimetableViewer({ adminPreviewClass }) {
   const { data: allTeachers } = useQuery({
      queryKey: ['available-teachers', schoolSettings?.school_id],
      queryFn: async () => {
-        const { data } = await supabase.from('users').select('id, name').eq('role', 'teacher');
+        const { data } = await supabase
+          .from('users')
+          .select('id, name')
+          .eq('school_id', schoolSettings.school_id)
+          .eq('role', 'teacher')
+          .order('name');
         return data || [];
      },
-     enabled: !!isAdmin && !!schoolSettings?.school_id
+     enabled: !!schoolSettings?.school_id
   });
 
   const updateSlotMutation = useMutation({
@@ -59,7 +68,7 @@ export default function TimetableViewer({ adminPreviewClass }) {
      if (adminPreviewClass) setTargetClass(adminPreviewClass);
   }, [adminPreviewClass]);
 
-  const cacheKey = `sp_timetable_${schoolSettings?.school_id || 'default'}_${user?.id || 'guest'}_${targetClass || 'none'}_${viewMode || 'self'}`;
+  const cacheKey = `sp_timetable_${schoolSettings?.school_id || 'default'}_${user?.id || 'guest'}_${targetClass || 'none'}_${targetTeacher || 'none'}_${viewMode || 'self'}`;
 
   const initialData = useMemo(() => {
     try {
@@ -72,9 +81,17 @@ export default function TimetableViewer({ adminPreviewClass }) {
   }, [cacheKey]);
 
   const { data: scheduleRaw, isLoading } = useQuery({
-    queryKey: ['timetable', schoolSettings?.school_id, user?.id, targetClass, viewMode, role],
+    queryKey: ['timetable', schoolSettings?.school_id, user?.id, targetClass, targetTeacher, viewMode, role],
     queryFn: async () => {
       let query = supabase.from('timetable').select('*'); 
+
+      // ── Helper: Fetch a teacher's name from users table ────────────────
+      // Needed because timetable.teacher may store name strings (legacy v13)
+      // instead of UUIDs, and user.name is not available in the app store.
+      const fetchTeacherName = async (teacherId) => {
+        const { data: p } = await supabase.from('users').select('name').eq('id', teacherId).single();
+        return p?.name || null;
+      };
       
       if (isStudent) {
          const { data: profile } = await supabase.from('users').select('class').eq('id', user.id).single();
@@ -86,12 +103,28 @@ export default function TimetableViewer({ adminPreviewClass }) {
       } else if (isAdmin) {
          if (viewMode === 'class' && targetClass) {
             query = query.eq('class', targetClass);
+         } else if (viewMode === 'teacher' && targetTeacher) {
+            // FOUNDATIONAL FIX: timetable.teacher may store UUID or name string.
+            // Query with both: the UUID from the dropdown AND the teacher's name.
+            const teacherName = await fetchTeacherName(targetTeacher);
+            if (teacherName) {
+               query = query.or(`teacher.eq."${targetTeacher}",teacher.eq."${teacherName.replace(/"/g, '\\"')}"`);
+            } else {
+               query = query.eq('teacher', targetTeacher);
+            }
          }
          // if viewMode === 'school', no further filters.
       } else if (isTeacher) {
-         if (viewMode === 'self') {
-            query = query.eq('teacher', user.id);
-         } else if (viewMode === 'class') {
+          if (viewMode === 'self') {
+             // FOUNDATIONAL FIX: Query with BOTH UUID and name since legacy data
+             // stores teacher as name strings (e.g. 'Hajare Shubham') not UUIDs.
+             const teacherName = await fetchTeacherName(user.id);
+             if (teacherName) {
+                query = query.or(`teacher.eq."${user.id}",teacher.eq."${teacherName.replace(/"/g, '\\"')}"`);
+             } else {
+                query = query.eq('teacher', user.id);
+             }
+          } else if (viewMode === 'class') {
             const { data: profile } = await supabase.from('users').select('class').eq('id', user.id).single();
             if (profile?.class) {
                query = query.eq('class', profile.class);
@@ -100,7 +133,15 @@ export default function TimetableViewer({ adminPreviewClass }) {
             } else {
                return []; // No class selected and no deployed class
             }
-         }
+          } else if (viewMode === 'teacher' && targetTeacher) {
+             // FOUNDATIONAL FIX: same dual-format matching for teacher-wise filter
+             const teacherName = await fetchTeacherName(targetTeacher);
+             if (teacherName) {
+                query = query.or(`teacher.eq."${targetTeacher}",teacher.eq."${teacherName.replace(/"/g, '\\"')}"`);
+             } else {
+                query = query.eq('teacher', targetTeacher);
+             }
+          }
          // if viewMode === 'school', no further filters.
       }
 
@@ -177,35 +218,64 @@ export default function TimetableViewer({ adminPreviewClass }) {
     <div className="card fade-in">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
             <div className="section-title" style={{ margin: 0 }}>
-                <h3>{viewMode === 'self' ? 'My Schedule' : 'Full School Timetable'}</h3>
+                <h3>{viewMode === 'self' ? 'My Schedule' : viewMode === 'teacher' ? 'Teacher Schedule' : viewMode === 'class' ? 'Class Schedule' : 'Full School Timetable'}</h3>
             </div>
             
             {(isTeacher || isAdmin) && (
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                 {isTeacher && (
-                   <button 
-                     onClick={() => { setViewMode('self'); setTargetClass(''); }} 
-                     className={`btn ${viewMode === 'self' ? 'btn-primary' : 'outline'}`}
-                   >
-                     View My Schedule
-                   </button>
-                 )}
-                 <select 
-                    value={viewMode === 'class' ? targetClass : ''}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                 {/* ── Primary Filter By select ── */}
+                 {/* BUG FIX: value={viewMode} directly — NOT a computed ternary.
+                     Previously the computed expression would collapse to '' on sub-filter
+                     re-renders, making the dropdown visually disappear. */}
+                 <select
+                    value={viewMode}
                     onChange={(e) => {
-                       if (e.target.value) {
-                          setViewMode('class');
-                          setTargetClass(e.target.value);
-                       } else {
-                          setViewMode('school');
+                       const val = e.target.value;
+                       setViewMode(val);
+                       // Reset sub-filters on mode change
+                       if (val === 'class') {
+                          setTargetClass(schoolSettings?.classes?.[0] || '');
+                          setTargetTeacher('');
+                       } else if (val === 'teacher') {
+                          setTargetTeacher(allTeachers?.[0]?.id || '');
                           setTargetClass('');
+                       } else {
+                          setTargetClass('');
+                          setTargetTeacher('');
                        }
                     }}
                     className="sp-input w-auto mb-0"
                  >
-                    <option value="">-- Filter By --</option>
-                    {schoolSettings?.classes?.map(c => <option key={c} value={c}>Class {c}</option>)}
+                    {/* 'self' option only for teachers */}
+                    {isTeacher && <option value="self">My Schedule</option>}
+                    <option value="school">Full School</option>
+                    <option value="class">Class-wise Filter</option>
+                    <option value="teacher">Teacher-wise Filter</option>
                  </select>
+
+                 {/* ── Class sub-filter (only visible when viewMode === 'class') ── */}
+                 {viewMode === 'class' && (
+                    <select
+                       value={targetClass}
+                       onChange={(e) => setTargetClass(e.target.value)}
+                       className="sp-input w-auto mb-0"
+                    >
+                       <option value="">-- Select Class --</option>
+                       {schoolSettings?.classes?.map(c => <option key={c} value={c}>Class {c}</option>)}
+                    </select>
+                 )}
+
+                 {/* ── Teacher sub-filter (only visible when viewMode === 'teacher') ── */}
+                 {viewMode === 'teacher' && (
+                    <select
+                       value={targetTeacher}
+                       onChange={(e) => setTargetTeacher(e.target.value)}
+                       className="sp-input w-auto mb-0"
+                    >
+                       <option value="">-- Select Teacher --</option>
+                       {allTeachers?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                 )}
               </div>
             )}
         </div>

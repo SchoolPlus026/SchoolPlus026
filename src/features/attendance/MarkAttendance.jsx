@@ -197,6 +197,8 @@ export default function MarkAttendance() {
     },
     onSuccess: (_, payload) => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      // Immediately clear the Staff Pending Duty banner — do not wait for 60s poll
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'duty_radar'] });
       setAttendanceEdits({});
       setIsEditing(false);
       showToast('Attendance recorded successfully!');
