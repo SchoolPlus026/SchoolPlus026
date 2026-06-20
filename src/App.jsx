@@ -226,41 +226,75 @@ export default function App() {
     }
 
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') useAppStore.getState().clearSession();
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        useAppStore.getState().clearSession();
+      } else if (event === 'USER_UPDATED' && session?.user) {
+        // Email/identity change confirmed — refresh the cached user object so
+        // the new email is reflected in the UI without requiring a full re-login.
+        const store = useAppStore.getState();
+        const currentRole = store.role;
+        store.setUserAndRole(session.user, currentRole);
+        store.setProfileLastFetched(null); // force fresh re-fetch next init
+      }
     });
 
     let appUrlListener = null;
     if (Capacitor.isNativePlatform()) {
       appUrlListener = CapacitorApp.addListener('appUrlOpen', async (data) => {
         try {
+          console.log('[Deep Link] Received URL:', data.url);
           const url = new URL(data.url);
           if (url.protocol === 'schoolosplus:' || data.url.startsWith('schoolosplus://')) {
-            const hashStr = url.hash || (data.url.includes('#') ? data.url.split('#')[1] : '');
-            if (hashStr) {
+            let sessionEstablished = false;
+
+            // ── Path A: PKCE flow — Supabase sends ?code=... as a query param ──
+            const code = url.searchParams.get('code');
+            if (code) {
+              console.log('[Deep Link] PKCE code detected, exchanging for session...');
+              const { error: codeErr } = await supabase.auth.exchangeCodeForSession(data.url);
+              if (codeErr) {
+                console.error('[Deep Link] exchangeCodeForSession failed:', codeErr.message);
+              } else {
+                sessionEstablished = true;
+              }
+            }
+
+            // ── Path B: Implicit flow — Supabase sends #access_token=... in hash ──
+            if (!sessionEstablished) {
+              const hashStr = url.hash || (data.url.includes('#') ? '#' + data.url.split('#')[1] : '');
               const params = new URLSearchParams(hashStr.startsWith('#') ? hashStr.substring(1) : hashStr);
               const accessToken = params.get('access_token');
               const refreshToken = params.get('refresh_token');
-              
+
               if (accessToken) {
                 const type = params.get('type');
                 if (type === 'recovery') {
                   sessionStorage.setItem('show_sync_password_reset', 'true');
                   window.dispatchEvent(new Event('sync_login_success'));
                 }
-                
                 const { error: sessionErr } = await supabase.auth.setSession({
                   access_token: accessToken,
                   refresh_token: refreshToken || ''
                 });
-                if (sessionErr) throw sessionErr;
-                
-                window.location.reload();
+                if (sessionErr) {
+                  console.error('[Deep Link] setSession failed:', sessionErr.message);
+                } else {
+                  sessionEstablished = true;
+                }
               }
+            }
+
+            if (sessionEstablished) {
+              // Clear the profile cache so next initializeApp always fetches fresh data
+              useAppStore.getState().setProfileLastFetched(null);
+              window.location.reload();
+            } else {
+              console.warn('[Deep Link] No auth tokens found in URL:', data.url);
             }
           }
         } catch (err) {
-          console.error('[Capacitor Deep Link] Error parsing URL:', err);
+          console.error('[Deep Link] Error handling URL:', err);
         }
       });
     }

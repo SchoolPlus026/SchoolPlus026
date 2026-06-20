@@ -135,7 +135,11 @@ export default function SharedSettings() {
 
       const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
       if (error) throw error;
-      setEmailSuccess('Verification link sent! Please check both your current and new email addresses to verify and confirm the change.');
+
+      // Clear profile cache so next app load fetches fresh email
+      useAppStore.getState().setProfileLastFetched(null);
+
+      setEmailSuccess('Verification link sent! Please check both your current and new email addresses and click the confirmation links in both to complete the change.');
       setNewEmail('');
     } catch (err) {
       setEmailError(err.message || 'Failed to update email.');
@@ -158,9 +162,11 @@ export default function SharedSettings() {
         }
       });
       if (error) throw error;
+      // Clear cache so identity list is always re-fetched after Google link returns
+      useAppStore.getState().setProfileLastFetched(null);
     } catch (err) {
       if (err.message && err.message.includes('Manual linking is disabled')) {
-        alert('Manual identity linking is disabled in your Supabase project configuration. To enable it, go to Authentication > Configuration > URL Configuration in your Supabase Dashboard and check "Allow manual linking".');
+        alert('Manual identity linking is disabled in your Supabase project configuration. To enable it, go to Authentication > Sign In / Providers in your Supabase Dashboard and enable "Allow manual linking".');
       } else {
         alert(`Linking Google failed: ${err.message}`);
       }
@@ -173,6 +179,10 @@ export default function SharedSettings() {
     if (!window.confirm('Are you sure you want to disconnect your Google account? You will need to use your password to log in.')) return;
     setLinkingLoading(true);
     try {
+      // Refresh session first to avoid 'Auth session missing' on stale tokens
+      const { error: refreshErr } = await supabase.auth.refreshSession();
+      if (refreshErr) throw new Error('Session expired. Please log in again before disconnecting Google.');
+
       const { data: { user: freshUser }, error: userErr } = await supabase.auth.getUser();
       if (userErr) throw userErr;
 
@@ -182,6 +192,12 @@ export default function SharedSettings() {
       }
       const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
       if (error) throw error;
+
+      // Clear cache and update store with fresh user
+      useAppStore.getState().setProfileLastFetched(null);
+      const { data: { user: updatedUser } } = await supabase.auth.getUser();
+      if (updatedUser) useAppStore.getState().setUserAndRole(updatedUser, role);
+
       alert('Google account disconnected successfully.');
       window.location.reload();
     } catch (err) {
