@@ -79,3 +79,21 @@ We have successfully implemented and verified the following fixes:
 - **Admin Settings Account Card (`AdminSettings.jsx`):** Added the Change Email and Google Connection settings card to `AdminSettings.jsx` (which governs settings for admins at `/admin/settings`), resolving the issue where it was hidden from school admins.
 - **Trigger Sync Upgrades (`v98_native_auth_recovery_and_sync.sql`):** Updated the email synchronization trigger `trg_sync_auth_user_email` to execute on both `INSERT` and `UPDATE` events. Added client-side checks to reject duplicate emails before calling Supabase, preventing database exceptions.
 - **Unfolded Recovery Visibility (`Login.jsx`):** Un-gated recovery flows by listing "Reset Password via Email", "Reset Password via Recovery PIN", and "Reset Password via Security Questions" directly as top-level buttons on the primary Login Help menu (step 3).
+
+### 7. Google OAuth & Recovery Email System Fixes (v101)
+We have successfully implemented a complete, bulletproof architectural solution for all Google login/link hanging and sync issues:
+- **CI/CD Runner Build Manifest Patch (`.github/workflows/build-apk.yml`):**
+  Updated the manifest patching script in the GitHub Actions runner. It now dynamically injects intent-filters for both `schoolosplus://oauth2redirect` AND `schoolosplus://dashboard` into the `AndroidManifest.xml` during compilation. This fixes the root cause of Chrome hanging on Google account selection.
+- **In-App Browser OAuth Launcher (`Login.jsx`, `UserProfile.jsx`, `AdminSettings.jsx`, `SharedSettings.jsx`):**
+  Implemented native Capacitor OAuth. On mobile apps, Google login and Google linking now use `skipBrowserRedirect: true` and open the URL via `@capacitor/browser` plugin in Chrome Custom Tabs / Safari View Controller. This prevents the React app WebView from unloading and keeps the Capacitor bridge intact.
+- **Auto-Close In-App Browser (`App.jsx`):**
+  In the `appUrlOpen` deep link listener, once a PKCE or implicit session is resolved, the app automatically calls `Browser.close()` to slide down the Custom Tab and return the user to the app instantly.
+- **Direct Email Update RPC (`database/v101_auth_google_sync_and_direct_email_updates.sql`):**
+  Created a secure, direct SQL update function `update_user_email_direct` to change recovery emails instantly. This completely bypasses Supabase's confirmation verification flow, eliminating old email mismatches or pending-state delays.
+- **Auto Google Email Synchronization (`database/v101_auth_google_sync_and_direct_email_updates.sql`):**
+  Binded a new trigger `trg_sync_identity_changes` to `auth.identities`. 
+  - When Google is connected, it automatically overwrites the user's account emails (`auth.users` and `public.users`) with the Google Gmail address.
+  - When Google is disconnected (1-click unlink), it automatically removes the Google identity and resets the account emails back to `username@school.internal`, clearing all references to the Gmail address from the database and app.
+- **Direct Email Updates Integration (`UserProfile.jsx`, `AdminSettings.jsx`, `SharedSettings.jsx`):**
+  Configured the Change Email forms to trigger the direct RPC instead of Supabase's standard updateUser. Once updated, the app clears the Zustand cache and reloads to show the new email instantly.
+
