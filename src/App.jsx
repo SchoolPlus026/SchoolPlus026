@@ -280,6 +280,7 @@ export default function App() {
       {user && <HelpButton />}
       {user && <SyncPasswordResetModal />}
       {user && <GlobalAvatarPreviewModal />}
+      {user && <GoogleRecoveryNudgeModal />}
 
       <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
@@ -609,6 +610,109 @@ function GlobalAvatarPreviewModal() {
           className="max-w-full max-h-[85vh] object-contain block rounded-2xl"
           referrerPolicy="no-referrer"
         />
+      </div>
+    </div>
+  );
+}
+
+function GoogleRecoveryNudgeModal() {
+  const { user, schoolSettings } = useAppStore();
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    // Check if school is free or not loaded yet
+    const isFree = schoolSettings?.subscription_tier === 'Free' || schoolSettings?.plan_type === 'free';
+    if (isFree) return; // Only for paid/trial plans, not free schools
+
+    // Check if already connected to Google
+    const isGoogleConnected = user.identities?.some(id => id.provider === 'google');
+    if (isGoogleConnected) return;
+
+    // Check if dismissed
+    const isDismissed = localStorage.getItem('google_link_nudge_dismissed_' + user.id) === 'true';
+    if (isDismissed) return;
+
+    // If all conditions met, show prompt
+    setShow(true);
+  }, [user, schoolSettings]);
+
+  if (!show) return null;
+
+  const handleDismiss = () => {
+    localStorage.setItem('google_link_nudge_dismissed_' + user.id, 'true');
+    setShow(false);
+  };
+
+  const handleConnect = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.linkIdentity({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+      if (error) throw error;
+    } catch (err) {
+      alert(`Linking Google failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.8)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999,
+      padding: '20px'
+    }}>
+      <div className="card w-full max-w-md relative border border-white/10" style={{ background: 'var(--bg-card)', padding: '24px' }}>
+        <button onClick={handleDismiss} style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          background: 'none',
+          border: 'none',
+          color: 'var(--text-muted)',
+          cursor: 'pointer'
+        }}>
+          <X size={20} />
+        </button>
+
+        <div className="settings-header" style={{ marginBottom: '20px' }}>
+          <div className="icon-box" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', width: '48px', height: '48px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg className="w-6 h-6" viewBox="0 0 24 24" style={{ width: '24px', height: '24px' }}>
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.69a5.59 5.59 0 0 1-2.42 3.7v3.08h3.92c2.28-2.1 3.55-5.19 3.55-8.63z" />
+              <path fill="#34A853" d="M12 24c3.24 0 5.97-1.08 7.96-2.91l-3.92-3.08c-1.08.73-2.48 1.17-4.04 1.17-3.11 0-5.74-2.11-6.68-4.96H1.21v3.18C3.18 21.88 7.31 24 12 24z" />
+              <path fill="#FBBC05" d="M5.32 14.22A7.16 7.16 0 0 1 4.9 12c0-.79.13-1.57.41-2.22V6.6H1.21A11.94 11.94 0 0 0 0 12c0 2.22.6 4.3 1.66 6.1l3.66-2.88z" />
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.18 2.12 1.21 6.6l4.11 3.18c.94-2.85 3.57-4.96 6.68-4.96z" />
+            </svg>
+          </div>
+          <div className="text-content" style={{ marginTop: '12px' }}>
+            <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Link Your Google Account</h4>
+            <p style={{ margin: '8px 0 0', fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+              Connect your Google account now for lightning-fast 1-click logins and secure password recovery.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-2" style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+          <button type="button" onClick={handleDismiss} className="btn ghost flex-1 text-slate-400" style={{ fontWeight: 600 }}>
+            Maybe Later
+          </button>
+          <button type="button" onClick={handleConnect} disabled={loading} className="btn accent flex-1" style={{ fontWeight: 700 }}>
+            {loading ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Connect Google'}
+          </button>
+        </div>
       </div>
     </div>
   );
