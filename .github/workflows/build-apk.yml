@@ -134,10 +134,16 @@ jobs:
             echo "❌ AndroidManifest.xml not found at $MANIFEST"
             exit 1
           fi
+          # 1. Add FCM and Geolocation permissions right before </manifest>
           sed -i 's|</manifest>|    <!-- Geolocation Permissions -->\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />\n    <!-- FCM: Android 13+ POST_NOTIFICATIONS runtime permission (REQUIRED) -->\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <!-- FCM: Notification vibration support -->\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <!-- FCM: Wake device to deliver messages reliably -->\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <!-- FCM: Allows FCM token refresh after device reboot -->\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <!-- OTA Update: Required to install downloaded APKs in-app (Android 8+) -->\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n    <!-- Camera and Media Permissions for Scanner & Plugin Stability -->\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />\n</manifest>|' "$MANIFEST"
-          echo "✅ FCM, Geolocation & OTA permissions patched into AndroidManifest.xml"
+
+          # 2. Add custom deep link (schoolosplus) and WebAuthn app link intent filters right before </activity>
+          sed -i 's|</activity>|            <!-- Custom Deep Links -->\n            <intent-filter>\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="schoolosplus" android:host="oauth2redirect" />\n            </intent-filter>\n            <!-- WebAuthn App Links -->\n            <intent-filter android:autoVerify="true">\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="https" android:host="schoolpro-d95a8.web.app" />\n            </intent-filter>\n        </activity>|' "$MANIFEST"
+
+          echo "✅ FCM, Geolocation, OTA & Deep Link permissions patched into AndroidManifest.xml"
           grep -q "ACCESS_FINE_LOCATION" "$MANIFEST" && echo "✅ Geolocation confirmed" || (echo "❌ Patch FAILED" && exit 1)
           grep -q "REQUEST_INSTALL_PACKAGES" "$MANIFEST" && echo "✅ OTA install permission confirmed" || (echo "❌ OTA patch FAILED" && exit 1)
+          grep -q "schoolosplus" "$MANIFEST" && echo "✅ Deep Link scheme confirmed" || (echo "❌ Deep Link patch FAILED" && exit 1)
 
       - name: 🔑 Inject google-services.json for FCM
         run: |
