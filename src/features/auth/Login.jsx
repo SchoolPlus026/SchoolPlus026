@@ -3,6 +3,7 @@ import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Ey
   Fingerprint, Key, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X, Mail } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Camera } from '@capacitor/camera';
+import { Browser } from '@capacitor/browser';
 import { CapacitorPasskey } from '@capgo/capacitor-passkey';
 import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
@@ -503,13 +504,29 @@ export default function Login() {
         ? 'schoolosplus://dashboard' 
         : `${window.location.origin}/`;
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl
+      if (Capacitor.isNativePlatform()) {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true
+          }
+        });
+        if (error) throw error;
+        if (data?.url) {
+          await Browser.open({ url: data.url });
+        } else {
+          throw new Error('Google Sign-In URL not found.');
         }
-      });
-      if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl
+          }
+        });
+        if (error) throw error;
+      }
     } catch (err) {
       setError(err.message || 'Failed to initialize Google Login.');
       setLoading(false);

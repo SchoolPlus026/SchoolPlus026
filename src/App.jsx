@@ -7,6 +7,7 @@ import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 
 // Core Flow Components
 import Login from './features/auth/Login';
@@ -288,9 +289,17 @@ export default function App() {
             if (sessionEstablished) {
               // Clear the profile cache so next initializeApp always fetches fresh data
               useAppStore.getState().setProfileLastFetched(null);
+              try {
+                await Browser.close();
+              } catch (bErr) {
+                console.warn('[Deep Link] Failed to close browser tab:', bErr.message);
+              }
               window.location.reload();
             } else {
               console.warn('[Deep Link] No auth tokens found in URL:', data.url);
+              try {
+                await Browser.close();
+              } catch (bErr) {}
             }
           }
         } catch (err) {

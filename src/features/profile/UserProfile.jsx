@@ -3,6 +3,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { User, Loader2, Mail, Phone, MapPin, Briefcase, Calendar, Info, GraduationCap, FileText, Users, BookOpen, Award, Star, Camera, Trash2, Lock } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 
 // Client-side image compression utility
 const compressImage = (file) => {
@@ -71,26 +72,21 @@ export default function UserProfile() {
     setEmailError('');
     setEmailSuccess('');
     try {
-      // Check if email already registered in public.users to another account
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', newEmail.trim())
-        .neq('id', user.id)
-        .maybeSingle();
-
-      if (existingUser) {
-        throw new Error('A user with this email address has already been registered.');
-      }
-
-      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+      const { error } = await supabase.rpc('update_user_email_direct', { p_email: newEmail.trim() });
       if (error) throw error;
 
       // Clear profile cache so next app load fetches fresh email
       useAppStore.getState().setProfileLastFetched(null);
 
-      setEmailSuccess('Verification link sent! Please check both your current and new email addresses and click the confirmation links in both to complete the change.');
+      // Refresh cached user in Zustand store
+      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      if (freshUser) {
+        useAppStore.getState().setUserAndRole(freshUser, role);
+      }
+
+      setEmailSuccess('Email updated successfully!');
       setNewEmail('');
+      window.location.reload();
     } catch (err) {
       setEmailError(err.message || 'Failed to update email.');
     } finally {
@@ -105,13 +101,29 @@ export default function UserProfile() {
         ? 'schoolosplus://dashboard' 
         : `${window.location.origin}/dashboard`;
 
-      const { error } = await supabase.auth.linkIdentity({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl
+      if (Capacitor.isNativePlatform()) {
+        const { data, error } = await supabase.auth.linkIdentity({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true
+          }
+        });
+        if (error) throw error;
+        if (data?.url) {
+          await Browser.open({ url: data.url });
+        } else {
+          throw new Error('Google link URL not found.');
         }
-      });
-      if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.linkIdentity({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl
+          }
+        });
+        if (error) throw error;
+      }
       // Clear cache so identity list is always re-fetched after Google link returns
       useAppStore.getState().setProfileLastFetched(null);
     } catch (err) {
