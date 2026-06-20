@@ -499,7 +499,10 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = Capacitor.isNativePlatform() 
+        ? 'schoolosplus://dashboard' 
+        : `${window.location.origin}/`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

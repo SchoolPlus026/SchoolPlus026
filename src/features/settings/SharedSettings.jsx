@@ -89,6 +89,27 @@ export default function SharedSettings() {
   const [emailError, setEmailError] = useState('');
   const [emailSuccess, setEmailSuccess] = useState('');
   const [linkingLoading, setLinkingLoading] = useState(false);
+  const [profileEmail, setProfileEmail] = useState(user?.email || '');
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('users')
+      .select('email')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.email) {
+          setProfileEmail(data.email);
+        }
+      });
+
+    supabase.auth.getUser().then(({ data: { user: freshUser } }) => {
+      if (freshUser) {
+        useAppStore.getState().setUserAndRole(freshUser, role);
+      }
+    });
+  }, [user?.id, role]);
 
   const handleUpdateEmail = async (e) => {
     e.preventDefault();
@@ -152,7 +173,10 @@ export default function SharedSettings() {
     if (!window.confirm('Are you sure you want to disconnect your Google account? You will need to use your password to log in.')) return;
     setLinkingLoading(true);
     try {
-      const googleIdentity = user?.identities?.find(id => id.provider === 'google');
+      const { data: { user: freshUser }, error: userErr } = await supabase.auth.getUser();
+      if (userErr) throw userErr;
+
+      const googleIdentity = freshUser?.identities?.find(id => id.provider === 'google');
       if (!googleIdentity) {
         throw new Error('Google account is not currently linked.');
       }
@@ -535,7 +559,7 @@ export default function SharedSettings() {
               <div>
                 <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Current Email</label>
                 <div className="sp-input" style={{ fontSize: '13px', fontWeight: 600, padding: '10px 14px', background: 'var(--accent-light)', opacity: 0.8, borderRadius: '12px' }}>
-                  {user?.email || 'No email registered'}
+                  {profileEmail || user?.email || 'No email registered'}
                 </div>
               </div>
               <div>

@@ -667,37 +667,48 @@ function GoogleRecoveryNudgeModal() {
     const isFree = schoolSettings?.subscription_tier === 'Free' || schoolSettings?.plan_type === 'free';
     if (isFree) return; // Only for paid/trial plans, not free schools
 
-    // Check if already connected to Google
-    const isGoogleConnected = user.identities?.some(id => id.provider === 'google');
-    if (isGoogleConnected) return;
-
-    // Check if dismissed
-    const isDismissed = localStorage.getItem('google_link_nudge_dismissed_' + user.id) === 'true';
+    // Check if dismissed in this session
+    const isDismissed = sessionStorage.getItem('google_link_nudge_dismissed_' + user.id) === 'true';
     if (isDismissed) return;
 
-    // If all conditions met, show prompt
-    setShow(true);
+    // Fetch fresh user data to verify Google identity status
+    supabase.auth.getUser().then(({ data: { user: freshUser } }) => {
+      if (freshUser) {
+        const isGoogleConnected = freshUser.identities?.some(id => id.provider === 'google');
+        if (!isGoogleConnected) {
+          setShow(true);
+        }
+      }
+    });
   }, [user, schoolSettings]);
 
   if (!show) return null;
 
   const handleDismiss = () => {
-    localStorage.setItem('google_link_nudge_dismissed_' + user.id, 'true');
+    sessionStorage.setItem('google_link_nudge_dismissed_' + user.id, 'true');
     setShow(false);
   };
 
   const handleConnect = async () => {
     setLoading(true);
     try {
+      const redirectUrl = Capacitor.isNativePlatform() 
+        ? 'schoolosplus://dashboard' 
+        : `${window.location.origin}/dashboard`;
+
       const { error } = await supabase.auth.linkIdentity({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: redirectUrl
         }
       });
       if (error) throw error;
     } catch (err) {
-      alert(`Linking Google failed: ${err.message}`);
+      if (err.message && err.message.includes('Manual linking is disabled')) {
+        alert('Manual identity linking is disabled in your Supabase project configuration.');
+      } else {
+        alert(`Linking Google failed: ${err.message}`);
+      }
     } finally {
       setLoading(false);
     }

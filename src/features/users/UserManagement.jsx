@@ -223,18 +223,21 @@ export default function UserManagement() {
 
   const updateUserMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('users').update({
-        name: editForm.name,
-        username: editForm.username,
-        contact: editForm.contact || null,
-        dob: editForm.dob || null,
-        blood_group: editForm.blood_group || null,
-        address: editForm.address || null,
-        aadhar_card: editForm.aadhar_card || null,
-        qualification: editForm.qualification || null,
-        designation: editForm.designation || null,
-        class: editForm.class || null,
-      }).eq('id', editingUser.id);
+      const { error } = await supabase.rpc('admin_update_user', {
+        p_user_id: editingUser.id,
+        p_email: editForm.email,
+        p_username: editForm.username,
+        p_name: editForm.name,
+        p_role: editingUser.role,
+        p_class: editForm.class || null,
+        p_contact: editForm.contact || null,
+        p_dob: editForm.dob || null,
+        p_address: editForm.address || null,
+        p_blood_group: editForm.blood_group || null,
+        p_qualification: editForm.qualification || null,
+        p_aadhar_card: editForm.aadhar_card || null,
+        p_designation: editForm.designation || null,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -552,6 +555,7 @@ export default function UserManagement() {
               )}
 
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">System Information</p>
+              <EField label="Email Address" field="email" type="email" editForm={editForm} setEditForm={setEditForm} />
               <EField label="Username" field="username" editForm={editForm} setEditForm={setEditForm} />
               
               {/* Read-only info */}

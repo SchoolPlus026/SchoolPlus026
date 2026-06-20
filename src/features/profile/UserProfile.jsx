@@ -123,7 +123,10 @@ export default function UserProfile() {
     if (!window.confirm('Are you sure you want to disconnect your Google account? You will need to use your password to log in.')) return;
     setLinkingLoading(true);
     try {
-      const googleIdentity = user?.identities?.find(id => id.provider === 'google');
+      const { data: { user: freshUser }, error: userErr } = await supabase.auth.getUser();
+      if (userErr) throw userErr;
+
+      const googleIdentity = freshUser?.identities?.find(id => id.provider === 'google');
       if (!googleIdentity) {
         throw new Error('Google account is not currently linked.');
       }
@@ -149,7 +152,13 @@ export default function UserProfile() {
         setProfile(data); 
         setLoading(false); 
       });
-  }, [user]);
+
+    supabase.auth.getUser().then(({ data: { user: freshUser } }) => {
+      if (freshUser) {
+        useAppStore.getState().setUserAndRole(freshUser, role);
+      }
+    });
+  }, [user, role]);
 
   useEffect(() => {
     setImgError(false);
@@ -571,9 +580,9 @@ export default function UserProfile() {
                    <form onSubmit={handleUpdateEmail} className="space-y-3">
                       <div>
                          <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-1">Current Email</label>
-                         <div className="text-sm font-semibold text-white px-3 py-2 bg-[var(--glass)] rounded-xl border border-border/50">
-                            {user?.email || 'No email registered'}
-                         </div>
+                          <div className="text-sm font-semibold text-white px-3 py-2 bg-[var(--glass)] rounded-xl border border-border/50">
+                             {profile?.email || user?.email || 'No email registered'}
+                          </div>
                       </div>
                       <div>
                          <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-1">New Email Address</label>
