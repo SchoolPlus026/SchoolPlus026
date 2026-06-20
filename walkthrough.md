@@ -62,4 +62,10 @@ I have implemented and successfully verified all aspects of the zero-cost native
 
 ### 4. Build Verification
 - Proactively compiled the production build (`npm run build`). Vite successfully bundle-minified all chunks and resources without any errors or linter warnings.
-
+### 5. Auth UI & Layout Hotfixes (Immediate Fixes)
+We have successfully resolved the UI and rendering issues:
+- **Google Login Button UI (`Login.jsx`):** Removed the faded background/text colors that were blending into the white card. Added a highly visible, gorgeous bordered style (`bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700` in light mode, with appropriate dark mode styles) and replaced the generic SVG icon with the official multicolored Google logo for a premium look.
+- **Account & Recovery Settings Card (`SharedSettings.jsx`):** Corrected the layout structure. The "Account & Recovery Settings" card is now integrated directly into `SharedSettings.jsx` (accessible via the `/settings` route used by all roles).
+- **Missing Lock Import Fixed (`UserProfile.jsx`):** Added the missing import for `Lock` from `lucide-react` to prevent silent crashes or missing cards on user profile pages.
+- **Post-Login Connect Gmail Nudge (`App.jsx`):** Developed and globally mounted a gorgeous `GoogleRecoveryNudgeModal` overlay. It checks if the logged-in user is on a paid/trial school plan and has not connected their Google account yet. It presents a clear prompt to "Connect Google" or "Maybe Later" (which dismisses it locally per user).
+- **Build Verification:** Verified the entire application compiles and bundles cleanly with Vite without warnings or errors. Pushed the code changes directly to the repository to trigger CI/CD pipeline.
