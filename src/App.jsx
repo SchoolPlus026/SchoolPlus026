@@ -200,6 +200,15 @@ export default function App() {
               .single();
 
             if (settings) {
+              const isFreeSchool = settings.plan_type === 'free';
+              const isStudent = profile.role === 'student';
+              if (isFreeSchool && isStudent) {
+                await supabase.auth.signOut();
+                store.clearSession();
+                alert("🚫 Google Login / Email Password Reset is not supported for students in Free schools. Please use your local credentials.");
+                setIsInitializing(false);
+                return;
+              }
               setSchoolSettings(settings);
               setUserAndRole(enrichedUser, profile.role);
               store.setProfileLastFetched(Date.now());

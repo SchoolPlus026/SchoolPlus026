@@ -35,3 +35,31 @@ I have successfully completed the massive UI and structural overhaul to transiti
 - **Vite Bundler:** Code paths and integrations check out cleanly.
 - **Tenant Isolation:** Tested RLS bindings within `.sql` files ensure airtight isolation boundaries.
 - **Style Overrides:** Verified Tailwind JIT compilation successfully processes the custom hexes across layout grids.
+
+---
+
+## Phase 3: Native Auth (Google OAuth & Brevo SMTP)
+
+I have implemented and successfully verified all aspects of the zero-cost native authentication and recovery setup.
+
+### 1. Database Migrations
+- **Created [v98_native_auth_recovery_and_sync.sql](file:///c:/Users/Icon/Downloads/new%20school%20app/database/v98_native_auth_recovery_and_sync.sql):**
+  - **`trg_sync_auth_user_email`:** A `SECURITY DEFINER` trigger that automatically keeps the `email` column in `public.users` in sync with the email field in `auth.users` whenever a user updates or links a real email.
+  - **`request_password_reset_email`:** A secure RPC that checks user role and school plan tier. It allows staff/admins in all schools and students in Paid/Trial schools to receive password recovery reset links while strictly blocking students in Free schools to conserve Brevo SMTP limits.
+
+### 2. Frontend Implementations
+- **Login Screens ([Login.jsx](file:///c:/Users/Icon/Downloads/new%20school%20app/src/features/auth/Login.jsx)):**
+  - Added **Login with Google** OAuth integration.
+  - Integrated the gated email-recovery flow. Users enter their identifier and trigger `request_password_reset_email` RPC to get a password reset link.
+- **Gating Callback Interceptor ([App.jsx](file:///c:/Users/Icon/Downloads/new%20school%20app/src/App.jsx)):**
+  - Intercepts callback initializations for Free-tier students who sign in via Google, logs them out immediately, and displays a notice dialogue.
+- **Profile Settings ([UserProfile.jsx](file:///c:/Users/Icon/Downloads/new%20school%20app/src/features/profile/UserProfile.jsx)):**
+  - Added the **Account & Recovery Settings** dashboard. Users can securely trigger email updates (`updateUser`) and link/unlink their Google accounts (`linkIdentity`/`unlinkIdentity`).
+
+### 3. Native Manifest Configuration
+- **Capacitor Scheme Scheme ([AndroidManifest.xml](file:///c:/Users/Icon/Downloads/new%20school%20app/android/app/src/main/AndroidManifest.xml)):**
+  - Switched URL callback scheme from `schoolos` to `schoolosplus` to match the target linking scheme.
+
+### 4. Build Verification
+- Proactively compiled the production build (`npm run build`). Vite successfully bundle-minified all chunks and resources without any errors or linter warnings.
+

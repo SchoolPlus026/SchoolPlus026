@@ -53,6 +53,70 @@ export default function UserProfile() {
   const [imgError, setImgError] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Email & Google OAuth states
+  const [newEmail, setNewEmail] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+  const [linkingLoading, setLinkingLoading] = useState(false);
+
+  const handleUpdateEmail = async (e) => {
+    e.preventDefault();
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+    setEmailLoading(true);
+    setEmailError('');
+    setEmailSuccess('');
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+      if (error) throw error;
+      setEmailSuccess('Verification link sent! Please check both your current and new email addresses to verify and confirm the change.');
+      setNewEmail('');
+    } catch (err) {
+      setEmailError(err.message || 'Failed to update email.');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleLinkGoogle = async () => {
+    setLinkingLoading(true);
+    try {
+      const { error } = await supabase.auth.linkIdentity({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+      if (error) throw error;
+    } catch (err) {
+      alert(`Linking Google failed: ${err.message}`);
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
+  const handleUnlinkGoogle = async () => {
+    if (!window.confirm('Are you sure you want to disconnect your Google account? You will need to use your password to log in.')) return;
+    setLinkingLoading(true);
+    try {
+      const googleIdentity = user?.identities?.find(id => id.provider === 'google');
+      if (!googleIdentity) {
+        throw new Error('Google account is not currently linked.');
+      }
+      const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
+      if (error) throw error;
+      alert('Google account disconnected successfully.');
+      window.location.reload();
+    } catch (err) {
+      alert(`Disconnecting Google failed: ${err.message}`);
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
     supabase
@@ -465,8 +529,98 @@ export default function UserProfile() {
                   )}
                </div>
             </div>
-         </div>
-      </div>
+          </div>
+       </div>
+
+       {/* Account & Recovery Settings (Only visible to the owner of the profile) */}
+       {profile.id === user.id && (
+          <div className="card p-6 mt-6 border border-border bg-[var(--card)]">
+             <div className="flex items-center gap-2 mb-5 pb-3 border-b border-border">
+                <Lock size={18} className="text-indigo-400" />
+                <h3 className="m-0 text-sm font-black uppercase tracking-widest text-[var(--muted)]">Account & Recovery Settings</h3>
+             </div>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Change Email Section */}
+                <div className="space-y-4">
+                   <h4 className="text-xs font-black uppercase tracking-widest text-white mb-2">Change/Update Email</h4>
+                   <p className="text-xs text-[var(--muted)] leading-relaxed">
+                      Change the email address associated with your account. A verification link will be sent to both your current and new email address.
+                   </p>
+                   <form onSubmit={handleUpdateEmail} className="space-y-3">
+                      <div>
+                         <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-1">Current Email</label>
+                         <div className="text-sm font-semibold text-white px-3 py-2 bg-[var(--glass)] rounded-xl border border-border/50">
+                            {user?.email || 'No email registered'}
+                         </div>
+                      </div>
+                      <div>
+                         <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-1">New Email Address</label>
+                         <input 
+                            type="email" 
+                            required 
+                            value={newEmail} 
+                            onChange={e => setNewEmail(e.target.value)} 
+                            className="sp-input text-sm" 
+                            placeholder="Enter new email address" 
+                         />
+                      </div>
+                      {emailError && <div className="text-xs font-bold text-red-400">{emailError}</div>}
+                      {emailSuccess && <div className="text-xs font-bold text-emerald-400 leading-relaxed">{emailSuccess}</div>}
+                      <button 
+                         type="submit" 
+                         disabled={emailLoading}
+                         className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                         {emailLoading ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                         Send Verification Email
+                      </button>
+                   </form>
+                </div>
+
+                {/* Google OAuth Section */}
+                <div className="space-y-4 flex flex-col justify-between">
+                   <div>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-white mb-2">Google Login Integration</h4>
+                      <p className="text-xs text-[var(--muted)] leading-relaxed mb-4">
+                         Link your Google account to log in with a single click. When linked, you can bypass typing your username and password.
+                      </p>
+                      <div className="flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-[var(--glass)]">
+                         <div className={`w-3 h-3 rounded-full ${user?.identities?.some(id => id.provider === 'google') ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
+                         <span className="text-xs font-bold text-white">
+                            {user?.identities?.some(id => id.provider === 'google') 
+                               ? 'Google Account Connected' 
+                               : 'Google Account Disconnected'}
+                         </span>
+                      </div>
+                   </div>
+                   <div className="pt-4">
+                      {user?.identities?.some(id => id.provider === 'google') ? (
+                         <button 
+                            type="button"
+                            onClick={handleUnlinkGoogle}
+                            disabled={linkingLoading}
+                            className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                         >
+                            {linkingLoading && <Loader2 size={14} className="animate-spin" />}
+                            Disconnect Google Account
+                         </button>
+                      ) : (
+                         <button 
+                            type="button"
+                            onClick={handleLinkGoogle}
+                            disabled={linkingLoading}
+                            className="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                         >
+                            {linkingLoading && <Loader2 size={14} className="animate-spin" />}
+                            Connect Google Account
+                         </button>
+                      )}
+                   </div>
+                </div>
+             </div>
+          </div>
+       )}
     </div>
   );
 }

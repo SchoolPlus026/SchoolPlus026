@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff,
-  Fingerprint, Key, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X } from 'lucide-react';
+  Fingerprint, Key, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X, Mail } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Camera } from '@capacitor/camera';
 import { CapacitorPasskey } from '@capgo/capacitor-passkey';
@@ -459,6 +459,60 @@ export default function Login() {
     }
   };
 
+  const handleEmailPasswordReset = async (e) => {
+    e.preventDefault();
+    if (!username.trim()) {
+      setError('Please enter your username or email address.');
+      return;
+    }
+    setForgotLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      // 1. Call secure RPC to verify plan status, user role, and retrieve verified email
+      const { data: verifiedEmail, error: rpcError } = await supabase
+        .rpc('request_password_reset_email', { p_identifier: username.trim() });
+
+      if (rpcError) throw rpcError;
+
+      // 2. Trigger Supabase GoTrue reset link
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(verifiedEmail, {
+        redirectTo: redirectUrl,
+      });
+
+      if (resetError) throw resetError;
+
+      setSuccess(`A password reset link has been sent to your verified recovery email: ${verifiedEmail}`);
+      setTimeout(() => {
+        setSuccess('');
+        setStep(2); // Redirect back to login credentials page
+      }, 5000);
+    } catch (err) {
+      setError(err.message || 'Failed to send password reset email.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl
+        }
+      });
+      if (error) throw error;
+    } catch (err) {
+      setError(err.message || 'Failed to initialize Google Login.');
+      setLoading(false);
+    }
+  };
+
   // Final evaluation for recovery Q&A
   const handleEvaluateQARecovery = async (e) => {
     e.preventDefault();
@@ -871,9 +925,19 @@ export default function Login() {
   // ─────────────────────────────────────────────────────────────────────────
   // SHARED UI HELPERS
   // ─────────────────────────────────────────────────────────────────────────
-  const MethodPicker = ({ onQuestions, onPin, questionLabel, pinLabel }) => (
+  const MethodPicker = ({ onQuestions, onPin, onEmail, showEmail, questionLabel, pinLabel, emailLabel }) => (
     <div className="space-y-3 mb-4">
       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Choose Recovery Method:</p>
+      {showEmail && (
+        <button
+          type="button"
+          onClick={onEmail}
+          className="w-full py-3 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-300 transition-all"
+        >
+          <span>✉️ {emailLabel || 'Get Password Reset Email'}</span>
+          <ChevronRight size={15} />
+        </button>
+      )}
       <button
         type="button"
         onClick={onQuestions}
@@ -976,6 +1040,24 @@ export default function Login() {
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
               </button>
             </form>
+
+            <div className="relative flex py-3 items-center">
+              <div className="flex-grow border-t border-white/10"></div>
+              <span className="flex-shrink mx-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">Or</span>
+              <div className="flex-grow border-t border-white/10"></div>
+            </div>
+
+            <button 
+              type="button" 
+              onClick={handleGoogleLogin} 
+              disabled={loading} 
+              className="w-full py-3.5 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-bold text-slate-200 transition-colors"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114A5.89 5.89 0 0 1 8 12.628a5.89 5.89 0 0 1 5.99-5.891c1.545 0 2.953.582 4.025 1.533l3.14-3.14A10.12 10.12 0 0 0 13.99 2A10.02 10.02 0 0 0 4 12.011A10.02 10.02 0 0 0 13.99 22c5.96 0 9.932-4.184 9.932-10.114c0-.627-.058-1.201-.17-1.601H12.24Z" />
+              </svg>
+              Login with Google
+            </button>
             {Capacitor.isNativePlatform() && (
               <button onClick={handleBiometricLogin} className="w-full py-3.5 flex items-center justify-center gap-2 text-sm font-bold rounded-xl border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 transition-colors mt-4">
                 <Fingerprint size={18} /> Biometric Login
@@ -1183,8 +1265,11 @@ export default function Login() {
             <MethodPicker
               onQuestions={() => {}}
               onPin={() => setStep(63)}
+              onEmail={() => setStep(64)}
+              showEmail={true}
               questionLabel="Answer 5 Identity Questions"
               pinLabel="Use My 6-Digit Recovery PIN (Quick)"
+              emailLabel="Send Reset Link to Email (GoTrue)"
             />
             <form onSubmit={handleRecoverPassword} className="space-y-3 pt-2 border-t border-white/5">
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Answer Questions Method:</p>
@@ -1198,6 +1283,36 @@ export default function Login() {
               </div>
               <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
                 {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Get Recovery Questions'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ── 64. Password Reset Link (Email) ─────────────────────── */}
+        {step === 64 && (
+          <div className="fade-in space-y-4">
+            <button type="button" onClick={() => setStep(6)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Back
+            </button>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Reset Password via Email</h3>
+            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-300 font-semibold leading-relaxed">
+              ✉️ Enter your registered username or email address, and we will send a password reset link to your verified recovery email.
+            </div>
+
+            <form onSubmit={handleEmailPasswordReset} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username or Email</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={username} 
+                  onChange={e => setUsername(e.target.value)} 
+                  className="sp-input" 
+                  placeholder="Enter your username or email" 
+                />
+              </div>
+              <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
+                {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
               </button>
             </form>
           </div>
