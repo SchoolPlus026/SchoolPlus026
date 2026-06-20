@@ -1051,7 +1051,7 @@ export default function Login() {
               type="button" 
               onClick={handleGoogleLogin} 
               disabled={loading} 
-              className="w-full py-3.5 flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-200 transition-all shadow-sm active:scale-[0.98]"
+              className="w-full py-3.5 flex items-center justify-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-sm font-black text-slate-800 dark:text-white transition-all shadow-md active:scale-[0.98]"
             >
               <svg className="w-5 h-5 mr-1" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.69a5.59 5.59 0 0 1-2.42 3.7v3.08h3.92c2.28-2.1 3.55-5.19 3.55-8.63z" />
@@ -1076,18 +1076,35 @@ export default function Login() {
               <ArrowLeft size={12} /> Back to Login
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider mb-2">Login Help</h3>
-            <button onClick={() => { setError(''); setStep(6); }} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
-              <span>🔑 Forgot Password?</span>
+            
+            {/* Top level Reset Password via Email */}
+            <button onClick={() => { setError(''); setStep(64); }} className="w-full py-3.5 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-300">
+              <span>✉️ Reset Password via Email</span>
               <ChevronRight size={16} />
             </button>
+
+            {/* Top level Reset Password via PIN */}
+            <button onClick={() => { setError(''); setStep(63); }} className="w-full py-3.5 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-emerald-300">
+              <span>🔢 Reset Password via Recovery PIN</span>
+              <ChevronRight size={16} />
+            </button>
+
+            {/* Top level Reset Password via Security Questions */}
+            <button onClick={() => { setError(''); setStep(6); }} className="w-full py-3.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
+              <span>📋 Reset Password via Security Questions</span>
+              <ChevronRight size={16} />
+            </button>
+
             <button onClick={() => { setError(''); setStep(5); }} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
               <span>👤 Forgot Username?</span>
               <ChevronRight size={16} />
             </button>
+
             <button onClick={() => { setError(''); setStep(4); }} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
               <span>🏫 Forgot School Code?</span>
               <ChevronRight size={16} />
             </button>
+
             {/* Flow B: PC enters 6-digit code generated on Mobile */}
             {!Capacitor.isNativePlatform() && (
               <button onClick={() => { setError(''); setQrSyncCode(''); setStep(7); }} className="w-full py-3 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-300">
@@ -1095,6 +1112,7 @@ export default function Login() {
                 <ChevronRight size={16} />
               </button>
             )}
+
             {/* Flow A: Mobile scans QR or enters code from PC */}
             {Capacitor.isNativePlatform() && (
               <button onClick={() => { setError(''); setMobileQrCode(''); setStep(8); }} className="w-full py-3 px-4 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-violet-300">
@@ -1102,6 +1120,7 @@ export default function Login() {
                 <ChevronRight size={16} />
               </button>
             )}
+
             {/* Colleague token option */}
             <button onClick={() => { setError(''); setColleagueToken(''); setColleagueNewPassword(''); setColleagueConfirmPassword(''); setStep(10); }} className="w-full py-3 px-4 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-teal-300">
               <span>🤝 Use Colleague Reset Token</span>

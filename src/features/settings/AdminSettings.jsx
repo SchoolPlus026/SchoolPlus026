@@ -140,6 +140,90 @@ export default function AdminSettings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isFree } = usePlan();
 
+  // Email & Google OAuth states
+  const [newEmail, setNewEmail] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+  const [linkingLoading, setLinkingLoading] = useState(false);
+
+  const handleUpdateEmail = async (e) => {
+    e.preventDefault();
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+    setEmailLoading(true);
+    setEmailError('');
+    setEmailSuccess('');
+    try {
+      // Check if email already registered in public.users to another account
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', newEmail.trim())
+        .neq('id', user.id)
+        .maybeSingle();
+
+      if (existingUser) {
+        throw new Error('A user with this email address has already been registered.');
+      }
+
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+      if (error) throw error;
+      setEmailSuccess('Verification link sent! Please check both your current and new email addresses to verify and confirm the change.');
+      setNewEmail('');
+    } catch (err) {
+      setEmailError(err.message || 'Failed to update email.');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleLinkGoogle = async () => {
+    setLinkingLoading(true);
+    try {
+      const redirectUrl = Capacitor.isNativePlatform() 
+        ? 'schoolosplus://dashboard' 
+        : `${window.location.origin}/dashboard`;
+
+      const { error } = await supabase.auth.linkIdentity({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl
+        }
+      });
+      if (error) throw error;
+    } catch (err) {
+      if (err.message && err.message.includes('Manual linking is disabled')) {
+        alert('Manual identity linking is disabled in your Supabase project configuration. To enable it, go to Authentication > Configuration > URL Configuration in your Supabase Dashboard and check "Allow manual linking".');
+      } else {
+        alert(`Linking Google failed: ${err.message}`);
+      }
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
+  const handleUnlinkGoogle = async () => {
+    if (!window.confirm('Are you sure you want to disconnect your Google account? You will need to use your password to log in.')) return;
+    setLinkingLoading(true);
+    try {
+      const googleIdentity = user?.identities?.find(id => id.provider === 'google');
+      if (!googleIdentity) {
+        throw new Error('Google account is not currently linked.');
+      }
+      const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
+      if (error) throw error;
+      alert('Google account disconnected successfully.');
+      window.location.reload();
+    } catch (err) {
+      alert(`Disconnecting Google failed: ${err.message}`);
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
   /* ── Google Drive State ── */
   const [connectingDrive, setConnectingDrive] = useState(false);
   const [disconnectingDrive, setDisconnectingDrive] = useState(false);
@@ -705,9 +789,101 @@ export default function AdminSettings() {
           </button>
         </div>
         
-        <button onClick={handleChangePassword} disabled={pwdLoading} className="btn accent w-full">
-          <Lock size={16} /> {pwdLoading ? t.savingPassword : t.savePassword}
-        </button>
+      </div>
+
+      {/* ── 3.5 ACCOUNT & RECOVERY SETTINGS ── */}
+      <div className="card">
+        <div className="settings-header" style={{ marginBottom: '20px' }}>
+          <div className="icon-box" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' }}><Lock size={20} /></div>
+          <div className="text-content">
+            <h4>Account & Recovery Settings</h4>
+            <p>Manage your linked Google account and update recovery email</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+          {/* Change Email Section */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h5 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Change/Update Email</h5>
+            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+              Change the email address associated with your account. A verification link will be sent to both your current and new email address.
+            </p>
+            <form onSubmit={handleUpdateEmail} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Current Email</label>
+                <div className="sp-input" style={{ fontSize: '13px', fontWeight: 600, padding: '10px 14px', background: 'var(--accent-light)', opacity: 0.8, borderRadius: '12px' }}>
+                  {user?.email || 'No email registered'}
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>New Email Address</label>
+                <input 
+                  type="email" 
+                  required 
+                  value={newEmail} 
+                  onChange={e => setNewEmail(e.target.value)} 
+                  className="sp-input" 
+                  style={{ fontSize: '13px', width: '100%', boxSizing: 'border-box' }}
+                  placeholder="Enter new email address" 
+                />
+              </div>
+              {emailError && <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--danger)' }}>{emailError}</div>}
+              {emailSuccess && <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--success)', lineHeight: '1.4' }}>{emailSuccess}</div>}
+              <button 
+                type="submit" 
+                disabled={emailLoading}
+                className="btn accent"
+                style={{ fontSize: '12px', padding: '10px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center' }}
+              >
+                {emailLoading ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                Send Verification Email
+              </button>
+            </form>
+          </div>
+
+          {/* Google OAuth Section */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContext: 'space-between', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <h5 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Google Login Integration</h5>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                Link your Google account to log in with a single click. When linked, you can bypass typing your username and password.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--card-border)', backgroundColor: 'var(--bg-main)' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: user?.identities?.some(id => id.provider === 'google') ? '#10b981' : '#64748b', boxShadow: user?.identities?.some(id => id.provider === 'google') ? '0 0 8px rgba(16,185,129,0.6)' : 'none' }} />
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
+                  {user?.identities?.some(id => id.provider === 'google') 
+                     ? 'Google Account Connected' 
+                     : 'Google Account Disconnected'}
+                </span>
+              </div>
+            </div>
+            <div style={{ marginTop: 'auto', paddingTop: '12px' }}>
+              {user?.identities?.some(id => id.provider === 'google') ? (
+                <button 
+                  type="button"
+                  onClick={handleUnlinkGoogle}
+                  disabled={linkingLoading}
+                  className="btn danger"
+                  style={{ fontSize: '12px', padding: '10px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center' }}
+                >
+                  {linkingLoading && <Loader2 size={14} className="animate-spin" />}
+                  Disconnect Google Account
+                </button>
+              ) : (
+                <button 
+                  type="button"
+                  onClick={handleLinkGoogle}
+                  disabled={linkingLoading}
+                  className="btn accent"
+                  style={{ fontSize: '12px', padding: '10px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center' }}
+                >
+                  {linkingLoading && <Loader2 size={14} className="animate-spin" />}
+                  Connect Google Account
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── 4.5 BIOMETRIC SETUP ── */}

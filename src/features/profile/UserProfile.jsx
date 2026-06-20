@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { User, Loader2, Mail, Phone, MapPin, Briefcase, Calendar, Info, GraduationCap, FileText, Users, BookOpen, Award, Star, Camera, Trash2, Lock } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 
 // Client-side image compression utility
 const compressImage = (file) => {
@@ -70,6 +71,18 @@ export default function UserProfile() {
     setEmailError('');
     setEmailSuccess('');
     try {
+      // Check if email already registered in public.users to another account
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', newEmail.trim())
+        .neq('id', user.id)
+        .maybeSingle();
+
+      if (existingUser) {
+        throw new Error('A user with this email address has already been registered.');
+      }
+
       const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
       if (error) throw error;
       setEmailSuccess('Verification link sent! Please check both your current and new email addresses to verify and confirm the change.');
@@ -84,15 +97,23 @@ export default function UserProfile() {
   const handleLinkGoogle = async () => {
     setLinkingLoading(true);
     try {
+      const redirectUrl = Capacitor.isNativePlatform() 
+        ? 'schoolosplus://dashboard' 
+        : `${window.location.origin}/dashboard`;
+
       const { error } = await supabase.auth.linkIdentity({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: redirectUrl
         }
       });
       if (error) throw error;
     } catch (err) {
-      alert(`Linking Google failed: ${err.message}`);
+      if (err.message && err.message.includes('Manual linking is disabled')) {
+        alert('Manual identity linking is disabled in your Supabase project configuration. To enable it, go to Authentication > Configuration > URL Configuration in your Supabase Dashboard and check "Allow manual linking".');
+      } else {
+        alert(`Linking Google failed: ${err.message}`);
+      }
     } finally {
       setLinkingLoading(false);
     }

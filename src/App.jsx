@@ -230,8 +230,48 @@ export default function App() {
       if (event === 'SIGNED_OUT') useAppStore.getState().clearSession();
     });
 
+    let appUrlListener = null;
+    if (Capacitor.isNativePlatform()) {
+      appUrlListener = CapacitorApp.addListener('appUrlOpen', async (data) => {
+        try {
+          const url = new URL(data.url);
+          if (url.protocol === 'schoolosplus:' || data.url.startsWith('schoolosplus://')) {
+            const hashStr = url.hash || (data.url.includes('#') ? data.url.split('#')[1] : '');
+            if (hashStr) {
+              const params = new URLSearchParams(hashStr.startsWith('#') ? hashStr.substring(1) : hashStr);
+              const accessToken = params.get('access_token');
+              const refreshToken = params.get('refresh_token');
+              
+              if (accessToken) {
+                const type = params.get('type');
+                if (type === 'recovery') {
+                  sessionStorage.setItem('show_sync_password_reset', 'true');
+                  window.dispatchEvent(new Event('sync_login_success'));
+                }
+                
+                const { error: sessionErr } = await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken || ''
+                });
+                if (sessionErr) throw sessionErr;
+                
+                window.location.reload();
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[Capacitor Deep Link] Error parsing URL:', err);
+        }
+      });
+    }
+
     initializeApp();
-    return () => authListener.subscription.unsubscribe();
+    return () => {
+      authListener.subscription.unsubscribe();
+      if (appUrlListener) {
+        appUrlListener.then(l => l.remove());
+      }
+    };
   }, [setSchoolSettings, setUserAndRole]);
 
   if (isInitializing) {

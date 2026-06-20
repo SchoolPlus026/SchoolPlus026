@@ -18,10 +18,10 @@ BEGIN
 END;
 $$;
 
--- 2. Bind the trigger to auth.users updates
+-- 2. Bind the trigger to auth.users updates and inserts
 DROP TRIGGER IF EXISTS trg_sync_auth_user_email ON auth.users;
 CREATE TRIGGER trg_sync_auth_user_email
-  AFTER UPDATE OF email ON auth.users
+  AFTER INSERT OR UPDATE ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION public.sync_user_email_from_auth();
 
