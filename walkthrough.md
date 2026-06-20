@@ -97,3 +97,10 @@ We have successfully implemented a complete, bulletproof architectural solution 
 - **Direct Email Updates Integration (`UserProfile.jsx`, `AdminSettings.jsx`, `SharedSettings.jsx`):**
   Configured the Change Email forms to trigger the direct RPC instead of Supabase's standard updateUser. Once updated, the app clears the Zustand cache and reloads to show the new email instantly.
 
+### 8. Database Clean up & Google Sign Up Gating (v102)
+- **Delete Orphaned Google Users (`database/v102_cleanup_orphans_and_block_google_signups.sql`):**
+  Added an administrative cleanup script to purge all entries in `auth.users` that were automatically created during accidental Google signups (those without a matching profile record in `public.users`). This frees up conflict emails (e.g. `shubhamofficial026@gmail.com`) allowing the Admin to edit and save profiles successfully.
+- **OAuth Gating Trigger (`database/v102_cleanup_orphans_and_block_google_signups.sql`):**
+  Bound a new `BEFORE INSERT ON auth.users` trigger (`trg_check_new_auth_user`) to intercept all incoming signups. If a user attempts to sign up via Google and their Gmail is not already pre-registered in the `public.users` table (created by Admin), the registration is rejected. This prevents future orphaned records and email conflicts.
+
+
