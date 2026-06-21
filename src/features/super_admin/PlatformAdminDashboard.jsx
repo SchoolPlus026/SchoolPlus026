@@ -3,7 +3,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { ref, set } from 'firebase/database';
 import { rtdb } from '../../config/firebaseClient';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft, Lock, Clock, Sliders } from 'lucide-react';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft, Lock, Clock, Sliders, Mail } from 'lucide-react';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -14,7 +14,7 @@ import BiometricSetup from '../settings/BiometricSetup';
 import FeatureAccessManager from './FeatureAccessManager';
 
 export default function PlatformAdminDashboard() {
-  const { user, setImpersonation } = useAppStore();
+  const { user, role, setImpersonation } = useAppStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -82,6 +82,13 @@ export default function PlatformAdminDashboard() {
   const [paGdriveConfig, setPaGdriveConfig] = useState([]);
   const [connectingDrive, setConnectingDrive] = useState(false);
   const [disconnectingDrive, setDisconnectingDrive] = useState(false);
+
+  // Email & Google OAuth states
+  const [newEmail, setNewEmail] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+  const [linkingLoading, setLinkingLoading] = useState(false);
 
   // Advanced Optimization Settings State
   const [nightModeEnabled, setNightModeEnabled] = useState(true);
@@ -188,10 +195,15 @@ export default function PlatformAdminDashboard() {
         try {
           await fetchPlatformSettings();
         } finally {
-          setConnectingDrive(false);
         }
       });
     }
+
+    supabase.auth.getUser().then(({ data: { user: freshUser } }) => {
+      if (freshUser) {
+        useAppStore.getState().setUserAndRole(freshUser, role);
+      }
+    });
 
     return () => {
       if (browserListener) {
@@ -708,6 +720,110 @@ export default function PlatformAdminDashboard() {
     setSavingPlatform(false);
     if (error) alert('Error saving: ' + error.message);
     else alert('Platform settings saved successfully. Refresh to see changes on login screen.');
+  };
+
+  const handleUpdateEmail = async (e) => {
+    e.preventDefault();
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+    setEmailLoading(true);
+    setEmailError('');
+    setEmailSuccess('');
+    try {
+      const { error } = await supabase.rpc('update_user_email_direct', { p_email: newEmail.trim() });
+      if (error) throw error;
+
+      // Clear profile cache
+      useAppStore.getState().setProfileLastFetched(null);
+
+      // Refresh cached user in Zustand store
+      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      if (freshUser) {
+        useAppStore.getState().setUserAndRole(freshUser, role);
+      }
+
+      setEmailSuccess('Email updated successfully!');
+      setNewEmail('');
+      window.location.reload();
+    } catch (err) {
+      setEmailError(err.message || 'Failed to update email.');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleLinkGoogle = async () => {
+    setLinkingLoading(true);
+    try {
+      const redirectUrl = Capacitor.isNativePlatform() 
+        ? 'schoolosplus://dashboard' 
+        : `${window.location.origin}/dashboard`;
+
+      if (Capacitor.isNativePlatform()) {
+        const { data, error } = await supabase.auth.linkIdentity({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true
+          }
+        });
+        if (error) throw error;
+        if (data?.url) {
+          await Browser.open({ url: data.url });
+        } else {
+          throw new Error('Google link URL not found.');
+        }
+      } else {
+        const { error } = await supabase.auth.linkIdentity({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl
+          }
+        });
+        if (error) throw error;
+      }
+      useAppStore.getState().setProfileLastFetched(null);
+    } catch (err) {
+      if (err.message && err.message.includes('Manual linking is disabled')) {
+        alert('Manual identity linking is disabled in your Supabase project configuration. To enable it, go to Authentication > Sign In / Providers in your Supabase Dashboard and enable "Allow manual linking".');
+      } else {
+        alert(`Linking Google failed: ${err.message}`);
+      }
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+
+  const handleUnlinkGoogle = async () => {
+    if (!window.confirm('Are you sure you want to disconnect your Google account? You will need to use your password to log in.')) return;
+    setLinkingLoading(true);
+    try {
+      const { error: refreshErr } = await supabase.auth.refreshSession();
+      if (refreshErr) throw new Error('Session expired. Please log in again before disconnecting Google.');
+
+      const { data: { user: freshUser }, error: userErr } = await supabase.auth.getUser();
+      if (userErr) throw userErr;
+
+      const googleIdentity = freshUser?.identities?.find(id => id.provider === 'google');
+      if (!googleIdentity) {
+        throw new Error('Google account is not currently linked.');
+      }
+      const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
+      if (error) throw error;
+
+      useAppStore.getState().setProfileLastFetched(null);
+      const { data: { user: updatedUser } } = await supabase.auth.getUser();
+      if (updatedUser) useAppStore.getState().setUserAndRole(updatedUser, role);
+
+      alert('Google account disconnected successfully.');
+      window.location.reload();
+    } catch (err) {
+      alert(`Disconnecting Google failed: ${err.message}`);
+    } finally {
+      setLinkingLoading(false);
+    }
   };
 
   const handleSendBroadcast = async (e) => {
@@ -1915,6 +2031,97 @@ export default function PlatformAdminDashboard() {
                 }}>
                 {connectingDrive ? <><Loader2 size={16} className="animate-spin" /> Connecting...</> : <><Plus size={16} /> {paGdriveConfig.length > 0 ? 'Add Another Drive' : 'Connect Platform Google Drive'}</>}
               </button>
+            </div>
+          </div>
+
+          {/* ---- ACCOUNT & RECOVERY SETTINGS (Platform Admin) ---- */}
+          <div className="mt-6 border-t border-[var(--card-border)] pt-6">
+            <div className="settings-header mb-5">
+              <div className="icon-box"><Lock size={20} className="text-indigo-400" /></div>
+              <div className="text-content">
+                <h4>Account & Recovery Settings</h4>
+                <p>Manage your linked Google account and update recovery email</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Change Email Section */}
+              <div className="space-y-4">
+                <h5 className="font-semibold text-sm">Change/Update Email</h5>
+                <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                  Change the email address associated with your account. The change will take effect immediately.
+                </p>
+                <form onSubmit={handleUpdateEmail} className="space-y-3">
+                  <div>
+                    <label className="muted small block mb-2 font-semibold">Current Email</label>
+                    <div className="text-sm font-semibold text-white px-3 py-2.5 bg-[var(--glass)] rounded-xl border border-[var(--card-border)]">
+                      {user?.email || 'No email registered'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="muted small block mb-2 font-semibold">New Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      value={newEmail}
+                      onChange={e => setNewEmail(e.target.value)}
+                      className="sp-input text-sm"
+                      placeholder="Enter new email address"
+                    />
+                  </div>
+                  {emailError && <div className="text-xs font-bold text-red-400">{emailError}</div>}
+                  {emailSuccess && <div className="text-xs font-bold text-emerald-400 leading-relaxed">{emailSuccess}</div>}
+                  <button
+                    type="submit"
+                    disabled={emailLoading}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    {emailLoading ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                    Update Email Address
+                  </button>
+                </form>
+              </div>
+
+              {/* Google OAuth Section */}
+              <div className="space-y-4 flex flex-col justify-between">
+                <div>
+                  <h5 className="font-semibold text-sm">Google Login Integration</h5>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed mb-4">
+                    Link your Google account to log in with a single click. When linked, you can bypass typing your username and password.
+                  </p>
+                  <div className="flex items-center gap-3 p-4 rounded-xl border border-[var(--card-border)] bg-[var(--glass)]">
+                    <div className={`w-3 h-3 rounded-full ${user?.identities?.some(id => id.provider === 'google') ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
+                    <span className="text-xs font-bold text-white">
+                      {user?.identities?.some(id => id.provider === 'google')
+                        ? 'Google Account Connected'
+                        : 'Google Account Disconnected'}
+                    </span>
+                  </div>
+                </div>
+                <div className="pt-4">
+                  {user?.identities?.some(id => id.provider === 'google') ? (
+                    <button
+                      type="button"
+                      onClick={handleUnlinkGoogle}
+                      disabled={linkingLoading}
+                      className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {linkingLoading && <Loader2 size={14} className="animate-spin" />}
+                      Disconnect Google Account
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleLinkGoogle}
+                      disabled={linkingLoading}
+                      className="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {linkingLoading && <Loader2 size={14} className="animate-spin" />}
+                      Connect Google Account
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
