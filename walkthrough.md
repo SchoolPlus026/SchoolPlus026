@@ -108,3 +108,18 @@ We have successfully implemented a complete, bulletproof architectural solution 
   Universally rendered the 'Account & Recovery Settings' card inside the settings panel of the Platform Admin dashboard (`PlatformAdminDashboard.jsx`). This equips Platform Admins with full Google Linking/Unlinking capabilities and direct recovery email updates (using the `update_user_email_direct` RPC) identically to other roles.
 - **Lucide Icons & States Sync:**
   Imported Lucide icons (`Mail`, `Lock`) and structured global states/useEffect handlers inside the dashboard to keep the Platform Admin's session data and active identities refreshed in real-time.
+
+### 10. Email Password Recovery Flow Fixes (GoTrue Reset)
+We have successfully resolved the email password recovery flow issues for both web and native Capacitor apps:
+- **Dynamic Recovery Redirect URLs (`Login.jsx`):**
+  Updated the GoTrue reset link trigger in `handleEmailPasswordReset` to dynamically determine the `redirectTo` URL. On native Capacitor platforms, it redirects to `schoolosplus://dashboard` to ensure deep link capture, and on web platforms, it targets `${window.location.origin}/reset-password`.
+- **Persistent LocalStorage Recovery Flags (`App.jsx`, `Login.jsx`):**
+  Switched the password reset modal trigger flag (`show_sync_password_reset`) from `sessionStorage` to `localStorage` across the codebase. Since `sessionStorage` is volatile and gets cleared during Capacitor webview reloads, this ensures that the app correctly remembers to show the `SyncPasswordResetModal` after reloading.
+- **Global Recovery Hash Parsing (`App.jsx`):**
+  Added on-mount URL checks in `App.jsx` to intercept incoming password recovery tokens (`#access_token` and `type=recovery`) on load, automatically setting the reset flag and showing the password update modal.
+- **Supabase auth.onAuthStateChange Integration (`App.jsx`):**
+  Added an event handler in the global auth listener inside `App.jsx` for the `PASSWORD_RECOVERY` event. This intercepts the recovery event on both web and native platforms and opens the `SyncPasswordResetModal` overlay.
+- **Isolated Dedicated Recovery Page (`App.jsx`):**
+  Ensured that the global `SyncPasswordResetModal` is bypassed if the user is on the dedicated `/reset-password` route, preventing UI overlaps.
+- **Clean Recovery Forms Layout Separation (`Login.jsx`):**
+  Decoupled the username and password recovery options. Moved the statically rendered Q&A forms into dedicated steps (`step === 51` for username and `step === 61` for password) triggered cleanly when selecting the "Answer 5 Identity Questions" method in the picker, preventing visual overlap.

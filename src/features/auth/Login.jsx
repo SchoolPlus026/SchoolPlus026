@@ -477,7 +477,9 @@ export default function Login() {
       if (rpcError) throw rpcError;
 
       // 2. Trigger Supabase GoTrue reset link
-      const redirectUrl = `${window.location.origin}/reset-password`;
+      const redirectUrl = Capacitor.isNativePlatform()
+        ? 'schoolosplus://dashboard'
+        : `${window.location.origin}/reset-password`;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(verifiedEmail, {
         redirectTo: redirectUrl,
       });
@@ -789,8 +791,8 @@ export default function Login() {
       setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
     }
 
-    // Set show sync password reset key in session storage & dispatch event
-    sessionStorage.setItem('show_sync_password_reset', 'true');
+    // Set show sync password reset key in local storage & dispatch event
+    localStorage.setItem('show_sync_password_reset', 'true');
     window.dispatchEvent(new Event('sync_login_success'));
 
     // Set user and role, and navigate to dashboard
@@ -1201,7 +1203,7 @@ export default function Login() {
           </div>
         )}
 
-        {/* ── 5. Forgot Username — method picker + form ─────────── */}
+        {/* ── 5. Forgot Username — method picker ─────────── */}
         {step === 5 && (
           <div className="fade-in space-y-4">
             <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
@@ -1209,14 +1211,22 @@ export default function Login() {
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Recover Username</h3>
             <MethodPicker
-              onQuestions={() => {}}
+              onQuestions={() => setStep(51)}
               onPin={() => setStep(53)}
               questionLabel="Answer 5 Identity Questions"
               pinLabel="Use My 6-Digit Recovery PIN (Quick)"
             />
-            {/* Q&A method form (default visible) */}
-            <form onSubmit={handleRecoverUsername} className="space-y-3 pt-2 border-t border-white/5">
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Answer Questions Method:</p>
+          </div>
+        )}
+
+        {/* ── 51. Forgot Username — Q&A form ─────────── */}
+        {step === 51 && (
+          <div className="fade-in space-y-4">
+            <button type="button" onClick={() => setStep(5)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Back
+            </button>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Recover Username (Questions)</h3>
+            <form onSubmit={handleRecoverUsername} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">School Code</label>
                 <input type="text" required value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} className="sp-input text-center text-lg font-black tracking-widest" placeholder="DEMO01" />
@@ -1297,7 +1307,7 @@ export default function Login() {
           </form>
         )}
 
-        {/* ── 6. Forgot Password — method picker + form ─────────── */}
+        {/* ── 6. Forgot Password — method picker ─────────── */}
         {step === 6 && (
           <div className="fade-in space-y-4">
             <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
@@ -1305,7 +1315,7 @@ export default function Login() {
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Reset Password</h3>
             <MethodPicker
-              onQuestions={() => {}}
+              onQuestions={() => setStep(61)}
               onPin={() => setStep(63)}
               onEmail={() => setStep(64)}
               showEmail={true}
@@ -1313,8 +1323,17 @@ export default function Login() {
               pinLabel="Use My 6-Digit Recovery PIN (Quick)"
               emailLabel="Send Reset Link to Email (GoTrue)"
             />
-            <form onSubmit={handleRecoverPassword} className="space-y-3 pt-2 border-t border-white/5">
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Answer Questions Method:</p>
+          </div>
+        )}
+
+        {/* ── 61. Forgot Password — Q&A form ─────────── */}
+        {step === 61 && (
+          <div className="fade-in space-y-4">
+            <button type="button" onClick={() => setStep(6)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Back
+            </button>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Reset Password (Questions)</h3>
+            <form onSubmit={handleRecoverPassword} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username</label>
                 <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="sp-input" placeholder="Enter username" />

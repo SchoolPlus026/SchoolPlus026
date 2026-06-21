@@ -100,6 +100,16 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
+    // Check if URL hash or search params indicate a password recovery redirect
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token=') && hash.includes('type=recovery')) {
+      localStorage.setItem('show_sync_password_reset', 'true');
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('type') === 'recovery') {
+      localStorage.setItem('show_sync_password_reset', 'true');
+    }
+
     async function initializeApp() {
       try {
 
@@ -230,6 +240,9 @@ export default function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         useAppStore.getState().clearSession();
+      } else if (event === 'PASSWORD_RECOVERY') {
+        localStorage.setItem('show_sync_password_reset', 'true');
+        window.dispatchEvent(new Event('sync_login_success'));
       } else if (event === 'USER_UPDATED' && session?.user) {
         // Email/identity change confirmed — refresh the cached user object so
         // the new email is reflected in the UI without requiring a full re-login.
@@ -271,7 +284,7 @@ export default function App() {
               if (accessToken) {
                 const type = params.get('type');
                 if (type === 'recovery') {
-                  sessionStorage.setItem('show_sync_password_reset', 'true');
+                  localStorage.setItem('show_sync_password_reset', 'true');
                   window.dispatchEvent(new Event('sync_login_success'));
                 }
                 const { error: sessionErr } = await supabase.auth.setSession({
@@ -506,16 +519,17 @@ export default function App() {
 }
 
 function SyncPasswordResetModal() {
-  const [show, setShow] = useState(() => sessionStorage.getItem('show_sync_password_reset') === 'true');
+  const [show, setShow] = useState(() => localStorage.getItem('show_sync_password_reset') === 'true');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const location = useLocation();
 
   React.useEffect(() => {
     const handleSyncSuccess = () => {
-      if (sessionStorage.getItem('show_sync_password_reset') === 'true') {
+      if (localStorage.getItem('show_sync_password_reset') === 'true') {
         setShow(true);
       }
     };
@@ -532,10 +546,11 @@ function SyncPasswordResetModal() {
     return () => { document.body.style.overflow = ''; };
   }, [show]);
 
+  if (location.pathname === '/reset-password') return null;
   if (!show) return null;
 
   const handleClose = () => {
-    sessionStorage.removeItem('show_sync_password_reset');
+    localStorage.removeItem('show_sync_password_reset');
     setShow(false);
   };
 
@@ -559,7 +574,7 @@ function SyncPasswordResetModal() {
       if (updateErr) throw updateErr;
 
       setSuccess('Password updated successfully!');
-      sessionStorage.removeItem('show_sync_password_reset');
+      localStorage.removeItem('show_sync_password_reset');
       setTimeout(() => {
         setShow(false);
       }, 2000);
