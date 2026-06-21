@@ -3,7 +3,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { ref, set } from 'firebase/database';
 import { rtdb } from '../../config/firebaseClient';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft, Lock, Clock, Sliders, Mail } from 'lucide-react';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft, Lock, Clock, Sliders, Mail, Eye, EyeOff } from 'lucide-react';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -18,6 +18,13 @@ export default function PlatformAdminDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Change Password State (Platform Admin)
+  const [oldPwd, setOldPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [showOldPwd, setShowOldPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
 
   const PA_MODULES = [
     { id: 'analytics',     name: 'Analytics',       icon: <Activity size={26} />,      colorHex: '#22d3ee', bgRgb: '34,211,238' },
@@ -720,6 +727,24 @@ export default function PlatformAdminDashboard() {
     setSavingPlatform(false);
     if (error) alert('Error saving: ' + error.message);
     else alert('Platform settings saved successfully. Refresh to see changes on login screen.');
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPwd || !newPwd) return alert('Please fill both password fields.');
+    if (newPwd.length < 6) return alert('New password must be at least 6 characters.');
+    setPwdLoading(true);
+    try {
+      const { error: verifyErr } = await supabase.auth.signInWithPassword({ email: user.email, password: oldPwd });
+      if (verifyErr) throw new Error('Current password is incorrect.');
+      const { error } = await supabase.auth.updateUser({ password: newPwd });
+      if (error) throw error;
+      alert('Password updated successfully!');
+      setOldPwd(''); setNewPwd('');
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setPwdLoading(false);
+    }
   };
 
   const handleUpdateEmail = async (e) => {
@@ -2030,6 +2055,58 @@ export default function PlatformAdminDashboard() {
                   }
                 }}>
                 {connectingDrive ? <><Loader2 size={16} className="animate-spin" /> Connecting...</> : <><Plus size={16} /> {paGdriveConfig.length > 0 ? 'Add Another Drive' : 'Connect Platform Google Drive'}</>}
+              </button>
+            </div>
+          </div>
+
+          {/* ---- CHANGE PASSWORD (Platform Admin) ---- */}
+          <div className="mt-6 border-t border-[var(--card-border)] pt-6">
+            <div className="settings-header">
+              <div className="icon-box"><Lock size={20} className="text-indigo-400" /></div>
+              <div className="text-content">
+                <h4>Change Password</h4>
+                <p>Keep your account secure</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 mt-6">
+              <div>
+                <label className="muted small block mb-2 font-semibold">Current Password</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showOldPwd ? "text" : "password"}
+                    placeholder="Current Password"
+                    value={oldPwd}
+                    onChange={e => setOldPwd(e.target.value)}
+                    className="sp-input block w-full"
+                    style={{ paddingRight: '40px' }}
+                  />
+                  <button type="button" onClick={() => setShowOldPwd(!showOldPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                     {showOldPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="muted small block mb-2 font-semibold">New Password</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showNewPwd ? "text" : "password"}
+                    placeholder="New Password"
+                    value={newPwd}
+                    onChange={e => setNewPwd(e.target.value)}
+                    className="sp-input block w-full"
+                    style={{ paddingRight: '40px' }}
+                  />
+                  <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                     {showNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <button onClick={handleChangePassword} disabled={pwdLoading} className="btn accent w-full mt-4 flex items-center justify-center gap-2">
+                {pwdLoading ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
+                {pwdLoading ? 'Updating...' : 'Update Password'}
               </button>
             </div>
           </div>

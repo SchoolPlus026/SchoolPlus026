@@ -123,3 +123,16 @@ We have successfully resolved the email password recovery flow issues for both w
   Ensured that the global `SyncPasswordResetModal` is bypassed if the user is on the dedicated `/reset-password` route, preventing UI overlaps.
 - **Clean Recovery Forms Layout Separation (`Login.jsx`):**
   Decoupled the username and password recovery options. Moved the statically rendered Q&A forms into dedicated steps (`step === 51` for username and `step === 61` for password) triggered cleanly when selecting the "Answer 5 Identity Questions" method in the picker, preventing visual overlap.
+
+### 11. Password Recovery UX and Security Refinements
+We have implemented further security controls and user experience refinements across the recovery and settings flows:
+- **Email Privacy Masking (`Login.jsx`):**
+  Integrated an email masking utility (`maskEmail`) on the recovery success screen. It hides the middle section of the target user's recovery email (e.g., displaying `ma*****r@school.com` instead of the full address) to prevent raw email exposure.
+- **Double-Update Redundancy Block (`ResetPassword.jsx`):**
+  Added logic to explicitly purge the `show_sync_password_reset` flag from `localStorage` once the user successfully completes a password reset on the dedicated recovery page. This prevents the optional sync password reset overlay from redundantly popping up on their next visit to the dashboard.
+- **Password Input Toggle Controls (`ResetPassword.jsx`, `App.jsx`):**
+  Added interactive password visibility toggles (`Eye` and `EyeOff` icons from `lucide-react`) to the input fields on both the dedicated `/reset-password` page and the global `SyncPasswordResetModal` overlay, enabling users to verify their input before submission.
+- **Rate Limiting & Quota Visualizer (`Login.jsx`):**
+  Configured strict client-side rate limits (max 2 resets per day, 5 per week) by storing request timestamps in `localStorage`. The Reset Password via Email screen (`step === 64`) now visually displays the user's remaining quota, shows explicit block warnings, and disables input/buttons once limits are reached.
+- **Platform Admin Settings Password Change (`PlatformAdminDashboard.jsx`):**
+  Added a fully functioning **Change Password** section inside the Platform Admin Settings tab, resolving the issue where Platform Admins had no settings card to change their current password. It checks the admin's current password via `signInWithPassword` before updating to a new password.

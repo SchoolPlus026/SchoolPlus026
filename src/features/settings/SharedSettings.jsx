@@ -563,6 +563,11 @@ export default function SharedSettings() {
              {showNewPwd ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
+
+        <button onClick={changePassword} disabled={pwdLoading} className="btn accent w-full mt-2" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          {pwdLoading ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+          {pwdLoading ? 'Updating...' : 'Update Password'}
+        </button>
         
       </div>
 

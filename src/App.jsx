@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { X, Lock, Loader2 } from 'lucide-react';
+import { X, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import { ToastProvider } from './components/ToastProvider';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
@@ -522,6 +522,8 @@ function SyncPasswordResetModal() {
   const [show, setShow] = useState(() => localStorage.getItem('show_sync_password_reset') === 'true');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -637,25 +639,37 @@ function SyncPasswordResetModal() {
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
-            <input
-              type="password"
-              required
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              className="sp-input"
-              placeholder="Min 6 characters"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showNewPwd ? "text" : "password"}
+                required
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                className="sp-input block w-full"
+                style={{ paddingRight: '40px' }}
+                placeholder="Min 6 characters"
+              />
+              <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                 {showNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
-            <input
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              className="sp-input"
-              placeholder="Repeat new password"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showConfirmPwd ? "text" : "password"}
+                required
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                className="sp-input block w-full"
+                style={{ paddingRight: '40px' }}
+                placeholder="Repeat new password"
+              />
+              <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                 {showConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-2">

@@ -460,12 +460,58 @@ export default function Login() {
     }
   };
 
+  const maskEmail = (email) => {
+    if (!email || !email.includes('@')) return email;
+    const [local, domain] = email.split('@');
+    if (local.length <= 2) {
+      return `${local[0]}*@${domain}`;
+    }
+    return `${local.substring(0, 2)}${'*'.repeat(5)}${local.slice(-1)}@${domain}`;
+  };
+
+  const getPasswordResetQuota = () => {
+    const requestsStr = localStorage.getItem('password_reset_requests') || '[]';
+    let requests = [];
+    try {
+      requests = JSON.parse(requestsStr);
+    } catch (e) {
+      requests = [];
+    }
+
+    const now = Date.now();
+    // Clean up expired entries (older than 7 days) to prevent storage leak
+    requests = requests.filter(t => now - t < 7 * 24 * 60 * 60 * 1000);
+
+    const dailyLimit = 2;
+    const weeklyLimit = 5;
+
+    const dailyCount = requests.filter(t => now - t < 24 * 60 * 60 * 1000).length;
+    const weeklyCount = requests.filter(t => now - t < 7 * 24 * 60 * 60 * 1000).length;
+
+    const dailyRemaining = Math.max(0, dailyLimit - dailyCount);
+    const weeklyRemaining = Math.max(0, weeklyLimit - weeklyCount);
+
+    return {
+      dailyRemaining,
+      weeklyRemaining,
+      requests
+    };
+  };
+
   const handleEmailPasswordReset = async (e) => {
     e.preventDefault();
     if (!username.trim()) {
       setError('Please enter your username or email address.');
       return;
     }
+
+    // Double check quota limit on submission
+    const { dailyRemaining, weeklyRemaining, requests } = getPasswordResetQuota();
+    if (dailyRemaining <= 0 || weeklyRemaining <= 0) {
+      setError('You have exceeded your password reset request limit for today/this week.');
+      return;
+    }
+
     setForgotLoading(true);
     setError('');
     setSuccess('');
@@ -486,7 +532,11 @@ export default function Login() {
 
       if (resetError) throw resetError;
 
-      setSuccess(`A password reset link has been sent to your verified recovery email: ${verifiedEmail}`);
+      // Update rate limit quotas in localStorage
+      const updatedRequests = [...requests, Date.now()];
+      localStorage.setItem('password_reset_requests', JSON.stringify(updatedRequests));
+
+      setSuccess(`A password reset link has been sent to your verified recovery email: ${maskEmail(verifiedEmail)}`);
       setTimeout(() => {
         setSuccess('');
         setStep(2); // Redirect back to login credentials page
@@ -1360,22 +1410,54 @@ export default function Login() {
               ✉️ Enter your registered username or email address, and we will send a password reset link to your verified recovery email.
             </div>
 
-            <form onSubmit={handleEmailPasswordReset} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username or Email</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={username} 
-                  onChange={e => setUsername(e.target.value)} 
-                  className="sp-input" 
-                  placeholder="Enter your username or email" 
-                />
-              </div>
-              <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
-                {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
-              </button>
-            </form>
+            {(() => {
+              const { dailyRemaining, weeklyRemaining } = getPasswordResetQuota();
+              const isBlocked = dailyRemaining <= 0 || weeklyRemaining <= 0;
+              return (
+                <div className="space-y-4">
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-[11px] font-semibold text-slate-400 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Remaining resets today:</span>
+                      <span className={dailyRemaining === 0 ? "text-red-400 font-bold" : "text-indigo-400 font-bold"}>
+                        {dailyRemaining} / 2
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Remaining resets this week:</span>
+                      <span className={weeklyRemaining === 0 ? "text-red-400 font-bold" : "text-indigo-400 font-bold"}>
+                        {weeklyRemaining} / 5
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-amber-500 font-semibold leading-relaxed">
+                    ⚠️ Warning: Repeatedly requesting reset links will lead to your email address being temporarily blocked by the SMTP server.
+                  </p>
+
+                  <form onSubmit={handleEmailPasswordReset} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username or Email</label>
+                      <input 
+                        type="text" 
+                        required 
+                        disabled={isBlocked}
+                        value={username} 
+                        onChange={e => setUsername(e.target.value)} 
+                        className="sp-input" 
+                        placeholder={isBlocked ? "Quota exceeded" : "Enter your username or email"} 
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      disabled={forgotLoading || isBlocked} 
+                      className="btn-primary w-full py-3.5 flex items-center justify-center font-bold"
+                    >
+                      {isBlocked ? 'Resets Limit Exceeded' : (forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link')}
+                    </button>
+                  </form>
+                </div>
+              );
+            })()}
           </div>
         )}
 

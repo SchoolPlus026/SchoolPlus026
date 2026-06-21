@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Loader2, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Lock, Loader2, AlertCircle, CheckCircle2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../config/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -36,6 +38,10 @@ export default function ResetPassword() {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
+      
+      // Clean recovery modal flag from localStorage so optional password sync does not fire
+      localStorage.removeItem('show_sync_password_reset');
+      
       setSuccess(true);
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
@@ -85,14 +91,17 @@ export default function ResetPassword() {
                   <Lock size={16} />
                 </div>
                 <input
-                  type="password"
+                  type={showNewPassword ? "text" : "password"}
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="sp-input pl-11"
+                  className="sp-input pl-11 pr-11"
                   placeholder="••••••••"
                   autoFocus
                 />
+                <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                   {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
@@ -103,13 +112,16 @@ export default function ResetPassword() {
                   <Lock size={16} />
                 </div>
                 <input
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="sp-input pl-11"
+                  className="sp-input pl-11 pr-11"
                   placeholder="••••••••"
                 />
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                   {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
