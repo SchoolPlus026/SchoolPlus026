@@ -103,4 +103,8 @@ We have successfully implemented a complete, bulletproof architectural solution 
 - **OAuth Gating Trigger (`database/v102_cleanup_orphans_and_block_google_signups.sql`):**
   Bound a new `BEFORE INSERT ON auth.users` trigger (`trg_check_new_auth_user`) to intercept all incoming signups. If a user attempts to sign up via Google and their Gmail is not already pre-registered in the `public.users` table (created by Admin), the registration is rejected. This prevents future orphaned records and email conflicts.
 
-
+### 9. Platform Admin Settings Overhaul
+- **Account & Recovery Settings Integration (`PlatformAdminDashboard.jsx`):**
+  Universally rendered the 'Account & Recovery Settings' card inside the settings panel of the Platform Admin dashboard (`PlatformAdminDashboard.jsx`). This equips Platform Admins with full Google Linking/Unlinking capabilities and direct recovery email updates (using the `update_user_email_direct` RPC) identically to other roles.
+- **Lucide Icons & States Sync:**
+  Imported Lucide icons (`Mail`, `Lock`) and structured global states/useEffect handlers inside the dashboard to keep the Platform Admin's session data and active identities refreshed in real-time.
