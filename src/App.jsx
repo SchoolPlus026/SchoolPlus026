@@ -16,6 +16,7 @@ import ResetPassword from './features/auth/ResetPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationProvider from './components/NotificationProvider';
 import VersionChecker from './components/VersionChecker';
+import PwaInstallBanner from './components/PwaInstallBanner';
 import GlobalUploadToasts from './components/GlobalUploadToasts';
 import EmergencyOverlay from './components/EmergencyOverlay';
 import HelpButton from './components/HelpButton';
@@ -116,7 +117,22 @@ export default function App() {
 
         const { data: { session } } = await supabase.auth.getSession();
         
-        if (!session?.user) {
+        if (session?.user) {
+          // Clean URL from auth tokens to prevent duplicate processing on refresh
+          const url = new URL(window.location.href);
+          let URLChanged = false;
+          if (url.searchParams.has('code')) {
+            url.searchParams.delete('code');
+            URLChanged = true;
+          }
+          if (url.hash && (url.hash.includes('access_token=') || url.hash.includes('type='))) {
+            url.hash = '';
+            URLChanged = true;
+          }
+          if (URLChanged) {
+            window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+          }
+        } else {
           useAppStore.getState().clearSession();
           setIsInitializing(false);
           return;
@@ -367,6 +383,7 @@ export default function App() {
 
   return (
     <ToastProvider>
+      <PwaInstallBanner />
       {/* VersionChecker: runs once on launch for all native authenticated sessions.
           Renders null on web. Must be outside <Routes> so it isn't unmounted
           on route transitions. */}

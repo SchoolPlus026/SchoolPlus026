@@ -17,7 +17,7 @@ async function activatePremium(
 ): Promise<{ success: boolean; message: string; schoolId?: string }> {
   const { data: transaction, error: txError } = await supabaseAdmin
     .from('subscription_transactions')
-    .select('*, subscription_plans(validity_days)')
+    .select('*, subscription_plans(name, validity_days)')
     .eq('razorpay_order_id', razorpay_order_id)
     .single();
 
@@ -38,7 +38,7 @@ async function activatePremium(
 
   const { data: schoolSettings, error: schoolError } = await supabaseAdmin
     .from('school_settings')
-    .select('subscription_end_date, trial_start_date, plan_type')
+    .select('name, subscription_end_date, trial_start_date, plan_type')
     .eq('school_id', transaction.school_id)
     .single();
 
@@ -75,6 +75,29 @@ async function activatePremium(
 
   if (updateSchoolError) throw new Error('Failed to update school subscription');
 
+  // ── Notify School Admin ──
+  await supabaseAdmin.from('app_notifications_queue').insert({
+    school_id: transaction.school_id,
+    target_role: 'admin',
+    title: '✨ Premium Activated',
+    body: `Your school premium subscription is now active! Valid until ${newEndDate.toLocaleDateString(undefined, { dateStyle: 'long' })}.`,
+    route: '/settings',
+    is_ephemeral: false,
+    status: 'pending'
+  });
+
+  // ── Notify Platform Super-Admin ──
+  const schoolName = schoolSettings.name || 'A school';
+  await supabaseAdmin.from('app_notifications_queue').insert({
+    school_id: transaction.school_id,
+    target_role: 'platform_admin',
+    title: '💰 Subscription Upgraded',
+    body: `${schoolName} has upgraded to Premium. Expires on ${newEndDate.toLocaleDateString(undefined, { dateStyle: 'long' })}.`,
+    route: '/super_admin',
+    is_ephemeral: false,
+    status: 'pending'
+  });
+
   console.log(`[webhook] ✅ Premium activated for school: ${transaction.school_id}, expires: ${newEndDate.toISOString()}`);
   return { success: true, message: 'Premium activated via webhook', schoolId: transaction.school_id };
 }
@@ -100,39 +123,92 @@ serve(async (req) => {
       return new Response('OK', { status: 200 }); // 200 to stop Razorpay retrying
     }
 
-    // ── Optional: Verify Razorpay webhook signature ──
-    // If RAZORPAY_WEBHOOK_SECRET is set and matches, great.
-    // If not, we still process via direct API call (fallback).
-    const incomingSignature = req.headers.get('x-razorpay-signature');
-    const webhookSecret = Deno.env.get('RAZORPAY_WEBHOOK_SECRET');
-    let signatureValid = false;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    if (incomingSignature && webhookSecret) {
-      try {
-        const encoder = new TextEncoder();
-        const cryptoKey = await crypto.subtle.importKey(
-          'raw',
-          encoder.encode(webhookSecret),
-          { name: 'HMAC', hash: 'SHA-256' },
-          false,
-          ['sign']
-        );
-        const sigBuffer = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(rawBody));
-        const expectedSig = Array.from(new Uint8Array(sigBuffer))
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join('');
-        signatureValid = expectedSig === incomingSignature;
-        if (!signatureValid) {
-          console.warn('[webhook] Signature mismatch — proceeding via Razorpay API verification fallback.');
+    // ── Handle payment.failed ──
+    if (payload.event === 'payment.failed') {
+      const paymentEntity = payload?.payload?.payment?.entity;
+      const order_id = paymentEntity?.order_id;
+      const payment_id = paymentEntity?.id;
+      const amount = paymentEntity?.amount ? (paymentEntity.amount / 100) : 0;
+      
+      if (order_id) {
+        const { data: tx } = await supabaseAdmin
+          .from('subscription_transactions')
+          .update({ status: 'FAILED', razorpay_payment_id: payment_id })
+          .eq('razorpay_order_id', order_id)
+          .select()
+          .single();
+        
+        if (tx) {
+          await supabaseAdmin.from('app_notifications_queue').insert({
+            school_id: tx.school_id,
+            target_role: 'admin',
+            title: '💳 Payment Failed',
+            body: `Your online payment of ₹${amount.toLocaleString()} for subscription renewal failed. Please try again.`,
+            route: '/settings',
+            is_ephemeral: false,
+            status: 'pending'
+          });
         }
-      } catch (sigErr: any) {
-        console.warn('[webhook] Signature check error:', sigErr.message);
       }
-    } else {
-      console.warn('[webhook] No signature or webhook secret configured — using API verification fallback.');
+      return new Response(JSON.stringify({ success: true, message: 'Processed payment.failed' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
     }
 
-    // We only process payment events
+    // ── Handle dispute.created ──
+    if (payload.event === 'dispute.created' || payload.event === 'payment.disputed') {
+      const disputeEntity = payload?.payload?.dispute?.entity || payload?.payload?.payment?.entity;
+      const payment_id = disputeEntity?.payment_id || disputeEntity?.id;
+      
+      if (payment_id) {
+        const { data: tx } = await supabaseAdmin
+          .from('subscription_transactions')
+          .update({ status: 'DISPUTED' })
+          .eq('razorpay_payment_id', payment_id)
+          .select()
+          .single();
+        
+        if (tx) {
+          const { data: schoolDetail } = await supabaseAdmin
+            .from('school_settings')
+            .select('name')
+            .eq('school_id', tx.school_id)
+            .single();
+          const schoolName = schoolDetail?.name || 'A school';
+
+          await supabaseAdmin.from('app_notifications_queue').insert({
+            school_id: tx.school_id,
+            target_role: 'admin',
+            title: '⚠️ Payment Disputed',
+            body: `The payment of ₹${(tx.amount_paise / 100).toLocaleString()} has been marked as DISPUTED. Your premium access may be suspended.`,
+            route: '/settings',
+            is_ephemeral: false,
+            status: 'pending'
+          });
+
+          await supabaseAdmin.from('app_notifications_queue').insert({
+            school_id: tx.school_id,
+            target_role: 'platform_admin',
+            title: '🚨 Subscription Dispute Raised',
+            body: `Dispute raised for payment ${payment_id} by ${schoolName}.`,
+            route: '/super_admin',
+            is_ephemeral: false,
+            status: 'pending'
+          });
+        }
+      }
+      return new Response(JSON.stringify({ success: true, message: 'Processed dispute.created' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
+    // We only process payment events for premium activation
     if (payload.event !== 'order.paid' && payload.event !== 'payment.captured') {
       console.log(`[webhook] Ignoring event: ${payload.event}`);
       return new Response('OK', { status: 200 });
@@ -145,16 +221,10 @@ serve(async (req) => {
     }
 
     const { id: payment_id, order_id } = paymentEntity;
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID')!;
     const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET')!;
 
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
     // ── SERVER-TO-SERVER: Verify payment status via Razorpay API ──
-    // This is the ground truth. We trust Razorpay's own API, not just the webhook body.
     const razorpayAuthHeader = 'Basic ' + btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
     const razorpayRes = await fetch(
       `https://api.razorpay.com/v1/payments/${payment_id}`,
@@ -190,7 +260,6 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('[razorpay-webhook] Unhandled error:', error.message);
-    // Always 200 to prevent Razorpay from retrying indefinitely
     return new Response(JSON.stringify({ received: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

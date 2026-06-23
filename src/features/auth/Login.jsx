@@ -5,10 +5,19 @@ import { Capacitor } from '@capacitor/core';
 import { Camera } from '@capacitor/camera';
 import { Browser } from '@capacitor/browser';
 import { CapacitorPasskey } from '@capgo/capacitor-passkey';
+import { authenticateWebAuthnWeb } from '../../utils/webauthnWeb';
 import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
+
+const isMobileOrPWA = () => {
+  if (Capacitor.isNativePlatform()) return true;
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  const isMobileOS = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+  const hasTouch = navigator.maxTouchPoints > 0;
+  return isMobileOS || hasTouch;
+};
 
 export default function Login() {
   /**
@@ -963,15 +972,22 @@ export default function Login() {
   };
 
   const handleBiometricLogin = async () => {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!isMobileOrPWA()) return;
     setLoading(true);
     setError('');
     try {
       const startData = await invokeEdgeFn('webauthn-start', { action: 'authenticate', username });
       const { options, sessionKey } = startData;
-      let nativeResponse = await CapacitorPasskey.getCredential({ publicKey: options, mediation: 'optional' });
+      
+      let passkeyResponse;
+      if (Capacitor.isNativePlatform()) {
+        passkeyResponse = await CapacitorPasskey.getCredential({ publicKey: options, mediation: 'optional' });
+      } else {
+        passkeyResponse = await authenticateWebAuthnWeb(options);
+      }
+
       const verifyData = await invokeEdgeFn('webauthn-verify', {
-        action: 'authentication', sessionKey, response: nativeResponse
+        action: 'authentication', sessionKey, response: passkeyResponse
       });
       const { data: authData, error: authError } = await supabase.auth.verifyOtp({
         token_hash: verifyData.token_hash, type: 'magiclink'
@@ -1133,7 +1149,7 @@ export default function Login() {
               </svg>
               Login with Google
             </button>
-            {Capacitor.isNativePlatform() && (
+            {isMobileOrPWA() && (
               <button onClick={handleBiometricLogin} className="w-full py-3.5 flex items-center justify-center gap-2 text-sm font-bold rounded-xl border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 transition-colors mt-4">
                 <Fingerprint size={18} /> Biometric Login
               </button>

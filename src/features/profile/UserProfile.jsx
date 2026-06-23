@@ -1,9 +1,17 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { User, Loader2, Mail, Phone, MapPin, Briefcase, Calendar, Info, GraduationCap, FileText, Users, BookOpen, Award, Star, Camera, Trash2, Lock } from 'lucide-react';
+import { User, Loader2, Mail, Phone, MapPin, Briefcase, Calendar, Info, GraduationCap, FileText, Users, BookOpen, Award, Star, Camera, Trash2, Lock, Smartphone, Download } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
+
+const isMobileOrPWA = () => {
+  if (Capacitor.isNativePlatform()) return true;
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  const isMobileOS = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+  const hasTouch = navigator.maxTouchPoints > 0;
+  return isMobileOS || hasTouch;
+};
 
 // Client-side image compression utility
 const compressImage = (file) => {
@@ -61,6 +69,10 @@ export default function UserProfile() {
   const [emailError, setEmailError] = useState('');
   const [emailSuccess, setEmailSuccess] = useState('');
   const [linkingLoading, setLinkingLoading] = useState(false);
+
+  // APK download states
+  const [apkUrl, setApkUrl] = useState(null);
+  const [apkLoading, setApkLoading] = useState(false);
 
   const handleUpdateEmail = async (e) => {
     e.preventDefault();
@@ -192,6 +204,22 @@ export default function UserProfile() {
   useEffect(() => {
     setImgError(false);
   }, [profile?.avatar_url]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() && isMobileOrPWA()) {
+      setApkLoading(true);
+      supabase.from('app_versions')
+        .select('apk_url')
+        .order('version_code', { ascending: false })
+        .limit(1)
+        .single()
+        .then(({ data }) => {
+          if (data?.apk_url) setApkUrl(data.apk_url);
+        })
+        .catch(console.error)
+        .finally(() => setApkLoading(false));
+    }
+  }, []);
 
   const drives = Array.isArray(schoolSettings?.gdrive_config)
     ? schoolSettings.gdrive_config
@@ -675,9 +703,43 @@ export default function UserProfile() {
                             Connect Google Account
                          </button>
                       )}
-                   </div>
-                </div>
-             </div>
+                    </div>
+                 </div>
+
+                 {/* Download Android App Section (Mobile Web/PWA only) */}
+                 {!Capacitor.isNativePlatform() && isMobileOrPWA() && (
+                    <div className="space-y-4 flex flex-col justify-between p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
+                       <div>
+                          <h4 className="text-xs font-black uppercase tracking-widest text-indigo-300 mb-2 flex items-center gap-1.5">
+                             <Smartphone size={14} /> Get the Android App
+                          </h4>
+                          <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                             For the best experience, including background GPS tracking and instant system push notifications, download our native Android app.
+                          </p>
+                       </div>
+                       <div>
+                          {apkLoading ? (
+                             <button disabled className="w-full py-3 bg-indigo-600/50 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5">
+                                <Loader2 size={14} className="animate-spin" /> Fetching latest build...
+                             </button>
+                          ) : apkUrl ? (
+                             <a 
+                                href={apkUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center shadow-md shadow-indigo-600/20 active:scale-[0.98]"
+                             >
+                                <Download size={14} /> Download Android App (APK)
+                             </a>
+                          ) : (
+                             <button disabled className="w-full py-3 bg-slate-800 text-slate-500 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
+                                No Android builds available.
+                             </button>
+                          )}
+                       </div>
+                    </div>
+                 )}
+              </div>
           </div>
        )}
     </div>

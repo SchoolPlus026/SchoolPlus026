@@ -108,6 +108,103 @@ export default function BusAlerts() {
   const lastGeocodedCoordsRef = useRef(null);   // coords of last successful Nominatim geocode
   const cachedLocationNameRef = useRef('');     // cached reverse geocoding address label
 
+  // Hardware/permission errors and background workarounds
+  const [hardwareErrorModal, setHardwareErrorModal] = useState(null); // 'secure_context' | 'permission_denied' | null
+  const wakeLockRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const audioIntervalRef = useRef(null);
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+        console.log('[WakeLock] Screen Wake Lock acquired.');
+      } else {
+        console.warn('[WakeLock] Screen Wake Lock not supported on this browser.');
+      }
+    } catch (err) {
+      console.warn('[WakeLock] request screen wake lock failed:', err.message);
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+        console.log('[WakeLock] Screen Wake Lock released.');
+      }
+    } catch (err) {
+      console.warn('[WakeLock] release screen wake lock failed:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (isActive && document.visibilityState === 'visible') {
+        try {
+          if ('wakeLock' in navigator) {
+            wakeLockRef.current = await navigator.wakeLock.request('screen');
+            console.log('[WakeLock] Screen Wake Lock re-acquired on visibility change.');
+          }
+        } catch (err) {
+          console.warn('[WakeLock] re-acquiring wake lock failed:', err.message);
+        }
+      }
+    };
+
+    if (isActive) {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isActive]);
+
+  const startSilentAudio = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      
+      const ctx = new AudioContext();
+      audioContextRef.current = ctx;
+
+      const bufferSize = ctx.sampleRate * 2; // 2 seconds
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+
+      const playLoop = () => {
+        if (!audioContextRef.current || audioContextRef.current.state === 'closed') return;
+        const source = audioContextRef.current.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContextRef.current.destination);
+        source.start(0);
+      };
+
+      playLoop();
+      audioIntervalRef.current = setInterval(playLoop, 1500);
+      console.log('[SilentAudio] Web Audio context started.');
+    } catch (e) {
+      console.warn('[SilentAudio] Web Audio failed:', e.message);
+    }
+  };
+
+  const stopSilentAudio = () => {
+    try {
+      if (audioIntervalRef.current) {
+        clearInterval(audioIntervalRef.current);
+        audioIntervalRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+        console.log('[SilentAudio] Web Audio context closed.');
+      }
+    } catch (e) {
+      console.warn('[SilentAudio] Stop Audio context failed:', e.message);
+    }
+  };
+
   // ─── Firebase Authentication Bridge ───────────────────────────────────────
   useEffect(() => {
     async function authFirebase() {
@@ -257,7 +354,16 @@ export default function BusAlerts() {
   // mode that returns false even inside the APK's WebView.
   const startTracking = useCallback(async () => {
     setGpsError(null);
+    setHardwareErrorModal(null);
     setIsStarting(true);
+
+    // ── Check Secure Context ──
+    if (!window.isSecureContext) {
+      console.error('[GPS] Secure context required for Geolocation.');
+      setHardwareErrorModal('secure_context');
+      setIsStarting(false);
+      return;
+    }
 
     // ── Step 0: Ensure Firebase is authenticated before starting ──
     try {
@@ -280,6 +386,7 @@ export default function BusAlerts() {
 
       if (!granted) {
         console.error('[GPS] permission denied by user');
+        setHardwareErrorModal('permission_denied');
         setGpsError(
           'Location permission was denied. Please go to your device Settings → Apps → SchoolOS+ → Permissions → Location and set it to "Allow".'
         );
@@ -350,6 +457,10 @@ export default function BusAlerts() {
     setIsStarting(false);
     console.log('[Session] tracking STARTED — schoolId:', schoolId, 'busKey:', busKey);
 
+    // Acquire Wake Lock & start Silent Audio Loop to prevent background suspension
+    await requestWakeLock();
+    startSilentAudio();
+
     // Fire first geocode+push immediately, then every 30s
     runGeocodeAndPush();
     if (geocodeTimerRef.current) clearInterval(geocodeTimerRef.current);
@@ -380,6 +491,10 @@ export default function BusAlerts() {
     lastPushedCoordsRef.current = null;
     lastGeocodedCoordsRef.current = null;
     cachedLocationNameRef.current = '';
+
+    // Release Wake Lock & stop Silent Audio Loop
+    releaseWakeLock();
+    stopSilentAudio();
 
     // 3. Update React state IMMEDIATELY (no await — UI must flip instantly)
     setIsActive(false);
@@ -417,6 +532,8 @@ export default function BusAlerts() {
       if (watchIdRef.current != null) {
         Geolocation.clearWatch({ id: watchIdRef.current }).catch(() => {});
       }
+      releaseWakeLock();
+      stopSilentAudio();
     };
   }, []);
 
@@ -635,6 +752,52 @@ export default function BusAlerts() {
           Location updates every 30 seconds · Powered by OpenStreetMap
         </p>
       </div>
+
+      {hardwareErrorModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: 'rgba(5, 5, 10, 0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+        }}>
+          <div style={{
+            width: '100%', maxWidth: '400px',
+            background: 'linear-gradient(135deg, #10101f, #080811)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '24px', padding: '28px',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+            position: 'relative'
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 12px'
+              }}>
+                <MapPinOff size={28} color="#ef4444" />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#f8fafc', margin: '0 0 8px' }}>
+                {hardwareErrorModal === 'secure_context' ? 'Secure Context Required' : 'Location Permission Denied'}
+              </h3>
+              <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
+                {hardwareErrorModal === 'secure_context' 
+                  ? 'Live GPS location tracking strictly requires a secure HTTPS connection. Please deploy the web app with SSL or access it via localhost.'
+                  : 'SchoolOS+ requires location permissions to broadcast driver coordinates. Please enable location services in your browser settings and try again.'}
+              </p>
+            </div>
+            <button 
+              onClick={() => setHardwareErrorModal(null)} 
+              style={{
+                width: '100%', padding: '12px', borderRadius: '12px',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                color: '#cbd5e1', fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
     </ModuleGuard>
   );
 }

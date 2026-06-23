@@ -27,6 +27,14 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
 import { supabase } from '../config/supabaseClient';
 
+const isMobileOrPWA = () => {
+  if (Capacitor.isNativePlatform()) return true;
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  const isMobileOS = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+  const hasTouch = navigator.maxTouchPoints > 0;
+  return isMobileOS || hasTouch;
+};
+
 // ── Download state machine ────────────────────────────────────────────────────
 const DL = {
   IDLE:        null,
@@ -217,11 +225,11 @@ function UpdateModal({ version, onDismiss, onDownload, dlState, errorMsg, onRetr
               fontSize: '18px', fontWeight: 900, color: '#f1f5f9',
               letterSpacing: '-0.01em', lineHeight: 1.2, marginBottom: '4px',
             }}>
-              New Update Available!
+              {Capacitor.isNativePlatform() ? 'New Update Available!' : 'Get the Android App!'}
             </div>
             <div style={{ fontSize: '12px', color: '#818cf8', fontWeight: 700 }}>
-              SchoolOS+ v{version.version_name}
-              {isCritical && (
+              {Capacitor.isNativePlatform() ? `SchoolOS+ v${version.version_name}` : `SchoolOS+ Android v${version.version_name}`}
+              {isCritical && Capacitor.isNativePlatform() && (
                 <span style={{
                   marginLeft: '8px', padding: '2px 8px', borderRadius: '999px',
                   background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
@@ -253,7 +261,7 @@ function UpdateModal({ version, onDismiss, onDownload, dlState, errorMsg, onRetr
         )}
 
         {/* Critical warning */}
-        {isCritical && (
+        {isCritical && Capacitor.isNativePlatform() && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '10px',
             padding: '12px 14px', borderRadius: '12px',
@@ -268,15 +276,19 @@ function UpdateModal({ version, onDismiss, onDownload, dlState, errorMsg, onRetr
 
         {/* Version pill */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '4px 12px', borderRadius: '999px',
-            background: 'rgba(30,27,75,0.7)', border: '1px solid rgba(99,102,241,0.2)',
-          }}>
-            <span style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>Installed</span>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>v{version.installed_name}</span>
-          </div>
-          <span style={{ fontSize: '14px', color: '#4f46e5' }}>→</span>
+          {Capacitor.isNativePlatform() && (
+            <>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '4px 12px', borderRadius: '999px',
+                background: 'rgba(30,27,75,0.7)', border: '1px solid rgba(99,102,241,0.2)',
+              }}>
+                <span style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>Installed</span>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>v{version.installed_name}</span>
+              </div>
+              <span style={{ fontSize: '14px', color: '#4f46e5' }}>→</span>
+            </>
+          )}
           <div style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '4px 12px', borderRadius: '999px',
@@ -302,7 +314,7 @@ function UpdateModal({ version, onDismiss, onDownload, dlState, errorMsg, onRetr
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}
             >
-              ⬇️ Download &amp; Install Update
+              {Capacitor.isNativePlatform() ? '⬇️ Download & Install Update' : '⬇️ Download Android App (APK)'}
             </button>
             {!isCritical && (
               <button
@@ -353,15 +365,24 @@ export default function VersionChecker() {
   const [downloadProgress, setDownloadProgress] = useState(0);
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!Capacitor.isNativePlatform() && !isMobileOrPWA()) return;
     if (versionCheckDone) return;
     versionCheckDone = true;
     let cancelled = false;
 
     async function checkVersion() {
       try {
-        const info = await CapacitorApp.getInfo();
-        const localCode = parseInt(info.build, 10);
+        let localCode = 0;
+        let installedVersionName = 'Web';
+
+        if (Capacitor.isNativePlatform()) {
+          const info = await CapacitorApp.getInfo();
+          localCode = parseInt(info.build, 10);
+          installedVersionName = info.version;
+        } else {
+          const dismissedCode = localStorage.getItem('sp_pwa_dismissed_apk_version');
+          localCode = dismissedCode ? parseInt(dismissedCode, 10) : 0;
+        }
 
         const { data, error } = await supabase
           .from('app_versions')
@@ -374,7 +395,7 @@ export default function VersionChecker() {
 
         if (Number(data.version_code) > Number(localCode)) {
           console.info(`[VersionChecker] Update available: ${data.version_name} (remote ${data.version_code} > local ${localCode})`);
-          setUpdateInfo({ ...data, installed_name: info.version, downloadProgress: 0 });
+          setUpdateInfo({ ...data, installed_name: installedVersionName, downloadProgress: 0 });
         } else {
           console.info('[VersionChecker] App is up to date.');
         }
@@ -389,6 +410,13 @@ export default function VersionChecker() {
 
   const handleDownload = useCallback(async () => {
     if (!updateInfo?.apk_url) return;
+
+    if (!Capacitor.isNativePlatform()) {
+      window.open(updateInfo.apk_url, '_blank');
+      localStorage.setItem('sp_pwa_dismissed_apk_version', updateInfo.version_code.toString());
+      setDismissed(true);
+      return;
+    }
 
     setDlState(DL.CONNECTING);
     setErrorMsg('');
@@ -444,12 +472,15 @@ export default function VersionChecker() {
   }, []);
 
   const handleDismiss = useCallback(() => {
-    if (updateInfo?.is_critical) return;
+    if (updateInfo?.is_critical && Capacitor.isNativePlatform()) return;
     if (dlState !== DL.IDLE && dlState !== DL.ERROR && dlState !== DL.DONE) return; // don't dismiss mid-download
+    if (!Capacitor.isNativePlatform() && updateInfo) {
+      localStorage.setItem('sp_pwa_dismissed_apk_version', updateInfo.version_code.toString());
+    }
     setDismissed(true);
   }, [updateInfo, dlState]);
 
-  if (!updateInfo || dismissed || !Capacitor.isNativePlatform()) return null;
+  if (!updateInfo || dismissed || (!Capacitor.isNativePlatform() && !isMobileOrPWA())) return null;
 
   return (
     <UpdateModal

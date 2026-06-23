@@ -4,6 +4,15 @@ import { useAppStore } from '../../store/useAppStore';
 import { Fingerprint, Trash2, Loader2, Plus, ShieldCheck } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorPasskey } from '@capgo/capacitor-passkey';
+import { registerWebAuthnWeb } from '../../utils/webauthnWeb';
+
+const isMobileOrPWA = () => {
+  if (Capacitor.isNativePlatform()) return true;
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  const isMobileOS = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+  const hasTouch = navigator.maxTouchPoints > 0;
+  return isMobileOS || hasTouch;
+};
 
 export default function BiometricSetup() {
   const { user } = useAppStore();
@@ -13,8 +22,8 @@ export default function BiometricSetup() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Only render on native Android/iOS
-  if (!Capacitor.isNativePlatform()) {
+  // Only render on native app or mobile web/PWA
+  if (!isMobileOrPWA()) {
     return null;
   }
 
@@ -57,21 +66,25 @@ export default function BiometricSetup() {
         email: user.email,
       });
 
-      // 2. Call Native Capacitor Passkey Bridge — triggers fingerprint prompt
-      let nativeResponse;
+      // 2. Call Native Capacitor Passkey Bridge or standard WebAuthn — triggers fingerprint prompt
+      let passkeyResponse;
       try {
-        nativeResponse = await CapacitorPasskey.createCredential({ publicKey: options });
+        if (Capacitor.isNativePlatform()) {
+          passkeyResponse = await CapacitorPasskey.createCredential({ publicKey: options });
+        } else {
+          passkeyResponse = await registerWebAuthnWeb(options);
+        }
       } catch (nativeError) {
         // User cancelled or device does not support biometrics
-        const msg = nativeError?.message || JSON.stringify(nativeError) || 'Unknown native error';
+        const msg = nativeError?.message || JSON.stringify(nativeError) || 'Unknown error';
         if (msg.toLowerCase().includes('cancel') || msg.includes('user cancelled')) {
           setError('Biometric setup was cancelled.');
           return;
         }
-        throw new Error(`Native Error: ${msg}`);
+        throw new Error(`Device Error: ${msg}`);
       }
 
-      if (!nativeResponse || typeof nativeResponse !== 'object' || (!nativeResponse.id && !nativeResponse.rawId)) {
+      if (!passkeyResponse || typeof passkeyResponse !== 'object' || (!passkeyResponse.id && !passkeyResponse.rawId)) {
         throw new Error('Invalid or empty biometric payload received from device.');
       }
 
@@ -79,7 +92,7 @@ export default function BiometricSetup() {
       const verifyData = await invokeEdgeFn('webauthn-verify', {
         action: 'registration',
         userId: user.id,
-        response: nativeResponse,
+        response: passkeyResponse,
       });
       if (!verifyData?.success) throw new Error('Server verification failed — please try again.');
 
