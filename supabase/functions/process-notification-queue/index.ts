@@ -67,7 +67,26 @@ async function sendFCMMessage(
       message: {
         token,
         notification: { title: title.substring(0, 100), body: body.substring(0, 200) },
-        android: { priority: "high", notification: { click_action: "FLUTTER_NOTIFICATION_CLICK", sound: "default" } },
+        android: {
+          priority: "high",
+          notification: { click_action: "FLUTTER_NOTIFICATION_CLICK", sound: "default" }
+        },
+        // webpush config is REQUIRED for FCM v1 to deliver to web/PWA browser tokens.
+        // Without this block, FCM silently drops messages sent to web registration tokens.
+        webpush: {
+          headers: { Urgency: "high" },
+          notification: {
+            title: title.substring(0, 100),
+            body: body.substring(0, 200),
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-72.png",
+            requireInteraction: false,
+            tag: "schoolos-notification",
+          },
+          fcm_options: {
+            link: route || "/",
+          },
+        },
         data: { route: route || "/", type: "master_notification" },
       },
     }),

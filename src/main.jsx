@@ -40,33 +40,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
 
-// Register Unified Service Worker for PWA and FCM Web Push
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
-    const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '';
-    const databaseURL = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
-    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || '';
-    const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '';
-    const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '';
-    const appId = import.meta.env.VITE_FIREBASE_APP_ID || '';
-
-    let swUrl = '/sw.js';
-    if (apiKey) {
-      swUrl += `?apiKey=${encodeURIComponent(apiKey)}` +
-        `&authDomain=${encodeURIComponent(authDomain)}` +
-        `&databaseURL=${encodeURIComponent(databaseURL)}` +
-        `&projectId=${encodeURIComponent(projectId)}` +
-        `&storageBucket=${encodeURIComponent(storageBucket)}` +
-        `&messagingSenderId=${encodeURIComponent(messagingSenderId)}` +
-        `&appId=${encodeURIComponent(appId)}`;
-    }
-
-    navigator.serviceWorker.register(swUrl)
-      .then(reg => console.log('[PWA/FCM] sw.js registered:', reg.scope))
-      .catch(err => console.error('[PWA/FCM] sw.js registration failed:', err));
-  });
-}
+// NOTE: Service Worker registration is handled exclusively by usePushNotifications.js
+// to ensure Firebase config query params are correctly injected before getToken() is called.
+// Registering here without those params would cause a race condition where a bare SW
+// (without Firebase config) activates first and blocks FCM token generation.
 
 // Request persistent storage caching sandbox
 if (navigator.storage && navigator.storage.persist) {

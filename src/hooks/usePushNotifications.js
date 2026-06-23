@@ -166,6 +166,10 @@ export function usePushNotifications() {
   }, []); // stable — reads from refs, no deps needed
 
   useEffect(() => {
+    // Reset tokenSaved flag when user changes (e.g. logout then login as different user)
+    tokenSaved.current = false;
+    listenersRegistered.current = false;
+
     // ── Guard 2: Must have an authenticated user ───────────────────────────
     if (!user?.id) {
       console.info('[FCM] No authenticated user — skipping token registration.');
@@ -204,7 +208,8 @@ export function usePushNotifications() {
             return;
           }
           
-          // Fetch or Register the unified service worker dynamically
+          // Build the SW URL with Firebase config injected as query params
+          // (Service Workers cannot access import.meta.env, so we pass config this way)
           const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
           const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '';
           const databaseURL = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
@@ -212,6 +217,19 @@ export function usePushNotifications() {
           const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '';
           const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '';
           const appId = import.meta.env.VITE_FIREBASE_APP_ID || '';
+
+          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
+          if (!vapidKey) {
+            console.warn('[FCM] VITE_FIREBASE_VAPID_KEY is missing. Web push cannot be initialized.');
+            isSettingUp.current = false;
+            return;
+          }
+
+          if (!apiKey) {
+            console.warn('[FCM] VITE_FIREBASE_API_KEY is missing. Web push cannot be initialized.');
+            isSettingUp.current = false;
+            return;
+          }
 
           const swUrl = `/sw.js?apiKey=${encodeURIComponent(apiKey)}` +
             `&authDomain=${encodeURIComponent(authDomain)}` +
@@ -221,34 +239,23 @@ export function usePushNotifications() {
             `&messagingSenderId=${encodeURIComponent(messagingSenderId)}` +
             `&appId=${encodeURIComponent(appId)}`;
 
-          const reg = await navigator.serviceWorker.register(swUrl);
+          // Register the service worker with Firebase config in query params.
+          // If already registered at this URL, the browser returns the existing registration.
+          await navigator.serviceWorker.register(swUrl);
 
-          // Wait for service worker to finish installing/activating
-          const sw = reg.active || reg.installing || reg.waiting;
-          if (sw && sw.state !== 'activated') {
-            await new Promise((resolve) => {
-              const listener = () => {
-                if (sw.state === 'activated') {
-                  sw.removeEventListener('statechange', listener);
-                  resolve();
-                }
-              };
-              sw.addEventListener('statechange', listener);
-              // Fallback resolve
-              setTimeout(resolve, 5000);
-            });
-          }
-          
-          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
-          if (!vapidKey) {
-            console.warn('[FCM] VITE_FIREBASE_VAPID_KEY is missing. Web push cannot be initialized.');
-            isSettingUp.current = false;
-            return;
-          }
-          
+          // Use navigator.serviceWorker.ready — this resolves to the ACTIVE registration
+          // that controls this page, which is guaranteed to be in 'activated' state.
+          // This avoids the race condition where reg.installing hasn't activated yet.
+          const readyReg = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 10000))
+          ]);
+
+          console.info('[FCM] Service worker active. Fetching FCM token...');
+
           const token = await getToken(messaging, {
-            serviceWorkerRegistration: reg,
-            vapidKey: vapidKey
+            serviceWorkerRegistration: readyReg,
+            vapidKey,
           });
           
           if (token) {
@@ -267,7 +274,7 @@ export function usePushNotifications() {
               
               // 2. Trigger native OS-level popup alert in foreground
               if (Notification.permission === 'granted') {
-                reg.showNotification(title, {
+                readyReg.showNotification(title, {
                   body: body,
                   icon: '/icons/icon-192.png',
                   badge: '/icons/icon-72.png',

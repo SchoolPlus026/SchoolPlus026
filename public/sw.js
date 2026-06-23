@@ -1,10 +1,11 @@
 importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-compat.js');
 
-// Parse Firebase config from query parameters to avoid hardcoding secrets
+// Parse Firebase config from query parameters (injected by usePushNotifications at registration time)
 const urlParams = new URLSearchParams(location.search);
+const apiKey = urlParams.get('apiKey') || '';
 const firebaseConfig = {
-  apiKey:            urlParams.get('apiKey') || '',
+  apiKey,
   authDomain:        urlParams.get('authDomain') || '',
   databaseURL:       urlParams.get('databaseURL') || '',
   projectId:         urlParams.get('projectId') || 'schoolpro-d95a8',
@@ -13,20 +14,28 @@ const firebaseConfig = {
   appId:             urlParams.get('appId') || '',
 };
 
-if (firebaseConfig.apiKey) {
-  try {
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
+let messaging = null;
 
-    // Background message handler
+if (apiKey) {
+  try {
+    // Guard against double-initialization (browser may reuse the same SW instance)
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    messaging = firebase.messaging();
+
+    // Background message handler — fires when app is closed / in background
     messaging.onBackgroundMessage((payload) => {
-      console.info('[FCM Service Worker] Received background notification payload:', payload);
+      console.info('[SW] Background FCM payload received:', payload);
 
       const title = payload.notification?.title || payload.data?.title || 'SchoolOS+ Alert';
       const options = {
-        body: payload.notification?.body || payload.data?.body || '',
-        icon: '/icons/icon-192.png',
+        body:  payload.notification?.body  || payload.data?.body  || '',
+        icon:  '/icons/icon-192.png',
         badge: '/icons/icon-72.png',
+        tag:   'schoolos-notification',        // collapse duplicates
+        renotify: true,
+        requireInteraction: false,
         data: {
           route: payload.data?.route || '/'
         }
@@ -34,117 +43,109 @@ if (firebaseConfig.apiKey) {
 
       self.registration.showNotification(title, options);
     });
+
+    console.info('[SW] Firebase Messaging initialized for background push.');
   } catch (err) {
-    console.error('[FCM Service Worker] Firebase initialization failed:', err);
+    console.error('[SW] Firebase initialization failed:', err);
   }
 } else {
-  console.info('[FCM Service Worker] Firebase config parameters missing. Background notifications disabled.');
+  console.info('[SW] No Firebase apiKey in query params — background FCM disabled for this SW instance.');
 }
 
-// Notification Click Handler: Navigate to the specified route
+// ── Notification Click Handler ───────────────────────────────────────────────
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetRoute = event.notification.data?.route || '/';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Find if there is already a window open, focus it and redirect
       for (const client of clientList) {
         if ('focus' in client) {
           client.focus();
-          if ('navigate' in client) {
-            return client.navigate(targetRoute);
-          }
+          if ('navigate' in client) return client.navigate(targetRoute);
         }
       }
-      // If no window is open, launch a new one
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(targetRoute);
-      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetRoute);
     })
   );
 });
 
-const CACHE_NAME = 'schoolos-cache-v1';
+// ── PWA Caching (App Shell) ──────────────────────────────────────────────────
+const CACHE_NAME = 'schoolos-cache-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/theme-init.js',
-  '/google-translate-init.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png'
 ];
 
-// Install: Cache critical static shell assets
 self.addEventListener('install', (event) => {
+  // skipWaiting so the new SW takes over immediately on re-registration
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Caching app shell assets');
+      console.log('[SW] Caching app shell assets');
       return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
-// Activate: Clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    caches.keys().then((cacheNames) =>
+      Promise.all(
         cacheNames.map((cache) => {
           if (cache !== CACHE_NAME) {
-            console.log('[Service Worker] Clearing old cache:', cache);
+            console.log('[SW] Clearing old cache:', cache);
             return caches.delete(cache);
           }
         })
-      );
-    }).then(() => self.clients.claim())
+      )
+    ).then(() => self.clients.claim())
   );
 });
 
-// Fetch: Network first with Cache fallback for index.html / pages, Cache-first for static assets
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
-  // Skip POST/PUT/DELETE requests or external api calls
-  if (request.method !== 'GET' || url.origin !== self.location.origin) {
-    return;
-  }
+  // Skip non-GET and cross-origin requests
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // HTML / Navigation requests: Network first, fallback to cached index.html (SPA routing)
+  // Skip service worker itself and its versioned registrations (never cache sw.js)
+  if (url.pathname.startsWith('/sw.js') || url.pathname.startsWith('/firebase-messaging-sw.js')) return;
+
+  // Navigation requests: Network first, fallback to cached index.html (SPA routing)
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .catch(() => {
-          return caches.match('/index.html');
-        })
+      fetch(request).catch(() => caches.match('/index.html'))
     );
     return;
   }
 
-  // Static assets (JS, CSS, WebP, Fonts): Cache first, fallback to Network
-  const isStaticAsset = url.pathname.includes('/assets/') || 
-                        url.pathname.endsWith('.js') || 
-                        url.pathname.endsWith('.css') || 
+  // Static assets: JS bundles, CSS, images, fonts — Cache first, then network
+  // NOTE: We intentionally DO NOT cache .js files from the app root (/sw.js handled above)
+  // Only cache hashed Vite build assets in /assets/
+  const isHashedAsset = url.pathname.startsWith('/assets/') ||
                         url.pathname.endsWith('.webp') ||
-                        url.pathname.includes('fonts.googleapis.com') ||
-                        url.pathname.includes('fonts.gstatic.com');
+                        url.pathname.endsWith('.png') ||
+                        url.pathname.endsWith('.ico') ||
+                        url.pathname.endsWith('.woff2') ||
+                        url.pathname.endsWith('.woff');
 
-  if (isStaticAsset) {
+  if (isHashedAsset) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
+        if (cachedResponse) return cachedResponse;
         return fetch(request).then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200 || (networkResponse.type !== 'basic' && networkResponse.type !== 'cors')) {
+          if (!networkResponse || networkResponse.status !== 200 ||
+              (networkResponse.type !== 'basic' && networkResponse.type !== 'cors')) {
             return networkResponse;
           }
           const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
           return networkResponse;
         });
       })
@@ -152,7 +153,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Default: Network with Cache fallback
+  // Default: Network with cache fallback
   event.respondWith(
     fetch(request).catch(() => caches.match(request))
   );
