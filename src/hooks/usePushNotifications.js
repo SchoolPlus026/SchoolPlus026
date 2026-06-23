@@ -204,10 +204,42 @@ export function usePushNotifications() {
             return;
           }
           
-          // Fetch the active FCM service worker registration
-          const regs = await navigator.serviceWorker.getRegistrations();
-          const reg = regs.find(r => r.active && r.active.scriptURL.includes('firebase-messaging-sw.js')) 
-            || await navigator.serviceWorker.ready;
+          // Fetch or Register the Firebase Messaging service worker dynamically with scope
+          const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
+          const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '';
+          const databaseURL = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
+          const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || '';
+          const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '';
+          const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '';
+          const appId = import.meta.env.VITE_FIREBASE_APP_ID || '';
+
+          const fcmSwUrl = `/firebase-messaging-sw.js?apiKey=${encodeURIComponent(apiKey)}` +
+            `&authDomain=${encodeURIComponent(authDomain)}` +
+            `&databaseURL=${encodeURIComponent(databaseURL)}` +
+            `&projectId=${encodeURIComponent(projectId)}` +
+            `&storageBucket=${encodeURIComponent(storageBucket)}` +
+            `&messagingSenderId=${encodeURIComponent(messagingSenderId)}` +
+            `&appId=${encodeURIComponent(appId)}`;
+
+          const reg = await navigator.serviceWorker.register(fcmSwUrl, {
+            scope: '/firebase-cloud-messaging-push-scope'
+          });
+
+          // Wait for service worker to finish installing/activating
+          const sw = reg.active || reg.installing || reg.waiting;
+          if (sw && sw.state !== 'activated') {
+            await new Promise((resolve) => {
+              const listener = () => {
+                if (sw.state === 'activated') {
+                  sw.removeEventListener('statechange', listener);
+                  resolve();
+                }
+              };
+              sw.addEventListener('statechange', listener);
+              // Fallback resolve
+              setTimeout(resolve, 5000);
+            });
+          }
           
           const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
           if (!vapidKey) {

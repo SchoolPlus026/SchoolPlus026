@@ -218,8 +218,7 @@ serve(async (req) => {
       tokensQuery = supabase
         .from("user_device_tokens")
         .select("id, fcm_token")
-        .eq("school_id", notice.school_id)
-        .eq("platform", "android");    // extend to 'ios' here when ready
+        .eq("school_id", notice.school_id);
     } else {
       // scope is 'students' or 'teachers' — filter by user role
       // We query via a join: user_device_tokens.user_id → users.id
@@ -244,8 +243,7 @@ serve(async (req) => {
       tokensQuery = supabase
         .from("user_device_tokens")
         .select("id, fcm_token")
-        .in("user_id", userIds)
-        .eq("platform", "android");
+        .in("user_id", userIds);
     }
 
     const { data: tokenRows, error: tokenError } = await tokensQuery;

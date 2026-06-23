@@ -66,7 +66,7 @@ if ('serviceWorker' in navigator) {
         `&messagingSenderId=${encodeURIComponent(messagingSenderId)}` +
         `&appId=${encodeURIComponent(appId)}`;
 
-      navigator.serviceWorker.register(fcmSwUrl)
+      navigator.serviceWorker.register(fcmSwUrl, { scope: '/firebase-cloud-messaging-push-scope' })
         .then(reg => console.log('[FCM] firebase-messaging-sw.js registered:', reg.scope))
         .catch(err => console.error('[FCM] firebase-messaging-sw.js registration failed:', err));
     }
