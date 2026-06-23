@@ -204,7 +204,7 @@ export function usePushNotifications() {
             return;
           }
           
-          // Fetch or Register the Firebase Messaging service worker dynamically with scope
+          // Fetch or Register the unified service worker dynamically
           const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
           const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '';
           const databaseURL = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
@@ -213,7 +213,7 @@ export function usePushNotifications() {
           const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '';
           const appId = import.meta.env.VITE_FIREBASE_APP_ID || '';
 
-          const fcmSwUrl = `/firebase-messaging-sw.js?apiKey=${encodeURIComponent(apiKey)}` +
+          const swUrl = `/sw.js?apiKey=${encodeURIComponent(apiKey)}` +
             `&authDomain=${encodeURIComponent(authDomain)}` +
             `&databaseURL=${encodeURIComponent(databaseURL)}` +
             `&projectId=${encodeURIComponent(projectId)}` +
@@ -221,9 +221,7 @@ export function usePushNotifications() {
             `&messagingSenderId=${encodeURIComponent(messagingSenderId)}` +
             `&appId=${encodeURIComponent(appId)}`;
 
-          const reg = await navigator.serviceWorker.register(fcmSwUrl, {
-            scope: '/firebase-cloud-messaging-push-scope'
-          });
+          const reg = await navigator.serviceWorker.register(swUrl);
 
           // Wait for service worker to finish installing/activating
           const sw = reg.active || reg.installing || reg.waiting;
@@ -263,7 +261,22 @@ export function usePushNotifications() {
               console.info('[FCM] Web foreground notification:', payload);
               const title = payload.notification?.title || payload.data?.title || 'Notification';
               const body = payload.notification?.body || payload.data?.body || '';
+              
+              // 1. Show custom in-app Toast banner
               showInAppToast(title, body);
+              
+              // 2. Trigger native OS-level popup alert in foreground
+              if (Notification.permission === 'granted') {
+                reg.showNotification(title, {
+                  body: body,
+                  icon: '/icons/icon-192.webp',
+                  badge: '/icons/icon-72.webp',
+                  data: {
+                    route: payload.data?.route || '/'
+                  }
+                });
+              }
+              
               window.dispatchEvent(new CustomEvent('sp-push-received', { detail: payload }));
             });
           } else {
