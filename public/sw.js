@@ -25,8 +25,8 @@ if (firebaseConfig.apiKey) {
       const title = payload.notification?.title || payload.data?.title || 'SchoolOS+ Alert';
       const options = {
         body: payload.notification?.body || payload.data?.body || '',
-        icon: '/icons/icon-192.webp',
-        badge: '/icons/icon-72.webp',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-72.png',
         data: {
           route: payload.data?.route || '/'
         }
@@ -72,8 +72,8 @@ const ASSETS_TO_CACHE = [
   '/manifest.webmanifest',
   '/theme-init.js',
   '/google-translate-init.js',
-  '/icons/icon-192.webp',
-  '/icons/icon-512.webp'
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
 // Install: Cache critical static shell assets

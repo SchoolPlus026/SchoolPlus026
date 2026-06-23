@@ -269,8 +269,8 @@ export function usePushNotifications() {
               if (Notification.permission === 'granted') {
                 reg.showNotification(title, {
                   body: body,
-                  icon: '/icons/icon-192.webp',
-                  badge: '/icons/icon-72.webp',
+                  icon: '/icons/icon-192.png',
+                  badge: '/icons/icon-72.png',
                   data: {
                     route: payload.data?.route || '/'
                   }
