@@ -107,7 +107,14 @@ export default function SharedSettings() {
 
     supabase.auth.getUser().then(({ data: { user: freshUser } }) => {
       if (freshUser) {
-        useAppStore.getState().setUserAndRole(freshUser, role);
+        const currentUser = useAppStore.getState().user;
+        useAppStore.getState().setUserAndRole({
+          ...freshUser,
+          class: currentUser?.class || null,
+          avatar_url: currentUser?.avatar_url || null,
+          avatar_file_id: currentUser?.avatar_file_id || null,
+          hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
+        }, role);
       }
     });
   }, [user?.id, role]);
@@ -131,7 +138,14 @@ export default function SharedSettings() {
       // Refresh cached user in Zustand store
       const { data: { user: freshUser } } = await supabase.auth.getUser();
       if (freshUser) {
-        useAppStore.getState().setUserAndRole(freshUser, role);
+        const currentUser = useAppStore.getState().user;
+        useAppStore.getState().setUserAndRole({
+          ...freshUser,
+          class: currentUser?.class || null,
+          avatar_url: currentUser?.avatar_url || null,
+          avatar_file_id: currentUser?.avatar_file_id || null,
+          hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
+        }, role);
       }
 
       setEmailSuccess('Email updated successfully!');
@@ -208,7 +222,16 @@ export default function SharedSettings() {
       // Clear cache and update store with fresh user
       useAppStore.getState().setProfileLastFetched(null);
       const { data: { user: updatedUser } } = await supabase.auth.getUser();
-      if (updatedUser) useAppStore.getState().setUserAndRole(updatedUser, role);
+      if (updatedUser) {
+        const currentUser = useAppStore.getState().user;
+        useAppStore.getState().setUserAndRole({
+          ...updatedUser,
+          class: currentUser?.class || null,
+          avatar_url: currentUser?.avatar_url || null,
+          avatar_file_id: currentUser?.avatar_file_id || null,
+          hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
+        }, role);
+      }
 
       alert('Google account disconnected successfully.');
       window.location.reload();

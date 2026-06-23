@@ -264,7 +264,14 @@ export default function App() {
         // the new email is reflected in the UI without requiring a full re-login.
         const store = useAppStore.getState();
         const currentRole = store.role;
-        store.setUserAndRole(session.user, currentRole);
+        const currentUser = store.user;
+        store.setUserAndRole({
+          ...session.user,
+          class: currentUser?.class || null,
+          avatar_url: currentUser?.avatar_url || null,
+          avatar_file_id: currentUser?.avatar_file_id || null,
+          hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
+        }, currentRole);
         store.setProfileLastFetched(null); // force fresh re-fetch next init
       }
     });

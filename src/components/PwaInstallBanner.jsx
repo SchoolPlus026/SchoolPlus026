@@ -200,6 +200,16 @@ export default function PwaInstallBanner() {
           </div>
         )}
       </div>
+      <style>{`
+        @keyframes pwaFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes pwaZoomIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -220,6 +230,7 @@ const styles = {
     justifyContent: 'center',
     padding: '20px',
     boxSizing: 'border-box',
+    animation: 'pwaFadeIn 0.25s ease-out',
   },
   modalCard: {
     width: '100%',
@@ -230,7 +241,7 @@ const styles = {
     padding: '28px',
     boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
     position: 'relative',
-    animation: 'zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+    animation: 'pwaZoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
     boxSizing: 'border-box',
   },
   closeBtn: {
