@@ -1,3 +1,4 @@
+# Trigger rebuild - Aligned Firebase Credentials
 name: Deploy Web to Firebase Hosting
 
 on:
