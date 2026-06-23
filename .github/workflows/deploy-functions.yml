@@ -4,9 +4,9 @@ on:
   push:
     branches: ["main", "master"]
     paths:
-      # Only trigger this workflow when Edge Function code actually changes.
-      # This prevents unnecessary deployments on every push.
+      # Trigger this workflow when Edge Function code or the workflow config changes.
       - "supabase/functions/**"
+      - ".github/workflows/deploy-functions.yml"
   workflow_dispatch: # Allows manual trigger from the GitHub Actions UI
 
 jobs:
