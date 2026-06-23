@@ -147,7 +147,7 @@ export default function GalleryManager() {
                return create.data.id;
             };
 
-            const classFolderName = visibilityScope === 'Entire School' ? 'Entire School' : (visibilityScope === 'My Class' && user?.user_metadata?.class ? user.user_metadata.class : targetClass);
+            const classFolderName = visibilityScope === 'Entire School' ? 'Entire School' : (visibilityScope === 'My Class' && user?.class ? user.class : targetClass);
 
             updateBackgroundUpload(uploadId, { status: `Creating folder ${classFolderName}...` });
             let currentParent = await getOrCreateFolder(classFolderName, null);
@@ -227,7 +227,7 @@ export default function GalleryManager() {
   const displayMedia = media?.filter(item => {
     if (role === 'admin' || role === 'platform_admin') return true;
     if (item.visibility_scope === 'Entire School') return true;
-    const userClass = user?.user_metadata?.class;
+    const userClass = user?.class;
     return userClass && item.target_class && userClass.toLowerCase() === item.target_class.toLowerCase();
   });
 

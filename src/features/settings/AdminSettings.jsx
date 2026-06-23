@@ -18,6 +18,7 @@ import BiometricSetup from './BiometricSetup';
 import RecoverySetup from './RecoverySetup';
 import WebSyncPanel from './WebSyncPanel';
 import ArchiveConsole from './ArchiveConsole';
+import { useToast } from '../../components/ToastProvider';
 
 /* ── Protected Demo Schools (Sales Protection) ── */
 const PROTECTED_SCHOOL_CODES = ['120', '777'];
@@ -139,6 +140,8 @@ export default function AdminSettings() {
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const { isFree } = usePlan();
+  const { addToast } = useToast();
+  const [apkUrl, setApkUrl] = useState(null);
 
   // Email & Google OAuth states
   const [newEmail, setNewEmail] = useState('');
@@ -328,6 +331,15 @@ export default function AdminSettings() {
       const raw = import.meta.env.VITE_APP_VERSION_NAME || '1.0.0';
       const clean = raw.replace(/^v/, '');
       setAppVersion(`v${clean} (Web)`);
+
+      supabase.from('app_versions')
+        .select('apk_url')
+        .order('version_code', { ascending: false })
+        .limit(1)
+        .single()
+        .then(({ data }) => {
+          if (data?.apk_url) setApkUrl(data.apk_url);
+        });
     }
 
     return () => {
@@ -540,7 +552,8 @@ export default function AdminSettings() {
 
   const checkForUpdates = async () => {
     if (!Capacitor.isNativePlatform()) {
-      return alert('Updates are handled automatically on the web.');
+      addToast({ type: 'info', message: 'Updates are handled automatically on the web.' });
+      return;
     }
     setCheckingUpdate(true);
     try {
@@ -557,19 +570,19 @@ export default function AdminSettings() {
         .single();
 
       if (error || !data) {
-        alert('Failed to check for updates. Try again.');
+        addToast({ type: 'error', message: 'Failed to check for updates. Try again.' });
         setCheckingUpdate(false);
         return;
       }
 
       if (Number(data.version_code) <= Number(localVersionCode)) {
-        alert('✅ You are on the latest version.');
+        addToast({ type: 'success', message: 'You are on the latest version.' });
         setCheckingUpdate(false);
         return;
       }
 
       // Update available
-      alert(`⬇️ Downloading v${data.version_name}… Please wait.`);
+      addToast({ type: 'info', message: `Downloading v${data.version_name}… Please wait.`, duration: 3000 });
 
       const fileName = `SchoolOS_Update_v${data.version_name}.apk`;
       
@@ -579,7 +592,7 @@ export default function AdminSettings() {
         directory: Directory.Cache
       });
 
-      alert('✅ Download complete! Opening installer…');
+      addToast({ type: 'success', message: 'Download complete! Opening installer…' });
       
       await FileOpener.open({
         filePath: downloadResult.path,
@@ -589,7 +602,7 @@ export default function AdminSettings() {
 
     } catch (err) {
       console.error('[AdminSettings] Update download failed:', err);
-      alert('❌ Download failed: ' + (err?.message || 'Unknown error'));
+      addToast({ type: 'error', message: 'Download failed: ' + (err?.message || 'Unknown error') });
     }
     setCheckingUpdate(false);
   };
@@ -1131,7 +1144,7 @@ export default function AdminSettings() {
             color: 'white', padding: '2px 7px', borderRadius: '999px'
           }}>Latest</span>
         </div>
-        {Capacitor.isNativePlatform() && (
+        {Capacitor.isNativePlatform() ? (
           <button
             onClick={checkForUpdates}
             disabled={checkingUpdate}
@@ -1140,6 +1153,27 @@ export default function AdminSettings() {
           >
             {checkingUpdate ? '⬇️ Downloading…' : '🔍 Check for Updates'}
           </button>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', width: '100%', justifyContent: 'center', marginTop: '12px' }}>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('show-pwa-install-modal'))}
+              className="btn accent"
+              style={{ fontSize: '12px', padding: '8px 16px', borderRadius: '12px', width: '100%', maxWidth: '220px' }}
+            >
+              📱 Add to Home Screen (PWA)
+            </button>
+            {apkUrl && (
+              <a
+                href={apkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn outline"
+                style={{ fontSize: '12px', padding: '8px 16px', borderRadius: '12px', width: '100%', maxWidth: '220px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+              >
+                ⬇️ Download Android APK
+              </a>
+            )}
+          </div>
         )}
         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Silent in-app updates enabled</span>
       </div>

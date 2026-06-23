@@ -24,9 +24,9 @@ export default function DigitalIdCard() {
              <span className="px-3 py-1 bg-slate-100 text-slate-700 text-sm font-semibold rounded-lg border border-border">
                 Role: Student
              </span>
-             {user?.user_metadata?.class && (
+             {user?.class && (
                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm font-semibold rounded-lg border border-indigo-100">
-                  Class: {user.user_metadata.class}
+                  Class: {user.class}
                </span>
              )}
           </div>

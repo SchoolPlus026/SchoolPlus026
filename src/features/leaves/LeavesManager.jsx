@@ -9,35 +9,75 @@ export default function LeavesManager() {
   const { user, role, schoolSettings } = useAppStore();
   const { isPending } = usePending();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState(() => role === 'admin' ? 'history' : 'apply');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (role === 'admin') return 'history';
+    if (role === 'teacher') return 'student-leaves';
+    return 'apply';
+  });
 
   // Form states
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [reason, setReason] = useState('');
 
-  const { data: leaves, isLoading } = useQuery({
+  const { data: leavesData, isLoading } = useQuery({
     queryKey: ['leaves', role, user?.id, schoolSettings?.school_id],
     queryFn: async () => {
-      if (role !== 'admin') {
+      let myLeaves = [];
+      let studentLeaves = [];
+
+      if (role === 'admin') {
+        const { data, error } = await supabase
+          .from('leaves')
+          .select('*, users!leaves_user_id_fkey(name, role)')
+          .neq('role', 'student')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        myLeaves = data || [];
+      } else {
+        // Fetch user's own leaves
         const { data, error } = await supabase
           .from('leaves')
           .select('*')
           .eq('user_id', user?.id)
           .order('created_at', { ascending: false });
         if (error) throw error;
-        return data;
-      } else {
-        const { data, error } = await supabase
-          .from('leaves')
-          .select('*, users!leaves_user_id_fkey(name, role)')
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data;
+        myLeaves = data || [];
+
+        // If teacher, fetch class student leaves
+        if (role === 'teacher') {
+          const { data: timetableClasses, error: ttError } = await supabase
+            .from('timetable')
+            .select('class')
+            .eq('school_id', schoolSettings.school_id)
+            .eq('teacher', user.id)
+            .eq('period_order', 1);
+          
+          if (ttError) throw ttError;
+          const classesList = timetableClasses ? timetableClasses.map(c => c.class) : [];
+          
+          if (classesList.length > 0) {
+            const { data: sLeaves, error: slError } = await supabase
+              .from('leaves')
+              .select('*, users!inner(name, role, class)')
+              .eq('school_id', schoolSettings.school_id)
+              .eq('role', 'student')
+              .in('users.class', classesList)
+              .order('created_at', { ascending: false });
+            
+            if (slError) throw slError;
+            studentLeaves = sLeaves || [];
+          }
+        }
       }
+
+      return { myLeaves, studentLeaves };
     },
     enabled: !!user?.id && !!schoolSettings?.school_id
   });
+
+  const myLeaves = leavesData?.myLeaves || [];
+  const studentLeaves = leavesData?.studentLeaves || [];
 
   const applyMutation = useMutation({
     mutationFn: async (payload) => {
@@ -108,6 +148,14 @@ export default function LeavesManager() {
     <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden">
       {/* Tab Navigation */}
       <div className="flex border-b border-border bg-slate-50">
+        {role === 'teacher' && (
+          <button
+            onClick={() => setActiveTab('student-leaves')}
+            className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'student-leaves' ? 'text-primary border-b-2 border-primary bg-white' : 'text-muted hover:text-text'}`}
+          >
+            Student Leaves
+          </button>
+        )}
         {role !== 'admin' && (
           <button
             onClick={() => setActiveTab('apply')}
@@ -125,6 +173,78 @@ export default function LeavesManager() {
       </div>
 
       <div className="p-6">
+        {activeTab === 'student-leaves' && role === 'teacher' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4">
+            <h3 className="text-xl font-bold text-text mb-6 flex items-center gap-2">
+              <Clock className="text-primary" size={24} /> Class Student Leaves
+            </h3>
+
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(idx => (
+                  <div key={idx} className="bg-slate-50 border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-16 rounded-full animate-shimmer"></div>
+                        <div className="h-4 w-32 rounded animate-shimmer"></div>
+                      </div>
+                      <div className="h-4.5 w-3/4 rounded animate-shimmer mt-2"></div>
+                    </div>
+                    <div className="h-8 w-24 rounded-lg animate-shimmer"></div>
+                  </div>
+                ))}
+              </div>
+            ) : studentLeaves.length === 0 ? (
+              <div className="text-center py-12 text-muted border-2 border-dashed border-border rounded-xl">No student leave applications found.</div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {studentLeaves.map(leave => (
+                  <div key={leave.id} className="bg-slate-50 border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${leave.status === 'pending' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                            leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                              'bg-red-100 text-red-700 border border-red-200'
+                          }`}>
+                          {leave.status}
+                        </span>
+                        <span className="text-xs font-bold text-muted uppercase tracking-widest">
+                          {new Date(leave.from_date).toLocaleDateString()} - {new Date(leave.to_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="font-bold text-slate-800">{leave.reason}</p>
+                      <p className="text-xs text-muted mt-1 font-semibold">Applied by student: {leave.users?.name} (Class {leave.users?.class})</p>
+                    </div>
+
+                    {leave.status === 'pending' && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                            statusMutation.mutate({ leave, status: 'Approved' });
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 shadow-sm"
+                        >
+                          <CheckCircle2 size={14} /> Approve
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                            statusMutation.mutate({ leave, status: 'Rejected' });
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 shadow-sm"
+                        >
+                          <XCircle size={14} /> Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'apply' && role !== 'admin' && (
           <form onSubmit={handleApply} className="space-y-6 max-w-xl animate-in fade-in slide-in-from-top-4">
             <h3 className="text-xl font-bold text-text flex items-center gap-2">
@@ -183,11 +303,11 @@ export default function LeavesManager() {
                   </div>
                 ))}
               </div>
-            ) : !leaves || leaves.length === 0 ? (
+            ) : !myLeaves || myLeaves.length === 0 ? (
               <div className="text-center py-12 text-muted border-2 border-dashed border-border rounded-xl">No leave applications found.</div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {leaves.map(leave => (
+                {myLeaves.map(leave => (
                   <div key={leave.id} className="bg-slate-50 border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">

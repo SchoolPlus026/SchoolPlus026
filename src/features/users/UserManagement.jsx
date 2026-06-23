@@ -75,7 +75,7 @@ export default function UserManagement() {
   const { isPending } = usePending();
   const [activeTab, setActiveTab] = useState(currentRole === 'teacher' ? 'student' : 'teacher');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClass, setSelectedClass] = useState(currentRole === 'teacher' ? (currentUser?.user_metadata?.class || '') : '');
+  const [selectedClass, setSelectedClass] = useState(currentRole === 'teacher' ? (currentUser?.class || '') : '');
   const [page, setPage] = useState(0);
   const pageSize = 50;
 

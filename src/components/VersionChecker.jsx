@@ -358,6 +358,8 @@ let versionCheckDone = false;
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VersionChecker() {
+  if (!Capacitor.isNativePlatform()) return null;
+
   const [updateInfo,  setUpdateInfo]  = useState(null);
   const [dismissed,  setDismissed]   = useState(false);
   const [dlState,    setDlState]     = useState(DL.IDLE);

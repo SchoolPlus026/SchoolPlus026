@@ -389,7 +389,7 @@ export default function SyllabusTracker() {
 
         {isAdmin ? <AdminSyllabus schoolId={schoolSettings.school_id} /> :
          isTeacher ? <TeacherSyllabus schoolId={schoolSettings.school_id} user={user} /> :
-         <StudentSyllabus schoolId={schoolSettings.school_id} userClass={user?.user_metadata?.class} />}
+         <StudentSyllabus schoolId={schoolSettings.school_id} userClass={user?.class} />}
       </div>
     </ModuleGuard>
   );

@@ -228,6 +228,7 @@ export default function SharedSettings() {
   /* ── App Version & Update Check ── */
   const [appVersionName, setAppVersionName] = useState(import.meta.env.VITE_APP_VERSION_NAME || '1.0.0');
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [apkUrl, setApkUrl] = useState(null);
   
   /* ── Contact Details & Support Ticket ── */
   const [platformSettings, setPlatformSettings] = useState(null);
@@ -241,6 +242,15 @@ export default function SharedSettings() {
   React.useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       CapacitorApp.getInfo().then(info => setAppVersionName(info.version));
+    } else {
+      supabase.from('app_versions')
+        .select('apk_url')
+        .order('version_code', { ascending: false })
+        .limit(1)
+        .single()
+        .then(({ data }) => {
+          if (data?.apk_url) setApkUrl(data.apk_url);
+        });
     }
   }, []);
 
@@ -815,7 +825,7 @@ export default function SharedSettings() {
         <p className="muted small" style={{ margin: 0 }}>
           Current Version: <strong>v{appVersionName}</strong>
         </p>
-        {Capacitor.isNativePlatform() && (
+        {Capacitor.isNativePlatform() ? (
           <button
             id="btn-check-for-updates"
             onClick={checkForUpdates}
@@ -825,11 +835,27 @@ export default function SharedSettings() {
           >
             {checkingUpdate ? '⬇️ Downloading…' : '🔍 Check for Updates'}
           </button>
-        )}
-        {!Capacitor.isNativePlatform() && (
-          <p className="muted small" style={{ margin: 0, fontSize: '11px', opacity: 0.6 }}>
-            Web version updates automatically.
-          </p>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', width: '100%', justifyContent: 'center', marginTop: '8px' }}>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('show-pwa-install-modal'))}
+              className="btn accent"
+              style={{ fontSize: '12px', padding: '8px 16px', borderRadius: '12px', width: '100%', maxWidth: '220px' }}
+            >
+              📱 Add to Home Screen (PWA)
+            </button>
+            {apkUrl && (
+              <a
+                href={apkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn outline"
+                style={{ fontSize: '12px', padding: '8px 16px', borderRadius: '12px', width: '100%', maxWidth: '220px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+              >
+                ⬇️ Download Android APK
+              </a>
+            )}
+          </div>
         )}
       </div>
 

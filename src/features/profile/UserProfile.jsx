@@ -206,7 +206,7 @@ export default function UserProfile() {
   }, [profile?.avatar_url]);
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform() && isMobileOrPWA()) {
+    if (!Capacitor.isNativePlatform()) {
       setApkLoading(true);
       supabase.from('app_versions')
         .select('apk_url')
@@ -705,40 +705,44 @@ export default function UserProfile() {
                       )}
                     </div>
                  </div>
-
-                 {/* Download Android App Section (Mobile Web/PWA only) */}
-                 {!Capacitor.isNativePlatform() && isMobileOrPWA() && (
-                    <div className="space-y-4 flex flex-col justify-between p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
-                       <div>
-                          <h4 className="text-xs font-black uppercase tracking-widest text-indigo-300 mb-2 flex items-center gap-1.5">
-                             <Smartphone size={14} /> Get the Android App
-                          </h4>
-                          <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                             For the best experience, including background GPS tracking and instant system push notifications, download our native Android app.
-                          </p>
-                       </div>
-                       <div>
-                          {apkLoading ? (
-                             <button disabled className="w-full py-3 bg-indigo-600/50 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5">
-                                <Loader2 size={14} className="animate-spin" /> Fetching latest build...
-                             </button>
-                          ) : apkUrl ? (
-                             <a 
-                                href={apkUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center shadow-md shadow-indigo-600/20 active:scale-[0.98]"
-                             >
-                                <Download size={14} /> Download Android App (APK)
-                             </a>
-                          ) : (
-                             <button disabled className="w-full py-3 bg-slate-800 text-slate-500 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
-                                No Android builds available.
-                             </button>
-                          )}
-                       </div>
-                    </div>
-                 )}
+                  
+                  {/* Install SchoolOS+ Section (Web/PWA only) */}
+                  {!Capacitor.isNativePlatform() && (
+                     <div className="space-y-4 flex flex-col justify-between p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
+                        <div>
+                           <h4 className="text-xs font-black uppercase tracking-widest text-indigo-300 mb-2 flex items-center gap-1.5">
+                              <Smartphone size={14} /> Install SchoolOS+ App
+                           </h4>
+                           <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                              Add the app to your home screen as a standalone PWA, or download the native Android app for push notifications and background features.
+                           </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                           <button
+                              type="button"
+                              onClick={() => window.dispatchEvent(new CustomEvent('show-pwa-install-modal'))}
+                              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center shadow-md shadow-indigo-600/20 active:scale-[0.98]"
+                           >
+                              📱 Add to Home Screen (PWA)
+                           </button>
+                           {apkLoading ? (
+                              <button disabled className="w-full py-3 bg-slate-800 text-slate-500 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
+                                 <Loader2 size={14} className="animate-spin" /> Fetching latest build...
+                              </button>
+                           ) : apkUrl ? (
+                              <a 
+                                 href={apkUrl}
+                                 target="_blank"
+                                 rel="noopener noreferrer"
+                                 className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center active:scale-[0.98] text-decoration-none"
+                                 style={{ textDecoration: 'none' }}
+                              >
+                                 <Download size={14} /> Download Android App (APK)
+                              </a>
+                           ) : null}
+                        </div>
+                     </div>
+                  )}
               </div>
           </div>
        )}

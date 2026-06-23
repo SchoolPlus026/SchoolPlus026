@@ -29,6 +29,8 @@ import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
+import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
+import firebaseApp from '../config/firebaseClient';
 
 // ─── In-app Toast Helper ─────────────────────────────────────────────────────
 // Displays a brief notification banner when the app is foregrounded.
@@ -164,149 +166,207 @@ export function usePushNotifications() {
   }, []); // stable — reads from refs, no deps needed
 
   useEffect(() => {
-    // ── Guard 1: Only run on native Android/iOS ────────────────────────────
-    // On web (Netlify/PWA), Capacitor Push is unavailable — skip silently.
-    if (!Capacitor.isNativePlatform()) {
-      console.info('[FCM] Skipping push notification setup on web platform.');
-      return;
-    }
-
     // ── Guard 2: Must have an authenticated user ───────────────────────────
     if (!user?.id) {
       console.info('[FCM] No authenticated user — skipping token registration.');
       return;
     }
 
-    // ── Guard 3: Prevent double-registration on re-renders ─────────────────
-    if (listenersRegistered.current || isSettingUp.current) return;
-
-    let registrationListener = null;
-    let receivedListener = null;
-    let errorListener = null;
-    let actionListener = null;
-
-    async function setupPushNotifications() {
-      // ── Guard 4: Prevent concurrent async executions ─────────────────────
-      if (isSettingUp.current) return;
-      isSettingUp.current = true;
-
-      try {
-        // ── Step 1: Check existing permission status ───────────────────────
-        // checkPermissions() itself is safe and never throws on Android 13+
-        let permStatus;
+    if (!Capacitor.isNativePlatform()) {
+      // ── WEB / PWA PLATFORM FCM SETUP ──────────────────────────────────────
+      if (listenersRegistered.current || isSettingUp.current) return;
+      
+      let unsubscribeMessage = null;
+      
+      async function setupWebPush() {
+        if (isSettingUp.current) return;
+        isSettingUp.current = true;
+        
         try {
-          permStatus = await PushNotifications.checkPermissions();
-        } catch (checkErr) {
-          console.warn('[FCM] checkPermissions() failed (likely emulator):', checkErr);
-          isSettingUp.current = false;
-          return;
-        }
-
-        // ── Step 2: Request runtime permission if needed ───────────────────
-        // POST_NOTIFICATIONS is a runtime permission on Android 13+ (API 33+).
-        // The <uses-permission> in AndroidManifest.xml is required FIRST —
-        // without it, this call throws a SecurityException → crash.
-        if (permStatus.receive === 'prompt') {
-          try {
-            permStatus = await PushNotifications.requestPermissions();
-          } catch (reqErr) {
-            console.warn('[FCM] requestPermissions() failed:', reqErr);
+          const supported = await isSupported();
+          if (!supported) {
+            console.warn('[FCM] Web Push is not supported in this browser.');
             isSettingUp.current = false;
             return;
           }
-        }
-
-        if (permStatus.receive !== 'granted') {
-          console.warn('[FCM] Push notification permission not granted. Status:', permStatus.receive);
+          
+          const messaging = getMessaging(firebaseApp);
+          
+          // Request permission
+          let permission = Notification.permission;
+          if (permission === 'default') {
+            permission = await Notification.requestPermission();
+          }
+          
+          if (permission !== 'granted') {
+            console.warn('[FCM] Notification permission denied on web.');
+            isSettingUp.current = false;
+            return;
+          }
+          
+          // Fetch the active FCM service worker registration
+          const regs = await navigator.serviceWorker.getRegistrations();
+          const reg = regs.find(r => r.active && r.active.scriptURL.includes('firebase-messaging-sw.js')) 
+            || await navigator.serviceWorker.ready;
+          
+          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
+          if (!vapidKey) {
+            console.warn('[FCM] VITE_FIREBASE_VAPID_KEY is missing. Web push cannot be initialized.');
+            isSettingUp.current = false;
+            return;
+          }
+          
+          const token = await getToken(messaging, {
+            serviceWorkerRegistration: reg,
+            vapidKey: vapidKey
+          });
+          
+          if (token) {
+            console.info('[FCM] Web token received (truncated):', token.substring(0, 20) + '...');
+            await saveToken(token);
+            listenersRegistered.current = true;
+            
+            // Listen for foreground messages
+            unsubscribeMessage = onMessage(messaging, (payload) => {
+              console.info('[FCM] Web foreground notification:', payload);
+              const title = payload.notification?.title || payload.data?.title || 'Notification';
+              const body = payload.notification?.body || payload.data?.body || '';
+              showInAppToast(title, body);
+              window.dispatchEvent(new CustomEvent('sp-push-received', { detail: payload }));
+            });
+          } else {
+            console.warn('[FCM] No web token returned.');
+          }
+        } catch (err) {
+          console.error('[FCM] Web setup failed:', err);
+        } finally {
           isSettingUp.current = false;
-          return; // User denied — fail gracefully, do NOT crash
         }
-
-        // ── Step 3: Register with FCM ─────────────────────────────────────
-        try {
-          await PushNotifications.register();
-        } catch (regErr) {
-          console.error('[FCM] register() failed:', regErr);
-          isSettingUp.current = false;
-          return;
-        }
-
-        // ── Step 4: Attach listeners (only after successful registration) ──
-        // We set listenersRegistered.current here so cleanup knows they exist
-        listenersRegistered.current = true;
-
-        registrationListener = await PushNotifications.addListener(
-          'registration',
-          (tokenData) => {
-            try {
-              const fcmToken = tokenData.value;
-              console.info('[FCM] Token received (truncated):', fcmToken.substring(0, 20) + '...');
-              saveToken(fcmToken);
-            } catch (e) {
-              console.error('[FCM] Error in registration handler:', e);
-            }
-          }
-        );
-
-        receivedListener = await PushNotifications.addListener(
-          'pushNotificationReceived',
-          (notification) => {
-            try {
-              console.info('[FCM] Foreground notification:', notification.title);
-              showInAppToast(notification.title, notification.body);
-              window.dispatchEvent(new CustomEvent('sp-push-received', { detail: notification }));
-            } catch (e) {
-              console.error('[FCM] Error in notification handler:', e);
-            }
-          }
-        );
-
-        // NOTE: We keep the action listener alive as a module-level concern;
-        // it intentionally outlives the component.
-        actionListener = await PushNotifications.addListener(
-          'pushNotificationActionPerformed',
-          (action) => {
-            try {
-              console.info('[FCM] Notification tapped:', action.notification.title);
-              // Future: navigate based on action.notification.data.route
-            } catch (e) {
-              console.error('[FCM] Error in action handler:', e);
-            }
-          }
-        );
-
-        errorListener = await PushNotifications.addListener(
-          'registrationError',
-          (err) => {
-            console.error('[FCM] FCM registration error:', err.error);
-          }
-        );
-
-        console.info('[FCM] Push notification setup complete.');
-
-      } catch (err) {
-        // Top-level safety net — nothing here should propagate to React
-        console.error('[FCM] Unexpected setup failure (non-fatal):', err);
+      }
+      
+      setupWebPush();
+      
+      return () => {
+        if (unsubscribeMessage) unsubscribeMessage();
         listenersRegistered.current = false;
-      } finally {
         isSettingUp.current = false;
+      };
+    } else {
+      // ── NATIVE ANDROID/IOS FCM SETUP ─────────────────────────────────────
+      if (listenersRegistered.current || isSettingUp.current) return;
+
+      let registrationListener = null;
+      let receivedListener = null;
+      let errorListener = null;
+      let actionListener = null;
+
+      async function setupPushNotifications() {
+        if (isSettingUp.current) return;
+        isSettingUp.current = true;
+
+        try {
+          let permStatus;
+          try {
+            permStatus = await PushNotifications.checkPermissions();
+          } catch (checkErr) {
+            console.warn('[FCM] checkPermissions() failed (likely emulator):', checkErr);
+            isSettingUp.current = false;
+            return;
+          }
+
+          if (permStatus.receive === 'prompt') {
+            try {
+              permStatus = await PushNotifications.requestPermissions();
+            } catch (reqErr) {
+              console.warn('[FCM] requestPermissions() failed:', reqErr);
+              isSettingUp.current = false;
+              return;
+            }
+          }
+
+          if (permStatus.receive !== 'granted') {
+            console.warn('[FCM] Push notification permission not granted. Status:', permStatus.receive);
+            isSettingUp.current = false;
+            return;
+          }
+
+          try {
+            await PushNotifications.register();
+          } catch (regErr) {
+            console.error('[FCM] register() failed:', regErr);
+            isSettingUp.current = false;
+            return;
+          }
+
+          listenersRegistered.current = true;
+
+          registrationListener = await PushNotifications.addListener(
+            'registration',
+            (tokenData) => {
+              try {
+                const fcmToken = tokenData.value;
+                console.info('[FCM] Token received (truncated):', fcmToken.substring(0, 20) + '...');
+                saveToken(fcmToken);
+              } catch (e) {
+                console.error('[FCM] Error in registration handler:', e);
+              }
+            }
+          );
+
+          receivedListener = await PushNotifications.addListener(
+            'pushNotificationReceived',
+            (notification) => {
+              try {
+                console.info('[FCM] Foreground notification:', notification.title);
+                showInAppToast(notification.title, notification.body);
+                window.dispatchEvent(new CustomEvent('sp-push-received', { detail: notification }));
+              } catch (e) {
+                console.error('[FCM] Error in notification handler:', e);
+              }
+            }
+          );
+
+          actionListener = await PushNotifications.addListener(
+            'pushNotificationActionPerformed',
+            (action) => {
+              try {
+                console.info('[FCM] Notification tapped:', action.notification.title);
+              } catch (e) {
+                console.error('[FCM] Error in action handler:', e);
+              }
+            }
+          );
+
+          errorListener = await PushNotifications.addListener(
+            'registrationError',
+            (err) => {
+              console.error('[FCM] FCM registration error:', err.error);
+            }
+          );
+
+          console.info('[FCM] Push notification setup complete.');
+
+        } catch (err) {
+          console.error('[FCM] Unexpected setup failure (non-fatal):', err);
+          listenersRegistered.current = false;
+        } finally {
+          isSettingUp.current = false;
+        }
       }
+
+      setupPushNotifications();
+
+      return () => {
+        try {
+          registrationListener?.remove();
+          receivedListener?.remove();
+          errorListener?.remove();
+        } catch (cleanupErr) {
+          console.warn('[FCM] Cleanup error (non-fatal):', cleanupErr);
+        }
+        listenersRegistered.current = false;
+        isSettingUp.current = false;
+      };
     }
-
-    setupPushNotifications();
-
-    // ── Cleanup: Remove listeners on unmount ──────────────────────────────
-    return () => {
-      try {
-        registrationListener?.remove();
-        receivedListener?.remove();
-        errorListener?.remove();
-        // actionListener intentionally NOT removed — needs to survive remounts
-      } catch (cleanupErr) {
-        console.warn('[FCM] Cleanup error (non-fatal):', cleanupErr);
-      }
-      listenersRegistered.current = false;
-      isSettingUp.current = false;
-    };
   }, [user?.id, saveToken]); // saveToken is stable (reads from refs)
 }
