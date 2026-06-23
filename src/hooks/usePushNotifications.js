@@ -1,17 +1,21 @@
 /**
  * usePushNotifications.js
  * ────────────────────────────────────────────────────────────────
- * FCM push notifications for both native (Capacitor) and web/PWA.
+ * FCM push notifications for native (Capacitor) and Web/PWA.
  *
- * WEB PUSH ARCHITECTURE:
- *  - Firebase config is baked into /firebase-messaging-sw.js at build time
- *    by the Vite plugin in vite.config.js (no query-param tricks needed).
- *  - getToken() is called WITHOUT a custom serviceWorkerRegistration, so
- *    Firebase SDK finds /firebase-messaging-sw.js automatically (standard).
- *  - This eliminates the AbortError caused by VAPID key validation failures
- *    that occurred with non-standard SW URLs.
- *  - Module-level flags prevent the setup loop caused by React StrictMode
- *    unmounting/remounting effects.
+ * WEB PUSH ARCHITECTURE (why it works this way):
+ *
+ *  Problem: Browsers only allow ONE active service worker per scope '/'.
+ *  If sw.js AND firebase-messaging-sw.js both target '/', sw.js (with
+ *  skipWaiting) blocks firebase-messaging-sw.js in "waiting" state.
+ *  When getToken() tries to use the FCM SW, it has no active worker →
+ *  AbortError: "Subscription failed – no active Service Worker".
+ *
+ *  Solution:
+ *  - One unified SW: /firebase-messaging-sw.js handles BOTH messaging + caching.
+ *  - This hook explicitly registers it, waits for it to become ACTIVE, then
+ *    passes the registration directly to getToken() — no auto-discovery.
+ *  - Module-level flags prevent the StrictMode double-mount setup loop.
  * ────────────────────────────────────────────────────────────────
  */
 
@@ -24,13 +28,54 @@ import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messagi
 import firebaseApp from '../config/firebaseClient';
 
 // ─── Module-level flags ───────────────────────────────────────────────────────
-// Using module-level vars (not refs) so they survive React StrictMode's
-// unmount→remount cycle. Refs are reset on unmount; module vars are not.
-let _webPushSetupDone      = false;
-let _webPushSetupInProgress = false;
-let _unsubscribeMessage     = null;
+// These survive React StrictMode's unmount→remount cycle (refs do not).
+let _setupDone       = false;
+let _setupInProgress = false;
+let _unsubscribe     = null;
 
-// ─── In-app Toast Helper ─────────────────────────────────────────────────────
+// ─── Wait for a specific SW registration to become active ────────────────────
+// Sends SKIP_WAITING so it doesn't wait for old SW to die,
+// then waits for the 'activated' state before returning.
+async function waitForSWActivation(registration) {
+  if (registration.active) return; // Already active, nothing to do
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(
+      () => reject(new Error('Service worker activation timed out after 15s')),
+      15000
+    );
+
+    // The installing or waiting worker — tell it to skip waiting immediately
+    const pendingSW = registration.installing || registration.waiting;
+    if (pendingSW) {
+      pendingSW.postMessage({ type: 'SKIP_WAITING' });
+
+      const onStateChange = () => {
+        if (pendingSW.state === 'activated') {
+          pendingSW.removeEventListener('statechange', onStateChange);
+          clearTimeout(timeoutId);
+          resolve();
+        }
+        if (pendingSW.state === 'redundant') {
+          pendingSW.removeEventListener('statechange', onStateChange);
+          clearTimeout(timeoutId);
+          reject(new Error('Service worker became redundant'));
+        }
+      };
+      pendingSW.addEventListener('statechange', onStateChange);
+    } else {
+      // No installing/waiting worker — check controllerchange on navigator.serviceWorker
+      const onControllerChange = () => {
+        navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+    }
+  });
+}
+
+// ─── In-app Toast ─────────────────────────────────────────────────────────────
 function showInAppToast(title, body) {
   try {
     let container = document.getElementById('fcm-toast-container');
@@ -38,15 +83,9 @@ function showInAppToast(title, body) {
       container = document.createElement('div');
       container.id = 'fcm-toast-container';
       Object.assign(container.style, {
-        position: 'fixed',
-        top: '16px',
-        right: '16px',
-        zIndex: '99999',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        pointerEvents: 'none',
-        maxWidth: '340px',
+        position: 'fixed', top: '16px', right: '16px', zIndex: '99999',
+        display: 'flex', flexDirection: 'column', gap: '10px',
+        pointerEvents: 'none', maxWidth: '340px',
       });
       document.body.appendChild(container);
     }
@@ -54,58 +93,36 @@ function showInAppToast(title, body) {
     const toast = document.createElement('div');
     Object.assign(toast.style, {
       background: 'linear-gradient(135deg, rgba(30,27,75,0.97), rgba(15,15,40,0.97))',
-      border: '1px solid rgba(99,102,241,0.35)',
-      borderRadius: '14px',
-      padding: '14px 18px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-      backdropFilter: 'blur(16px)',
-      color: '#e2e8f0',
-      fontSize: '13px',
-      pointerEvents: 'auto',
-      transition: 'opacity 0.4s ease, transform 0.4s ease',
-      opacity: '0',
-      transform: 'translateY(-8px)',
-      cursor: 'pointer',
+      border: '1px solid rgba(99,102,241,0.35)', borderRadius: '14px',
+      padding: '14px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+      backdropFilter: 'blur(16px)', color: '#e2e8f0', fontSize: '13px',
+      pointerEvents: 'auto', transition: 'opacity 0.4s ease, transform 0.4s ease',
+      opacity: '0', transform: 'translateY(-8px)', cursor: 'pointer',
     });
-
     toast.innerHTML = `
       <div style="display:flex;align-items:flex-start;gap:12px;">
         <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
         </div>
         <div style="flex:1;min-width:0;">
-          <div id="fcm-toast-title" style="font-weight:700;color:#f1f5f9;margin-bottom:3px;font-size:13px;line-height:1.3;"></div>
-          <div id="fcm-toast-body" style="color:#94a3b8;font-size:12px;line-height:1.4;word-break:break-word;"></div>
+          <div class="t" style="font-weight:700;color:#f1f5f9;margin-bottom:3px;font-size:13px;"></div>
+          <div class="b" style="color:#94a3b8;font-size:12px;line-height:1.4;word-break:break-word;"></div>
         </div>
-        <button onclick="this.closest('[data-fcm-toast]').remove()" style="background:none;border:none;color:#64748b;cursor:pointer;padding:0;line-height:1;font-size:18px;flex-shrink:0;">×</button>
-      </div>
-    `;
-    toast.querySelector('#fcm-toast-title').textContent = title || 'Notification';
-    toast.querySelector('#fcm-toast-body').textContent  = body  || '';
+        <button onclick="this.closest('[data-fcm-toast]').remove()" style="background:none;border:none;color:#64748b;cursor:pointer;padding:0;font-size:18px;flex-shrink:0;">×</button>
+      </div>`;
+    toast.querySelector('.t').textContent = title || 'Notification';
+    toast.querySelector('.b').textContent = body  || '';
     toast.setAttribute('data-fcm-toast', 'true');
     container.appendChild(toast);
-
-    requestAnimationFrame(() => {
-      toast.style.opacity   = '1';
-      toast.style.transform = 'translateY(0)';
-    });
-
-    const timer = setTimeout(() => {
-      toast.style.opacity   = '0';
-      toast.style.transform = 'translateY(-8px)';
-      setTimeout(() => toast.remove(), 400);
-    }, 5000);
-
-    toast.addEventListener('click', () => { clearTimeout(timer); toast.remove(); });
-  } catch (_) {
-    console.info(`[FCM] ${title}: ${body}`);
-  }
+    requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+    const t = setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(-8px)'; setTimeout(() => toast.remove(), 400); }, 5000);
+    toast.addEventListener('click', () => { clearTimeout(t); toast.remove(); });
+  } catch (_) { console.info(`[FCM] ${title}: ${body}`); }
 }
 
-// ─── Main Hook ───────────────────────────────────────────────────────────────
+// ─── Main Hook ────────────────────────────────────────────────────────────────
 export function usePushNotifications() {
   const { user, schoolSettings } = useAppStore();
 
@@ -119,135 +136,128 @@ export function usePushNotifications() {
   useEffect(() => { schoolRef.current = schoolSettings; }, [schoolSettings]);
 
   const saveToken = useCallback(async (token) => {
-    const currentUser   = userRef.current;
-    const currentSchool = schoolRef.current;
-    if (!currentUser?.id || !token || tokenSaved.current) return;
-
+    const u = userRef.current;
+    const s = schoolRef.current;
+    if (!u?.id || !token || tokenSaved.current) return;
     const platform = Capacitor.getPlatform();
     try {
       const { error } = await supabase.rpc('upsert_device_token', {
-        p_user_id:     currentUser.id,
-        p_school_id:   currentSchool?.school_id ?? null,
-        p_fcm_token:   token,
-        p_platform:    platform,
-        p_device_name: null,
+        p_user_id: u.id, p_school_id: s?.school_id ?? null,
+        p_fcm_token: token, p_platform: platform, p_device_name: null,
       });
-      if (error) {
-        console.error('[FCM] Failed to save token:', error.message);
-      } else {
-        tokenSaved.current = true;
-        console.info('[FCM] ✅ Token saved to Supabase. Platform:', platform);
-      }
-    } catch (err) {
-      console.error('[FCM] Unexpected error saving token:', err);
-    }
+      if (error) { console.error('[FCM] Token save failed:', error.message); }
+      else        { tokenSaved.current = true; console.info('[FCM] ✅ Token saved. Platform:', platform); }
+    } catch (err) { console.error('[FCM] Token save error:', err); }
   }, []);
 
   useEffect(() => {
-    // Guard: no user
-    if (!user?.id) {
-      console.info('[FCM] No authenticated user — skipping.');
-      return;
-    }
+    if (!user?.id) { console.info('[FCM] No user — skipping.'); return; }
 
     if (!Capacitor.isNativePlatform()) {
-      // ════════════════════════════════════════════════════════════════
-      // WEB / PWA PLATFORM
-      // ════════════════════════════════════════════════════════════════
-
-      // Module-level guard prevents duplicate setup across StrictMode cycles
-      if (_webPushSetupDone || _webPushSetupInProgress) {
+      // ═══════════════════════════════════════════════════════════
+      // WEB / PWA
+      // ═══════════════════════════════════════════════════════════
+      if (_setupDone || _setupInProgress) {
         console.info('[FCM] Web push already set up or in progress — skipping.');
         return;
       }
 
       async function setupWebPush() {
-        _webPushSetupInProgress = true;
-
+        _setupInProgress = true;
         try {
-          // ── 1. Browser support check ─────────────────────────────────
-          const supported = await isSupported();
-          if (!supported) {
-            console.warn('[FCM] Web push not supported in this browser.');
-            return;
+          // 1. Browser support
+          if (!await isSupported()) { console.warn('[FCM] Web push not supported.'); return; }
+
+          // 2. Env vars
+          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
+          const apiKey   = import.meta.env.VITE_FIREBASE_API_KEY   || '';
+          if (!vapidKey || !apiKey) {
+            console.error('[FCM] ❌ Missing VITE_FIREBASE_VAPID_KEY or VITE_FIREBASE_API_KEY'); return;
           }
 
-          // ── 2. Env var check ─────────────────────────────────────────
-          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
-          if (!vapidKey) {
-            console.error('[FCM] ❌ VITE_FIREBASE_VAPID_KEY is not set. Web push cannot start.');
+          // 3. Permission
+          let perm = Notification.permission;
+          if (perm === 'default') perm = await Notification.requestPermission();
+          if (perm !== 'granted') {
+            console.warn('[FCM] Permission denied.\n→ Go to browser Settings → Notifications → Allow for this site → Reload.');
             return;
           }
 
           const messaging = getMessaging(firebaseApp);
 
-          // ── 3. Notification permission ───────────────────────────────
-          let permission = Notification.permission;
-          if (permission === 'default') {
-            permission = await Notification.requestPermission();
-          }
-          if (permission !== 'granted') {
-            console.warn(
-              '[FCM] Notification permission not granted.\n' +
-              '→ Browser: Settings → Privacy & Security → Notifications\n' +
-              '→ Find this site → set to "Allow" → reload.'
-            );
-            return;
-          }
+          // 4. ── CORE FIX ──────────────────────────────────────────────────
+          // Explicitly register the unified firebase-messaging-sw.js.
+          // Do NOT let Firebase auto-discover it — we must control registration
+          // to ensure it becomes ACTIVE before calling getToken().
+          //
+          // WHY: If sw.js was previously registered at scope '/', it blocks
+          // firebase-messaging-sw.js in "waiting" state. getToken() then fails
+          // with "no active Service Worker" because the FCM SW can't activate.
+          //
+          // FIX SEQUENCE:
+          //  a) Unregister any old sw.js that may be blocking
+          //  b) Register firebase-messaging-sw.js
+          //  c) Force skipWaiting via postMessage
+          //  d) Wait until it is confirmed ACTIVE
+          //  e) Pass the registration to getToken() — no auto-discovery
 
-          // ── 4. Register the PWA caching SW (sw.js) ──────────────────
-          // This is the app shell cache SW, registered independently.
-          // Firebase messaging uses its OWN standard SW (/firebase-messaging-sw.js)
-          // which was generated by the Vite plugin with config baked in.
-          if ('serviceWorker' in navigator) {
-            try {
-              await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-              console.info('[FCM] PWA cache SW (sw.js) registered.');
-            } catch (swErr) {
-              console.warn('[FCM] PWA SW registration failed (non-fatal):', swErr.message);
+          // a) Unregister legacy sw.js if it's blocking
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (const reg of regs) {
+              const script = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
+              if (script.includes('/sw.js') && !script.includes('firebase-messaging-sw')) {
+                console.info('[FCM] Unregistering old sw.js:', script);
+                await reg.unregister();
+              }
             }
+          } catch (e) { console.warn('[FCM] SW unregister (non-fatal):', e.message); }
+
+          // b) Register the unified FCM+cache SW
+          console.info('[FCM] Registering /firebase-messaging-sw.js...');
+          const fcmReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+          console.info('[FCM] Registered. Active:', !!fcmReg.active, '| Installing:', !!fcmReg.installing, '| Waiting:', !!fcmReg.waiting);
+
+          // c+d) Wait for it to become the active controlling SW
+          if (!fcmReg.active) {
+            console.info('[FCM] Waiting for firebase-messaging-sw.js to activate...');
+            await waitForSWActivation(fcmReg);
+            console.info('[FCM] ✅ firebase-messaging-sw.js is now active.');
+          } else {
+            console.info('[FCM] ✅ firebase-messaging-sw.js already active.');
           }
 
-          // ── 5. Get FCM token ─────────────────────────────────────────
-          // CRITICAL: Do NOT pass serviceWorkerRegistration here.
-          // Firebase SDK will automatically find and register
-          // /firebase-messaging-sw.js (generated by vite.config.js plugin).
-          // This is the standard Firebase approach and avoids ALL the
-          // VAPID key / AbortError / SW scope issues from custom SW URLs.
-          console.info('[FCM] Calling getToken() — Firebase will use /firebase-messaging-sw.js...');
-          const token = await getToken(messaging, { vapidKey });
+          // e) Get FCM token — pass the registration explicitly
+          //    This avoids Firebase auto-registering a new SW and getting confused
+          console.info('[FCM] Calling getToken() with explicit serviceWorkerRegistration...');
+          const token = await getToken(messaging, {
+            vapidKey,
+            serviceWorkerRegistration: fcmReg,
+          });
 
           if (token) {
-            console.info('[FCM] ✅ Web FCM token obtained:', token.substring(0, 20) + '...');
+            console.info('[FCM] ✅ Token obtained:', token.substring(0, 20) + '...');
             await saveToken(token);
-            _webPushSetupDone = true;
+            _setupDone = true;
 
-            // ── 6. Foreground message handler ────────────────────────
-            // FCM SDK does NOT show an OS notification when the page is focused.
-            // We must trigger it manually via the service worker.
-            _unsubscribeMessage = onMessage(messaging, async (payload) => {
+            // 5. Foreground message handler
+            // Browser won't auto-show notification when tab is focused —
+            // we manually trigger an OS-level popup via the SW.
+            _unsubscribe = onMessage(messaging, async (payload) => {
               console.info('[FCM] Foreground message:', payload);
               const title = payload.notification?.title || payload.data?.title || 'SchoolOS+';
               const body  = payload.notification?.body  || payload.data?.body  || '';
 
-              // Always show in-app toast
               showInAppToast(title, body);
 
-              // Also show OS-level native notification via the active SW
               if (Notification.permission === 'granted') {
                 try {
-                  const reg = await navigator.serviceWorker.ready;
-                  await reg.showNotification(title, {
-                    body,
-                    icon:     '/icons/icon-192.png',
-                    badge:    '/icons/icon-72.png',
-                    tag:      'schoolos-fg',
-                    renotify: true,
-                    data:     { route: payload.data?.route || '/' },
+                  await fcmReg.showNotification(title, {
+                    body, icon: '/icons/icon-192.png', badge: '/icons/icon-72.png',
+                    tag: 'schoolos-fg', renotify: true,
+                    data: { route: payload.data?.route || '/' },
                   });
-                } catch (notifErr) {
-                  console.warn('[FCM] showNotification failed:', notifErr.message);
-                }
+                } catch (e) { console.warn('[FCM] showNotification failed:', e.message); }
               }
 
               window.dispatchEvent(new CustomEvent('sp-push-received', { detail: payload }));
@@ -255,130 +265,69 @@ export function usePushNotifications() {
 
           } else {
             console.warn(
-              '[FCM] getToken() returned null/empty.\n' +
-              `→ Check Firebase Console → Project Settings → Cloud Messaging\n` +
-              `→ Web Push certificates → verify the Key pair matches VITE_FIREBASE_VAPID_KEY.\n` +
-              `→ Also verify "${window.location.hostname}" is in Firebase Authorized Domains.`
+              '[FCM] getToken() returned null.\n' +
+              `→ Verify VAPID key in Firebase Console → Project Settings → Cloud Messaging → Web Push certificates.\n` +
+              `→ Current key starts: ${vapidKey.substring(0, 15)}...`
             );
           }
 
         } catch (err) {
-          console.error('[FCM] Web push setup failed:', err.message, err);
-
-          if (err?.name === 'AbortError') {
-            console.error(
-              '[FCM] AbortError from Firebase/PushManager.\n' +
-              '━━━ MOST LIKELY CAUSE ━━━\n' +
-              'The VAPID key in VITE_FIREBASE_VAPID_KEY does not match the Web Push\n' +
-              'certificate registered in Firebase Console for this project.\n\n' +
-              '━━━ HOW TO FIX ━━━\n' +
-              '1. Open: https://console.firebase.google.com\n' +
-              '2. Select project: schoolpro-d95a8\n' +
-              '3. Go to: ⚙️ Project Settings → Cloud Messaging tab\n' +
-              '4. Scroll to "Web configuration" → "Web Push certificates"\n' +
-              '5. Copy the "Key pair" value shown there\n' +
-              '6. Update GitHub Secret VITE_FIREBASE_VAPID_KEY with that exact value\n' +
-              '7. Re-run the GitHub Actions deployment\n\n' +
-              `Current VAPID key starts with: ${(import.meta.env.VITE_FIREBASE_VAPID_KEY || '').substring(0, 15)}...`
-            );
-          }
+          console.error('[FCM] Web setup failed:', err.message);
+          console.error('[FCM] Full error:', err);
         } finally {
-          _webPushSetupInProgress = false;
+          _setupInProgress = false;
         }
       }
 
       setupWebPush();
 
-      // Cleanup: unsubscribe foreground listener but keep module flags
-      // so StrictMode remount doesn't restart setup
       return () => {
-        if (_unsubscribeMessage) {
-          _unsubscribeMessage();
-          _unsubscribeMessage = null;
-        }
+        if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+        // Do NOT reset _setupDone/_setupInProgress — must survive StrictMode remount
       };
 
     } else {
-      // ════════════════════════════════════════════════════════════════
-      // NATIVE ANDROID / iOS (Capacitor)
-      // ════════════════════════════════════════════════════════════════
+      // ═══════════════════════════════════════════════════════════
+      // NATIVE (Android / iOS via Capacitor)
+      // ═══════════════════════════════════════════════════════════
       if (listenersRegistered.current || isSettingUp.current) return;
 
-      let registrationListener = null;
-      let receivedListener     = null;
-      let errorListener        = null;
-      let actionListener       = null;
+      let regL = null, recvL = null, errL = null, actL = null;
 
-      async function setupNativePush() {
+      async function setupNative() {
         if (isSettingUp.current) return;
         isSettingUp.current = true;
-
         try {
-          let permStatus;
-          try {
-            permStatus = await PushNotifications.checkPermissions();
-          } catch (e) {
-            console.warn('[FCM] checkPermissions() failed (emulator?):', e);
-            return;
-          }
+          let perm;
+          try { perm = await PushNotifications.checkPermissions(); }
+          catch (e) { console.warn('[FCM] checkPermissions failed:', e); return; }
 
-          if (permStatus.receive === 'prompt') {
-            try {
-              permStatus = await PushNotifications.requestPermissions();
-            } catch (e) {
-              console.warn('[FCM] requestPermissions() failed:', e);
-              return;
-            }
+          if (perm.receive === 'prompt') {
+            try { perm = await PushNotifications.requestPermissions(); }
+            catch (e) { console.warn('[FCM] requestPermissions failed:', e); return; }
           }
-
-          if (permStatus.receive !== 'granted') {
-            console.warn('[FCM] Native push permission denied:', permStatus.receive);
-            return;
-          }
+          if (perm.receive !== 'granted') { console.warn('[FCM] Native permission denied:', perm.receive); return; }
 
           await PushNotifications.register();
           listenersRegistered.current = true;
 
-          registrationListener = await PushNotifications.addListener('registration', (tokenData) => {
-            const fcmToken = tokenData.value;
-            console.info('[FCM] Native token:', fcmToken.substring(0, 20) + '...');
-            saveToken(fcmToken);
-          });
+          regL  = await PushNotifications.addListener('registration', (d) => { console.info('[FCM] Native token:', d.value.substring(0,20)+'...'); saveToken(d.value); });
+          recvL = await PushNotifications.addListener('pushNotificationReceived', (n) => { showInAppToast(n.title, n.body); window.dispatchEvent(new CustomEvent('sp-push-received', { detail: n })); });
+          actL  = await PushNotifications.addListener('pushNotificationActionPerformed', (a) => { console.info('[FCM] Tapped:', a.notification.title); });
+          errL  = await PushNotifications.addListener('registrationError', (e) => { console.error('[FCM] Native reg error:', e.error); });
 
-          receivedListener = await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-            console.info('[FCM] Foreground native notification:', notification.title);
-            showInAppToast(notification.title, notification.body);
-            window.dispatchEvent(new CustomEvent('sp-push-received', { detail: notification }));
-          });
-
-          actionListener = await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-            console.info('[FCM] Notification tapped:', action.notification.title);
-          });
-
-          errorListener = await PushNotifications.addListener('registrationError', (err) => {
-            console.error('[FCM] Native registration error:', err.error);
-          });
-
-          console.info('[FCM] ✅ Native push setup complete.');
+          console.info('[FCM] ✅ Native push ready.');
         } catch (err) {
           console.error('[FCM] Native setup failed:', err);
           listenersRegistered.current = false;
-        } finally {
-          isSettingUp.current = false;
-        }
+        } finally { isSettingUp.current = false; }
       }
 
-      setupNativePush();
+      setupNative();
 
       return () => {
-        try {
-          registrationListener?.remove();
-          receivedListener?.remove();
-          errorListener?.remove();
-          actionListener?.remove();
-        } catch (_) {}
-        listenersRegistered.current = false;
-        isSettingUp.current         = false;
+        try { regL?.remove(); recvL?.remove(); errL?.remove(); actL?.remove(); } catch (_) {}
+        listenersRegistered.current = false; isSettingUp.current = false;
       };
     }
   }, [user?.id, saveToken]);
