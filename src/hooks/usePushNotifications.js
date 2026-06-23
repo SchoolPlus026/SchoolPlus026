@@ -1,26 +1,23 @@
 /**
  * usePushNotifications.js
  * ────────────────────────────────────────────────────────────────
- * Custom hook for Firebase Cloud Messaging (FCM) push notifications
- * using @capacitor/push-notifications v6.
+ * Custom hook for Firebase Cloud Messaging (FCM) push notifications.
+ * Handles both native (Android/iOS via Capacitor) and web/PWA (via Web SDK).
  *
  * Responsibilities:
- *  1. Request Android 13+ POST_NOTIFICATIONS permission at runtime.
- *  2. Register the device with FCM via Capacitor.
- *  3. Capture the FCM registration token.
- *  4. Save / upsert the token to Supabase via the upsert_device_token RPC.
- *  5. Listen for foreground notifications and show an in-app toast.
- *  6. Clean up all listeners on unmount.
+ *  1. Request notification permission (Android 13+ / Browser).
+ *  2. Register device with FCM and capture the FCM token.
+ *  3. Save / upsert the token to Supabase via the upsert_device_token RPC.
+ *  4. Listen for foreground notifications and show OS-level popup + in-app toast.
+ *  5. Clean up all listeners on unmount.
  *
- * Usage:
- *   import { usePushNotifications } from '../hooks/usePushNotifications';
- *   // Call inside any authenticated component (after login):
- *   usePushNotifications();
- *
- * ⚠️  Prerequisites:
- *   - google-services.json placed in android/app/
- *   - v25_push_notifications.sql migration run in Supabase
- *   - App built with: npm run cap:build:android && npx cap sync android
+ * Web push critical notes:
+ *  - Service Worker is registered with Firebase config injected via query params
+ *    (SW files cannot access import.meta.env directly).
+ *  - Stale push subscriptions are unsubscribed before getToken() to prevent
+ *    AbortError: "Registration failed - push service error" caused by VAPID key
+ *    mismatches between the old subscription and the current key.
+ *  - Bare SWs (registered without Firebase config) are unregistered first.
  * ────────────────────────────────────────────────────────────────
  */
 
@@ -33,11 +30,8 @@ import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messagi
 import firebaseApp from '../config/firebaseClient';
 
 // ─── In-app Toast Helper ─────────────────────────────────────────────────────
-// Displays a brief notification banner when the app is foregrounded.
-// Falls back gracefully if the browser/WebView doesn't support it.
 function showInAppToast(title, body) {
   try {
-    // Check if there is already a toast container, reuse it
     let container = document.getElementById('fcm-toast-container');
     if (!container) {
       container = document.createElement('div');
@@ -89,22 +83,19 @@ function showInAppToast(title, body) {
       </div>
     `;
     const titleEl = toast.querySelector('#fcm-toast-title');
-    const bodyEl = toast.querySelector('#fcm-toast-body');
+    const bodyEl  = toast.querySelector('#fcm-toast-body');
     if (titleEl) titleEl.textContent = title || 'Notification';
-    if (bodyEl) bodyEl.textContent = body || '';
+    if (bodyEl)  bodyEl.textContent  = body  || '';
     toast.setAttribute('data-fcm-toast', 'true');
-
     container.appendChild(toast);
 
-    // Animate in
     requestAnimationFrame(() => {
-      toast.style.opacity = '1';
+      toast.style.opacity   = '1';
       toast.style.transform = 'translateY(0)';
     });
 
-    // Auto-dismiss after 5 seconds
     const timer = setTimeout(() => {
-      toast.style.opacity = '0';
+      toast.style.opacity   = '0';
       toast.style.transform = 'translateY(-8px)';
       setTimeout(() => toast.remove(), 400);
     }, 5000);
@@ -114,7 +105,6 @@ function showInAppToast(title, body) {
       toast.remove();
     });
   } catch (err) {
-    // Fallback if DOM manipulation fails
     console.info(`[FCM] ${title}: ${body}`);
   }
 }
@@ -123,21 +113,18 @@ function showInAppToast(title, body) {
 export function usePushNotifications() {
   const { user, schoolSettings } = useAppStore();
 
-  // Use refs to hold mutable state that should not re-trigger useEffect
   const listenersRegistered = useRef(false);
-  const isSettingUp = useRef(false);         // prevents concurrent async runs
-  const tokenSaved = useRef(false);
-  const userRef = useRef(user);
-  const schoolRef = useRef(schoolSettings);
+  const isSettingUp         = useRef(false);
+  const tokenSaved          = useRef(false);
+  const userRef             = useRef(user);
+  const schoolRef           = useRef(schoolSettings);
 
-  // Keep refs in sync with the latest values without causing effect re-runs
-  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { userRef.current   = user;           }, [user]);
   useEffect(() => { schoolRef.current = schoolSettings; }, [schoolSettings]);
 
-  // Save (upsert) the FCM token to Supabase
-  // Reads from refs so this callback never needs to be re-created
+  // ── Token save helper (reads from refs — stable, no re-create needed) ──────
   const saveToken = useCallback(async (token) => {
-    const currentUser = userRef.current;
+    const currentUser   = userRef.current;
     const currentSchool = schoolRef.current;
 
     if (!currentUser?.id || !token || tokenSaved.current) return;
@@ -157,80 +144,83 @@ export function usePushNotifications() {
         console.error('[FCM] Failed to save token to Supabase:', error.message);
       } else {
         tokenSaved.current = true;
-        console.info('[FCM] Token saved successfully. Platform:', platform);
+        console.info('[FCM] ✅ Token saved. Platform:', platform);
       }
     } catch (err) {
-      // Non-fatal: token save failure should never crash the app
       console.error('[FCM] Unexpected error saving token:', err);
     }
-  }, []); // stable — reads from refs, no deps needed
+  }, []);
 
+  // ── Main effect ───────────────────────────────────────────────────────────
   useEffect(() => {
-    // Reset tokenSaved flag when user changes (e.g. logout then login as different user)
-    tokenSaved.current = false;
+    // Reset flags whenever the user changes (handles logout → new user login)
+    tokenSaved.current        = false;
     listenersRegistered.current = false;
 
-    // ── Guard 2: Must have an authenticated user ───────────────────────────
     if (!user?.id) {
       console.info('[FCM] No authenticated user — skipping token registration.');
       return;
     }
 
     if (!Capacitor.isNativePlatform()) {
-      // ── WEB / PWA PLATFORM FCM SETUP ──────────────────────────────────────
+      // ════════════════════════════════════════════════════════════════════
+      // WEB / PWA FCM SETUP
+      // ════════════════════════════════════════════════════════════════════
       if (listenersRegistered.current || isSettingUp.current) return;
-      
+
       let unsubscribeMessage = null;
-      
+
       async function setupWebPush() {
         if (isSettingUp.current) return;
         isSettingUp.current = true;
-        
+
         try {
+          // Step 1: Check browser support
           const supported = await isSupported();
           if (!supported) {
             console.warn('[FCM] Web Push is not supported in this browser.');
-            isSettingUp.current = false;
             return;
           }
-          
+
+          // Step 2: Early env-var validation — fail fast before any network call
+          const apiKey            = import.meta.env.VITE_FIREBASE_API_KEY            || '';
+          const authDomain        = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN        || '';
+          const databaseURL       = import.meta.env.VITE_FIREBASE_DATABASE_URL       || '';
+          const projectId         = import.meta.env.VITE_FIREBASE_PROJECT_ID         || '';
+          const storageBucket     = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET     || '';
+          const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID|| '';
+          const appId             = import.meta.env.VITE_FIREBASE_APP_ID             || '';
+          const vapidKey          = import.meta.env.VITE_FIREBASE_VAPID_KEY          || '';
+
+          if (!apiKey || !vapidKey || !messagingSenderId || !appId) {
+            console.error(
+              '[FCM] ❌ Missing required Firebase env vars.\n' +
+              `apiKey: ${!!apiKey}, vapidKey: ${!!vapidKey}, ` +
+              `messagingSenderId: ${!!messagingSenderId}, appId: ${!!appId}`
+            );
+            return;
+          }
+
           const messaging = getMessaging(firebaseApp);
-          
-          // Request permission
+
+          // Step 3: Request OS notification permission
           let permission = Notification.permission;
           if (permission === 'default') {
             permission = await Notification.requestPermission();
           }
-          
+
           if (permission !== 'granted') {
-            console.warn('[FCM] Notification permission denied on web.');
-            isSettingUp.current = false;
-            return;
-          }
-          
-          // Build the SW URL with Firebase config injected as query params
-          // (Service Workers cannot access import.meta.env, so we pass config this way)
-          const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
-          const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '';
-          const databaseURL = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
-          const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || '';
-          const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '';
-          const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '';
-          const appId = import.meta.env.VITE_FIREBASE_APP_ID || '';
-
-          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
-          if (!vapidKey) {
-            console.warn('[FCM] VITE_FIREBASE_VAPID_KEY is missing. Web push cannot be initialized.');
-            isSettingUp.current = false;
+            console.warn(
+              '[FCM] Notification permission denied.\n' +
+              '→ To fix: Open browser Settings → Privacy & Security → Notifications\n' +
+              '→ Find this site → change to "Allow" → reload the page.'
+            );
             return;
           }
 
-          if (!apiKey) {
-            console.warn('[FCM] VITE_FIREBASE_API_KEY is missing. Web push cannot be initialized.');
-            isSettingUp.current = false;
-            return;
-          }
-
+          // Step 4: Build SW URL with Firebase config embedded as query params
+          // Service workers cannot read import.meta.env (no bundler access),
+          // so we pass all Firebase config through the URL query string.
           const swUrl = `/sw.js?apiKey=${encodeURIComponent(apiKey)}` +
             `&authDomain=${encodeURIComponent(authDomain)}` +
             `&databaseURL=${encodeURIComponent(databaseURL)}` +
@@ -239,78 +229,153 @@ export function usePushNotifications() {
             `&messagingSenderId=${encodeURIComponent(messagingSenderId)}` +
             `&appId=${encodeURIComponent(appId)}`;
 
-          // Register the service worker with Firebase config in query params.
-          // If already registered at this URL, the browser returns the existing registration.
-          await navigator.serviceWorker.register(swUrl);
+          // Step 5: Unregister any "bare" SW that was installed WITHOUT Firebase config.
+          // A bare SW (no apiKey in its scriptURL) cannot initialize Firebase Messaging,
+          // so getToken() would fail or return null if it were the controlling SW.
+          const existingRegs = await navigator.serviceWorker.getRegistrations();
+          for (const existingReg of existingRegs) {
+            const script =
+              existingReg.active?.scriptURL ||
+              existingReg.installing?.scriptURL ||
+              existingReg.waiting?.scriptURL || '';
+            if (script.includes('/sw.js') && !script.includes('apiKey=')) {
+              console.info('[FCM] Unregistering bare SW (missing Firebase config):', script);
+              await existingReg.unregister();
+            }
+          }
 
-          // Use navigator.serviceWorker.ready — this resolves to the ACTIVE registration
-          // that controls this page, which is guaranteed to be in 'activated' state.
-          // This avoids the race condition where reg.installing hasn't activated yet.
+          // Step 6: Register our Firebase-configured SW
+          const newReg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+          console.info('[FCM] SW registered at scope:', newReg.scope);
+
+          // Step 7: Wait for the SW to be fully active and controlling this page.
+          // navigator.serviceWorker.ready resolves ONLY when a SW is in 'activated'
+          // state and controlling this client — far more reliable than statechange.
           const readyReg = await Promise.race([
             navigator.serviceWorker.ready,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 10000))
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('SW ready timeout after 12s')), 12000)
+            ),
           ]);
+          console.info('[FCM] ✅ Service worker active and controlling page.');
 
-          console.info('[FCM] Service worker active. Fetching FCM token...');
+          // Step 8: ── CRITICAL FIX ──────────────────────────────────────────
+          // Clear any existing push subscription BEFORE calling getToken().
+          //
+          // ROOT CAUSE OF AbortError: "Registration failed - push service error":
+          // The browser's PushManager already has a subscription tied to a DIFFERENT
+          // VAPID key (from a previous build, old key, or different origin).
+          // When Firebase's getToken() calls PushManager.subscribe({ applicationServerKey })
+          // internally, the push service detects the VAPID key mismatch and rejects it
+          // with an AbortError.
+          //
+          // FIX: Explicitly unsubscribe() first, forcing getToken() to create a
+          // completely fresh subscription with the correct current VAPID key.
+          try {
+            const existingSub = await readyReg.pushManager.getSubscription();
+            if (existingSub) {
+              console.info('[FCM] Clearing stale push subscription (VAPID key may have changed)...');
+              await existingSub.unsubscribe();
+              console.info('[FCM] Stale subscription cleared. Creating fresh one...');
+            } else {
+              console.info('[FCM] No existing push subscription found. Creating new one...');
+            }
+          } catch (subErr) {
+            // Non-fatal — if clearing fails, getToken() might still succeed
+            console.warn('[FCM] Could not clear existing subscription (non-fatal):', subErr.message);
+          }
 
+          // Step 9: Get the FCM registration token
+          console.info('[FCM] Calling getToken()...');
           const token = await getToken(messaging, {
             serviceWorkerRegistration: readyReg,
             vapidKey,
           });
-          
+
           if (token) {
-            console.info('[FCM] Web token received (truncated):', token.substring(0, 20) + '...');
+            console.info('[FCM] ✅ Web FCM token obtained (truncated):', token.substring(0, 20) + '...');
             await saveToken(token);
             listenersRegistered.current = true;
-            
-            // Listen for foreground messages
+
+            // Step 10: Listen for foreground messages
+            // When the app tab is OPEN (foreground), Firebase SDK delivers the message
+            // to onMessage() — it does NOT automatically show an OS notification.
+            // We must manually trigger one via ServiceWorkerRegistration.showNotification().
             unsubscribeMessage = onMessage(messaging, (payload) => {
-              console.info('[FCM] Web foreground notification:', payload);
-              const title = payload.notification?.title || payload.data?.title || 'Notification';
-              const body = payload.notification?.body || payload.data?.body || '';
-              
-              // 1. Show custom in-app Toast banner
+              console.info('[FCM] Foreground message received:', payload);
+              const title = payload.notification?.title || payload.data?.title || 'SchoolOS+ Notification';
+              const body  = payload.notification?.body  || payload.data?.body  || '';
+
+              // 1. Show custom in-app toast banner (always)
               showInAppToast(title, body);
-              
-              // 2. Trigger native OS-level popup alert in foreground
+
+              // 2. Show native OS-level notification popup via Service Worker.
+              //    This is the key call that makes it appear in the browser's
+              //    notification tray even when the tab is focused.
               if (Notification.permission === 'granted') {
                 readyReg.showNotification(title, {
-                  body: body,
-                  icon: '/icons/icon-192.png',
-                  badge: '/icons/icon-72.png',
-                  data: {
-                    route: payload.data?.route || '/'
-                  }
-                });
+                  body,
+                  icon:     '/icons/icon-192.png',
+                  badge:    '/icons/icon-72.png',
+                  tag:      'schoolos-fg-notification',
+                  renotify: true,
+                  data:     { route: payload.data?.route || '/' },
+                }).catch(e => console.warn('[FCM] showNotification failed:', e));
               }
-              
+
               window.dispatchEvent(new CustomEvent('sp-push-received', { detail: payload }));
             });
           } else {
-            console.warn('[FCM] No web token returned.');
+            console.warn(
+              '[FCM] getToken() returned empty/null.\n' +
+              '→ Check: Firebase Console → Project Settings → Web app → Authorized domains\n' +
+              `→ Ensure "${window.location.hostname}" is listed.\n` +
+              '→ Also verify VAPID key matches the Web Push certificate in Firebase Console.'
+            );
           }
         } catch (err) {
-          console.error('[FCM] Web setup failed:', err);
+          console.error('[FCM] Web push setup failed:', err);
+
+          if (err?.name === 'AbortError') {
+            console.error(
+              '[FCM] AbortError: PushManager.subscribe() rejected by browser push service.\n' +
+              '→ Root cause: Stale subscription with mismatched VAPID key.\n' +
+              '→ Fix: Reload the page — the stale subscription auto-cleanup should handle it.\n' +
+              '→ Manual fix: DevTools → Application → Service Workers → Unregister all → Reload.'
+            );
+          }
+
+          if (err?.message?.includes('403') || err?.code === 'installations/request-failed') {
+            console.error(
+              '[FCM] 403 from Firebase Installations API.\n' +
+              '→ Verify Firebase Web App credentials match the project.\n' +
+              '→ Check VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID are the WEB app credentials\n' +
+              '   (not Android). Go to Firebase Console → Project Settings → Your apps → Web app.'
+            );
+          }
         } finally {
           isSettingUp.current = false;
         }
       }
-      
+
       setupWebPush();
-      
+
       return () => {
         if (unsubscribeMessage) unsubscribeMessage();
         listenersRegistered.current = false;
-        isSettingUp.current = false;
+        isSettingUp.current         = false;
       };
+
     } else {
-      // ── NATIVE ANDROID/IOS FCM SETUP ─────────────────────────────────────
+      // ════════════════════════════════════════════════════════════════════
+      // NATIVE ANDROID / iOS FCM SETUP (via Capacitor)
+      // ════════════════════════════════════════════════════════════════════
       if (listenersRegistered.current || isSettingUp.current) return;
 
       let registrationListener = null;
-      let receivedListener = null;
-      let errorListener = null;
-      let actionListener = null;
+      let receivedListener     = null;
+      let errorListener        = null;
+      let actionListener       = null;
 
       async function setupPushNotifications() {
         if (isSettingUp.current) return;
@@ -322,7 +387,6 @@ export function usePushNotifications() {
             permStatus = await PushNotifications.checkPermissions();
           } catch (checkErr) {
             console.warn('[FCM] checkPermissions() failed (likely emulator):', checkErr);
-            isSettingUp.current = false;
             return;
           }
 
@@ -331,14 +395,12 @@ export function usePushNotifications() {
               permStatus = await PushNotifications.requestPermissions();
             } catch (reqErr) {
               console.warn('[FCM] requestPermissions() failed:', reqErr);
-              isSettingUp.current = false;
               return;
             }
           }
 
           if (permStatus.receive !== 'granted') {
             console.warn('[FCM] Push notification permission not granted. Status:', permStatus.receive);
-            isSettingUp.current = false;
             return;
           }
 
@@ -346,7 +408,6 @@ export function usePushNotifications() {
             await PushNotifications.register();
           } catch (regErr) {
             console.error('[FCM] register() failed:', regErr);
-            isSettingUp.current = false;
             return;
           }
 
@@ -357,7 +418,7 @@ export function usePushNotifications() {
             (tokenData) => {
               try {
                 const fcmToken = tokenData.value;
-                console.info('[FCM] Token received (truncated):', fcmToken.substring(0, 20) + '...');
+                console.info('[FCM] Native token received (truncated):', fcmToken.substring(0, 20) + '...');
                 saveToken(fcmToken);
               } catch (e) {
                 console.error('[FCM] Error in registration handler:', e);
@@ -369,7 +430,7 @@ export function usePushNotifications() {
             'pushNotificationReceived',
             (notification) => {
               try {
-                console.info('[FCM] Foreground notification:', notification.title);
+                console.info('[FCM] Foreground native notification:', notification.title);
                 showInAppToast(notification.title, notification.body);
                 window.dispatchEvent(new CustomEvent('sp-push-received', { detail: notification }));
               } catch (e) {
@@ -396,10 +457,10 @@ export function usePushNotifications() {
             }
           );
 
-          console.info('[FCM] Push notification setup complete.');
+          console.info('[FCM] ✅ Native push notification setup complete.');
 
         } catch (err) {
-          console.error('[FCM] Unexpected setup failure (non-fatal):', err);
+          console.error('[FCM] Unexpected native setup failure (non-fatal):', err);
           listenersRegistered.current = false;
         } finally {
           isSettingUp.current = false;
@@ -413,12 +474,13 @@ export function usePushNotifications() {
           registrationListener?.remove();
           receivedListener?.remove();
           errorListener?.remove();
+          actionListener?.remove();
         } catch (cleanupErr) {
           console.warn('[FCM] Cleanup error (non-fatal):', cleanupErr);
         }
         listenersRegistered.current = false;
-        isSettingUp.current = false;
+        isSettingUp.current         = false;
       };
     }
-  }, [user?.id, saveToken]); // saveToken is stable (reads from refs)
+  }, [user?.id, saveToken]);
 }
