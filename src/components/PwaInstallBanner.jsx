@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Smartphone, Share2, PlusSquare, ArrowRight, X, Info, Download } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../config/supabaseClient';
+import { useAppStore } from '../store/useAppStore';
 
 export default function PwaInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -10,12 +11,85 @@ export default function PwaInstallBanner() {
   const [visible, setVisible] = useState(false);
   const [apkUrl, setApkUrl] = useState(null);
 
+  // ── Native Notification Permission Prompt with Cooldown ──
   useEffect(() => {
-    // 1. Guard: Don't show inside native app or if already running in standalone PWA mode
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-    if (Capacitor.isNativePlatform() || isStandalone) {
+    if (Capacitor.isNativePlatform()) return;
+    if (!('Notification' in window)) return;
+
+    const cooldown = 24 * 60 * 60 * 1000; // 24-hour cooldown
+    const lastAttempt = localStorage.getItem('sp_notification_prompt_last_attempt');
+
+    if (Notification.permission === 'default') {
+      if (!lastAttempt || Date.now() - Number(lastAttempt) > cooldown) {
+        const triggerNotificationPrompt = async () => {
+          try {
+            console.log('[PWA] Triggering native notification permission dialog...');
+            await Notification.requestPermission();
+            localStorage.setItem('sp_notification_prompt_last_attempt', Date.now().toString());
+          } catch (err) {
+            console.warn('[PWA] Notification permission prompt failed:', err);
+          }
+        };
+
+        // 1. Try prompting immediately
+        triggerNotificationPrompt();
+
+        // 2. Fallback: Request on first user interaction (critical for iOS Safari)
+        const handleGesture = () => {
+          if (Notification.permission === 'default') {
+            triggerNotificationPrompt();
+          }
+          cleanup();
+        };
+
+        const cleanup = () => {
+          window.removeEventListener('click', handleGesture);
+          window.removeEventListener('touchstart', handleGesture);
+        };
+
+        window.addEventListener('click', handleGesture);
+        window.addEventListener('touchstart', handleGesture);
+
+        return cleanup;
+      }
+    }
+  }, []);
+
+  const [isInstalled, setIsInstalled] = useState(false);
+  const { user } = useAppStore();
+  const prevUserRef = useRef(user);
+
+  // Helper: check if app is running in standalone mode or installed via navigator API
+  const checkInstallation = async () => {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (standalone) {
+      setIsInstalled(true);
+      return true;
+    }
+    if ('getInstalledRelatedApps' in navigator) {
+      try {
+        const relatedApps = await navigator.getInstalledRelatedApps();
+        const installed = relatedApps.length > 0;
+        if (installed) {
+          setIsInstalled(true);
+          return true;
+        }
+      } catch (e) {
+        console.warn('[PWA] getInstalledRelatedApps failed:', e);
+      }
+    }
+    setIsInstalled(false);
+    return false;
+  };
+
+  useEffect(() => {
+    // 1. Guard: Don't show inside native app
+    if (Capacitor.isNativePlatform()) {
       return;
     }
+
+    // Initial check
+    checkInstallation();
 
     // 2. Fetch latest APK url for download link
     supabase.from('app_versions')
@@ -40,16 +114,26 @@ export default function PwaInstallBanner() {
       e.preventDefault();
       setDeferredPrompt(e);
       window.deferredPrompt = e; // make it globally accessible
-      
-      // Don't show automatically if user recently dismissed it
-      const dismissedTime = localStorage.getItem('sp_pwa_dismissed');
-      if (dismissedTime && Date.now() - Number(dismissedTime) < 7 * 24 * 60 * 60 * 1000) {
-        return;
+      setIsInstalled(false); // If prompt fires, we are definitely NOT installed (or uninstalled)
+
+      // Only show automatically on mount if logged in and 24h cooldown has passed
+      if (useAppStore.getState().user) {
+        const dismissedTime = localStorage.getItem('sp_pwa_dismissed');
+        if (!dismissedTime || Date.now() - Number(dismissedTime) > 24 * 60 * 60 * 1000) {
+          setVisible(true);
+        }
       }
-      setVisible(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+
+    // Listen to appinstalled event (fired when user successfully installs)
+    const handleAppInstalled = () => {
+      console.info('[PWA] App installed successfully');
+      setIsInstalled(true);
+      setVisible(false);
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     // Manual show-pwa-install-modal event listener
     const handleShowManual = () => {
@@ -57,30 +141,72 @@ export default function PwaInstallBanner() {
     };
     window.addEventListener('show-pwa-install-modal', handleShowManual);
 
-    // If it's iOS (Safari/Chrome), we won't get beforeinstallprompt, so we display the banner manually
+    // If it's iOS (Safari/Chrome), we won't get beforeinstallprompt, so we check status manually
     if (isIOS) {
-      const dismissedTime = localStorage.getItem('sp_pwa_dismissed');
-      if (!dismissedTime || Date.now() - Number(dismissedTime) > 7 * 24 * 60 * 60 * 1000) {
-        const timer = setTimeout(() => {
-          setVisible(true);
-        }, 4000);
-        return () => clearTimeout(timer);
-      }
+      setTimeout(async () => {
+        const installed = await checkInstallation();
+        if (!installed && useAppStore.getState().user) {
+          const dismissedTime = localStorage.getItem('sp_pwa_dismissed');
+          if (!dismissedTime || Date.now() - Number(dismissedTime) > 24 * 60 * 60 * 1000) {
+            setVisible(true);
+          }
+        }
+      }, 4000);
     }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
       window.removeEventListener('show-pwa-install-modal', handleShowManual);
     };
   }, []);
+
+  // ── Post-Login Transition Detector ──
+  useEffect(() => {
+    const handleLoginChange = async () => {
+      const isNowLoggedIn = !!user?.id;
+      const wasLoggedOut = !prevUserRef.current?.id;
+      prevUserRef.current = user;
+
+      if (isNowLoggedIn && wasLoggedOut) {
+        console.info('[PWA] Login detected. Checking installation...');
+        const installed = await checkInstallation();
+        if (!installed && !Capacitor.isNativePlatform()) {
+          const activePrompt = deferredPrompt || window.deferredPrompt;
+          if (activePrompt) {
+            try {
+              console.info('[PWA] Triggering native browser install prompt post-login...');
+              await activePrompt.prompt();
+              const { outcome } = await activePrompt.userChoice;
+              console.info(`[PWA] Direct prompt outcome: ${outcome}`);
+              setDeferredPrompt(null);
+              window.deferredPrompt = null;
+              setVisible(false);
+            } catch (err) {
+              console.warn('[PWA] Direct prompt requires user interaction, displaying card overlay:', err);
+              setVisible(true);
+            }
+          } else {
+            console.info('[PWA] Show visual guidance overlay post-login (iOS or no deferred prompt).');
+            setVisible(true);
+          }
+        }
+      }
+    };
+    handleLoginChange();
+  }, [user?.id, deferredPrompt]);
 
   const handleInstallClick = async () => {
     const activePrompt = deferredPrompt || window.deferredPrompt;
     if (activePrompt) {
       // Direct native prompt on Android/Chrome
-      activePrompt.prompt();
-      const { outcome } = await activePrompt.userChoice;
-      console.log(`[PWA] Install choice outcome: ${outcome}`);
+      try {
+        await activePrompt.prompt();
+        const { outcome } = await activePrompt.userChoice;
+        console.log(`[PWA] Install choice outcome: ${outcome}`);
+      } catch (err) {
+        console.error('[PWA] Install prompt failed:', err);
+      }
       setDeferredPrompt(null);
       window.deferredPrompt = null;
       setVisible(false);
@@ -95,7 +221,7 @@ export default function PwaInstallBanner() {
     setVisible(false);
   };
 
-  if (!visible) return null;
+  if (!visible || isInstalled) return null;
 
   return (
     <div style={styles.overlayBg}>

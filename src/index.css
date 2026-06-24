@@ -135,6 +135,14 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.2); border-radius: 999px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.35); }
+
+  /* ── PWA STANDALONE SAFE AREAS ── */
+  @media all and (display-mode: standalone) {
+    body {
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+  }
 }
 
 

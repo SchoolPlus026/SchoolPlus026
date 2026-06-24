@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
-import { X, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { X, Lock, Loader2, Eye, EyeOff, WifiOff } from 'lucide-react';
 import { ToastProvider } from './components/ToastProvider';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
@@ -98,7 +98,30 @@ import FeatureGuard from './components/FeatureGuard';
 export default function App() {
   const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
   const [isInitializing, setIsInitializing] = useState(!user);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [swUpdateReg, setSwUpdateReg] = useState(null);
   const location = useLocation();
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    const handleSWUpdate = (e) => {
+      console.log('[PWA] SW Update event received:', e.detail);
+      setSwUpdateReg(e.detail);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('sw-update-available', handleSWUpdate);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('sw-update-available', handleSWUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     // Check if URL hash or search params indicate a password recovery redirect
@@ -391,6 +414,101 @@ export default function App() {
   return (
     <ToastProvider>
       <PwaInstallBanner />
+
+      {/* Premium PWA Upgrade: SW Update Banner */}
+      <AnimatePresence>
+        {swUpdateReg && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            style={{
+              position: 'fixed',
+              top: '16px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 10002,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'between',
+              gap: '24px',
+              padding: '12px 20px',
+              background: 'rgba(15, 23, 42, 0.95)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              borderRadius: '16px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+              backdropFilter: 'blur(12px)',
+              width: '90%',
+              maxWidth: '400px',
+              color: '#e2e8f0',
+              fontFamily: 'system-ui, sans-serif'
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', flex: 1 }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc' }}>Update Available 🚀</span>
+              <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>A new version of SchoolOS+ is ready. Refresh now to apply.</span>
+            </div>
+            <button
+              onClick={() => {
+                if (swUpdateReg.waiting) {
+                  swUpdateReg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+                window.location.reload();
+              }}
+              style={{
+                padding: '8px 14px',
+                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#fff',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 12px rgba(99,102,241,0.2)'
+              }}
+            >
+              Refresh
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Premium PWA Upgrade: Offline Status Indicator */}
+      <AnimatePresence>
+        {isOffline && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              zIndex: 10001,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '12px 16px',
+              background: 'rgba(127, 29, 29, 0.95)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '16px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(12px)',
+              color: '#fee2e2',
+              maxWidth: '320px',
+              fontFamily: 'system-ui, sans-serif'
+            }}
+          >
+            <WifiOff size={18} style={{ color: '#f87171', flexShrink: 0 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#fef2f2' }}>Offline Mode</span>
+              <span style={{ fontSize: '11px', color: '#fca5a5', marginTop: '2px', lineHeight: 1.3 }}>Connection lost. Operating on cached local data.</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* VersionChecker: runs once on launch for all native authenticated sessions.
           Renders null on web. Must be outside <Routes> so it isn't unmounted
           on route transitions. */}

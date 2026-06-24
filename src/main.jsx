@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import './index.css';
+import { Capacitor } from '@capacitor/core';
 
 // Create a client for TanStack React Query
 const queryClient = new QueryClient({
@@ -40,15 +41,52 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
 
-// NOTE: Service Worker registration is handled exclusively by usePushNotifications.js
-// to ensure Firebase config query params are correctly injected before getToken() is called.
-// Registering here without those params would cause a race condition where a bare SW
-// (without Firebase config) activates first and blocks FCM token generation.
-
 // Request persistent storage caching sandbox
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().then(persisted => {
     console.info(`[Storage] Sandbox persistent storage granted: ${persisted}`);
+  });
+}
+
+// Register unified Service Worker immediately on startup for Web/PWA
+if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      // Clean up legacy sw.js if present
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) {
+        const script = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
+        if (script.includes('/sw.js') && !script.includes('firebase-messaging-sw')) {
+          console.info('[PWA] Unregistering legacy SW:', script);
+          await reg.unregister();
+        }
+      }
+
+      // Register the unified messaging + caching service worker
+      const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+      console.info('[PWA] Service Worker registered. Scope:', reg.scope);
+
+      // Listen for new service worker updates
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.info('[PWA] New service worker installed and waiting.');
+              window.dispatchEvent(new CustomEvent('sw-update-available', { detail: reg }));
+            }
+          });
+        }
+      });
+
+      // Check if there is already a waiting service worker on load
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        console.info('[PWA] Service worker update is already waiting.');
+        window.dispatchEvent(new CustomEvent('sw-update-available', { detail: reg }));
+      }
+    } catch (err) {
+      console.warn('[PWA] Service Worker registration failed:', err);
+    }
   });
 }
 
