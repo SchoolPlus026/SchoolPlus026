@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Smartphone, Share2, PlusSquare, ArrowRight, X, Info, Download } from 'lucide-react';
+import { Smartphone, Share2, PlusSquare, ArrowRight, X, Info, Download, Monitor } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
@@ -7,7 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 export default function PwaInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showOverlay, setShowOverlay] = useState(false);
-  const [platformInfo, setPlatformInfo] = useState({ isIOS: false, isChrome: false, isSafari: false });
+  const [platformInfo, setPlatformInfo] = useState({ isIOS: false, isChrome: false, isSafari: false, isDesktop: false });
   const [visible, setVisible] = useState(false);
   const [apkUrl, setApkUrl] = useState(null);
 
@@ -23,18 +23,17 @@ export default function PwaInstallBanner() {
       if (!lastAttempt || Date.now() - Number(lastAttempt) > cooldown) {
         const triggerNotificationPrompt = async () => {
           try {
-            console.log('[PWA] Triggering native notification permission dialog...');
-            await Notification.requestPermission();
+            console.log('[PWA] Triggering native notification permission dialog on gesture...');
+            const res = await Notification.requestPermission();
+            console.log('[PWA] Notification permission result:', res);
+            // Save the attempt time only when we actually trigger the dialog successfully
             localStorage.setItem('sp_notification_prompt_last_attempt', Date.now().toString());
           } catch (err) {
             console.warn('[PWA] Notification permission prompt failed:', err);
           }
         };
 
-        // 1. Try prompting immediately
-        triggerNotificationPrompt();
-
-        // 2. Fallback: Request on first user interaction (critical for iOS Safari)
+        // Fallback: Request on first user interaction (gesture is strictly required on modern browsers)
         const handleGesture = () => {
           if (Notification.permission === 'default') {
             triggerNotificationPrompt();
@@ -45,10 +44,12 @@ export default function PwaInstallBanner() {
         const cleanup = () => {
           window.removeEventListener('click', handleGesture);
           window.removeEventListener('touchstart', handleGesture);
+          window.removeEventListener('keydown', handleGesture);
         };
 
         window.addEventListener('click', handleGesture);
         window.addEventListener('touchstart', handleGesture);
+        window.addEventListener('keydown', handleGesture);
 
         return cleanup;
       }
@@ -104,10 +105,13 @@ export default function PwaInstallBanner() {
     // 3. Detect Platform details
     const ua = navigator.userAgent.toLowerCase();
     const isIOS = /iphone|ipad|ipod/.test(ua);
+    const isAndroid = /android/.test(ua);
+    const isMobile = isIOS || isAndroid || /mobi|webos|blackberry|iemobile|opera mini/i.test(ua);
+    const isDesktop = !isMobile;
     const isChrome = /chrome|crios/.test(ua);
     const isSafari = /safari/.test(ua) && !isChrome; // Chrome userAgent contains Safari
 
-    setPlatformInfo({ isIOS, isChrome, isSafari });
+    setPlatformInfo({ isIOS, isChrome, isSafari, isDesktop });
 
     // 4. Listen to native browser prompt event (Android / Chrome Desktop)
     const handleInstallPrompt = (e) => {
@@ -211,7 +215,7 @@ export default function PwaInstallBanner() {
       window.deferredPrompt = null;
       setVisible(false);
     } else {
-      // Show custom step-by-step visual guidance overlay on iOS
+      // Show custom step-by-step visual guidance overlay on iOS or Desktop fallback
       setShowOverlay(true);
     }
   };
@@ -227,7 +231,7 @@ export default function PwaInstallBanner() {
     <div style={styles.overlayBg}>
       <div style={styles.modalCard}>
         {/* Close Button X at Top Right */}
-        <button onClick={handleDismiss} style={styles.closeBtn} title="Close">
+        <button onClick={handleDismiss} className="pwa-btn-close" style={styles.closeBtn} title="Close">
           <X size={20} />
         </button>
 
@@ -235,7 +239,11 @@ export default function PwaInstallBanner() {
           // Main Install Choice Modal
           <div style={styles.content}>
             <div style={styles.iconContainer}>
-              <Smartphone size={32} color="#818cf8" />
+              {platformInfo.isDesktop ? (
+                <Monitor size={32} color="var(--pwa-step-num-text)" />
+              ) : (
+                <Smartphone size={32} color="var(--pwa-step-num-text)" />
+              )}
             </div>
             
             <h3 style={styles.title}>Install SchoolOS+</h3>
@@ -244,16 +252,17 @@ export default function PwaInstallBanner() {
             </p>
 
             <div style={styles.buttonGroup}>
-              <button onClick={handleInstallClick} style={styles.btnInstall}>
-                📱 Add to Home Screen (PWA)
+              <button onClick={handleInstallClick} className="pwa-btn-install" style={styles.btnInstall}>
+                {platformInfo.isDesktop ? '💻 Install App' : '📱 Add to Home Screen (PWA)'}
               </button>
               
-              {apkUrl && (
+              {!platformInfo.isDesktop && apkUrl && (
                 <a 
                   href={apkUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={handleDismiss}
+                  className="pwa-btn-apk"
                   style={styles.btnApk}
                 >
                   <Download size={15} style={{ marginRight: '6px' }} /> Download Android APK
@@ -262,36 +271,69 @@ export default function PwaInstallBanner() {
             </div>
 
             <div style={styles.footer}>
-              <Info size={14} color="#94a3b8" style={{ marginRight: '6px', flexShrink: 0 }} />
-              <span>Installs instantly without using app store account.</span>
+              <Info size={14} color="var(--pwa-text-subtitle)" style={{ marginRight: '6px', flexShrink: 0 }} />
+              <span>{platformInfo.isDesktop ? 'Installs instantly as a standalone desktop app.' : 'Installs instantly without using app store account.'}</span>
             </div>
           </div>
         ) : (
-          // iOS Onboarding Instructions Overlay
+          // Onboarding Instructions Overlay (iOS or Desktop Manual Fallback)
           <div style={styles.content}>
             <button onClick={() => setShowOverlay(false)} style={styles.backBtn}>
               ← Back
             </button>
 
             <div style={styles.overlayHeader}>
-              <Smartphone size={36} color="#818cf8" style={{ marginBottom: '10px' }} />
-              <h3 style={styles.title}>Add to Home Screen</h3>
-              <p style={styles.subtitle}>Follow these simple instructions to install SchoolOS+ on your device.</p>
+              {platformInfo.isDesktop ? (
+                <Monitor size={36} color="var(--pwa-step-num-text)" style={{ marginBottom: '10px' }} />
+              ) : (
+                <Smartphone size={36} color="var(--pwa-step-num-text)" style={{ marginBottom: '10px' }} />
+              )}
+              <h3 style={styles.title}>{platformInfo.isDesktop ? 'Install App' : 'Add to Home Screen'}</h3>
+              <p style={styles.subtitle}>
+                {platformInfo.isDesktop ? 'Follow these simple instructions to install SchoolOS+ on your PC.' : 'Follow these simple instructions to install SchoolOS+ on your device.'}
+              </p>
             </div>
 
             <div style={styles.stepsContainer}>
-              {platformInfo.isSafari ? (
+              {platformInfo.isDesktop ? (
                 <>
                   <div style={styles.stepRow}>
                     <div style={styles.stepNum}>1</div>
                     <div style={styles.stepText}>
-                      Tap the <strong>Share</strong> button <Share2 size={16} color="#818cf8" style={{ display: 'inline', margin: '0 4px', verticalAlign: 'text-bottom' }} /> in Safari's bottom toolbar.
+                      Click the <strong>Install</strong> icon (monitor with down arrow or <strong>+</strong> sign) in the right side of your browser's address bar.
                     </div>
                   </div>
                   <div style={styles.stepRow}>
                     <div style={styles.stepNum}>2</div>
                     <div style={styles.stepText}>
-                      Scroll down and tap <strong>Add to Home Screen</strong> <PlusSquare size={16} color="#818cf8" style={{ display: 'inline', margin: '0 4px', verticalAlign: 'text-bottom' }} />.
+                      Or click the browser's <strong>Options</strong> menu (three dots or lines) and select <strong>Save and share</strong> &rarr; <strong>Install page</strong> (or <strong>Install SchoolOS+</strong>).
+                    </div>
+                  </div>
+                  <div style={styles.stepRow}>
+                    <div style={styles.stepNum}>3</div>
+                    <div style={styles.stepText}>
+                      Confirm the installation in the browser popup. The app will launch as a standalone desktop window!
+                    </div>
+                  </div>
+                </>
+              ) : platformInfo.isSafari ? (
+                <>
+                  <div style={styles.stepRow}>
+                    <div style={styles.stepNum}>1</div>
+                    <div style={styles.stepText}>
+                      Tap the <strong>Share</strong> button <Share2 size={16} color="var(--pwa-step-num-text)" style={{ display: 'inline', margin: '0 4px', verticalAlign: 'text-bottom' }} /> in Safari's bottom toolbar.
+                    </div>
+                  </div>
+                  <div style={styles.stepRow}>
+                    <div style={styles.stepNum}>2</div>
+                    <div style={styles.stepText}>
+                      Scroll down and tap <strong>Add to Home Screen</strong> <PlusSquare size={16} color="var(--pwa-step-num-text)" style={{ display: 'inline', margin: '0 4px', verticalAlign: 'text-bottom' }} />.
+                    </div>
+                  </div>
+                  <div style={styles.stepRow}>
+                    <div style={styles.stepNum}>3</div>
+                    <div style={styles.stepText}>
+                      Tap <strong>Add</strong> in the top-right corner. The app icon will appear on your home screen!
                     </div>
                   </div>
                 </>
@@ -309,24 +351,58 @@ export default function PwaInstallBanner() {
                       Tap <strong>Add to Home Screen</strong> or <strong>Install App</strong>.
                     </div>
                   </div>
+                  <div style={styles.stepRow}>
+                    <div style={styles.stepNum}>3</div>
+                    <div style={styles.stepText}>
+                      Tap <strong>Add</strong> in the top-right corner. The app icon will appear on your home screen!
+                    </div>
+                  </div>
                 </>
               )}
-              <div style={styles.stepRow}>
-                <div style={styles.stepNum}>3</div>
-                <div style={styles.stepText}>
-                  Tap <strong>Add</strong> in the top-right corner. The app icon will appear on your home screen!
-                </div>
-              </div>
             </div>
 
             <div style={styles.footer}>
-              <Info size={14} color="#94a3b8" style={{ marginRight: '6px', flexShrink: 0 }} />
-              <span>Runs as a standalone fullscreen native app.</span>
+              <Info size={14} color="var(--pwa-text-subtitle)" style={{ marginRight: '6px', flexShrink: 0 }} />
+              <span>{platformInfo.isDesktop ? 'Runs as a standalone desktop application.' : 'Runs as a standalone fullscreen native app.'}</span>
             </div>
           </div>
         )}
       </div>
       <style>{`
+        /* ── PWA THEME VARIABLES ── */
+        :root, [data-theme="dark"], html.dark {
+          --pwa-overlay-bg: rgba(5, 5, 10, 0.75);
+          --pwa-card-bg: linear-gradient(135deg, #101026, #070714);
+          --pwa-card-border: rgba(99, 102, 241, 0.3);
+          --pwa-text-title: #f8fafc;
+          --pwa-text-subtitle: #94a3b8;
+          --pwa-text-step: #cbd5e1;
+          --pwa-close-btn-bg: rgba(255, 255, 255, 0.03);
+          --pwa-close-btn-border: rgba(255, 255, 255, 0.08);
+          --pwa-footer-bg: rgba(15, 23, 42, 0.3);
+          --pwa-footer-border: rgba(255, 255, 255, 0.04);
+          --pwa-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+          --pwa-step-num-bg: rgba(99, 102, 241, 0.15);
+          --pwa-step-num-border: rgba(99, 102, 241, 0.3);
+          --pwa-step-num-text: #818cf8;
+        }
+        [data-theme="light"], html.light {
+          --pwa-overlay-bg: rgba(244, 247, 251, 0.75);
+          --pwa-card-bg: linear-gradient(135deg, #ffffff, #f1f5f9);
+          --pwa-card-border: rgba(99, 102, 241, 0.25);
+          --pwa-text-title: #0f172a;
+          --pwa-text-subtitle: #475569;
+          --pwa-text-step: #334155;
+          --pwa-close-btn-bg: rgba(0, 0, 0, 0.03);
+          --pwa-close-btn-border: rgba(0, 0, 0, 0.08);
+          --pwa-footer-bg: rgba(226, 232, 240, 0.4);
+          --pwa-footer-border: rgba(0, 0, 0, 0.04);
+          --pwa-shadow: 0 20px 50px rgba(99, 102, 241, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+          --pwa-step-num-bg: rgba(79, 70, 229, 0.08);
+          --pwa-step-num-border: rgba(79, 70, 229, 0.2);
+          --pwa-step-num-text: #4f46e5;
+        }
+
         @keyframes pwaFadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -334,6 +410,21 @@ export default function PwaInstallBanner() {
         @keyframes pwaZoomIn {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
+        }
+        .pwa-btn-install:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45) !important;
+          filter: brightness(1.1);
+        }
+        .pwa-btn-apk:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4) !important;
+          filter: brightness(1.1);
+        }
+        .pwa-btn-close:hover {
+          background: var(--pwa-close-btn-border) !important;
+          color: var(--pwa-text-title) !important;
+          transform: rotate(90deg);
         }
       `}</style>
     </div>
@@ -347,7 +438,7 @@ const styles = {
     left: 0,
     width: '100vw',
     height: '100vh',
-    background: 'rgba(5, 5, 10, 0.75)',
+    background: 'var(--pwa-overlay-bg)',
     backdropFilter: 'blur(10px)',
     WebkitBackdropFilter: 'blur(10px)',
     zIndex: 10000,
@@ -361,11 +452,11 @@ const styles = {
   modalCard: {
     width: '100%',
     maxWidth: '420px',
-    background: 'linear-gradient(135deg, #101026, #070714)',
-    border: '1px solid rgba(99, 102, 241, 0.3)',
+    background: 'var(--pwa-card-bg)',
+    border: '1px solid var(--pwa-card-border)',
     borderRadius: '24px',
     padding: '28px',
-    boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
+    boxShadow: 'var(--pwa-shadow)',
     position: 'relative',
     animation: 'pwaZoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
     boxSizing: 'border-box',
@@ -374,21 +465,21 @@ const styles = {
     position: 'absolute',
     top: '16px',
     right: '16px',
-    background: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    color: '#94a3b8',
+    background: 'var(--pwa-close-btn-bg)',
+    border: '1px solid var(--pwa-close-btn-border)',
+    color: 'var(--pwa-text-subtitle)',
     cursor: 'pointer',
     padding: '6px',
     borderRadius: '50%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'all 0.2s ease',
+    transition: 'all 0.3s ease',
   },
   backBtn: {
     background: 'none',
     border: 'none',
-    color: '#818cf8',
+    color: 'var(--pwa-step-num-text)',
     cursor: 'pointer',
     fontSize: '13px',
     fontWeight: 700,
@@ -407,8 +498,8 @@ const styles = {
     width: '64px',
     height: '64px',
     borderRadius: '16px',
-    background: 'rgba(99, 102, 241, 0.1)',
-    border: '1px solid rgba(99, 102, 241, 0.2)',
+    background: 'var(--pwa-step-num-bg)',
+    border: '1px solid var(--pwa-step-num-border)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -417,13 +508,13 @@ const styles = {
   title: {
     fontSize: '20px',
     fontWeight: 900,
-    color: '#f8fafc',
+    color: 'var(--pwa-text-title)',
     margin: '0 0 8px 0',
     letterSpacing: '-0.02em',
   },
   subtitle: {
     fontSize: '13px',
-    color: '#94a3b8',
+    color: 'var(--pwa-text-subtitle)',
     margin: '0 0 24px 0',
     lineHeight: 1.5,
   },
@@ -450,29 +541,30 @@ const styles = {
     boxShadow: '0 6px 20px rgba(99, 102, 241, 0.3)',
   },
   btnApk: {
-    background: 'rgba(255, 255, 255, 0.03)',
-    color: '#f1f5f9',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    background: 'linear-gradient(135deg, #059669, #10b981)',
+    color: '#ffffff',
+    border: 'none',
     borderRadius: '12px',
     padding: '14px',
     fontSize: '13px',
-    fontWeight: 700,
+    fontWeight: 800,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     textDecoration: 'none',
     transition: 'all 0.2s ease',
+    boxShadow: '0 6px 20px rgba(16, 185, 129, 0.25)',
   },
   footer: {
     display: 'flex',
     alignItems: 'center',
-    background: 'rgba(15, 23, 42, 0.3)',
-    border: '1px solid rgba(255, 255, 255, 0.04)',
+    background: 'var(--pwa-footer-bg)',
+    border: '1px solid var(--pwa-footer-border)',
     borderRadius: '12px',
     padding: '10px 14px',
     fontSize: '11px',
-    color: '#94a3b8',
+    color: 'var(--pwa-text-subtitle)',
     lineHeight: 1.4,
     width: '100%',
     boxSizing: 'border-box',
@@ -498,9 +590,9 @@ const styles = {
     width: '22px',
     height: '22px',
     borderRadius: '50%',
-    background: 'rgba(99, 102, 241, 0.15)',
-    border: '1px solid rgba(99, 102, 241, 0.3)',
-    color: '#818cf8',
+    background: 'var(--pwa-step-num-bg)',
+    border: '1px solid var(--pwa-step-num-border)',
+    color: 'var(--pwa-step-num-text)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -510,7 +602,7 @@ const styles = {
   },
   stepText: {
     fontSize: '12.5px',
-    color: '#cbd5e1',
+    color: 'var(--pwa-text-step)',
     lineHeight: 1.45,
   },
 };
