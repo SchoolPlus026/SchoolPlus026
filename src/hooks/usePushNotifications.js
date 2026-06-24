@@ -168,9 +168,19 @@ export function usePushNotifications() {
           // 1. Browser support
           if (!await isSupported()) { console.warn('[FCM] Web push not supported.'); return; }
 
-          // 2. Env vars
-          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
-          const apiKey   = import.meta.env.VITE_FIREBASE_API_KEY   || '';
+          // 2. Env vars & runtime override/sanitization
+          let vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || 'BOJq70SnnyvEHERZkXN7H7CdMaIDc9bvPeUp0zDfLeFmAz4N8gOIBqWCAzrgxsuqsI3xhU70oXnw1JYWNpC18gU';
+          const apiKey = import.meta.env.VITE_FIREBASE_API_KEY   || 'AIzaSyC55RFbFqAC-lWaohoIdiaFODrADwkXROY';
+
+          // Overcome common OCR-corrupted VAPID keys (e.g., 'O' instead of '0', 'l' instead of 'I')
+          const VERIFIED_VAPID_KEY = 'BOJq70SnnyvEHERZkXN7H7CdMaIDc9bvPeUp0zDfLeFmAz4N8gOIBqWCAzrgxsuqsI3xhU70oXnw1JYWNpC18gU';
+          if (vapidKey && vapidKey !== VERIFIED_VAPID_KEY) {
+            if (vapidKey.includes('BOJq7OS') || vapidKey.includes('MalDc') || vapidKey.includes('OoXnw')) {
+              console.warn('[FCM] ⚠️ Correcting corrupted OCR VAPID key in environment variables to verified production key.');
+              vapidKey = VERIFIED_VAPID_KEY;
+            }
+          }
+
           if (!vapidKey || !apiKey) {
             console.error('[FCM] ❌ Missing VITE_FIREBASE_VAPID_KEY or VITE_FIREBASE_API_KEY'); return;
           }

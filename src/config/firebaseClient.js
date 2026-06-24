@@ -17,14 +17,35 @@ import { getDatabase } from 'firebase/database';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey:        import.meta.env.VITE_FIREBASE_API_KEY        || '',
-  authDomain:    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN    || '',
-  databaseURL:   import.meta.env.VITE_FIREBASE_DATABASE_URL   || '',
+  apiKey:        import.meta.env.VITE_FIREBASE_API_KEY        || 'AIzaSyC55RFbFqAC-lWaohoIdiaFODrADwkXROY',
+  authDomain:    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN    || 'schoolpro-d95a8.firebaseapp.com',
+  databaseURL:   import.meta.env.VITE_FIREBASE_DATABASE_URL   || 'https://schoolpro-d95a8-default-rtdb.asia-southeast1.firebasedatabase.app',
   projectId:     import.meta.env.VITE_FIREBASE_PROJECT_ID     || 'schoolpro-d95a8',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId:         import.meta.env.VITE_FIREBASE_APP_ID         || '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'schoolpro-d95a8.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '740866406612',
+  appId:         import.meta.env.VITE_FIREBASE_APP_ID         || '1:740866406612:web:3e22519602a53c2307a341',
 };
+
+// ─── RUNTIME CREDENTIAL SANITIZATION ─────────────────────────────────────────
+// If the app is running with mismatched credentials (e.g. legacy/wrong GitHub
+// secrets for messagingSenderId or appId), we automatically override/correct
+// them at runtime to prevent 403 PERMISSION_DENIED on the Installations API.
+if (firebaseConfig.projectId === 'schoolpro-d95a8') {
+  const EXPECTED_SENDER_ID = '740866406612';
+  const EXPECTED_APP_ID = '1:740866406612:web:3e22519602a53c2307a341';
+
+  if (firebaseConfig.messagingSenderId !== EXPECTED_SENDER_ID || firebaseConfig.appId !== EXPECTED_APP_ID) {
+    console.warn(
+      `[firebaseClient] ⚠️ DETECTED MISMATCHED FIREBASE CREDENTIALS AT RUNTIME!\n` +
+      `  - Got messagingSenderId: "${firebaseConfig.messagingSenderId}" (Expected: "${EXPECTED_SENDER_ID}")\n` +
+      `  - Got appId:             "${firebaseConfig.appId}" (Expected: "${EXPECTED_APP_ID}")\n` +
+      `  - Project ID:            "${firebaseConfig.projectId}"\n` +
+      `Automatically overriding with correct Web App credentials to prevent 403 Forbidden.`
+    );
+    firebaseConfig.messagingSenderId = EXPECTED_SENDER_ID;
+    firebaseConfig.appId = EXPECTED_APP_ID;
+  }
+}
 
 // Singleton pattern: prevent re-initialization on hot-module reload
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
