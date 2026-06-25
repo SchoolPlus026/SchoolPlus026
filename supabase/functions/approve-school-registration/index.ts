@@ -86,6 +86,56 @@ serve(async (req) => {
         .eq('id', id);
       if (updateRegErr) throw new Error(`Failed to update registration: ${updateRegErr.message}`);
 
+      // Send approval email via Brevo API
+      const brevoApiKey = Deno.env.get('BREVO_API_KEY');
+      const senderEmail = Deno.env.get('BREVO_SENDER_EMAIL') || 'schoolosplus@gmail.com';
+
+      if (brevoApiKey) {
+        try {
+          const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'accept': 'application/json',
+              'api-key': brevoApiKey,
+              'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+              sender: { name: 'SchoolOS+ Platform', email: senderEmail },
+              to: [{ email: reg.admin_email, name: reg.admin_name }],
+              subject: `School OS+ Approved: ${reg.school_name}`,
+              htmlContent: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; borderRadius: 8px;">
+                  <h2 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 10px;">Registration Approved!</h2>
+                  <p>Dear <strong>${reg.admin_name}</strong>,</p>
+                  <p>We are excited to inform you that your registration for <strong>${reg.school_name}</strong> has been approved by the Platform Administrator.</p>
+                  <div style="background-color: #f3f4f6; padding: 15px; borderRadius: 6px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #1f2937;">Your Account Details:</h3>
+                    <p style="margin: 5px 0;"><strong>School Code:</strong> ${reg.school_code}</p>
+                    <p style="margin: 5px 0;"><strong>Username:</strong> ${reg.admin_username}</p>
+                    <p style="margin: 5px 0;"><strong>Status:</strong> Active</p>
+                  </div>
+                  <p>You can now log in to the School OS+ dashboard and begin configuring your school environment.</p>
+                  <p style="text-align: center; margin: 30px 0;">
+                    <a href="https://schoolosplus.com/login" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; borderRadius: 6px; font-weight: bold;">Go to Login Portal</a>
+                  </p>
+                  <p>If you have any questions, please contact our support team.</p>
+                  <br/>
+                  <p>Best regards,<br/><strong>SchoolOS+ Team</strong></p>
+                </div>
+              `
+            })
+          });
+
+          if (!emailResponse.ok) {
+            console.error('Failed to send approval email via Brevo:', await emailResponse.text());
+          }
+        } catch (e) {
+          console.error('Error triggering Brevo email:', e);
+        }
+      } else {
+        console.warn('BREVO_API_KEY is not configured in Supabase Secrets. Skipping approval email.');
+      }
+
       return new Response(JSON.stringify({ success: true, message: 'School approved and activated.' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

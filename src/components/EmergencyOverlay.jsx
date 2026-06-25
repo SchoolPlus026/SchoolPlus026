@@ -84,39 +84,14 @@ export default function EmergencyOverlay() {
 
     fetchActiveAlerts();
 
-    // 1. Subscribe to Firebase RTDB changes (Premium only)
-    let unsubscribeFirebase = null;
-    if (!isFree && rtdb) {
-      const alertUpdateRef = ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`);
-      unsubscribeFirebase = onValue(alertUpdateRef, (snapshot) => {
-        fetchActiveAlerts();
-      });
-    }
-
-    // 2. Subscribe to foreground Capacitor Push event (Free & Premium)
+    // Subscribe to foreground Capacitor Push event (Free & Premium)
     const handlePushReceived = () => {
       fetchActiveAlerts();
     };
     window.addEventListener('sp-push-received', handlePushReceived);
 
-    // 3. Subscribe to Supabase Realtime changes (Free & Premium / Web & Native)
-    const channel = supabase
-      .channel('emergency-alerts-realtime')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'emergency_alerts',
-        filter: `school_id=eq.${schoolSettings.school_id}`
-      }, (payload) => {
-        console.info('[EmergencyOverlay] Realtime event received:', payload);
-        fetchActiveAlerts();
-      })
-      .subscribe();
-
     return () => {
-      if (unsubscribeFirebase) unsubscribeFirebase();
       window.removeEventListener('sp-push-received', handlePushReceived);
-      supabase.removeChannel(channel);
     };
   }, [schoolSettings?.school_id, user, role, isFree]);
 

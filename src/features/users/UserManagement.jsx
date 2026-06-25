@@ -208,12 +208,36 @@ export default function UserManagement() {
         }
       }
 
-      return data;
+      return {
+        id: data,
+        email: f.email,
+        username: f.username,
+        name: f.name,
+        password: f.password,
+        role: activeTab === 'staff' ? 'staff' : activeTab
+      };
     },
-    onSuccess: () => {
+    onSuccess: (createdUser) => {
       queryClient.invalidateQueries({ queryKey: ['users-list'] });
       queryClient.invalidateQueries({ queryKey: ['bus-assignments-admin'] });
       setIsAddModalOpen(false);
+
+      // Trigger welcome email Deno Edge Function if NOT a student
+      if (createdUser && createdUser.role !== 'student' && createdUser.email) {
+        supabase.functions.invoke('send-welcome-email', {
+          body: {
+            email: createdUser.email,
+            name: createdUser.name,
+            username: createdUser.username,
+            password: createdUser.password,
+            role: createdUser.role,
+            schoolName: schoolSettings.name
+          }
+        }).catch(err => {
+          console.error('Failed to trigger welcome email:', err);
+        });
+      }
+
       setAddForm({ email: '', username: '', name: '', password: '', contact: '', userClass: '', dob: '', bloodGroup: '', address: '', designation: '', qualification: '', aadharCard: '' });
       setBusAlloc({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
       alert('User created successfully!');

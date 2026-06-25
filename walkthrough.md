@@ -136,3 +136,47 @@ We have implemented further security controls and user experience refinements ac
   Configured strict client-side rate limits (max 2 resets per day, 5 per week) by storing request timestamps in `localStorage`. The Reset Password via Email screen (`step === 64`) now visually displays the user's remaining quota, shows explicit block warnings, and disables input/buttons once limits are reached.
 - **Platform Admin Settings Password Change (`PlatformAdminDashboard.jsx`):**
   Added a fully functioning **Change Password** section inside the Platform Admin Settings tab, resolving the issue where Platform Admins had no settings card to change their current password. It checks the admin's current password via `signInWithPassword` before updating to a new password.
+
+---
+
+## Phase 4: Free-Tier Scaling, Core Email Rules, and UX Safety
+
+I have successfully completed Phase 4 including email rule updates, Platform Admin feature access controls, username recovery, notification sweepers, and real-time reductions.
+
+### 1. Database Migrations
+- **Created [v105_auth_email_and_sweeper_updates.sql](file:///c:/Users/Icon/Downloads/new%20school%20app/database/v105_auth_email_and_sweeper_updates.sql):**
+  - **`student_emails_enabled`:** Column added to `public.school_settings` (default FALSE) to let Platform Admins toggle recovery email services for students on a per-school basis.
+  - **`password_reset_logs`:** Logging table created to record password reset requests.
+  - **`request_password_reset_email`:** Updated the RPC to block student password resets unless enabled via `student_emails_enabled`. It also enforces a strict 24-hour rate limit (max 1 reset per day) for teachers in Free plan schools.
+  - **`retrieve_username_by_email`:** Added a security-definer RPC that resolves a username using a verified recovery email and contact number, returning the username and school settings context if permitted.
+  - **`notification-smart-sweeper`:** Rescheduled the daily cron task to **strictly** delete only notification tables (`public.notifications` and `public.app_notifications_queue`) older than 3 months (Free schools) or 6 months (Premium schools).
+
+### 2. Custom Transactional Emails (Brevo API)
+- **Welcome Email Trigger (`UserManagement.jsx`):**
+  - Configured `createUserMutation` to capture the credentials of newly created accounts.
+  - If the role is NOT `'student'` (i.e. admin, teacher, staff, driver), it calls the `send-welcome-email` Deno Edge function to automatically dispatch a welcome invite with their username and temporary password.
+  - If the role is `'student'`, welcome emails are skipped entirely.
+- **School Approval Notification (`approve-school-registration/index.ts`):**
+  - Injected Brevo API integration when a Platform Admin approves a registration. An approval email containing credentials and portal links is sent to the school's admin email.
+- **New Edge Functions:**
+  - **[send-welcome-email](file:///c:/Users/Icon/Downloads/new%20school%20app/supabase/functions/send-welcome-email/index.ts):** Deno service dispatcher calling the Brevo SMTP API to send temporary credentials to staff.
+  - **[send-username-email](file:///c:/Users/Icon/Downloads/new%20school%20app/supabase/functions/send-username-email/index.ts):** Deno service dispatcher calling the Brevo SMTP API to send username recovery emails.
+
+### 3. Platform Admin feature overrides
+- **Feature Access Manager (`FeatureAccessManager.jsx`):**
+  - Rendered a gorgeous, glassmorphic toggle card labeled **Student Recovery Emails** in the school customizer panel.
+  - Toggling this card updates `student_emails_enabled` in `public.school_settings` when saving overrides, giving the Platform Admin full control over student email recovery.
+
+### 4. Username Email Recovery Flow
+- **Forgot Username (`Login.jsx`):**
+  - Added a **Send Username to Email** option inside the username recovery MethodPicker (step 5).
+  - Clicking this opens step 54, a form requesting the registered email and contact number. On submit, it verifies permissions via the `retrieve_username_by_email` RPC and invokes `send-username-email` to safely dispatch their username.
+
+### 5. Realtime Reduction & Jitter Controls
+- **Emergency Overlay (`EmergencyOverlay.jsx`):**
+  - Removed persistent Supabase Realtime channel subscriptions and Firebase RTDB listeners. The component loads alerts on mount and updates upon receiving foreground push event triggers (`sp-push-received`), dropping connection overhead to 0.
+- **Off Classes (`OffClasses.jsx`):**
+  - Removed substitutions table postgres_changes Realtime channels. It now uses adaptive polling: Premium plan schools poll every 60 seconds (disabled at night), while Free plan schools use mount-time loading and manual pull-to-refresh.
+- **Bus Tracking Jitter (`BusAlerts.jsx`):**
+  - Added a random delay (jitter) of `100ms - 500ms` before reverse-geocoding calls to OpenStreetMap Nominatim. This spreads out API requests and prevents rate-limit blocks when multiple drivers start their shifts simultaneously.
+

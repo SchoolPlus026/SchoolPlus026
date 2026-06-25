@@ -269,7 +269,11 @@ export default function BusAlerts() {
 
   // ─── Reverse geocode ────────────────────────────────────────────────────
   const reverseGeocode = useCallback(async (lat, lng) => {
-    console.log(`[Geocode] requesting for ${lat}, ${lng}`);
+    // Add a random delay (jitter) between 100ms and 500ms to prevent concurrent Nominatim calls
+    const jitter = Math.floor(Math.random() * 400) + 100;
+    await new Promise(resolve => setTimeout(resolve, jitter));
+
+    console.log(`[Geocode] requesting for ${lat}, ${lng} after ${jitter}ms jitter`);
     try {
       // zoom=18 = street/building level (max granularity for Nominatim)
       const res = await fetch(

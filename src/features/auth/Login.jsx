@@ -53,6 +53,7 @@ export default function Login() {
   const [recoveryContact, setRecoveryContact] = useState('');
   const [recoveryDob, setRecoveryDob] = useState('');
   const [recoveryPassword, setRecoveryPassword] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
 
   // Q&A Wizard states
   const [qaSessionId, setQaSessionId] = useState('');
@@ -441,6 +442,56 @@ export default function Login() {
       setStep(52);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleRecoverUsernameByEmail = async (e) => {
+    e.preventDefault();
+    if (!recoveryEmail.trim() || !recoveryContact.trim()) {
+      setError('Please provide both your recovery email and contact number.');
+      return;
+    }
+    setForgotLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const { data, error: rpcError } = await supabase
+        .rpc('retrieve_username_by_email', { 
+          p_email: recoveryEmail.trim(), 
+          p_contact: recoveryContact.trim() 
+        });
+
+      if (rpcError) throw rpcError;
+      if (!data || data.length === 0) {
+        throw new Error('No account matches the provided email and contact number.');
+      }
+
+      const match = data[0];
+
+      if (match.role === 'student' && !match.student_emails_enabled) {
+        throw new Error('Username recovery via email is disabled for students at your school. Please ask your class teacher for assistance.');
+      }
+
+      const { error: edgeError } = await supabase.functions.invoke('send-username-email', {
+        body: {
+          email: recoveryEmail.trim(),
+          name: match.name,
+          username: match.username,
+          schoolName: match.school_name
+        }
+      });
+
+      if (edgeError) throw edgeError;
+
+      setSuccess(`Your username has been sent to your verified recovery email: ${maskEmail(recoveryEmail)}`);
+      setTimeout(() => {
+        setSuccess('');
+        setStep(3);
+      }, 5000);
+    } catch (err) {
+      setError(err.message || 'Failed to recover username.');
     } finally {
       setForgotLoading(false);
     }
@@ -1279,8 +1330,11 @@ export default function Login() {
             <MethodPicker
               onQuestions={() => setStep(51)}
               onPin={() => setStep(53)}
+              onEmail={() => setStep(54)}
+              showEmail={true}
               questionLabel="Answer 5 Identity Questions"
               pinLabel="Use My 6-Digit Recovery PIN (Quick)"
+              emailLabel="Send Username to Email"
             />
           </div>
         )}
@@ -1371,6 +1425,29 @@ export default function Login() {
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Find My Username'}
             </button>
           </form>
+        )}
+
+        {/* ── 54. Forgot Username — Email form ─────────── */}
+        {step === 54 && (
+          <div className="fade-in space-y-4">
+            <button type="button" onClick={() => setStep(5)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              <ArrowLeft size={12} /> Back
+            </button>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Recover Username (Email)</h3>
+            <form onSubmit={handleRecoverUsernameByEmail} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Registered Email</label>
+                <input type="email" required value={recoveryEmail} onChange={e => setRecoveryEmail(e.target.value)} className="sp-input" placeholder="Enter registered email" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Contact Number</label>
+                <input type="tel" required value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Registered contact number" />
+              </div>
+              <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
+                {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Username'}
+              </button>
+            </form>
+          </div>
         )}
 
         {/* ── 6. Forgot Password — method picker ─────────── */}

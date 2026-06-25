@@ -41,6 +41,7 @@ export default function FeatureAccessManager() {
   const [schoolLockedList, setSchoolLockedList] = useState([]);
   const [savingSchoolOverride, setSavingSchoolOverride] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [studentEmailsEnabled, setStudentEmailsEnabled] = useState(false);
   
   // Migration missing error warning
   const [migrationWarning, setMigrationWarning] = useState(false);
@@ -91,12 +92,14 @@ export default function FeatureAccessManager() {
     if (!selectedSchoolId) {
       setSelectedSchool(null);
       setSchoolLockedList([]);
+      setStudentEmailsEnabled(false);
       return;
     }
     const school = schools.find(s => s.school_id === selectedSchoolId);
     if (school) {
       setSelectedSchool(school);
       setSchoolLockedList(Array.isArray(school.locked_modules) ? school.locked_modules : []);
+      setStudentEmailsEnabled(!!school.student_emails_enabled);
     }
   }, [selectedSchoolId, schools]);
 
@@ -181,16 +184,21 @@ export default function FeatureAccessManager() {
     setSavingSchoolOverride(true);
     try {
       const { error } = await supabase.from('school_settings')
-        .update({ locked_modules: schoolLockedList })
+        .update({ 
+          locked_modules: schoolLockedList,
+          student_emails_enabled: studentEmailsEnabled
+        })
         .eq('school_id', selectedSchool.school_id);
       
       if (error) throw error;
       
-      alert(`Successfully updated module access overrides for "${selectedSchool.name}"!`);
+      alert(`Successfully updated overrides for "${selectedSchool.name}"!`);
       
       // Update local schools array so selection state is updated
       setSchools(prev => prev.map(s => 
-        s.school_id === selectedSchool.school_id ? { ...s, locked_modules: schoolLockedList } : s
+        s.school_id === selectedSchool.school_id 
+          ? { ...s, locked_modules: schoolLockedList, student_emails_enabled: studentEmailsEnabled } 
+          : s
       ));
     } catch (err) {
       console.error('Error saving override:', err);
@@ -614,6 +622,49 @@ export default function FeatureAccessManager() {
                     This school is on the <strong>{selectedSchool.plan_type || selectedSchool.subscription_tier}</strong> plan. Locks only enforce behavior for schools on the <strong>Free</strong> plan.
                   </div>
                 )}
+
+                {/* Student Email Services Activation Toggle */}
+                <div style={{
+                  padding: '16px 20px',
+                  borderRadius: '14px',
+                  background: 'rgba(99,102,241,0.06)',
+                  border: '1px solid rgba(99,102,241,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  marginBottom: '16px',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 850, fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      📨 Student Recovery Emails
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.3 }}>
+                      Allow students of this school to request password recovery links via email (Normally blocked to save Brevo SMTP quota).
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStudentEmailsEnabled(prev => !prev)}
+                    style={{
+                      width: '46px', height: '24px', borderRadius: '999px', flexShrink: 0,
+                      background: studentEmailsEnabled ? '#10b981' : '#334155',
+                      border: 'none',
+                      position: 'relative', cursor: 'pointer',
+                      transition: 'all 0.25s ease',
+                      display: 'flex', alignItems: 'center',
+                      padding: '0 3px',
+                    }}
+                  >
+                    <span style={{
+                      width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                      transform: studentEmailsEnabled ? 'translateX(22px)' : 'translateX(0)',
+                      transition: 'transform 0.25s ease',
+                      display: 'block',
+                    }} />
+                  </button>
+                </div>
 
                 {/* Overrides checklist */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>

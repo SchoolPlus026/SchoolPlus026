@@ -5,6 +5,8 @@ import {
   AlertTriangle, Loader2, UserX, UserCheck, Clock, Bell,
   CheckCircle2, RefreshCw, Zap, ShieldAlert, X, ThumbsUp, ThumbsDown
 } from 'lucide-react';
+import { usePlan } from '../../hooks/usePlan';
+import { isNightTime } from '../../hooks/useTieredCache';
 
 // ─── Attendance JSONB Decode Codec (v82_attendance_jsonb_compression) ───
 const STATUS_DECODE = { P: 'Present', A: 'Absent', L: 'Late', H: 'Half_day', V: 'Leave' };
@@ -198,20 +200,26 @@ export default function OffClasses() {
     loadData();
   }, [loadData, isAdmin, isTeacher]);
 
-  // ── Realtime: substitutions table → refresh on any change ────────────
+  const { isFree } = usePlan();
+
+  // ── Polling: substitutions table → adaptive REST polling instead of realtime ──
   useEffect(() => {
     if (!schoolSettings?.school_id) return;
-    const channel = supabase
-      .channel('off-classes-substitutions-realtime')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'substitutions',
-        filter: `school_id=eq.${schoolSettings.school_id}`
-      }, () => { loadData(); })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [schoolSettings?.school_id, loadData]);
+
+    // Premium plan during daytime: Poll every 60 seconds
+    const nightTime = isNightTime();
+    let intervalId = null;
+
+    if (!isFree && !nightTime) {
+      intervalId = setInterval(() => {
+        loadData();
+      }, 60000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [schoolSettings?.school_id, loadData, isFree]);
 
   // ── Admin: assign a substitute ────────────────────────────────────────
   const assignSubstitute = async (absentPeriod, substituteTeacherId, assignedBy = 'admin') => {
