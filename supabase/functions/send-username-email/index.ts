@@ -19,6 +19,7 @@ serve(async (req) => {
 
     const brevoApiKey = Deno.env.get('BREVO_API_KEY');
     const senderEmail = Deno.env.get('BREVO_SENDER_EMAIL') || 'schoolosplus@gmail.com';
+    const appFrontendUrl = Deno.env.get('APP_FRONTEND_URL') || 'https://schoolpro-d95a8.web.app';
 
     if (!brevoApiKey) {
       return new Response(JSON.stringify({ 
@@ -52,7 +53,7 @@ serve(async (req) => {
             </div>
             
             <p style="text-align: center; margin: 30px 0;">
-              <a href="https://schoolosplus.com/login" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; borderRadius: 6px; font-weight: bold;">Go to Login Portal</a>
+              <a href="${appFrontendUrl}/login" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; borderRadius: 6px; font-weight: bold;">Go to Login Portal</a>
             </p>
             
             <p>If you did not request this recovery, you can safely ignore this email.</p>
