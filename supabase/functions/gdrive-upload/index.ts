@@ -36,7 +36,7 @@ serve(async (req) => {
   try {
     const bodyText = await req.text();
     const body = bodyText ? JSON.parse(bodyText) : {};
-    const { action, driveIndex, school_id } = body;
+    const { action, driveIndex, school_id, uploadToPlatformAdminDrive } = body;
     
     if (!action) throw new Error('Action is required')
 
@@ -69,7 +69,7 @@ serve(async (req) => {
 
     let targetDrive: any
 
-    if (isPlatformAdmin) {
+    if (isPlatformAdmin || uploadToPlatformAdminDrive) {
       // Platform Admin: read from platform_settings.pa_gdrive_config
       const { data: platData } = await supabaseAdmin
         .from('platform_settings')

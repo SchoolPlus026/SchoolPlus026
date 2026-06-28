@@ -13,6 +13,7 @@ import { Browser } from '@capacitor/browser';
 import Login from './features/auth/Login';
 import RegisterSchool from './features/auth/RegisterSchool';
 import ResetPassword from './features/auth/ResetPassword';
+import RegisterVerify from './features/auth/RegisterVerify';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationProvider from './components/NotificationProvider';
 import VersionChecker from './components/VersionChecker';
@@ -408,6 +409,7 @@ export default function App() {
     if (role === 'platform_admin') return '/platform-admin';
     if (role === 'driver') return '/driver';
     if (role === 'staff') return '/staff';
+    if (role === 'hm') return '/admin';
     return `/${role}`;
   };
 
@@ -526,9 +528,10 @@ export default function App() {
       <Route path="/login" element={user ? <Navigate to={getRoleRoute(role)} replace /> : <Login />} />
       <Route path="/register" element={<RegisterSchool />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/register-verify" element={<RegisterVerify />} />
 
       {/* ──────────────── ADMIN ──────────────── */}
-      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+      <Route element={<ProtectedRoute allowedRoles={['admin', 'hm']} />}>
         <Route path="/admin" element={<NotificationProvider><AdminLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard"     element={<AdminDashboard />} />

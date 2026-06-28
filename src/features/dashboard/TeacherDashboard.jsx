@@ -14,6 +14,10 @@ import PendingBanner from '../../components/PendingBanner';
 import ModuleGuard from '../../components/ModuleGuard';
 import TeacherDutyBanner from '../attendance/TeacherDutyBanner';
 import FeatureGuard from '../../components/FeatureGuard';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../config/supabaseClient';
+import { ArrowRight } from 'lucide-react';
+
 
 // Exact legacy module list for Teacher role:
 // My Profile, Mark My Attendance, Class Attendance, Timetable, Off Classes,
@@ -98,11 +102,80 @@ function ActivityModuleCard({ mod, isLocked, hasActivity, onClick }) {
   );
 }
 
+// Helper to get current date in IST
+function getISTNow() {
+  const utc = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const utcMs = utc.getTime() + utc.getTimezoneOffset() * 60 * 1000;
+  return new Date(utcMs + istOffset);
+}
+
+// Helper to parse period end time like "09:00 AM - 09:40 AM" into IST Date object
+function parsePeriodEndTimeIST(periodLabel, dateStr) {
+  if (!periodLabel) return null;
+  const parts = periodLabel.split(/-|to/i);
+  if (parts.length < 2) return null;
+  const endPart = parts[1].trim();
+  const match = endPart.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  let ampm = match[3];
+  if (!ampm) {
+    const overallAmPmMatch = periodLabel.match(/(AM|PM)/i);
+    if (overallAmPmMatch) ampm = overallAmPmMatch[1];
+  }
+  if (ampm) {
+    if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+    if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+  }
+  const d = new Date(dateStr);
+  d.setHours(hours, minutes, 0, 0);
+  return d;
+}
+
 function TeacherDashboardContent() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { isFree } = usePlan();
   const { isPending } = usePending();
+  const { schoolSettings, user } = useAppStore();
   const { data: activities = {} } = useAllModuleActivities();
+
+  // Helper to get today's date in IST format
+  const getISTTodayStr = () => {
+    const istNow = getISTNow();
+    const year = istNow.getFullYear();
+    const month = String(istNow.getMonth() + 1).padStart(2, '0');
+    const day = String(istNow.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = getISTTodayStr();
+
+  // Query for pending substitutions today
+  const { data: pendingSubs = [] } = useQuery({
+    queryKey: ['teacher-pending-substitutions', user?.id, today],
+    queryFn: async () => {
+      if (!user?.id || !schoolSettings?.school_id) return [];
+      const { data, error } = await supabase
+        .from('substitutions')
+        .select('*')
+        .eq('school_id', schoolSettings.school_id)
+        .eq('substitute_teacher_id', user.id)
+        .eq('date', today)
+        .eq('status', 'pending');
+      if (error) throw error;
+      
+      const istNow = getISTNow();
+      return (data || []).filter(sub => {
+        const endTime = parsePeriodEndTimeIST(sub.period_label, today);
+        if (!endTime) return true;
+        return istNow < endTime; // Keep only if current time has not passed period end time
+      });
+    },
+    enabled: !!user?.id && !!schoolSettings?.school_id,
+    refetchInterval: 60000,
+  });
 
   React.useEffect(() => {
     if (showUpgradeModal) {
@@ -129,6 +202,28 @@ function TeacherDashboardContent() {
         <TeacherDutyBanner />
       </FeatureGuard>
 
+      {pendingSubs.length > 0 && (
+        <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-4 mb-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 fade-in shadow-lg">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="text-indigo-400" size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-widest">New Duty Assigned</h3>
+              <p className="text-sm text-slate-300 font-semibold mt-0.5 leading-snug">
+                You have {pendingSubs.length} pending off-class substitution{pendingSubs.length > 1 ? 's' : ''} to accept today.
+              </p>
+            </div>
+          </div>
+          <Link 
+            to="/teacher/off-classes" 
+            className="flex-shrink-0 w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            Review & Accept <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
+
       <div>
         {/* Legacy exact title: "Teacher — Class Tools" */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
@@ -147,14 +242,17 @@ function TeacherDashboardContent() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '14px' }}>
           {MODULES.map((mod) => {
             const isLocked = (isFree && PREMIUM_MODULES.includes(mod.name));
-            const hasActivity = activities[mod.moduleId]?.hasActivity || false;
+            let hasActivity = activities[mod.moduleId]?.hasActivity || false;
+            if (mod.name === 'Off Classes' && pendingSubs.length > 0) {
+              hasActivity = true;
+            }
             return (
               <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
                 <ActivityModuleCard
-                  mod={mod}
-                  isLocked={isLocked}
-                  hasActivity={hasActivity}
-                  onClick={(e) => handleModuleClick(e, mod)}
+                   mod={mod}
+                   isLocked={isLocked}
+                   hasActivity={hasActivity}
+                   onClick={(e) => handleModuleClick(e, mod)}
                 />
               </ModuleGuard>
             );

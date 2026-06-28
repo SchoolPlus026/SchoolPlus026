@@ -5,6 +5,31 @@ import { AlertCircle, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
+// Helper to get current date in IST
+function getISTNow() {
+  const utc = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const utcMs = utc.getTime() + utc.getTimezoneOffset() * 60 * 1000;
+  return new Date(utcMs + istOffset);
+}
+
+// Helper to parse period start time like "09:00 AM - 09:40 AM" into IST Date object
+function parsePeriodStartTimeIST(periodLabel, dateStr) {
+  if (!periodLabel) return null;
+  const match = periodLabel.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const ampm = match[3];
+  if (ampm) {
+    if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+    if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+  }
+  const d = new Date(dateStr);
+  d.setHours(hours, minutes, 0, 0);
+  return d;
+}
+
 export default function TeacherDutyBanner() {
   const { schoolSettings, user, role } = useAppStore();
 
@@ -16,8 +41,22 @@ export default function TeacherDutyBanner() {
         p_school_id: schoolSettings.school_id
       });
       if (error) throw error;
-      // Filter down to just this teacher's periods
-      const teacherPeriods = (data || []).filter(d => d.teacher_id === user.id);
+      
+      const istNow = getISTNow();
+      const todayStr = istNow.toISOString().split('T')[0];
+      
+      // Filter down to just this teacher's periods and make sure class_name and subject_name are valid
+      const teacherPeriods = (data || []).filter(d => {
+        if (d.teacher_id !== user.id || !d.class_name || d.class_name.trim() === '' || !d.subject_name || d.subject_name.trim() === '') {
+          return false;
+        }
+        
+        // Filter out future periods (keep only those that have already started)
+        const startTime = parsePeriodStartTimeIST(d.period_label, todayStr);
+        if (startTime && istNow < startTime) return false;
+        
+        return true;
+      });
 
       // Deduplicate by class_name (keeping the 1st period by period_order)
       const uniqueClasses = {};

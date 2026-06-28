@@ -19,7 +19,8 @@ export function usePending() {
 
   const status = schoolSettings?.subscription_status || '';
   return {
-    isPending:    status === 'Pending',
-    isRejected:   status === 'Rejected',
+    isPending:               status === 'Pending',
+    isRejected:              status === 'Rejected',
+    isVerificationRequested: status === 'VerificationRequested',
   };
 }

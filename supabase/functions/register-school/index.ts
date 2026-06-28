@@ -126,7 +126,7 @@ serve(async (req) => {
         admin_email:      admin_email.trim().toLowerCase(),
         admin_phone:      admin_phone?.trim() || null,
         admin_username:   admin_username.trim().toLowerCase(),
-        admin_password:   null, // never store plaintext password
+        admin_password:   admin_password, // temporarily store to email credentials on review
         plan_type:        finalPlanType,
         terms_accepted:   true,
         status:           'pending',

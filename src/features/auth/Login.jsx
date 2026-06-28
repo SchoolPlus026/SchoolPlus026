@@ -1144,9 +1144,14 @@ export default function Login() {
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Continue <ArrowRight size={16} /></>}
               </button>
             </form>
-            <button onClick={() => setStep(4)} className="text-xs font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-wider block mt-4 text-center w-full">
-              Forgot School Code?
-            </button>
+            <div className="flex flex-col gap-2.5 mt-5">
+              <button onClick={() => setStep(4)} className="text-xs font-bold text-slate-400 hover:text-indigo-400 uppercase tracking-widest transition-colors block text-center w-full">
+                Forgot School Code?
+              </button>
+              <button onClick={() => navigate('/register')} className="text-xs font-black text-emerald-400 hover:text-emerald-300 uppercase tracking-widest transition-colors block text-center w-full">
+                Register Your School
+              </button>
+            </div>
           </div>
         )}
 

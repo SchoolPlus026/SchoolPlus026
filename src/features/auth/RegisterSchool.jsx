@@ -310,15 +310,15 @@ export default function RegisterSchool() {
               </Field>
               <Field label="School Type">
                 <select style={selectStyle} value={form.school_type} onChange={set('school_type')}>
-                  <option value="private">Private</option>
-                  <option value="government">Government</option>
-                  <option value="aided">Government-Aided</option>
+                  <option style={{ background: '#1e293b', color: '#fff' }} value="private">Private</option>
+                  <option style={{ background: '#1e293b', color: '#fff' }} value="government">Government</option>
+                  <option style={{ background: '#1e293b', color: '#fff' }} value="aided">Government-Aided</option>
                 </select>
               </Field>
               <Field label="Board / Curriculum (optional)">
                 <select style={selectStyle} value={form.board} onChange={set('board')}>
-                  <option value="">Select Board</option>
-                  {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+                  <option style={{ background: '#1e293b', color: '#fff' }} value="">Select Board</option>
+                  {BOARDS.map(b => <option key={b} style={{ background: '#1e293b', color: '#fff' }} value={b}>{b}</option>)}
                 </select>
               </Field>
               <Field label="City (optional)">
@@ -326,8 +326,8 @@ export default function RegisterSchool() {
               </Field>
               <Field label="State *">
                 <select required style={selectStyle} value={form.state} onChange={set('state')}>
-                  <option value="">Select State</option>
-                  {STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  <option style={{ background: '#1e293b', color: '#fff' }} value="">Select State</option>
+                  {STATES.map(s => <option key={s} style={{ background: '#1e293b', color: '#fff' }} value={s}>{s}</option>)}
                 </select>
               </Field>
               <div style={{ gridColumn: '1 / -1' }}>

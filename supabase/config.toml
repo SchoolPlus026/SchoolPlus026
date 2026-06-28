@@ -1,0 +1,64 @@
+# Functions requiring verify_jwt = false
+[functions.gdrive-auth]
+verify_jwt = false
+
+[functions.send-notice-notification]
+verify_jwt = false
+
+[functions.process-notification-queue]
+verify_jwt = false
+
+[functions.cron-notification-scheduler]
+verify_jwt = false
+
+[functions.notify-update]
+verify_jwt = false
+
+[functions.create-razorpay-order]
+verify_jwt = false
+
+[functions.razorpay-webhook]
+verify_jwt = false
+
+[functions.webauthn-start]
+verify_jwt = false
+
+[functions.webauthn-verify]
+verify_jwt = false
+
+[functions.hybrid-recovery-handler]
+verify_jwt = false
+
+[functions.mint-firebase-token]
+verify_jwt = false
+
+# Functions requiring verify_jwt = true
+[functions.gdrive-upload]
+verify_jwt = true
+
+[functions.platform-create-school]
+verify_jwt = true
+
+[functions.platform-delete-school]
+verify_jwt = true
+
+[functions.school-self-upgrade]
+verify_jwt = true
+
+[functions.approve-school-registration]
+verify_jwt = true
+
+[functions.admin-reset-password]
+verify_jwt = true
+
+[functions.register-school]
+verify_jwt = true
+
+[functions.verify-razorpay-payment]
+verify_jwt = true
+
+[functions.send-welcome-email]
+verify_jwt = true
+
+[functions.send-username-email]
+verify_jwt = true

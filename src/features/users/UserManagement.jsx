@@ -108,6 +108,15 @@ export default function UserManagement() {
 
   const classes = schoolSettings?.classes || [];
 
+  useEffect(() => {
+    if (isAddModalOpen || editingUser || isCreateClassModalOpen || resettingUser) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isAddModalOpen, editingUser, isCreateClassModalOpen, resettingUser]);
+
   /* ── Fetch existing bus assignments for the Bus Allocation dropdown ── */
   const { data: existingBuses = [] } = useQuery({
     queryKey: ['bus-assignments-admin', schoolSettings?.school_id],
@@ -538,7 +547,7 @@ export default function UserManagement() {
 
       {/* ── EDIT PROFILE SIDE PANEL ── */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/50 backdrop-blur-sm" onClick={() => setEditingUser(null)}>
+        <div className="fixed inset-0 z-[110] flex items-center justify-end bg-black/50 backdrop-blur-sm" onClick={() => setEditingUser(null)}>
           <div
             className="bg-white h-full w-full max-w-md shadow-2xl overflow-y-auto flex flex-col animate-in slide-in-from-right-8 duration-300"
             onClick={e => e.stopPropagation()}
@@ -612,7 +621,7 @@ export default function UserManagement() {
 
       {/* ── ADD USER MODAL ── */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[110] overflow-y-auto py-10 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-2xl shadow-2xl animate-in slide-in-from-bottom-4 relative max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-5 flex-shrink-0">
               <h3 className="text-lg font-black text-slate-800 tracking-tight">
@@ -789,7 +798,7 @@ export default function UserManagement() {
       )}
       {/* ── RESET PASSWORD MODAL ── */}
       {resettingUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
@@ -837,7 +846,7 @@ export default function UserManagement() {
 
       {/* ── CREATE CLASS MODAL ── */}
       {isCreateClassModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <form onSubmit={handleSaveClass} className="bg-white border border-border rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">

@@ -16,14 +16,19 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
 import { getAuth } from 'firebase/auth';
 
+const cleanEnvVar = (val) => {
+  if (typeof val !== 'string') return val;
+  return val.trim().replace(/^['"]|['"]$/g, '').trim();
+};
+
 const firebaseConfig = {
-  apiKey:        import.meta.env.VITE_FIREBASE_API_KEY        || 'AIzaSyC55RFbFqAC-lWaohoIdiaFODrADwkXROY',
-  authDomain:    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN    || 'schoolpro-d95a8.firebaseapp.com',
-  databaseURL:   import.meta.env.VITE_FIREBASE_DATABASE_URL   || 'https://schoolpro-d95a8-default-rtdb.asia-southeast1.firebasedatabase.app',
-  projectId:     import.meta.env.VITE_FIREBASE_PROJECT_ID     || 'schoolpro-d95a8',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'schoolpro-d95a8.firebasestorage.app',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '740866406612',
-  appId:         import.meta.env.VITE_FIREBASE_APP_ID         || '1:740866406612:web:3e22519602a53c2307a341',
+  apiKey:        cleanEnvVar(import.meta.env.VITE_FIREBASE_API_KEY)        || 'AIzaSyC55RFbFqAC-lWaohoIdiaFODrADwkXROY',
+  authDomain:    cleanEnvVar(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN)    || 'schoolpro-d95a8.firebaseapp.com',
+  databaseURL:   cleanEnvVar(import.meta.env.VITE_FIREBASE_DATABASE_URL)   || 'https://schoolpro-d95a8-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId:     cleanEnvVar(import.meta.env.VITE_FIREBASE_PROJECT_ID)     || 'schoolpro-d95a8',
+  storageBucket: cleanEnvVar(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) || 'schoolpro-d95a8.firebasestorage.app',
+  messagingSenderId: cleanEnvVar(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) || '740866406612',
+  appId:         cleanEnvVar(import.meta.env.VITE_FIREBASE_APP_ID)         || '1:740866406612:web:3e22519602a53c2307a341',
 };
 
 // ─── RUNTIME CREDENTIAL SANITIZATION ─────────────────────────────────────────

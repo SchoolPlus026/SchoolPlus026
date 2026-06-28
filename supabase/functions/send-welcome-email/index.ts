@@ -34,6 +34,9 @@ serve(async (req) => {
     // Translate role for human-friendly display
     const readableRole = role.charAt(0).toUpperCase() + role.slice(1);
 
+    const welcomeTemplateIdRaw = Deno.env.get('BREVO_WELCOME_TEMPLATE_ID');
+    const templateId = welcomeTemplateIdRaw ? parseInt(welcomeTemplateIdRaw, 10) : null;
+
     const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -41,36 +44,58 @@ serve(async (req) => {
         'api-key': brevoApiKey,
         'content-type': 'application/json'
       },
-      body: JSON.stringify({
-        sender: { name: 'SchoolOS+ Platform', email: senderEmail },
-        to: [{ email: email, name: name }],
-        subject: `Welcome to School OS+ at ${schoolName || 'Your School'}`,
-        htmlContent: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; borderRadius: 8px;">
-            <h2 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 10px;">Welcome to School OS+!</h2>
-            <p>Dear <strong>${name}</strong>,</p>
-            <p>Your staff account has been created successfully at <strong>${schoolName || 'your school'}</strong>.</p>
-            
-            <div style="background-color: #f3f4f6; padding: 15px; borderRadius: 6px; margin: 20px 0;">
-              <h3 style="margin-top: 0; color: #1f2937;">Your Credentials:</h3>
-              <p style="margin: 5px 0;"><strong>Role:</strong> ${readableRole}</p>
-              <p style="margin: 5px 0;"><strong>Username:</strong> ${username}</p>
-              <p style="margin: 5px 0;"><strong>Temporary Password:</strong> ${password}</p>
-            </div>
-            
-            <p style="color: #ef4444; font-weight: bold;">Important Security Note:</p>
-            <p>Please log in to your account and change your temporary password immediately to ensure account privacy.</p>
-            
-            <p style="text-align: center; margin: 30px 0;">
-              <a href="${appFrontendUrl}/login" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; borderRadius: 6px; font-weight: bold;">Go to Login Portal</a>
-            </p>
-            
-            <p>If you have any issues logging in, please contact your school administrator.</p>
-            <br/>
-            <p>Best regards,<br/><strong>SchoolOS+ Team</strong></p>
-          </div>
-        `
-      })
+      body: JSON.stringify(
+        templateId
+          ? {
+              templateId,
+              to: [{ email: email, name: name }],
+              params: {
+                name,
+                username,
+                password,
+                role: readableRole,
+                schoolName: schoolName || 'your school',
+                appFrontendUrl,
+                // Uppercase versions as fallback
+                NAME: name,
+                USERNAME: username,
+                PASSWORD: password,
+                ROLE: readableRole,
+                SCHOOL_NAME: schoolName || 'your school',
+                APP_FRONTEND_URL: appFrontendUrl
+              }
+            }
+          : {
+              sender: { name: 'SchoolOS+ Platform', email: senderEmail },
+              to: [{ email: email, name: name }],
+              subject: `Welcome to School OS+ at ${schoolName || 'Your School'}`,
+              htmlContent: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; borderRadius: 8px;">
+                  <h2 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 10px;">Welcome to School OS+!</h2>
+                  <p>Dear <strong>${name}</strong>,</p>
+                  <p>Your staff account has been created successfully at <strong>${schoolName || 'your school'}</strong>.</p>
+                  
+                  <div style="background-color: #f3f4f6; padding: 15px; borderRadius: 6px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #1f2937;">Your Credentials:</h3>
+                    <p style="margin: 5px 0;"><strong>Role:</strong> ${readableRole}</p>
+                    <p style="margin: 5px 0;"><strong>Username:</strong> ${username}</p>
+                    <p style="margin: 5px 0;"><strong>Temporary Password:</strong> ${password}</p>
+                  </div>
+                  
+                  <p style="color: #ef4444; font-weight: bold;">Important Security Note:</p>
+                  <p>Please log in to your account and change your temporary password immediately to ensure account privacy.</p>
+                  
+                  <p style="text-align: center; margin: 30px 0;">
+                    <a href="${appFrontendUrl}/login" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; borderRadius: 6px; font-weight: bold;">Go to Login Portal</a>
+                  </p>
+                  
+                  <p>If you have any issues logging in, please contact your school administrator.</p>
+                  <br/>
+                  <p>Best regards,<br/><strong>SchoolOS+ Team</strong></p>
+                </div>
+              `
+            }
+      )
     });
 
     if (!emailResponse.ok) {

@@ -18,7 +18,7 @@ export default function ModuleGuard({ moduleName, children, inline = false, alwa
   const activeModules = schoolSettings?.modules_active || [];
   const lockedModules = schoolSettings?.locked_modules || [];
 
-  const isAdmin = role === 'admin' || role === 'platform_admin';
+  const isAdmin = role === 'admin' || role === 'platform_admin' || role === 'hm';
   const isPlatformAdmin = role === 'platform_admin';
   const isDefault = moduleName === 'default';
 
@@ -27,7 +27,7 @@ export default function ModuleGuard({ moduleName, children, inline = false, alwa
   const isFreePlan = planType === 'free' || schoolSettings?.subscription_tier === 'Free';
   const isLockedByPlatform = isFreePlan && lockedModules.includes(moduleName);
 
-  const isEnabled = alwaysVisible || isDefault || (activeModules.includes(moduleName) && !isLockedByPlatform);
+  const isEnabled = alwaysVisible || isDefault || (activeModules.includes(moduleName) && !isLockedByPlatform) || (isAdmin && moduleName === 'settings');
 
   // ── Inline mode (dashboard cards / sidebar links) ──────────────────────────
   // Hides for everyone when module is OFF or locked by platform.
