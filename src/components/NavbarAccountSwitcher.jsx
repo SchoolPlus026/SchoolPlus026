@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
-import { Users, UserPlus, LogOut, ChevronRight, Loader2 } from 'lucide-react';
+import { Users, UserPlus, LogOut, ChevronDown, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getSavedAccounts, clearActiveSessionLocally, logoutAndRemoveAccount } from '../utils/multiAccount';
 
@@ -73,15 +73,23 @@ export default function NavbarAccountSwitcher() {
     }
   };
 
+  const activeAccount = accounts.find(a => a.user_id === user?.id);
+  const otherAccounts = accounts.filter(a => a.user_id !== user?.id);
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all flex items-center justify-center"
-        title="Switch Account"
-        style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+        className="flex items-center gap-2 p-1.5 px-3 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-slate-200 hover:text-white rounded-xl transition-all"
+        style={{ cursor: 'pointer', border: '1px solid rgba(99, 102, 241, 0.2)', background: 'rgba(99, 102, 241, 0.05)' }}
       >
-        <Users size={18} />
+        <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-black uppercase text-white shadow-md">
+          {user?.email?.[0] || 'U'}
+        </div>
+        <span className="text-xs font-bold hidden sm:inline truncate max-w-[100px]">
+          {activeAccount?.name || user?.email?.split('@')[0]}
+        </span>
+        <ChevronDown size={12} className={`opacity-60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
@@ -92,56 +100,51 @@ export default function NavbarAccountSwitcher() {
             transformOrigin: 'top right'
           }}
         >
-          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 px-1">
-            Linked Accounts
+          {/* Active Profile Info Header */}
+          <div className="border-b border-slate-800/80 pb-3 mb-3">
+            <div className="font-black text-slate-200 text-sm truncate">{activeAccount?.name || 'User Profile'}</div>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+              {role?.toUpperCase()} • {schoolSettings?.name || 'School Master'}
+            </div>
+            <div className="text-[9px] text-slate-500 font-medium truncate mt-0.5">{user?.email}</div>
           </div>
 
-          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-            {accounts.map(acc => {
-              const isActive = acc.user_id === user?.id;
-              const isSwitching = switchingId === acc.user_id;
-
-              return (
-                <div
-                  key={acc.user_id}
-                  onClick={() => !isActive && !switchingId && handleSwitch(acc)}
-                  className={`w-full p-2.5 rounded-xl border transition-all flex items-center justify-between text-left group ${
-                    isActive 
-                      ? 'bg-indigo-600/10 border-indigo-500/30' 
-                      : 'bg-slate-950/40 border-slate-950 hover:bg-slate-950/80 hover:border-slate-800 cursor-pointer'
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-bold text-slate-200 text-xs truncate">{acc.name}</span>
-                      {isActive && (
-                        <span className="text-[8px] font-black bg-indigo-500 text-white px-1.5 py-0.5 rounded uppercase tracking-wider">
-                          Active
-                        </span>
-                      )}
+          {/* Switch Users Section */}
+          {otherAccounts.length > 0 && (
+            <>
+              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">
+                Switch Account
+              </div>
+              <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 mb-3">
+                {otherAccounts.map(acc => (
+                  <div
+                    key={acc.user_id}
+                    onClick={() => !switchingId && handleSwitch(acc)}
+                    className="w-full p-2 rounded-xl bg-slate-950/40 border border-slate-950 hover:bg-slate-950/80 hover:border-slate-800 cursor-pointer transition-all flex items-center justify-between text-left group"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-slate-200 text-xs truncate block">{acc.name}</span>
+                      <span className="text-[8px] text-slate-500 font-semibold truncate uppercase block mt-0.5">
+                        {acc.role} • {acc.school_name}
+                      </span>
                     </div>
-                    <div className="text-[9px] text-slate-500 font-semibold truncate uppercase mt-0.5">
-                      {acc.role} • {acc.school_name}
+                    <div className="text-slate-500 group-hover:text-white transition-colors">
+                      {switchingId === acc.user_id ? <Loader2 size={12} className="animate-spin" /> : <ChevronDown size={12} className="-rotate-90" />}
                     </div>
                   </div>
+                ))}
+              </div>
+            </>
+          )}
 
-                  {!isActive && (
-                    <div className="text-slate-500 group-hover:text-white transition-colors">
-                      {isSwitching ? <Loader2 size={12} className="animate-spin" /> : <ChevronRight size={12} />}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="border-t border-slate-800/80 mt-3 pt-3 flex flex-col gap-2">
+          {/* Action Links */}
+          <div className="border-t border-slate-800/80 pt-3 flex flex-col gap-2">
             <button
               onClick={handleAddAccount}
               className="w-full py-2 bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-slate-700/60 text-slate-300 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2"
             >
               <UserPlus size={12} />
-              Add User
+              Add User Account
             </button>
 
             <button

@@ -356,14 +356,7 @@ export default function AdminSettings() {
       const clean = raw.replace(/^v/, '');
       setAppVersion(`v${clean} (Web)`);
 
-      supabase.from('app_versions')
-        .select('apk_url')
-        .order('version_code', { ascending: false })
-        .limit(1)
-        .single()
-        .then(({ data }) => {
-          if (data?.apk_url) setApkUrl(data.apk_url);
-        });
+      setApkUrl('https://schoolpro-d95a8.web.app/SchoolOS_Plus.apk');
     }
 
     return () => {
@@ -422,7 +415,7 @@ export default function AdminSettings() {
 
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     const isNative = Capacitor.isNativePlatform();
-    const redirectUri = isNative ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-auth` : window.location.origin + window.location.pathname;
+    const redirectUri = isNative ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-auth` : `${window.location.origin}/admin/settings`;
     const stateParam = isNative ? `&state=${schoolSettings.school_id}` : '';
     
     if (!clientId) {

@@ -562,9 +562,9 @@ export default function UserManagement() {
 
       {/* ── EDIT PROFILE SIDE PANEL ── */}
       {editingUser && (
-        <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center sm:justify-end bg-black/50 backdrop-blur-sm" onClick={() => setEditingUser(null)}>
+        <div className="fixed inset-0 z-[110] flex items-stretch sm:items-center justify-stretch sm:justify-end bg-black/50 backdrop-blur-sm" onClick={() => setEditingUser(null)}>
           <div
-            className="bg-white h-full max-h-[85vh] sm:max-h-screen w-full max-w-md shadow-2xl rounded-t-3xl sm:rounded-none overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-right-8 duration-300"
+            className="bg-white h-full max-h-screen sm:max-h-screen w-full max-w-none sm:max-w-md shadow-2xl rounded-none sm:rounded-none overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-right-8 duration-300"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}

@@ -305,7 +305,32 @@ export default function App() {
 
       // Synchronize multi-account stored credentials on token refresh or login updates
       if (session?.user && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
-        updateAccountTokens(session.user.id, session.access_token, session.refresh_token);
+        (async () => {
+          try {
+            const { data: profile } = await supabase
+              .from('users')
+              .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class')
+              .eq('id', session.user.id)
+              .single();
+            if (profile) {
+              let settings = null;
+              if (profile.role !== 'platform_admin') {
+                const { data: sData } = await supabase
+                  .from('school_settings')
+                  .select('*')
+                  .eq('school_id', profile.school_id)
+                  .single();
+                settings = sData;
+              } else {
+                settings = { name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' };
+              }
+              saveAccount(session, { ...profile, email: session.user.email, id: session.user.id }, settings);
+            }
+          } catch (e) {
+            console.warn('Failed to fully sync saved account:', e.message);
+            updateAccountTokens(session.user.id, session.access_token, session.refresh_token);
+          }
+        })();
       }
     });
 
@@ -317,15 +342,9 @@ export default function App() {
           const url = new URL(data.url);
           
           if (url.pathname === '/register-verify' || data.url.includes('/register-verify')) {
-            const token = url.searchParams.get('token');
-            const email = url.searchParams.get('email');
-            const schoolCode = url.searchParams.get('school_code');
-            let route = '/register-verify';
-            if (token) route += `?token=${token}`;
-            if (email) route += `${token ? '&' : '?'}email=${email}`;
-            if (schoolCode) route += `${(token || email) ? '&' : '?'}school_code=${schoolCode}`;
-            console.log('[Deep Link] Routing to register-verify:', route);
-            navigate(route);
+            const search = url.search || '';
+            console.log('[Deep Link] Routing to register-verify:', `/register-verify${search}`);
+            navigate(`/register-verify${search}`);
             return;
           }
 
@@ -543,7 +562,7 @@ export default function App() {
       {user && <HelpButton />}
       {user && <SyncPasswordResetModal />}
       {user && <GlobalAvatarPreviewModal />}
-      {user && <GoogleRecoveryNudgeModal />}
+      {user && location.pathname !== '/register-verify' && <GoogleRecoveryNudgeModal />}
 
       <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>

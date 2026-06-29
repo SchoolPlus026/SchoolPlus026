@@ -2040,7 +2040,7 @@ export default function PlatformAdminDashboard() {
                 onClick={async () => {
                   setConnectingDrive(true);
                   const isNative = Capacitor.isNativePlatform();
-                  const redirectUri = isNative ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-auth` : window.location.origin + window.location.pathname;
+                  const redirectUri = isNative ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-auth` : `${window.location.origin}/admin/platform`;
                   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
                   const state = isNative ? `&state=platform_admin` : '';
                   const scope = 'https://www.googleapis.com/auth/drive.file';

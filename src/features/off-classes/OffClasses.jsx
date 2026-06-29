@@ -768,7 +768,7 @@ export default function OffClasses() {
                         )}
                         {effStatus === 'expired' && (
                           <span className="flex items-center gap-2 text-xs font-black text-red-400 bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
-                            <X size={14} /> Expired
+                            <X size={14} /> Class Over
                           </span>
                         )}
                       </div>
@@ -999,7 +999,7 @@ function AbsentPeriodRow({
               : 'border-amber-500/20 bg-amber-500/5'
         : isOverdue
           ? 'border-red-500/30 bg-red-500/5'
-          : 'border-white/8 bg-white/3'
+          : 'border-border bg-[var(--glass)]'
     }`}>
       <div className="flex items-start gap-3 flex-wrap">
         <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider flex-shrink-0 ${
@@ -1039,7 +1039,7 @@ function AbsentPeriodRow({
             <>
               {isExpired ? (
                 <span className="text-[10px] font-black text-red-400 flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded uppercase tracking-wider">
-                  Expired
+                  Class Over
                 </span>
               ) : (
                 <>

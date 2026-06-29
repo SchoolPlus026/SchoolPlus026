@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { User, Loader2, Mail, Phone, MapPin, Briefcase, Calendar, Info, GraduationCap, FileText, Users, BookOpen, Award, Star, Camera, Trash2, Lock, Smartphone, Download } from 'lucide-react';
+import { User, Loader2, Mail, Phone, MapPin, Briefcase, Calendar, Info, GraduationCap, FileText, Users, BookOpen, Award, Star, Camera, Trash2, Lock, Smartphone, Download, ChevronDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 
@@ -69,6 +69,7 @@ export default function UserProfile() {
   const [emailError, setEmailError] = useState('');
   const [emailSuccess, setEmailSuccess] = useState('');
   const [linkingLoading, setLinkingLoading] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // APK download states
   const [apkUrl, setApkUrl] = useState(null);
@@ -229,19 +230,7 @@ export default function UserProfile() {
   }, [profile?.avatar_url]);
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
-      setApkLoading(true);
-      supabase.from('app_versions')
-        .select('apk_url')
-        .order('version_code', { ascending: false })
-        .limit(1)
-        .single()
-        .then(({ data }) => {
-          if (data?.apk_url) setApkUrl(data.apk_url);
-        })
-        .catch(console.error)
-        .finally(() => setApkLoading(false));
-    }
+    setApkUrl('https://schoolpro-d95a8.web.app/SchoolOS_Plus.apk');
   }, []);
 
   const drives = Array.isArray(schoolSettings?.gdrive_config)
@@ -445,7 +434,7 @@ export default function UserProfile() {
         {/* Profile Info Overlay */}
         <div className="px-6 pb-6 relative">
             {/* Avatar */}
-            <div className="absolute -top-20 md:-top-24 bg-slate-900 border-[6px] border-slate-900 shadow-2xl rounded-3xl w-40 h-40 md:w-48 md:h-48 flex items-center justify-center relative overflow-hidden group">
+            <div className="absolute -top-24 md:-top-28 bg-[var(--card-bg)] border-[6px] border-[var(--card-bg)] shadow-2xl rounded-3xl w-48 h-48 md:w-56 md:h-56 flex items-center justify-center relative overflow-hidden group">
                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-purple-500/20" />
                {profile.avatar_url && !imgError ? (
                   <img 
@@ -486,9 +475,9 @@ export default function UserProfile() {
                className="hidden" 
             />
             
-            <div className="mt-24 md:mt-28 flex items-start justify-between flex-wrap gap-4">
+            <div className="mt-28 md:mt-32 flex items-start justify-between flex-wrap gap-4">
                <div>
-                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white mb-1">{profile.name || 'Unknown User'}</h2>
+                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-[var(--text-main)] mb-1">{profile.name || 'Unknown User'}</h2>
                   <div className="flex items-center gap-3">
                      <span className="badge" style={{ backgroundColor: 'rgba(99, 102, 241, 0.2)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.3)'}}>{profile.role || r.toUpperCase()}</span>
                      <span className="muted small font-medium">@{profile.username || profile.email}</span>
@@ -527,7 +516,7 @@ export default function UserProfile() {
          <div className="card p-6 h-full flex flex-col">
             <div className="flex items-center gap-2 mb-5 pb-3 border-b border-border">
                <Info size={18} className="text-accent" />
-               <h3 className="m-0 text-sm font-black uppercase tracking-widest text-[var(--muted)]">Personal Information</h3>
+                <h3 className="m-0 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]/90">Personal Information</h3>
             </div>
             <div className="space-y-4 flex-1">
                <div className="flex items-start gap-3">
@@ -554,7 +543,7 @@ export default function UserProfile() {
             <div className="card p-6">
                <div className="flex items-center gap-2 mb-5 pb-3 border-b border-border">
                   <Briefcase size={18} className="text-emerald-400" />
-                  <h3 className="m-0 text-sm font-black uppercase tracking-widest text-[var(--muted)]">Contact & Address</h3>
+                   <h3 className="m-0 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]/90">Contact & Address</h3>
                </div>
                <div className="space-y-4">
                   <div className="flex items-start gap-3">
@@ -572,7 +561,7 @@ export default function UserProfile() {
             <div className="card p-6 flex-1">
                <div className="flex items-center gap-2 mb-5 pb-3 border-b border-border">
                   <GraduationCap size={18} className="text-amber-400" />
-                  <h3 className="m-0 text-sm font-black uppercase tracking-widest text-[var(--muted)]">Academic / Role Duties</h3>
+                   <h3 className="m-0 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]/90">Academic / Role Duties</h3>
                </div>
                
                <div className="space-y-4">
@@ -645,128 +634,158 @@ export default function UserProfile() {
        {/* Account & Recovery Settings (Only visible to the owner of the profile) */}
        {profile.id === user.id && (
           <div className="card p-6 mt-6 border border-border bg-[var(--card)]">
-             <div className="flex items-center gap-2 mb-5 pb-3 border-b border-border">
-                <Lock size={18} className="text-indigo-400" />
-                <h3 className="m-0 text-sm font-black uppercase tracking-widest text-[var(--muted)]">Account & Recovery Settings</h3>
+             <div 
+                className={`flex items-center justify-between pb-3 border-b border-border cursor-pointer select-none ${isSettingsOpen ? 'mb-5' : 'mb-0 border-b-0'}`}
+                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+             >
+                <div className="flex items-center gap-2">
+                   <Lock size={18} className="text-indigo-400" />
+                   <h3 className="m-0 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]/90">Account & Recovery Settings</h3>
+                </div>
+                <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`} />
              </div>
              
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Change Email Section */}
-                <div className="space-y-4">
-                   <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-main)] mb-2">Change/Update Email</h4>
-                   <p className="text-xs text-[var(--muted)] leading-relaxed">
-                      Change the email address associated with your account. A verification link will be sent to both your current and new email address.
-                   </p>
-                   <form onSubmit={handleUpdateEmail} className="space-y-3">
-                      <div>
-                         <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-1">Current Email</label>
-                          <div className="text-sm font-semibold text-[var(--text-main)] px-3 py-2 bg-[var(--glass)] rounded-xl border border-border/50">
-                             {profile?.email || user?.email || 'No email registered'}
-                          </div>
-                      </div>
-                      <div>
-                         <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-1">New Email Address</label>
-                         <input 
-                            type="email" 
-                            required 
-                            value={newEmail} 
-                            onChange={e => setNewEmail(e.target.value)} 
-                            className="sp-input text-sm" 
-                            placeholder="Enter new email address" 
-                         />
-                      </div>
-                      {emailError && <div className="text-xs font-bold text-red-400">{emailError}</div>}
-                      {emailSuccess && <div className="text-xs font-bold text-emerald-400 leading-relaxed">{emailSuccess}</div>}
-                      <button 
-                         type="submit" 
-                         disabled={emailLoading}
-                         className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
-                      >
-                         {emailLoading ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
-                         Send Verification Email
-                      </button>
-                   </form>
-                </div>
-
-                {/* Google OAuth Section */}
-                <div className="space-y-4 flex flex-col justify-between">
-                   <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-main)] mb-2">Google Login Integration</h4>
-                      <p className="text-xs text-[var(--muted)] leading-relaxed mb-4">
-                         Link your Google account to log in with a single click. When linked, you can bypass typing your username and password.
+             <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isSettingsOpen ? 'max-h-[1200px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   {/* Replace Email Section */}
+                   <div className="space-y-4">
+                      <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-main)] mb-2">Replace Email</h4>
+                      <p className="text-xs text-[var(--muted)] leading-relaxed">
+                         Replace the email address associated with your account. A verification link will be sent to both your current and replace email address.
                       </p>
-                      <div className="flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-[var(--glass)]">
-                         <div className={`w-3 h-3 rounded-full ${user?.identities?.some(id => id.provider === 'google') ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
-                         <span className="text-xs font-bold text-[var(--text-main)]">
-                            {user?.identities?.some(id => id.provider === 'google') 
-                               ? 'Google Account Connected' 
-                               : 'Google Account Disconnected'}
-                         </span>
+                      <form onSubmit={handleUpdateEmail} className="space-y-3">
+                         <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-1">Current Email</label>
+                             <div className="text-sm font-semibold text-[var(--text-main)] px-3 py-2 bg-[var(--glass)] rounded-xl border border-border/50">
+                                {profile?.email || user?.email || 'No email registered'}
+                             </div>
+                         </div>
+                         <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-1">Replace Email</label>
+                            <input 
+                               type="email" 
+                               required 
+                               value={newEmail} 
+                               onChange={e => setNewEmail(e.target.value)} 
+                               className="sp-input text-sm" 
+                               placeholder="Enter email to replace" 
+                            />
+                         </div>
+                         {emailError && <div className="text-xs font-bold text-red-400">{emailError}</div>}
+                         {emailSuccess && <div className="text-xs font-bold text-emerald-400 leading-relaxed">{emailSuccess}</div>}
+                         <button 
+                            type="submit" 
+                            disabled={emailLoading}
+                            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                         >
+                            {emailLoading ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                            Replace Email
+                         </button>
+                      </form>
+                   </div>
+
+                   {/* Google OAuth Section */}
+                   <div className="space-y-4 flex flex-col justify-between">
+                      <div>
+                         <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-main)] mb-2">Google Login Integration</h4>
+                         <p className="text-xs text-[var(--muted)] leading-relaxed mb-4">
+                            Link your Google account to log in with a single click. When linked, you can bypass typing your username and password.
+                         </p>
+                         <div className="flex items-center gap-3 px-3.5 py-3 bg-[var(--glass)] rounded-xl border border-border/50 mb-4">
+                            <div className={`w-2.5 h-2.5 rounded-full ${user?.app_metadata?.providers?.includes('google') ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+                            <span className="text-xs font-bold text-[var(--text-main)]">
+                               {user?.app_metadata?.providers?.includes('google') ? 'Google Account Connected' : 'Google Account Disconnected'}
+                            </span>
+                         </div>
+                      </div>
+                      <div>
+                         {user?.app_metadata?.providers?.includes('google') ? (
+                            <button
+                               type="button"
+                               disabled={linkingLoading}
+                               onClick={async () => {
+                                  setLinkingLoading(true);
+                                  try {
+                                     const { error } = await supabase.auth.unlinkRole('google');
+                                     if (error) throw error;
+                                     alert('Successfully unlinked Google Account.');
+                                     window.location.reload();
+                                  } catch (err) {
+                                     alert(err.message);
+                                  } finally {
+                                     setLinkingLoading(false);
+                                  }
+                               }}
+                               className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center active:scale-[0.98]"
+                            >
+                               Unlink Google Account
+                            </button>
+                         ) : (
+                            <button
+                               type="button"
+                               disabled={linkingLoading}
+                               onClick={async () => {
+                                  setLinkingLoading(true);
+                                  try {
+                                     const isNative = Capacitor.isNativePlatform();
+                                     const redirectUrl = isNative ? 'schoolosplus://dashboard' : `${window.location.origin}/dashboard`;
+                                     const { error } = await supabase.auth.linkIdentity({
+                                        provider: 'google',
+                                        options: { redirectTo: redirectUrl }
+                                     });
+                                     if (error) throw error;
+                                  } catch (err) {
+                                     alert(err.message);
+                                     setLinkingLoading(false);
+                                  }
+                               }}
+                               className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center shadow-md shadow-indigo-600/20 active:scale-[0.98]"
+                            >
+                               Connect Google Account
+                            </button>
+                         )}
                       </div>
                    </div>
-                   <div className="pt-4">
-                      {user?.identities?.some(id => id.provider === 'google') ? (
-                         <button 
+                </div>
+
+                {/* APK Install / Version Info */}
+                {isMobileOrPWA() && (
+                   <div className="border-t border-border/50 mt-6 pt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-2">
+                         <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-main)] mb-1 flex items-center gap-2">
+                            <Smartphone size={14} className="text-indigo-400" /> Install Mobile App
+                         </h4>
+                         <p className="text-xs text-[var(--muted)] leading-relaxed">
+                            Add the app to your home screen as a standalone PWA, or download the native Android app for push notifications and background features.
+                         </p>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                         <button
                             type="button"
-                            onClick={handleUnlinkGoogle}
-                            disabled={linkingLoading}
-                            className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                            onClick={() => window.dispatchEvent(new CustomEvent('show-pwa-install-modal'))}
+                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center shadow-md shadow-indigo-600/20 active:scale-[0.98]"
                          >
-                            {linkingLoading && <Loader2 size={14} className="animate-spin" />}
-                            Disconnect Google Account
+                            📱 Add to Home Screen (PWA)
                          </button>
-                      ) : (
-                         <button 
-                            type="button"
-                            onClick={handleLinkGoogle}
-                            disabled={linkingLoading}
-                            className="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
-                         >
-                            {linkingLoading && <Loader2 size={14} className="animate-spin" />}
-                            Connect Google Account
-                         </button>
-                      )}
-                    </div>
-                 </div>
-                  
-                  {/* Install SchoolOS+ Section (Web/PWA only) */}
-                  {!Capacitor.isNativePlatform() && (
-                     <div className="space-y-4 flex flex-col justify-between p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
-                        <div>
-                           <h4 className="text-xs font-black uppercase tracking-widest text-indigo-300 mb-2 flex items-center gap-1.5">
-                              <Smartphone size={14} /> Install SchoolOS+ App
-                           </h4>
-                           <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                              Add the app to your home screen as a standalone PWA, or download the native Android app for push notifications and background features.
-                           </p>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                           <button
-                              type="button"
-                              onClick={() => window.dispatchEvent(new CustomEvent('show-pwa-install-modal'))}
-                              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center shadow-md shadow-indigo-600/20 active:scale-[0.98]"
-                           >
-                              📱 Add to Home Screen (PWA)
-                           </button>
-                           {apkLoading ? (
-                              <button disabled className="w-full py-3 bg-slate-800 text-slate-500 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
-                                 <Loader2 size={14} className="animate-spin" /> Fetching latest build...
-                              </button>
-                           ) : apkUrl ? (
-                              <a 
-                                 href={apkUrl}
-                                 target="_blank"
-                                 rel="noopener noreferrer"
-                                 className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center active:scale-[0.98] text-decoration-none"
-                                 style={{ textDecoration: 'none' }}
-                              >
-                                 <Download size={14} /> Download Android App (APK)
-                              </a>
-                           ) : null}
-                        </div>
-                     </div>
-                  )}
-              </div>
+                         {apkLoading ? (
+                            <button disabled className="w-full py-3 bg-slate-800 text-slate-500 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
+                               <Loader2 size={14} className="animate-spin" /> Fetching latest build...
+                            </button>
+                         ) : apkUrl ? (
+                            <a 
+                               href={apkUrl}
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center active:scale-[0.98] text-decoration-none"
+                               style={{ textDecoration: 'none' }}
+                            >
+                               <Download size={14} /> Download Android App (APK)
+                            </a>
+                         ) : null}
+                      </div>
+                   </div>
+                )}
+             </div>
           </div>
        )}
     </div>

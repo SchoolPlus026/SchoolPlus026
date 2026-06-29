@@ -9,6 +9,7 @@ import {
 const STATUS_CONFIG = {
   pending:  { color: 'var(--warn)', bg: 'var(--warn-bg)',  label: 'Pending Review' },
   verification_requested: { color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', label: 'Verification Requested' },
+  verification_submitted: { color: '#10b981', bg: 'rgba(16,185,129,0.1)', label: 'Pending Re-registration' },
   approved: { color: 'var(--success)', bg: 'var(--success-bg)',  label: 'Approved'       },
   rejected: { color: 'var(--danger)', bg: 'var(--danger-bg)', label: 'Rejected'       },
 };
@@ -306,7 +307,13 @@ export default function RegistrationsInbox() {
         .from('school_registrations')
         .select('*')
         .order('created_at', { ascending: false });
-      if (filter !== 'all') q = q.eq('status', filter);
+      if (filter !== 'all') {
+        if (filter === 'verification_requested') {
+          q = q.in('status', ['verification_requested', 'verification_submitted']);
+        } else {
+          q = q.eq('status', filter);
+        }
+      }
       const { data, error } = await q;
       if (error) throw error;
       return data;
@@ -398,7 +405,7 @@ export default function RegistrationsInbox() {
     }
   };
 
-  const pendingCount = registrations.filter(r => r.status === 'pending').length;
+  const pendingCount = registrations.filter(r => r.status === 'pending' || r.status === 'verification_submitted').length;
 
   return (
     <div className="card fade-in">

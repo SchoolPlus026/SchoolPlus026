@@ -94,14 +94,7 @@ export default function AdminLayout() {
           >
             <Settings size={18} />
           </Link>
-          <button
-            onClick={handleLogout}
-            aria-label="Logout"
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-red-300 hover:text-white hover:bg-red-500/70 rounded-xl transition-all border border-red-400/20"
-          >
-            <LogOut size={16} />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
+
         </div>
       </header>
 

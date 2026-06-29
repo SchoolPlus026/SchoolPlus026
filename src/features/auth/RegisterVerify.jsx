@@ -6,6 +6,53 @@ import {
   Lock, ArrowRight, Loader2, RefreshCw, Check, Info 
 } from 'lucide-react';
 
+const compressImage = (file, maxW = 1200, maxH = 1200, quality = 0.75) => {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) {
+      return resolve(file);
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxW) {
+            height = Math.round((height * maxW) / width);
+            width = maxW;
+          }
+        } else {
+          if (height > maxH) {
+            width = Math.round((width * maxH) / height);
+            height = maxH;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            return resolve(file);
+          }
+          const compressedFile = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          });
+          resolve(compressedFile);
+        }, 'image/jpeg', quality);
+      };
+    };
+  });
+};
+
 export default function RegisterVerify() {
   const [searchParams] = useSearchParams();
   const regId = searchParams.get('id');
@@ -194,8 +241,9 @@ export default function RegisterVerify() {
 
       // 2. Upload Selfie if provided
       if (selfieFile) {
-        setProgressText('Uploading administrator selfie...');
-        const base64 = await fileToBase64(selfieFile);
+        setProgressText('Compressing and uploading administrator selfie...');
+        const compressedSelfie = await compressImage(selfieFile);
+        const base64 = await fileToBase64(compressedSelfie);
         const res = await supabase.functions.invoke('gdrive-upload', {
           body: {
             action: 'upload_file',
@@ -220,8 +268,9 @@ export default function RegisterVerify() {
 
       // 3. Upload Event Photo if provided
       if (eventFile) {
-        setProgressText('Uploading premise event photo...');
-        const base64 = await fileToBase64(eventFile);
+        setProgressText('Compressing and uploading premise event photo...');
+        const compressedEvent = await compressImage(eventFile);
+        const base64 = await fileToBase64(compressedEvent);
         const res = await supabase.functions.invoke('gdrive-upload', {
           body: {
             action: 'upload_file',
@@ -264,11 +313,33 @@ export default function RegisterVerify() {
           verification_photos: newUploadedPhotos,
           verification_folder_url: folderId ? `https://drive.google.com/drive/folders/${folderId}` : null,
           verification_message: message,
-          status: 'pending' // Send back to pending state for review
+          status: 'verification_submitted' // Send to verification_submitted state for review
         })
         .eq('id', regId);
 
       if (updateErr) throw new Error(`Database submission failed: ${updateErr.message}`);
+
+      // 5. Notify Platform Admin
+      try {
+        const { data: admins } = await supabase
+          .from('users')
+          .select('id, email')
+          .eq('role', 'platform_admin');
+        
+        if (admins && admins.length > 0) {
+          const notificationsToInsert = admins.map(admin => ({
+            to_user_id: admin.id,
+            to_user: admin.email,
+            title: 'Registration Verification Submitted',
+            message: `School "${formData.school_name || registration?.school_name || 'A school'}" has submitted verification details for review.`,
+            link: '/platform-admin',
+            is_read: false
+          }));
+          await supabase.from('notifications').insert(notificationsToInsert);
+        }
+      } catch (notifyErr) {
+        console.warn('Failed to notify platform admins:', notifyErr.message);
+      }
 
       setSuccess(true);
     } catch (err) {
@@ -481,7 +552,7 @@ export default function RegisterVerify() {
                     </div>
                     <span className="text-xs font-bold text-slate-300">Admin Live Selfie</span>
                     <span className="text-[10px] text-slate-500 mt-1 max-w-[220px]">Device camera capture only. Access to webcam/camera will be requested.</span>
-                    <span className="text-[9px] text-amber-400/80 mt-1.5 max-w-[220px] font-medium leading-relaxed">Purpose: Verification of the identity of the administrator submitting the request.</span>
+                    <span className="text-xs text-amber-400 mt-2 max-w-[240px] font-bold leading-normal">Purpose: To specifically verify the administrator's identity.</span>
                     
                     <label className="mt-4 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black uppercase rounded-lg cursor-pointer transition-colors">
                       Take Photo
@@ -513,7 +584,7 @@ export default function RegisterVerify() {
                     </div>
                     <span className="text-xs font-bold text-slate-300">Event / Premise Photo</span>
                     <span className="text-[10px] text-slate-500 mt-1 max-w-[220px]">Photo showing school event or building. Gallery selection is allowed.</span>
-                    <span className="text-[9px] text-indigo-400/80 mt-1.5 max-w-[220px] font-medium leading-relaxed">Purpose: Verification of the physical legitimacy and branding/premises of the school.</span>
+                    <span className="text-xs text-indigo-400 mt-2 max-w-[240px] font-bold leading-normal">Purpose: Photo of any school event. STRICT REQUIREMENT: The School Admin MUST be clearly visible in this photo along with students or teachers. This confirms the school is authentic and that you are associated with it.</span>
                     
                     <label className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase rounded-lg cursor-pointer transition-colors">
                       Select Photo
