@@ -532,19 +532,19 @@ export default function UserProfile() {
             <div className="space-y-4 flex-1">
                <div className="flex items-start gap-3">
                   <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><User size={16} className="text-slate-400" /></div>
-                  <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Full Name</div><div className="font-semibold text-[15px] text-white">{profile.name || '—'}</div></div>
+                  <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Full Name</div><div className="font-semibold text-[15px] text-[var(--text-main)]">{profile.name || '—'}</div></div>
                </div>
                <div className="flex items-start gap-3">
                   <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Calendar size={16} className="text-slate-400" /></div>
-                  <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Date of Birth</div><div className="font-semibold text-[15px] text-white">{profile.dob ? new Date(profile.dob).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</div></div>
+                  <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Date of Birth</div><div className="font-semibold text-[15px] text-[var(--text-main)]">{profile.dob ? new Date(profile.dob).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</div></div>
                </div>
                <div className="flex items-start gap-3">
                   <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Info size={16} className="text-slate-400" /></div>
-                  <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Blood Group</div><div className="font-semibold text-[15px] text-white space-x-1">{profile.blood_group ? <span className="text-red-400 font-black">{profile.blood_group}</span> : '—'}</div></div>
+                  <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Blood Group</div><div className="font-semibold text-[15px] text-[var(--text-main)] space-x-1">{profile.blood_group ? <span className="text-red-400 font-black">{profile.blood_group}</span> : '—'}</div></div>
                </div>
                <div className="flex items-start gap-3">
                   <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><FileText size={16} className="text-slate-400" /></div>
-                  <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Aadhar Card</div><div className="font-semibold text-[15px] text-white tracking-widest font-mono text-sm">{profile.aadhar_card || '—'}</div></div>
+                  <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Aadhar Card</div><div className="font-semibold text-[15px] text-[var(--text-main)] tracking-widest font-mono text-sm">{profile.aadhar_card || '—'}</div></div>
                </div>
             </div>
          </div>
@@ -559,11 +559,11 @@ export default function UserProfile() {
                <div className="space-y-4">
                   <div className="flex items-start gap-3">
                      <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Phone size={16} className="text-emerald-400/70" /></div>
-                     <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Contact Number</div><div className="font-semibold text-[15px] text-white">{profile.contact || '—'}</div></div>
+                     <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Contact Number</div><div className="font-semibold text-[15px] text-[var(--text-main)]">{profile.contact || '—'}</div></div>
                   </div>
                   <div className="flex items-start gap-3">
                      <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><MapPin size={16} className="text-emerald-400/70" /></div>
-                     <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Residential Address</div><div className="font-semibold text-[15px] text-white leading-relaxed">{profile.address || '—'}</div></div>
+                     <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Residential Address</div><div className="font-semibold text-[15px] text-[var(--text-main)] leading-relaxed">{profile.address || '—'}</div></div>
                   </div>
                </div>
             </div>
@@ -582,13 +582,13 @@ export default function UserProfile() {
                             <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Users size={16} className="text-amber-400/70" /></div>
                             <div>
                                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Enrolled Class</div>
-                               <div className="font-semibold text-xl text-white">{profile.class || 'Unassigned'}</div>
+                               <div className="font-semibold text-xl text-[var(--text-main)]">{profile.class || 'Unassigned'}</div>
                             </div>
                          </div>
                          {profile.id === user.id && (
                             <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between gap-4">
                                <div>
-                                  <div className="font-bold text-sm text-white">Hide profile pic from class</div>
+                                  <div className="font-bold text-sm text-[var(--text-main)]">Hide profile pic from class</div>
                                   <div className="text-xs text-[var(--muted)]">Only teacher and headmaster can see</div>
                                </div>
                                <label className="relative inline-flex items-center cursor-pointer select-none">
@@ -609,11 +609,11 @@ export default function UserProfile() {
                      <>
                         <div className="flex items-start gap-3">
                            <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><BookOpen size={16} className="text-amber-400/70" /></div>
-                           <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Allocated Class</div><div className="font-semibold text-lg text-white">Class {profile.class || 'Unassigned'}</div></div>
+                           <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Allocated Class</div><div className="font-semibold text-lg text-[var(--text-main)]">Class {profile.class || 'Unassigned'}</div></div>
                         </div>
                         <div className="flex items-start gap-3">
                            <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Award size={16} className="text-amber-400/70" /></div>
-                           <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Qualification</div><div className="font-semibold text-[15px] text-white">{profile.qualification || '—'}</div></div>
+                           <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Qualification</div><div className="font-semibold text-[15px] text-[var(--text-main)]">{profile.qualification || '—'}</div></div>
                         </div>
                      </>
                   )}
@@ -622,11 +622,11 @@ export default function UserProfile() {
                      <>
                         <div className="flex items-start gap-3">
                            <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Star size={16} className="text-amber-400/70" /></div>
-                           <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Designation</div><div className="font-semibold text-lg text-white">{profile.designation || 'Staff Member'}</div></div>
+                           <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Designation</div><div className="font-semibold text-lg text-[var(--text-main)]">{profile.designation || 'Staff Member'}</div></div>
                         </div>
                         <div className="flex items-start gap-3">
                            <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Award size={16} className="text-amber-400/70" /></div>
-                           <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Qualification</div><div className="font-semibold text-[15px] text-white">{profile.qualification || '—'}</div></div>
+                           <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Qualification</div><div className="font-semibold text-[15px] text-[var(--text-main)]">{profile.qualification || '—'}</div></div>
                         </div>
                      </>
                   )}
@@ -653,14 +653,14 @@ export default function UserProfile() {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Change Email Section */}
                 <div className="space-y-4">
-                   <h4 className="text-xs font-black uppercase tracking-widest text-white mb-2">Change/Update Email</h4>
+                   <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-main)] mb-2">Change/Update Email</h4>
                    <p className="text-xs text-[var(--muted)] leading-relaxed">
                       Change the email address associated with your account. A verification link will be sent to both your current and new email address.
                    </p>
                    <form onSubmit={handleUpdateEmail} className="space-y-3">
                       <div>
                          <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-1">Current Email</label>
-                          <div className="text-sm font-semibold text-white px-3 py-2 bg-[var(--glass)] rounded-xl border border-border/50">
+                          <div className="text-sm font-semibold text-[var(--text-main)] px-3 py-2 bg-[var(--glass)] rounded-xl border border-border/50">
                              {profile?.email || user?.email || 'No email registered'}
                           </div>
                       </div>
@@ -691,13 +691,13 @@ export default function UserProfile() {
                 {/* Google OAuth Section */}
                 <div className="space-y-4 flex flex-col justify-between">
                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-white mb-2">Google Login Integration</h4>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-main)] mb-2">Google Login Integration</h4>
                       <p className="text-xs text-[var(--muted)] leading-relaxed mb-4">
                          Link your Google account to log in with a single click. When linked, you can bypass typing your username and password.
                       </p>
                       <div className="flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-[var(--glass)]">
                          <div className={`w-3 h-3 rounded-full ${user?.identities?.some(id => id.provider === 'google') ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
-                         <span className="text-xs font-bold text-white">
+                         <span className="text-xs font-bold text-[var(--text-main)]">
                             {user?.identities?.some(id => id.provider === 'google') 
                                ? 'Google Account Connected' 
                                : 'Google Account Disconnected'}

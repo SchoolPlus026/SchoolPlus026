@@ -480,7 +480,8 @@ export default function RegisterVerify() {
                       <Camera size={20} />
                     </div>
                     <span className="text-xs font-bold text-slate-300">Admin Live Selfie</span>
-                    <span className="text-[10px] text-slate-500 mt-1 max-w-[200px]">Device camera capture only. Access to webcam/camera will be requested.</span>
+                    <span className="text-[10px] text-slate-500 mt-1 max-w-[220px]">Device camera capture only. Access to webcam/camera will be requested.</span>
+                    <span className="text-[9px] text-amber-400/80 mt-1.5 max-w-[220px] font-medium leading-relaxed">Purpose: Verification of the identity of the administrator submitting the request.</span>
                     
                     <label className="mt-4 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black uppercase rounded-lg cursor-pointer transition-colors">
                       Take Photo
@@ -511,7 +512,8 @@ export default function RegisterVerify() {
                       <Image size={20} />
                     </div>
                     <span className="text-xs font-bold text-slate-300">Event / Premise Photo</span>
-                    <span className="text-[10px] text-slate-500 mt-1 max-w-[200px]">Photo showing school event or building. Gallery selection is allowed.</span>
+                    <span className="text-[10px] text-slate-500 mt-1 max-w-[220px]">Photo showing school event or building. Gallery selection is allowed.</span>
+                    <span className="text-[9px] text-indigo-400/80 mt-1.5 max-w-[220px] font-medium leading-relaxed">Purpose: Verification of the physical legitimacy and branding/premises of the school.</span>
                     
                     <label className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase rounded-lg cursor-pointer transition-colors">
                       Select Photo
@@ -539,7 +541,7 @@ export default function RegisterVerify() {
 
           {/* Reply Message Box */}
           <div className="border-t border-slate-800 pt-6">
-            <label className="text-[10px] uppercase font-black text-slate-400 tracking-widest block mb-2">Message to Platform Admin</label>
+            <label className="text-[10px] uppercase font-black text-slate-400 tracking-widest block mb-2">Message to Platform Admin (Optional)</label>
             <textarea 
               rows={3}
               value={message}

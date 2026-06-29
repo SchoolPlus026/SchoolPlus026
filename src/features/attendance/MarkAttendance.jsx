@@ -53,7 +53,7 @@ export default function MarkAttendance() {
   const queryClient = useQueryClient();
   const selectedDate = new Date().toISOString().split('T')[0];
   const [selectedClass, setSelectedClass] = useState('');
-  const [targetRole, setTargetRole] = useState('student'); // 'student' or 'teacher'
+  const [targetRole, setTargetRole] = useState(role === 'admin' ? 'teacher' : 'student'); // 'student', 'teacher', 'staff' or 'driver'
   
   const [attendanceEdits, setAttendanceEdits] = useState({});
   const [toast, setToast] = useState('');
@@ -97,7 +97,7 @@ export default function MarkAttendance() {
       if (error) throw error;
       return data;
     },
-    enabled: !!schoolSettings?.school_id && (targetRole === 'teacher' || targetRole === 'staff' || !!selectedClass)
+    enabled: !!schoolSettings?.school_id && (targetRole === 'teacher' || targetRole === 'staff' || targetRole === 'driver' || !!selectedClass)
   });
 
   // 3. Fetch Existing Attendance
@@ -297,9 +297,10 @@ export default function MarkAttendance() {
       {role === 'admin' ? (
       <div className="card">
         <div className="tabs">
-            <div className={`tab ${targetRole === 'student' ? 'active' : ''}`} onClick={() => { setTargetRole('student'); setSelectedClass(''); }}>Student Attendance</div>
             <div className={`tab ${targetRole === 'teacher' ? 'active' : ''}`} onClick={() => { setTargetRole('teacher'); setSelectedClass(''); }}>Teacher Attendance</div>
             <div className={`tab ${targetRole === 'staff' ? 'active' : ''}`} onClick={() => { setTargetRole('staff'); setSelectedClass(''); }}>Staff Attendance</div>
+            <div className={`tab ${targetRole === 'driver' ? 'active' : ''}`} onClick={() => { setTargetRole('driver'); setSelectedClass(''); }}>Driver Attendance</div>
+            <div className={`tab ${targetRole === 'student' ? 'active' : ''}`} onClick={() => { setTargetRole('student'); setSelectedClass(''); }}>Student Attendance</div>
         </div>
         <div className="flex" style={{ gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
             {targetRole === 'student' && (

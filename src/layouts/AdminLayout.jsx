@@ -6,6 +6,7 @@ import { LogOut, Settings, LayoutDashboard, ChevronLeft, RefreshCw } from 'lucid
 import { useThrottledRefresh } from '../hooks/useThrottledRefresh';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
+import NavbarAccountSwitcher from '../components/NavbarAccountSwitcher';
 import GlobalBroadcastBanner from '../components/GlobalBroadcastBanner';
 import PageTransition from '../components/PageTransition';
 import RecoveryNudgeBanner from '../components/RecoveryNudgeBanner';
@@ -74,6 +75,7 @@ export default function AdminLayout() {
             <LayoutDashboard size={18} />
           </Link>
           <ThemeToggle />
+          <NavbarAccountSwitcher />
           <button
             onClick={handleRefresh}
             disabled={refreshing || cooldownLeft > 0}

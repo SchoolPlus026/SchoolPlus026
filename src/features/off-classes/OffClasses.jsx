@@ -972,7 +972,9 @@ function AbsentPeriodRow({
     return () => clearInterval(interval);
   }, [startTime, existing]);
 
-  const isOverdue = startTime && minutesPassed >= 5 && !existing;
+  const endTime = parsePeriodEndTimeIST(period.period_label, today);
+  const isExpired = endTime && getISTNow().getTime() > endTime.getTime();
+  const isOverdue = startTime && minutesPassed >= 5 && !existing && !isExpired;
   const hasAnyCandidates = availableFreeTeachers.length > 0 || availableAllTeachers.length > 0;
   
   const effStatus = existing ? getEffectiveSubStatus(existing) : null;
@@ -1035,33 +1037,41 @@ function AbsentPeriodRow({
             </div>
           ) : (
             <>
-              {isOverdue && !hasAnyCandidates && (
-                <span className="text-[10px] font-black text-red-400 flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded">
-                  <AlertTriangle size={10} /> No substitute available
+              {isExpired ? (
+                <span className="text-[10px] font-black text-red-400 flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded uppercase tracking-wider">
+                  Expired
                 </span>
-              )}
-              {isOverdue && hasAnyCandidates && (
-                <span className="text-[10px] font-black text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded">
-                  <Clock size={10} /> Overdue by {Math.floor(minutesPassed)} min
-                </span>
-              )}
+              ) : (
+                <>
+                  {isOverdue && !hasAnyCandidates && (
+                    <span className="text-[10px] font-black text-red-400 flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded">
+                      <AlertTriangle size={10} /> No substitute available
+                    </span>
+                  )}
+                  {isOverdue && hasAnyCandidates && (
+                    <span className="text-[10px] font-black text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded">
+                      <Clock size={10} /> Overdue by {Math.floor(minutesPassed)} min
+                    </span>
+                  )}
 
-              {availableFreeTeachers.length > 0 && (
-                <div className="flex flex-wrap gap-1 justify-end">
-                  {availableFreeTeachers.slice(0, 3).map(fp => (
-                    <button
-                      key={fp.id}
-                      onClick={() => setSelectedSub(fp.teacher_id)}
-                      className={`text-[10px] font-black px-2 py-0.5 rounded border transition-colors ${
-                        selectedSub === fp.teacher_id
-                          ? 'bg-indigo-600 text-white border-indigo-500'
-                          : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20'
-                      }`}
-                    >
-                      ✓ {fp.teacher?.name}
-                    </button>
-                  ))}
-                </div>
+                  {availableFreeTeachers.length > 0 && (
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {availableFreeTeachers.slice(0, 3).map(fp => (
+                        <button
+                          key={fp.id}
+                          onClick={() => setSelectedSub(fp.teacher_id)}
+                          className={`text-[10px] font-black px-2 py-0.5 rounded border transition-colors ${
+                            selectedSub === fp.teacher_id
+                              ? 'bg-indigo-600 text-white border-indigo-500'
+                              : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20'
+                          }`}
+                        >
+                          ✓ {fp.teacher?.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -1101,7 +1111,7 @@ function AbsentPeriodRow({
       )}
 
       {/* Admin assignment controls */}
-      {isAdmin && !existing && (
+      {isAdmin && !existing && !isExpired && (
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5 flex-wrap">
           <select
             value={selectedSub}

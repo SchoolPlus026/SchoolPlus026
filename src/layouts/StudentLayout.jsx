@@ -6,6 +6,7 @@ import { LogOut, LayoutDashboard, Settings, ChevronLeft, RefreshCw } from 'lucid
 import { useThrottledRefresh } from '../hooks/useThrottledRefresh';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
+import NavbarAccountSwitcher from '../components/NavbarAccountSwitcher';
 import PageTransition from '../components/PageTransition';
 import GlobalBroadcastBanner from '../components/GlobalBroadcastBanner';
 import RecoveryNudgeBanner from '../components/RecoveryNudgeBanner';
@@ -52,6 +53,7 @@ export default function StudentLayout() {
             <LayoutDashboard size={18} />
           </Link>
           <ThemeToggle />
+          <NavbarAccountSwitcher />
           <button onClick={handleRefresh}
             disabled={refreshing || cooldownLeft > 0}
             title={cooldownLeft > 0 ? `Please wait ${cooldownLeft}s` : "Refresh data"}

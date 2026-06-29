@@ -5,6 +5,8 @@ import { supabase } from '../config/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Bell } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
+import ThemeToggle from '../components/ThemeToggle';
+import NavbarAccountSwitcher from '../components/NavbarAccountSwitcher';
 import PageTransition from '../components/PageTransition';
 import RecoveryNudgeBanner from '../components/RecoveryNudgeBanner';
 import ResetWarningBanner from '../components/ResetWarningBanner';
@@ -42,6 +44,8 @@ export default function StaffLayout() {
             {user?.name}
           </span>
           <NotificationBell />
+          <ThemeToggle />
+          <NavbarAccountSwitcher />
           <button
             onClick={handleLogout}
             aria-label="Logout"

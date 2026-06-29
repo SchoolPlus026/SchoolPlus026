@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Lock, Loader2, Eye, EyeOff, WifiOff } from 'lucide-react';
 import { ToastProvider } from './components/ToastProvider';
@@ -103,9 +103,9 @@ export default function App() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [swUpdateReg, setSwUpdateReg] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) return;
 
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
@@ -315,6 +315,20 @@ export default function App() {
         try {
           console.log('[Deep Link] Received URL:', data.url);
           const url = new URL(data.url);
+          
+          if (url.pathname === '/register-verify' || data.url.includes('/register-verify')) {
+            const token = url.searchParams.get('token');
+            const email = url.searchParams.get('email');
+            const schoolCode = url.searchParams.get('school_code');
+            let route = '/register-verify';
+            if (token) route += `?token=${token}`;
+            if (email) route += `${token ? '&' : '?'}email=${email}`;
+            if (schoolCode) route += `${(token || email) ? '&' : '?'}school_code=${schoolCode}`;
+            console.log('[Deep Link] Routing to register-verify:', route);
+            navigate(route);
+            return;
+          }
+
           if (url.protocol === 'schoolosplus:' || data.url.startsWith('schoolosplus://')) {
             let sessionEstablished = false;
 
@@ -952,7 +966,7 @@ function GoogleRecoveryNudgeModal() {
       zIndex: 9999,
       padding: '20px'
     }}>
-      <div className="card w-full max-w-md relative border border-white/10" style={{ background: 'var(--bg-card)', padding: '24px' }}>
+      <div className="card w-full max-w-md relative border border-white/10" style={{ background: 'var(--card-bg)', padding: '24px' }}>
         <button onClick={handleDismiss} style={{
           position: 'absolute',
           top: '16px',
