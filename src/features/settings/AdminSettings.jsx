@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import AccountSwitcher from '../../components/AccountSwitcher';
 import { 
   Building, Sun, Globe, Lock, Database, ShieldAlert, 
   Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus, X,
@@ -977,6 +978,9 @@ export default function AdminSettings() {
           </div>
         </div>
       </div>
+
+      {/* ── 3.6 SWITCH USER / MULTI-ACCOUNT SETTINGS ── */}
+      <AccountSwitcher />
 
       {/* ── 4.5 BIOMETRIC SETUP ── */}
       <BiometricSetup />

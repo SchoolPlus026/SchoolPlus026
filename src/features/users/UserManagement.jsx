@@ -6,7 +6,7 @@ import { usePending } from '../../hooks/usePending';
 import UserAvatar from '../../components/UserAvatar';
 import {
   Users, Search, UserPlus, Filter, Loader2, Phone, BookOpen,
-  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus, Plus
+  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus, Plus, Trash2
 } from 'lucide-react';
 
 const formatClassName = (input) => {
@@ -277,6 +277,21 @@ export default function UserManagement() {
       queryClient.invalidateQueries({ queryKey: ['users-list'] });
       setEditingUser(null);
       alert('Profile updated successfully!');
+    },
+    onError: (err) => alert('Error: ' + err.message),
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId) => {
+      const { error } = await supabase.rpc('admin_delete_user', {
+        p_user_id: userId
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      setEditingUser(null);
+      alert('User deleted successfully!');
     },
     onError: (err) => alert('Error: ' + err.message),
   });
@@ -596,6 +611,31 @@ export default function UserManagement() {
                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">System Role</div>
                 <div className="text-sm font-bold text-slate-700 uppercase">{editingUser.role}</div>
               </div>
+
+              {/* Danger Zone */}
+              {editingUser.id !== currentUser?.id && (
+                <div className="p-4 bg-red-50 rounded-2xl border border-red-100 mt-6 flex flex-col gap-3">
+                  <div className="text-[10px] font-black text-red-500 uppercase tracking-widest">Danger Zone</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Are you absolutely sure you want to permanently delete this user (${editingUser.name || editingUser.email})? This will delete their login credentials, attendance history, and all other related records. This action CANNOT be undone.`)) {
+                        const confirmInput = window.prompt(`To proceed, please type 'DELETE' below:`);
+                        if (confirmInput === 'DELETE') {
+                          deleteUserMutation.mutate(editingUser.id);
+                        } else {
+                          alert('Deletion cancelled: Input did not match.');
+                        }
+                      }
+                    }}
+                    disabled={deleteUserMutation.isPending}
+                    className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {deleteUserMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    Delete User Account
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Save Button */}

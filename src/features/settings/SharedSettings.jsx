@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import AccountSwitcher from '../../components/AccountSwitcher';
 import { 
   Sun, Moon, Globe, Lock, Database, ShieldAlert, Info,
   Upload, Eye, EyeOff, Trash2,
@@ -698,6 +699,9 @@ export default function SharedSettings() {
           </div>
         </div>
       </div>
+
+      {/* ── 3.6 SWITCH USER / MULTI-ACCOUNT SETTINGS ── */}
+      <AccountSwitcher />
 
       {/* ── 4. BIOMETRIC SETUP ── */}
       <BiometricSetup />

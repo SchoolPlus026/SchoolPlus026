@@ -392,7 +392,7 @@ export default function RegisterVerify() {
   const allowedPhotos = config.photos || [];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white py-12 px-4 sm:px-6 lg:px-8">
+    <div className="h-screen w-screen overflow-y-auto bg-slate-950 text-white py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
         <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-amber-500/5 -mt-10 -mr-10 blur-2xl pointer-events-none" />
         

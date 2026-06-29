@@ -16,7 +16,7 @@ const getDirectGDriveImageUrl = (url) => {
 };
 
 export default function NoticeBoard() {
-  const { role, schoolSettings } = useAppStore();
+  const { role, schoolSettings, user } = useAppStore();
   const queryClient = useQueryClient();
 
   const [editingId, setEditingId] = React.useState(null);
@@ -161,12 +161,27 @@ export default function NoticeBoard() {
                             </div>
                         )}
 
-                        {role !== 'student' && editingId !== notice.id && (
+                        {editingId !== notice.id && (() => {
+                          const cleanRole = (role || '').toLowerCase();
+                          const canEditOrDelete =
+                            cleanRole === 'admin' ||
+                            cleanRole === 'app_manager' ||
+                            cleanRole === 'platform_admin' ||
+                            (cleanRole === 'teacher' && 
+                              (notice.author_id === user?.id || 
+                                (notice.author_id === null && notice.author_role === 'teacher')
+                              )
+                            );
+                          
+                          if (!canEditOrDelete) return null;
+
+                          return (
                             <div className="flex gap-2 mt-4 pt-4 border-t border-glass">
                                 <button onClick={() => handleEditClick(notice)} className="muted border-0 bg-transparent cursor-pointer p-0 hover:text-indigo-400" title="Edit"><PenTool size={16} /></button>
                                 <button onClick={() => deleteMutation.mutate(notice.id)} disabled={deleteMutation.isPending} className="muted border-0 bg-transparent cursor-pointer p-0 hover:text-red-400 ml-2" title="Delete"><Trash2 size={16} /></button>
                             </div>
-                        )}
+                          );
+                        })()}
                     </div>
                 </div>
              </div>

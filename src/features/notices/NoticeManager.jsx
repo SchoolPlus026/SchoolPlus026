@@ -18,7 +18,7 @@ function readFileAsBase64(file) {
 }
 
 export default function NoticeManager() {
-  const { schoolSettings, role } = useAppStore();
+  const { schoolSettings, role, user } = useAppStore();
   const { isPending } = usePending();
   const queryClient = useQueryClient();
   const { isFree } = usePlan();
@@ -89,6 +89,8 @@ export default function NoticeManager() {
           date:      new Date().toISOString().split('T')[0],
           scope:     payload.scope,
           photo_url: payload.photoUrl || null,
+          author_id: user?.id || null,
+          author_role: role || 'admin',
         });
 
       if (error) throw error;

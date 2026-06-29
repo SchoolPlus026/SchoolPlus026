@@ -2673,7 +2673,10 @@ DECLARE
     caller_role   text;
     caller_school uuid;
     target_school uuid;
+    lower_email   text;
 BEGIN
+    lower_email := LOWER(TRIM(p_email));
+
     -- Verify caller roles
     SELECT role, school_id INTO caller_role, caller_school 
     FROM public.users WHERE id = auth.uid();
@@ -2689,32 +2692,33 @@ BEGIN
         RAISE EXCEPTION 'Unauthorized: You can only update users within your own school.';
     END IF;
 
-    -- Verify username uniqueness
-    IF EXISTS (SELECT 1 FROM public.users WHERE username = p_username AND id != p_user_id) THEN
+    -- Verify username uniqueness (case-insensitive)
+    IF EXISTS (SELECT 1 FROM public.users WHERE LOWER(username) = LOWER(p_username) AND id != p_user_id) THEN
         RAISE EXCEPTION 'Username "%" is already taken.', p_username;
     END IF;
 
-    -- Verify email uniqueness
-    IF EXISTS (SELECT 1 FROM auth.users WHERE email = p_email AND id != p_user_id) THEN
+    -- Verify email uniqueness (case-insensitive)
+    IF EXISTS (SELECT 1 FROM auth.users WHERE LOWER(email) = lower_email AND id != p_user_id) THEN
         RAISE EXCEPTION 'Email "%" is already registered.', p_email;
     END IF;
 
     -- Update auth schemas
     UPDATE auth.users
-    SET email = p_email,
+    SET email = lower_email,
+        email_confirmed_at = COALESCE(email_confirmed_at, now()),
         raw_user_meta_data = raw_user_meta_data || jsonb_build_object('role', p_role)
     WHERE id = p_user_id;
 
     UPDATE auth.identities
-    SET identity_data = identity_data || jsonb_build_object('email', p_email),
-        provider_id = p_email
+    SET identity_data = identity_data || jsonb_build_object('email', lower_email),
+        provider_id = lower_email
     WHERE user_id = p_user_id AND provider = 'email';
 
     -- Update public schema
     UPDATE public.users
     SET name = p_name,
         username = p_username,
-        email = p_email,
+        email = lower_email,
         role = p_role,
         class = p_class,
         contact = p_contact,
@@ -2728,6 +2732,44 @@ BEGIN
 
     -- Reload postgrest schemas
     NOTIFY pgrst, 'reload schema';
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_delete_user(p_user_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+    caller_role   text;
+    caller_school uuid;
+    target_school uuid;
+BEGIN
+    -- Verify caller roles
+    SELECT role, school_id INTO caller_role, caller_school 
+    FROM public.users WHERE id = auth.uid();
+
+    IF caller_role NOT IN ('admin', 'app_manager', 'platform_admin') THEN
+        RAISE EXCEPTION 'Unauthorized: Only admins or managers can delete users.';
+    END IF;
+
+    -- Verify school boundaries (prevent cross-tenant deletes)
+    SELECT school_id INTO target_school FROM public.users WHERE id = p_user_id;
+    
+    IF caller_role = 'admin' AND caller_school != target_school THEN
+        RAISE EXCEPTION 'Unauthorized: You can only delete users within your own school.';
+    END IF;
+
+    -- Prevent self-deletion
+    IF auth.uid() = p_user_id THEN
+        RAISE EXCEPTION 'Unauthorized: You cannot delete your own active account.';
+    END IF;
+
+    -- Delete from auth.users (this will cascade delete from auth.identities, user_passkeys, etc.)
+    DELETE FROM auth.users WHERE id = p_user_id;
+
+    -- Delete from public.users
+    DELETE FROM public.users WHERE id = p_user_id;
 END;
 $function$;
 

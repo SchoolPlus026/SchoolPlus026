@@ -818,3 +818,26 @@ body {
     background-color: transparent !important; 
     box-shadow: none !important; 
 }
+
+/* ── Global Input & Dropdown Light Mode Contrast Overrides ── */
+input, select, textarea {
+  color: var(--text-main);
+  background-color: var(--input-bg);
+}
+[data-theme="light"] input,
+html.light input,
+[data-theme="light"] select,
+html.light select,
+[data-theme="light"] textarea,
+html.light textarea {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+[data-theme="light"] select option,
+html.light select option,
+[data-theme="light"] option,
+html.light option {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}

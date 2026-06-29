@@ -839,6 +839,8 @@ export default function OffClasses() {
                     s => s.original_teacher_id === originalTeacherId && s.period_order === p.period_order
                   );
 
+                  const absentIds = new Set(absentPeriods.map(ap => ap.teacher_id_resolved).filter(Boolean));
+
                   // Filter candidates for assignment
                   const busyTeacherIds = new Set(
                     todayTimetable
@@ -865,8 +867,6 @@ export default function OffClasses() {
                          !busyTeacherIds.has(t.id) &&
                          !busySubstitutedTeacherIds.has(t.id)
                   );
-
-                  const absentIds = new Set(absentPeriods.map(ap => ap.teacher_id_resolved).filter(Boolean));
 
                   return (
                     <AbsentPeriodRow

@@ -5,6 +5,7 @@ import { X, Lock, Loader2, Eye, EyeOff, WifiOff } from 'lucide-react';
 import { ToastProvider } from './components/ToastProvider';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
+import { saveAccount, updateAccountTokens } from './utils/multiAccount';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
@@ -240,9 +241,11 @@ export default function App() {
 
           // Platform Admin has no school — skip school settings lookup
           if (profile.role === 'platform_admin') {
-            setSchoolSettings({ name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' });
+            const platformSettings = { name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' };
+            setSchoolSettings(platformSettings);
             setUserAndRole(enrichedUser, profile.role);
             store.setProfileLastFetched(Date.now());
+            saveAccount(session, { ...profile, email: session.user.email, id: session.user.id }, platformSettings);
           } else {
             const { data: settings } = await supabase
               .from('school_settings')
@@ -263,6 +266,7 @@ export default function App() {
               setSchoolSettings(settings);
               setUserAndRole(enrichedUser, profile.role);
               store.setProfileLastFetched(Date.now());
+              saveAccount(session, { ...profile, email: session.user.email, id: session.user.id }, settings);
             } else {
               // Sign out asynchronously without awaiting to prevent Capacitor freeze
               supabase.auth.signOut().catch(console.error);
@@ -297,6 +301,11 @@ export default function App() {
           hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
         }, currentRole);
         store.setProfileLastFetched(null); // force fresh re-fetch next init
+      }
+
+      // Synchronize multi-account stored credentials on token refresh or login updates
+      if (session?.user && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+        updateAccountTokens(session.user.id, session.access_token, session.refresh_token);
       }
     });
 

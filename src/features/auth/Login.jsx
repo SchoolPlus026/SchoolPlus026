@@ -10,6 +10,7 @@ import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
+import { getSavedAccounts } from '../../utils/multiAccount';
 
 const isMobileOrPWA = () => {
   if (Capacitor.isNativePlatform()) return true;
@@ -46,6 +47,36 @@ export default function Login() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const [savedAccounts, setSavedAccounts] = useState([]);
+  useEffect(() => {
+    setSavedAccounts(getSavedAccounts());
+  }, []);
+
+  const handleSwitchAccount = async (account) => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const { error } = await supabase.auth.setSession({
+        access_token: account.session.access_token,
+        refresh_token: account.session.refresh_token
+      });
+      if (error) throw error;
+      
+      // Navigate based on role
+      navigate(account.role === 'platform_admin' ? '/platform-admin' : `/${account.role}`, { replace: true });
+      window.location.reload(); // Force full reload to rebuild state cleanly
+    } catch (err) {
+      setError('Saved session has expired. Please log in again using school code.');
+      // Remove expired account from saved list
+      const filtered = savedAccounts.filter(a => a.user_id !== account.user_id);
+      localStorage.setItem('sp_accounts', JSON.stringify(filtered));
+      setSavedAccounts(filtered);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Recovery UI state variables
   const [recoveryRole, setRecoveryRole] = useState('student');
@@ -1135,6 +1166,33 @@ export default function Login() {
         {step === 1 && (
           <div className="fade-in">
             <h2 className="text-lg font-black text-slate-100 uppercase tracking-tight mb-5">Enter School Code</h2>
+            
+            {/* Quick account switch list */}
+            {savedAccounts.length > 0 && (
+              <div className="mb-6 border-b border-slate-800/80 pb-6">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 text-center">Continue with Saved Account</div>
+                <div className="space-y-2 max-h-[170px] overflow-y-auto pr-1">
+                  {savedAccounts.map(acc => (
+                    <button
+                      key={acc.user_id}
+                      type="button"
+                      onClick={() => handleSwitchAccount(acc)}
+                      disabled={loading}
+                      className="w-full p-3 bg-slate-950/60 hover:bg-slate-900 border border-slate-900 hover:border-slate-800 rounded-xl transition-all flex items-center justify-between text-left group disabled:opacity-50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-slate-200 text-xs truncate">{acc.name}</div>
+                        <div className="text-[9px] text-slate-500 font-semibold truncate uppercase mt-0.5">
+                          {acc.role} • {acc.school_name}
+                        </div>
+                      </div>
+                      <ChevronRight size={13} className="text-slate-500 group-hover:text-white transition-colors" />
+                    </button>
+                  ))}
+                </div>
+                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center mt-5">Or enter details below</div>
+              </div>
+            )}
             <form onSubmit={handleIdentifySchool} className="space-y-5">
               <input type="text" required value={schoolCode}
                 onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}

@@ -4,9 +4,11 @@ import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { Bell, Calendar, Loader2, Megaphone, Sparkles } from 'lucide-react';
 import { useTieredCache } from '../hooks/useTieredCache';
+import { useNavigate } from 'react-router-dom';
 
 export default function DashboardHero() {
-  const { schoolSettings, user } = useAppStore();
+  const { schoolSettings, user, role } = useAppStore();
+  const navigate = useNavigate();
 
   const schoolId = schoolSettings?.school_id ?? null;
 
@@ -180,6 +182,39 @@ export default function DashboardHero() {
               }}>
                 {latestNotice.content}
               </p>
+              {latestNotice.content && latestNotice.content.length > 80 && (
+                <button
+                  onClick={() => {
+                    const cleanRole = (role || '').toLowerCase();
+                    if (cleanRole === 'admin' || cleanRole === 'app_manager' || cleanRole === 'platform_admin') {
+                      navigate('/admin/notices');
+                    } else if (cleanRole === 'teacher') {
+                      navigate('/teacher/notices');
+                    } else if (cleanRole === 'student' || cleanRole === 'parent') {
+                      navigate('/student/notices');
+                    } else if (cleanRole === 'staff') {
+                      navigate('/staff/notices');
+                    }
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#6366f1',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    cursor: 'pointer',
+                    margin: '0 0 10px',
+                    display: 'block',
+                    textAlign: 'left'
+                  }}
+                  className="hover:underline"
+                >
+                  Read More →
+                </button>
+              )}
               <div style={{
                 fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
                 letterSpacing: '0.06em', color: 'var(--text-faint)',

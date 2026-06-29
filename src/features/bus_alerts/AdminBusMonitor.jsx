@@ -403,7 +403,7 @@ export default function AdminBusMonitor() {
           onClick={() => setEditingAssignment(null)}
         >
           <div
-            style={{ background: 'var(--card-bg, #fff)', borderRadius: '20px', padding: '24px', width: '100%', maxWidth: '460px', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', border: '1px solid var(--card-border)' }}
+            style={{ background: 'var(--card-bg, #fff)', borderRadius: '20px', padding: '24px', width: '100%', maxWidth: '460px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', border: '1px solid var(--card-border)' }}
             onClick={e => e.stopPropagation()}
           >
             {/* Modal Header */}
