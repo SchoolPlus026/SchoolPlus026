@@ -230,7 +230,7 @@ export default function UserProfile() {
   }, [profile?.avatar_url]);
 
   useEffect(() => {
-    setApkUrl('https://schoolpro-d95a8.web.app/SchoolOS_Plus.apk');
+    setApkUrl('https://jbjtvosvwufimjcvvwcg.supabase.co/storage/v1/object/public/app-updates/SchoolOS_Plus.apk');
   }, []);
 
   const drives = Array.isArray(schoolSettings?.gdrive_config)

@@ -93,7 +93,7 @@ export default function PwaInstallBanner() {
     checkInstallation();
 
     // 2. Fetch latest APK url for download link
-    setApkUrl('https://schoolpro-d95a8.web.app/SchoolOS_Plus.apk');
+    setApkUrl('https://jbjtvosvwufimjcvvwcg.supabase.co/storage/v1/object/public/app-updates/SchoolOS_Plus.apk');
 
     // 3. Detect Platform details
     const ua = navigator.userAgent.toLowerCase();

@@ -267,7 +267,7 @@ export default function SharedSettings() {
     if (Capacitor.isNativePlatform()) {
       CapacitorApp.getInfo().then(info => setAppVersionName(info.version));
     } else {
-      setApkUrl('https://schoolpro-d95a8.web.app/SchoolOS_Plus.apk');
+      setApkUrl('https://jbjtvosvwufimjcvvwcg.supabase.co/storage/v1/object/public/app-updates/SchoolOS_Plus.apk');
     }
   }, []);
 

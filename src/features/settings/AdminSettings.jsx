@@ -356,7 +356,7 @@ export default function AdminSettings() {
       const clean = raw.replace(/^v/, '');
       setAppVersion(`v${clean} (Web)`);
 
-      setApkUrl('https://schoolpro-d95a8.web.app/SchoolOS_Plus.apk');
+      setApkUrl('https://jbjtvosvwufimjcvvwcg.supabase.co/storage/v1/object/public/app-updates/SchoolOS_Plus.apk');
     }
 
     return () => {
