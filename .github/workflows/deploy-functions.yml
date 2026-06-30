@@ -50,8 +50,8 @@ jobs:
             VITE_SUPABASE_ANON_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
             --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
 
-          FUNCTIONS_NO_JWT=("send-notice-notification" "process-notification-queue" "cron-notification-scheduler" "webauthn-start" "webauthn-verify" "hybrid-recovery-handler" "razorpay-webhook")
-          FUNCTIONS_WITH_JWT=("platform-create-school" "platform-delete-school" "approve-school-registration" "school-self-upgrade" "gdrive-upload" "gdrive-auth" "create-razorpay-order" "verify-razorpay-payment")
+          FUNCTIONS_NO_JWT=("send-notice-notification" "process-notification-queue" "cron-notification-scheduler" "webauthn-start" "webauthn-verify" "hybrid-recovery-handler" "razorpay-webhook" "gdrive-auth" "notify-update" "create-razorpay-order" "mint-firebase-token")
+          FUNCTIONS_WITH_JWT=("platform-create-school" "platform-delete-school" "approve-school-registration" "school-self-upgrade" "gdrive-upload" "admin-reset-password" "register-school" "verify-razorpay-payment" "send-welcome-email" "send-username-email")
           
           for func in "${FUNCTIONS_NO_JWT[@]}"; do
             if [ -d "supabase/functions/$func" ]; then
