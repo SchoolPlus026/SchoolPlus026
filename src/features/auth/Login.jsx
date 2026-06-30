@@ -643,9 +643,13 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
+      if (schoolCode) {
+        localStorage.setItem('oauth_school_code', schoolCode);
+      }
+
       const redirectUrl = Capacitor.isNativePlatform() 
-        ? 'schoolosplus://dashboard' 
-        : `${window.location.origin}/`;
+        ? `schoolosplus://dashboard?school=${schoolCode}` 
+        : `${window.location.origin}/?school=${schoolCode}`;
 
       if (Capacitor.isNativePlatform()) {
         const { data, error } = await supabase.auth.signInWithOAuth({

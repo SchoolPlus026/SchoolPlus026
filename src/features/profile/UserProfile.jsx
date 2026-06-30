@@ -119,7 +119,7 @@ export default function UserProfile() {
     try {
       const redirectUrl = Capacitor.isNativePlatform() 
         ? 'schoolosplus://dashboard' 
-        : `${window.location.origin}/dashboard`;
+        : `${window.location.origin}${window.location.pathname}`;
 
       if (Capacitor.isNativePlatform()) {
         const { data, error } = await supabase.auth.linkIdentity({
@@ -175,23 +175,28 @@ export default function UserProfile() {
       const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
       if (error) throw error;
 
-      // Clear cache so identity list is re-fetched after disconnect
-      useAppStore.getState().setProfileLastFetched(null);
-      // Update the store with fresh user (no google identity)
-      const { data: { user: updatedUser } } = await supabase.auth.getUser();
-      if (updatedUser) {
-        const currentUser = useAppStore.getState().user;
+      // Update the store with fresh user (no google identity) instantly
+      const currentUser = useAppStore.getState().user;
+      if (currentUser) {
+        const updatedIdentities = currentUser.identities?.filter(id => id.provider !== 'google') || [];
+        const updatedProviders = currentUser.app_metadata?.providers?.filter(p => p !== 'google') || [];
         useAppStore.getState().setUserAndRole({
-          ...updatedUser,
-          class: currentUser?.class || null,
-          avatar_url: currentUser?.avatar_url || null,
-          avatar_file_id: currentUser?.avatar_file_id || null,
-          hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
+          ...currentUser,
+          identities: updatedIdentities,
+          app_metadata: {
+            ...currentUser.app_metadata,
+            providers: updatedProviders
+          }
         }, role);
       }
 
+      // Clear cache so identity list is re-fetched on reload/reopen
+      useAppStore.getState().setProfileLastFetched(null);
+
+      // Refresh session in background
+      await supabase.auth.refreshSession().catch(() => {});
+
       alert('Google account disconnected successfully.');
-      window.location.reload();
     } catch (err) {
       alert(`Disconnecting Google failed: ${err.message}`);
     } finally {
@@ -692,30 +697,23 @@ export default function UserProfile() {
                             Link your Google account to log in with a single click. When linked, you can bypass typing your username and password.
                          </p>
                          <div className="flex items-center gap-3 px-3.5 py-3 bg-[var(--glass)] rounded-xl border border-border/50 mb-4">
-                            <div className={`w-2.5 h-2.5 rounded-full ${user?.app_metadata?.providers?.includes('google') ? 'bg-emerald-500' : 'bg-slate-500'}`} />
-                            <span className="text-xs font-bold text-[var(--text-main)]">
-                               {user?.app_metadata?.providers?.includes('google') ? 'Google Account Connected' : 'Google Account Disconnected'}
-                            </span>
-                         </div>
+                             <div className={`w-2.5 h-2.5 rounded-full ${user?.identities?.some(id => id.provider === 'google') ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+                             <span className="text-xs font-bold text-[var(--text-main)]">
+                                {(() => {
+                                   const googleId = user?.identities?.find(id => id.provider === 'google');
+                                   return googleId 
+                                      ? `Google Account Connected (${googleId.identity_data?.email || 'unknown'})` 
+                                      : 'Google Account Disconnected';
+                                })()}
+                             </span>
+                          </div>
                       </div>
                       <div>
-                         {user?.app_metadata?.providers?.includes('google') ? (
+                         {user?.identities?.some(id => id.provider === 'google') ? (
                             <button
                                type="button"
                                disabled={linkingLoading}
-                               onClick={async () => {
-                                  setLinkingLoading(true);
-                                  try {
-                                     const { error } = await supabase.auth.unlinkRole('google');
-                                     if (error) throw error;
-                                     alert('Successfully unlinked Google Account.');
-                                     window.location.reload();
-                                  } catch (err) {
-                                     alert(err.message);
-                                  } finally {
-                                     setLinkingLoading(false);
-                                  }
-                               }}
+                               onClick={handleUnlinkGoogle}
                                className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center active:scale-[0.98]"
                             >
                                Unlink Google Account
@@ -724,21 +722,7 @@ export default function UserProfile() {
                             <button
                                type="button"
                                disabled={linkingLoading}
-                               onClick={async () => {
-                                  setLinkingLoading(true);
-                                  try {
-                                     const isNative = Capacitor.isNativePlatform();
-                                     const redirectUrl = isNative ? 'schoolosplus://dashboard' : `${window.location.origin}/dashboard`;
-                                     const { error } = await supabase.auth.linkIdentity({
-                                        provider: 'google',
-                                        options: { redirectTo: redirectUrl }
-                                     });
-                                     if (error) throw error;
-                                  } catch (err) {
-                                     alert(err.message);
-                                     setLinkingLoading(false);
-                                  }
-                               }}
+                               onClick={handleLinkGoogle}
                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-center shadow-md shadow-indigo-600/20 active:scale-[0.98]"
                             >
                                Connect Google Account

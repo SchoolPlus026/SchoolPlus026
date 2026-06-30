@@ -136,38 +136,129 @@ export default function App() {
       localStorage.setItem('show_sync_password_reset', 'true');
     }
 
+    async function syncUserSession(session) {
+      if (!session?.user) return;
+      try {
+        const store = useAppStore.getState();
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError || !profile) {
+          // Can't read profile — sign out cleanly
+          await supabase.auth.signOut();
+          store.clearSession();
+          return;
+        }
+
+        // Merge profile fields (class, avatar, etc.) into the auth user object
+        const enrichedUser = { 
+          ...session.user, 
+          class: profile.class || null,
+          avatar_url: profile.avatar_url || null,
+          avatar_file_id: profile.avatar_file_id || null,
+          hide_avatar_from_class: !!profile.hide_avatar_from_class
+        };
+
+        // Platform Admin has no school — skip school settings lookup
+        if (profile.role === 'platform_admin') {
+          const platformSettings = { name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' };
+          store.setSchoolSettings(platformSettings);
+          store.setUserAndRole(enrichedUser, profile.role);
+          store.setProfileLastFetched(Date.now());
+          saveAccount(session, { ...profile, email: session.user.email, id: session.user.id }, platformSettings);
+        } else {
+          const { data: settings } = await supabase
+            .from('school_settings')
+            .select('*')
+            .eq('school_id', profile.school_id)
+            .single();
+
+          if (settings) {
+            const isFreeSchool = settings.plan_type === 'free';
+            const isStudent = profile.role === 'student';
+            if (isFreeSchool && isStudent) {
+              await supabase.auth.signOut();
+              store.clearSession();
+              alert("🚫 Google Login / Email Password Reset is not supported for students in Free schools. Please use your local credentials.");
+              return;
+            }
+
+            // --- School Code Mismatch Check ---
+            const params = new URLSearchParams(window.location.search);
+            const urlSchoolCode = params.get('school') || localStorage.getItem('oauth_school_code') || store.schoolSettings?.school_code;
+
+            if (urlSchoolCode && urlSchoolCode.toUpperCase() !== 'PLATFORM') {
+              const userSchoolCode = settings.school_code?.trim().toUpperCase();
+              const enteredSchoolCode = urlSchoolCode.trim().toUpperCase();
+              if (userSchoolCode !== enteredSchoolCode) {
+                await supabase.auth.signOut();
+                store.clearSession();
+                localStorage.removeItem('oauth_school_code');
+                alert(`🚫 Access Denied: Your account belongs to school '${userSchoolCode}', but you are attempting to log in to school '${enteredSchoolCode}'.`);
+                return;
+              }
+            }
+
+            // Success, save everything to state and local switcher
+            store.setSchoolSettings(settings);
+            store.setUserAndRole(enrichedUser, profile.role);
+            store.setProfileLastFetched(Date.now());
+            saveAccount(session, { ...profile, email: session.user.email, id: session.user.id }, settings);
+            localStorage.removeItem('oauth_school_code');
+          } else {
+            // Sign out if no school settings
+            await supabase.auth.signOut();
+            store.clearSession();
+          }
+        }
+      } catch (err) {
+        console.error("syncUserSession error:", err);
+      }
+    }
+
     async function initializeApp() {
       try {
+        const store = useAppStore.getState();
 
+        // Detect if we just returned from an auth redirect
+        const url = new URL(window.location.href);
+        let URLChanged = false;
+        if (url.searchParams.has('code')) {
+          url.searchParams.delete('code');
+          URLChanged = true;
+        }
+        if (url.hash && (url.hash.includes('access_token=') || url.hash.includes('type='))) {
+          url.hash = '';
+          URLChanged = true;
+        }
+        if (URLChanged) {
+          window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+        }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          // Clean URL from auth tokens to prevent duplicate processing on refresh
-          const url = new URL(window.location.href);
-          let URLChanged = false;
-          if (url.searchParams.has('code')) {
-            url.searchParams.delete('code');
-            URLChanged = true;
-          }
-          if (url.hash && (url.hash.includes('access_token=') || url.hash.includes('type='))) {
-            url.hash = '';
-            URLChanged = true;
-          }
-          if (URLChanged) {
-            window.history.replaceState(null, '', url.pathname + url.search + url.hash);
-          }
-        } else {
-          useAppStore.getState().clearSession();
+        // If returned from redirect or having school param, force cache clear and refresh token
+        let session = null;
+        if (URLChanged || url.searchParams.has('school')) {
+          store.setProfileLastFetched(null);
+          const { data: refData } = await supabase.auth.refreshSession().catch(console.error) || {};
+          session = refData?.session || null;
+        }
+
+        if (!session) {
+          const { data } = await supabase.auth.getSession();
+          session = data?.session || null;
+        }
+
+        if (!session?.user) {
+          store.clearSession();
           setIsInitializing(false);
           return;
         }
 
         // Cache bypass check: if we already have a persistent user session and profile,
         // and it is within the dynamic cache window hours, skip remote database queries to save egress.
-        const store = useAppStore.getState();
-
-        // Fetch/refresh platform settings if they are older than 1 hour or missing
         const isPlatformSettingsFresh = store.platformSettings && store.platformSettingsLastFetched && (Date.now() - store.platformSettingsLastFetched < 60 * 60 * 1000);
         let platSettings = store.platformSettings;
 
@@ -212,67 +303,11 @@ export default function App() {
 
         // If we already have the user in Zustand cache, we unblock the UI instantly 
         // and let the rest of the verification happen silently in the background.
-        if (user) {
+        if (store.user) {
           setIsInitializing(false);
         }
 
-        if (session?.user) {
-          const { data: profile, error: profileError } = await supabase
-            .from('users')
-            .select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError || !profile) {
-            // Can't read profile — sign out cleanly
-            await supabase.auth.signOut();
-            setIsInitializing(false);
-            return;
-          }
-
-          // Merge profile fields (class, avatar, etc.) into the auth user object
-          const enrichedUser = { 
-            ...session.user, 
-            class: profile.class || null,
-            avatar_url: profile.avatar_url || null,
-            avatar_file_id: profile.avatar_file_id || null,
-            hide_avatar_from_class: !!profile.hide_avatar_from_class
-          };
-
-          // Platform Admin has no school — skip school settings lookup
-          if (profile.role === 'platform_admin') {
-            const platformSettings = { name: 'Platform Admin', school_id: null, school_code: 'PLATFORM' };
-            setSchoolSettings(platformSettings);
-            setUserAndRole(enrichedUser, profile.role);
-            store.setProfileLastFetched(Date.now());
-            saveAccount(session, { ...profile, email: session.user.email, id: session.user.id }, platformSettings);
-          } else {
-            const { data: settings } = await supabase
-              .from('school_settings')
-              .select('*')
-              .eq('school_id', profile.school_id)
-              .single();
-
-            if (settings) {
-              const isFreeSchool = settings.plan_type === 'free';
-              const isStudent = profile.role === 'student';
-              if (isFreeSchool && isStudent) {
-                await supabase.auth.signOut();
-                store.clearSession();
-                alert("🚫 Google Login / Email Password Reset is not supported for students in Free schools. Please use your local credentials.");
-                setIsInitializing(false);
-                return;
-              }
-              setSchoolSettings(settings);
-              setUserAndRole(enrichedUser, profile.role);
-              store.setProfileLastFetched(Date.now());
-              saveAccount(session, { ...profile, email: session.user.email, id: session.user.id }, settings);
-            } else {
-              // Sign out asynchronously without awaiting to prevent Capacitor freeze
-              supabase.auth.signOut().catch(console.error);
-            }
-          }
-        }
+        await syncUserSession(session);
       } catch (error) {
         console.error("Initialization sync error:", error);
       } finally {
@@ -305,6 +340,12 @@ export default function App() {
 
       // Synchronize multi-account stored credentials on token refresh or login updates
       if (session?.user && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+        const store = useAppStore.getState();
+        if (event === 'SIGNED_IN' && !store.user) {
+          // Resolve redirect loops by syncing user session immediately
+          await syncUserSession(session);
+        }
+
         (async () => {
           try {
             const { data: profile } = await supabase

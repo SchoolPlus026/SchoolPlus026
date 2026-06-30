@@ -784,7 +784,7 @@ export default function PlatformAdminDashboard() {
     try {
       const redirectUrl = Capacitor.isNativePlatform() 
         ? 'schoolosplus://dashboard' 
-        : `${window.location.origin}/dashboard`;
+        : `${window.location.origin}${window.location.pathname}`;
 
       if (Capacitor.isNativePlatform()) {
         const { data, error } = await supabase.auth.linkIdentity({
@@ -838,13 +838,18 @@ export default function PlatformAdminDashboard() {
       const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
       if (error) throw error;
 
-      // Update Zustand store user object instantly by removing the Google identity
+      // Update Zustand store user object instantly by removing the Google identity and provider
       const currentUser = useAppStore.getState().user;
       if (currentUser) {
         const updatedIdentities = currentUser.identities?.filter(id => id.provider !== 'google') || [];
+        const updatedProviders = currentUser.app_metadata?.providers?.filter(p => p !== 'google') || [];
         useAppStore.getState().setUserAndRole({
           ...currentUser,
-          identities: updatedIdentities
+          identities: updatedIdentities,
+          app_metadata: {
+            ...currentUser.app_metadata,
+            providers: updatedProviders
+          }
         }, role);
       }
 
@@ -2180,9 +2185,12 @@ export default function PlatformAdminDashboard() {
                   <div className="flex items-center gap-3 p-4 rounded-xl border border-[var(--card-border)] bg-[var(--glass)]">
                     <div className={`w-3 h-3 rounded-full ${user?.identities?.some(id => id.provider === 'google') ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
                     <span className="text-xs font-bold text-white">
-                      {user?.identities?.some(id => id.provider === 'google')
-                        ? 'Google Account Connected'
-                        : 'Google Account Disconnected'}
+                      {(() => {
+                        const googleId = user?.identities?.find(id => id.provider === 'google');
+                        return googleId 
+                          ? `Google Account Connected (${googleId.identity_data?.email || 'unknown'})` 
+                          : 'Google Account Disconnected';
+                      })()}
                     </span>
                   </div>
                 </div>
