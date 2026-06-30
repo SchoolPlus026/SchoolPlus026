@@ -147,9 +147,20 @@ export default function App() {
           .single();
 
         if (profileError || !profile) {
-          // Can't read profile — sign out cleanly
-          await supabase.auth.signOut();
-          store.clearSession();
+          // Check if it is a network error rather than a missing user row
+          const isNetworkError = profileError && (
+            profileError.message?.includes('Failed to fetch') ||
+            profileError.message?.includes('Network Error') ||
+            profileError.status === 0 ||
+            !navigator.onLine
+          );
+          if (!isNetworkError) {
+            console.warn('syncUserSession: User profile not found, signing out cleanly.', profileError);
+            await supabase.auth.signOut();
+            store.clearSession();
+          } else {
+            console.warn('syncUserSession: Network/connectivity error, keeping cached session.', profileError);
+          }
           return;
         }
 
@@ -170,7 +181,7 @@ export default function App() {
           store.setProfileLastFetched(Date.now());
           saveAccount(session, { ...profile, email: session.user.email, id: session.user.id }, platformSettings);
         } else {
-          const { data: settings } = await supabase
+          const { data: settings, error: settingsError } = await supabase
             .from('school_settings')
             .select('*')
             .eq('school_id', profile.school_id)
@@ -209,9 +220,20 @@ export default function App() {
             saveAccount(session, { ...profile, email: session.user.email, id: session.user.id }, settings);
             localStorage.removeItem('oauth_school_code');
           } else {
-            // Sign out if no school settings
-            await supabase.auth.signOut();
-            store.clearSession();
+            // Check if settings lookup failed due to network
+            const isNetworkError = settingsError && (
+              settingsError.message?.includes('Failed to fetch') ||
+              settingsError.message?.includes('Network Error') ||
+              settingsError.status === 0 ||
+              !navigator.onLine
+            );
+            if (!isNetworkError) {
+              console.warn('syncUserSession: School settings not found, signing out cleanly.', settingsError);
+              await supabase.auth.signOut();
+              store.clearSession();
+            } else {
+              console.warn('syncUserSession: Network/connectivity error on settings lookup, keeping cached session.', settingsError);
+            }
           }
         }
       } catch (err) {
@@ -392,7 +414,25 @@ export default function App() {
           if (url.protocol === 'schoolosplus:' || data.url.startsWith('schoolosplus://')) {
             let sessionEstablished = false;
 
-            // ── Path A: PKCE flow — Supabase sends ?code=... as a query param ──
+            // Extract hash parameters
+            const hashStr = url.hash || (data.url.includes('#') ? '#' + data.url.split('#')[1] : '');
+            const hashParams = new URLSearchParams(hashStr.startsWith('#') ? hashStr.substring(1) : hashStr);
+
+            // 1. Handle error redirect from Supabase/Google (e.g. Identity is already linked to another user)
+            const errorMsg = url.searchParams.get('error_description') || url.searchParams.get('error') || 
+                             hashParams.get('error_description') || hashParams.get('error');
+            if (errorMsg) {
+              const decodedError = decodeURIComponent(errorMsg).replace(/\+/g, ' ');
+              console.error('[Deep Link] Auth error detected:', decodedError);
+              alert(`Authentication Error: ${decodedError}`);
+              try {
+                await Browser.close();
+              } catch (_) {}
+              window.dispatchEvent(new Event('sync_login_failed'));
+              return;
+            }
+
+            // 2. PKCE flow — exchange code for session
             const code = url.searchParams.get('code');
             if (code) {
               console.log('[Deep Link] PKCE code detected, exchanging for session...');
@@ -404,15 +444,13 @@ export default function App() {
               }
             }
 
-            // ── Path B: Implicit flow — Supabase sends #access_token=... in hash ──
+            // 3. Implicit flow — set session from hash
             if (!sessionEstablished) {
-              const hashStr = url.hash || (data.url.includes('#') ? '#' + data.url.split('#')[1] : '');
-              const params = new URLSearchParams(hashStr.startsWith('#') ? hashStr.substring(1) : hashStr);
-              const accessToken = params.get('access_token');
-              const refreshToken = params.get('refresh_token');
+              const accessToken = hashParams.get('access_token');
+              const refreshToken = hashParams.get('refresh_token');
 
               if (accessToken) {
-                const type = params.get('type');
+                const type = hashParams.get('type');
                 if (type === 'recovery') {
                   localStorage.setItem('show_sync_password_reset', 'true');
                   window.dispatchEvent(new Event('sync_login_success'));
@@ -429,8 +467,22 @@ export default function App() {
               }
             }
 
+            // 4. Already Logged In / Identity Linking flow — refresh existing session to pull new identity data
+            if (!sessionEstablished) {
+              const { data: { session: activeSession } } = await supabase.auth.getSession();
+              if (activeSession) {
+                console.log('[Deep Link] Active session exists. Refreshing session to retrieve linked identity data...');
+                const { data: refData, error: refErr } = await supabase.auth.refreshSession();
+                if (refErr) {
+                  console.error('[Deep Link] refreshSession failed:', refErr.message);
+                } else if (refData?.session) {
+                  sessionEstablished = true;
+                  await syncUserSession(refData.session);
+                }
+              }
+            }
+
             if (sessionEstablished) {
-              // Clear the profile cache so next initializeApp always fetches fresh data
               useAppStore.getState().setProfileLastFetched(null);
               try {
                 await Browser.close();
@@ -439,7 +491,7 @@ export default function App() {
               }
               window.location.reload();
             } else {
-              console.warn('[Deep Link] No auth tokens found in URL:', data.url);
+              console.warn('[Deep Link] No session was established for deep link:', data.url);
               try {
                 await Browser.close();
               } catch (bErr) {}

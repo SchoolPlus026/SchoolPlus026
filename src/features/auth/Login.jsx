@@ -652,6 +652,11 @@ export default function Login() {
         : `${window.location.origin}/?school=${schoolCode}`;
 
       if (Capacitor.isNativePlatform()) {
+        const browserFinishedListener = await Browser.addListener('browserFinished', () => {
+          setLoading(false);
+          browserFinishedListener.remove();
+        });
+
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
@@ -659,10 +664,14 @@ export default function Login() {
             skipBrowserRedirect: true
           }
         });
-        if (error) throw error;
+        if (error) {
+          browserFinishedListener.remove();
+          throw error;
+        }
         if (data?.url) {
           await Browser.open({ url: data.url });
         } else {
+          browserFinishedListener.remove();
           throw new Error('Google Sign-In URL not found.');
         }
       } else {

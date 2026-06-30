@@ -226,6 +226,11 @@ export default function AdminSettings() {
         : `${window.location.origin}${window.location.pathname}`;
 
       if (Capacitor.isNativePlatform()) {
+        const browserFinishedListener = await Browser.addListener('browserFinished', () => {
+          setLinkingLoading(false);
+          browserFinishedListener.remove();
+        });
+
         const { data, error } = await supabase.auth.linkIdentity({
           provider: 'google',
           options: {
@@ -233,10 +238,14 @@ export default function AdminSettings() {
             skipBrowserRedirect: true
           }
         });
-        if (error) throw error;
+        if (error) {
+          browserFinishedListener.remove();
+          throw error;
+        }
         if (data?.url) {
           await Browser.open({ url: data.url });
         } else {
+          browserFinishedListener.remove();
           throw new Error('Google link URL not found.');
         }
       } else {
@@ -257,7 +266,9 @@ export default function AdminSettings() {
         alert(`Linking Google failed: ${err.message}`);
       }
     } finally {
-      setLinkingLoading(false);
+      if (!Capacitor.isNativePlatform()) {
+        setLinkingLoading(false);
+      }
     }
   };
 
