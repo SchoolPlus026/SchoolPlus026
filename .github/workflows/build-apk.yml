@@ -285,7 +285,7 @@ jobs:
         # This avoids the 404 error caused by private GitHub repository release assets.
         run: |
           APK_FILE="${{ env.APK_FILE }}"
-          echo "Uploading $APK_FILE to Supabase Storage..."
+          echo "Uploading versioned $APK_FILE to Supabase Storage..."
           
           HTTP_STATUS=$(curl -sS -o /tmp/upload_response.txt -w "%{http_code}" \
             -X POST "${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/app-updates/${APK_FILE}" \
@@ -298,11 +298,27 @@ jobs:
           echo ""
           
           if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "201" ]; then
-            echo "❌ Upload failed with status $HTTP_STATUS"
+            echo "❌ Versioned upload failed with status $HTTP_STATUS"
             exit 1
           fi
           
-          echo "✅ Upload successful!"
+          echo "Uploading static SchoolOS_Plus.apk to Supabase Storage..."
+          HTTP_STATUS_STATIC=$(curl -sS -o /tmp/upload_static_response.txt -w "%{http_code}" \
+            -X POST "${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/app-updates/SchoolOS_Plus.apk" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "x-upsert: true" \
+            --data-binary "@${APK_FILE}")
+            
+          cat /tmp/upload_static_response.txt
+          echo ""
+          
+          if [ "$HTTP_STATUS_STATIC" != "200" ] && [ "$HTTP_STATUS_STATIC" != "201" ]; then
+            echo "❌ Static upload failed with status $HTTP_STATUS_STATIC"
+            exit 1
+          fi
+          
+          echo "✅ Uploads successful!"
 
       - name: 🧹 Auto-Delete Old APKs (Keep Last 2)
         run: |
@@ -312,7 +328,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"prefix":"","limit":100,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}' > /tmp/apk_list.json
           
-          FILE_NAMES=$(jq -r '.[] | select(.name | endswith(".apk")) | .name' /tmp/apk_list.json)
+          FILE_NAMES=$(jq -r '.[] | select(.name | endswith(".apk") and .name != "SchoolOS_Plus.apk") | .name' /tmp/apk_list.json)
           COUNT=$(echo "$FILE_NAMES" | grep -c ".apk" || true)
           
           if [ "$COUNT" -gt 2 ]; then
