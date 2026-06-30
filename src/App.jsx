@@ -113,15 +113,23 @@ export default function App() {
       console.log('[PWA] SW Update event received:', e.detail);
       setSwUpdateReg(e.detail);
     };
+    const handleOAuthMessage = (e) => {
+      if (e.origin === window.location.origin && e.data?.type === 'oauth-success') {
+        console.log('[App] Received oauth-success message from popup. Reloading...');
+        window.location.reload();
+      }
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     window.addEventListener('sw-update-available', handleSWUpdate);
+    window.addEventListener('message', handleOAuthMessage);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('sw-update-available', handleSWUpdate);
+      window.removeEventListener('message', handleOAuthMessage);
     };
   }, []);
 
@@ -268,7 +276,36 @@ export default function App() {
       try {
         const store = useAppStore.getState();
 
-        // Detect if we just returned from an auth redirect
+        // 1. Check if we are inside an OAuth popup window and already have a session
+        if (window.opener && window.opener !== window) {
+          const { data: { session: activeSession } } = await supabase.auth.getSession();
+          if (activeSession) {
+            console.log('[Popup] Session already exists, closing popup...');
+            try {
+              window.opener.postMessage({ type: 'oauth-success' }, window.location.origin);
+            } catch (_) {}
+            window.close();
+            return;
+          }
+        }
+
+        // 2. Fetch session. This allows Supabase to see the code or hash parameters in the URL
+        // and perform the PKCE or implicit auth flow exchange before we strip the parameters!
+        let session = null;
+        const { data } = await supabase.auth.getSession();
+        session = data?.session || null;
+
+        // 3. If we are inside an OAuth popup window, close the popup now that session is established
+        if (window.opener && window.opener !== window && session) {
+          console.log('[Popup] Session established, closing popup and notifying parent...');
+          try {
+            window.opener.postMessage({ type: 'oauth-success' }, window.location.origin);
+          } catch (_) {}
+          window.close();
+          return;
+        }
+
+        // 4. Now that session is established, clean the URL from auth tokens
         const url = new URL(window.location.href);
         let URLChanged = false;
         if (url.searchParams.has('code')) {
@@ -283,17 +320,13 @@ export default function App() {
           window.history.replaceState(null, '', url.pathname + url.search + url.hash);
         }
 
-        // If returned from redirect or having school param, force cache clear and refresh token
-        let session = null;
+        // If returned from redirect or having school param, force cache clear
         if (URLChanged || url.searchParams.has('school')) {
           store.setProfileLastFetched(null);
           const { data: refData } = await supabase.auth.refreshSession().catch(console.error) || {};
-          session = refData?.session || null;
-        }
-
-        if (!session) {
-          const { data } = await supabase.auth.getSession();
-          session = data?.session || null;
+          if (refData?.session) {
+            session = refData.session;
+          }
         }
 
         if (!session?.user) {
@@ -1119,14 +1152,31 @@ function GoogleRecoveryNudgeModal() {
         // Don't reset setLoading here — browserFinished listener will do it
         return;
       } else {
-        const { error } = await supabase.auth.linkIdentity({
+        const { data, error } = await supabase.auth.linkIdentity({
           provider: 'google',
           options: {
-            redirectTo: redirectUrl
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true
           }
         });
         if (error) throw error;
-        // On web, the page will redirect — loading stays true intentionally
+        if (data?.url) {
+          const width = 500;
+          const height = 600;
+          const left = window.screen.width / 2 - width / 2;
+          const top = window.screen.height / 2 - height / 2;
+          const popup = window.open(
+            data.url,
+            'google-oauth',
+            `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+          );
+          if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+            // Popup was blocked — fallback to full page redirect
+            window.location.href = data.url;
+          }
+        } else {
+          throw new Error('Google link URL not found.');
+        }
         return;
       }
     } catch (err) {

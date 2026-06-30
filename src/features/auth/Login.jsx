@@ -675,13 +675,31 @@ export default function Login() {
           throw new Error('Google Sign-In URL not found.');
         }
       } else {
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: redirectUrl
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true
           }
         });
         if (error) throw error;
+        if (data?.url) {
+          const width = 500;
+          const height = 600;
+          const left = window.screen.width / 2 - width / 2;
+          const top = window.screen.height / 2 - height / 2;
+          const popup = window.open(
+            data.url,
+            'google-oauth',
+            `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+          );
+          if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+            // Popup was blocked — fallback to full page redirect
+            window.location.href = data.url;
+          }
+        } else {
+          throw new Error('Google Sign-In URL not found.');
+        }
       }
     } catch (err) {
       setError(err.message || 'Failed to initialize Google Login.');
