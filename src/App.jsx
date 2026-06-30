@@ -274,9 +274,46 @@ export default function App() {
         }
 
         if (!session?.user) {
-          store.clearSession();
-          setIsInitializing(false);
-          return;
+          // If Zustand already has a user (from persisted storage), do NOT immediately sign out.
+          // The device may be offline or the token may have expired transiently.
+          // Try one explicit refreshSession before deciding to log out.
+          if (store.user) {
+            console.warn('[initializeApp] No session from getSession() but Zustand has user. Trying refreshSession...');
+            try {
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+              if (refreshData?.session) {
+                console.log('[initializeApp] refreshSession succeeded — restoring session.');
+                session = refreshData.session;
+              } else {
+                // refreshSession definitively failed — check if it's a network issue
+                const isNetworkError = !navigator.onLine ||
+                  refreshError?.message?.includes('Failed to fetch') ||
+                  refreshError?.message?.includes('Network Error') ||
+                  refreshError?.status === 0;
+                if (isNetworkError) {
+                  // Offline — keep Zustand cache, show app with cached data
+                  console.warn('[initializeApp] Offline/network error during refresh. Keeping cached session.');
+                  setIsInitializing(false);
+                  return;
+                } else {
+                  // Supabase rejected the token (e.g. revoked) — sign out
+                  console.warn('[initializeApp] Token definitively invalid. Signing out.', refreshError);
+                  store.clearSession();
+                  setIsInitializing(false);
+                  return;
+                }
+              }
+            } catch (refreshErr) {
+              // Network error during refresh — keep cached session
+              console.warn('[initializeApp] Exception during refreshSession. Keeping cached session.', refreshErr);
+              setIsInitializing(false);
+              return;
+            }
+          } else {
+            store.clearSession();
+            setIsInitializing(false);
+            return;
+          }
         }
 
         // Cache bypass check: if we already have a persistent user session and profile,
@@ -320,6 +357,9 @@ export default function App() {
             }
           } catch (err) {
             console.warn('Failed to verify data version stamp:', err.message);
+            // Network error during version check — still show cached UI
+            setIsInitializing(false);
+            return;
           }
         }
 
@@ -360,14 +400,13 @@ export default function App() {
         store.setProfileLastFetched(null); // force fresh re-fetch next init
       }
 
+      // On SIGNED_IN: ALWAYS sync session (covers Google Login returning to app)
+      if (event === 'SIGNED_IN' && session?.user) {
+        await syncUserSession(session);
+      }
+
       // Synchronize multi-account stored credentials on token refresh or login updates
       if (session?.user && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
-        const store = useAppStore.getState();
-        if (event === 'SIGNED_IN' && !store.user) {
-          // Resolve redirect loops by syncing user session immediately
-          await syncUserSession(session);
-        }
-
         (async () => {
           try {
             const { data: profile } = await supabase
@@ -412,23 +451,18 @@ export default function App() {
           }
 
           if (url.protocol === 'schoolosplus:' || data.url.startsWith('schoolosplus://')) {
-            let sessionEstablished = false;
-
             // Extract hash parameters
             const hashStr = url.hash || (data.url.includes('#') ? '#' + data.url.split('#')[1] : '');
             const hashParams = new URLSearchParams(hashStr.startsWith('#') ? hashStr.substring(1) : hashStr);
 
-            // 1. Handle error redirect from Supabase/Google (e.g. Identity is already linked to another user)
+            // 1. Handle error redirect from Supabase/Google
             const errorMsg = url.searchParams.get('error_description') || url.searchParams.get('error') || 
                              hashParams.get('error_description') || hashParams.get('error');
             if (errorMsg) {
               const decodedError = decodeURIComponent(errorMsg).replace(/\+/g, ' ');
               console.error('[Deep Link] Auth error detected:', decodedError);
               alert(`Authentication Error: ${decodedError}`);
-              try {
-                await Browser.close();
-              } catch (_) {}
-              window.dispatchEvent(new Event('sync_login_failed'));
+              try { await Browser.close(); } catch (_) {}
               return;
             }
 
@@ -439,66 +473,46 @@ export default function App() {
               const { error: codeErr } = await supabase.auth.exchangeCodeForSession(data.url);
               if (codeErr) {
                 console.error('[Deep Link] exchangeCodeForSession failed:', codeErr.message);
-              } else {
-                sessionEstablished = true;
               }
-            }
-
-            // 3. Implicit flow — set session from hash
-            if (!sessionEstablished) {
-              const accessToken = hashParams.get('access_token');
-              const refreshToken = hashParams.get('refresh_token');
-
-              if (accessToken) {
-                const type = hashParams.get('type');
-                if (type === 'recovery') {
-                  localStorage.setItem('show_sync_password_reset', 'true');
-                  window.dispatchEvent(new Event('sync_login_success'));
-                }
-                const { error: sessionErr } = await supabase.auth.setSession({
-                  access_token: accessToken,
-                  refresh_token: refreshToken || ''
-                });
-                if (sessionErr) {
-                  console.error('[Deep Link] setSession failed:', sessionErr.message);
-                } else {
-                  sessionEstablished = true;
-                }
-              }
-            }
-
-            // 4. Already Logged In / Identity Linking flow — refresh existing session to pull new identity data
-            if (!sessionEstablished) {
-              const { data: { session: activeSession } } = await supabase.auth.getSession();
-              if (activeSession) {
-                console.log('[Deep Link] Active session exists. Refreshing session to retrieve linked identity data...');
-                const { data: refData, error: refErr } = await supabase.auth.refreshSession();
-                if (refErr) {
-                  console.error('[Deep Link] refreshSession failed:', refErr.message);
-                } else if (refData?.session) {
-                  sessionEstablished = true;
-                  await syncUserSession(refData.session);
-                }
-              }
-            }
-
-            if (sessionEstablished) {
-              useAppStore.getState().setProfileLastFetched(null);
-              try {
-                await Browser.close();
-              } catch (bErr) {
-                console.warn('[Deep Link] Failed to close browser tab:', bErr.message);
-              }
+              // After code exchange, onAuthStateChange SIGNED_IN fires — just close and reload
+              try { await Browser.close(); } catch (_) {}
               window.location.reload();
-            } else {
-              console.warn('[Deep Link] No session was established for deep link:', data.url);
-              try {
-                await Browser.close();
-              } catch (bErr) {}
+              return;
             }
+
+            // 3. Implicit flow — set session from hash tokens
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+            if (accessToken) {
+              const type = hashParams.get('type');
+              if (type === 'recovery') {
+                localStorage.setItem('show_sync_password_reset', 'true');
+                window.dispatchEvent(new Event('sync_login_success'));
+              }
+              const { error: sessionErr } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken || ''
+              });
+              if (sessionErr) {
+                console.error('[Deep Link] setSession failed:', sessionErr.message);
+              }
+              try { await Browser.close(); } catch (_) {}
+              window.location.reload();
+              return;
+            }
+
+            // 4. No tokens in URL — this is a bare callback (Google OAuth success or identity linking)
+            //    The Supabase SDK has already processed the session via onAuthStateChange.
+            //    We just need to close the browser and reload so the app picks up the new session.
+            console.log('[Deep Link] No tokens in URL — closing browser and reloading to pick up new session.');
+            useAppStore.getState().setProfileLastFetched(null);
+            try { await Browser.close(); } catch (_) {}
+            window.location.reload();
           }
         } catch (err) {
           console.error('[Deep Link] Error handling URL:', err);
+          try { await Browser.close(); } catch (_) {}
+          window.location.reload();
         }
       });
     }
