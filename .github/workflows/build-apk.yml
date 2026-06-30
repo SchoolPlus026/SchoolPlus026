@@ -335,7 +335,7 @@ jobs:
             exit 1
           fi
           
-          FILE_NAMES=$(jq -r '.[] | select(.name | endswith(".apk") and .name != "SchoolOS_Plus.apk") | .name' /tmp/apk_list.json)
+          FILE_NAMES=$(jq -r '.[] | select(.name | endswith(".apk") and . != "SchoolOS_Plus.apk") | .name' /tmp/apk_list.json)
           COUNT=$(echo "$FILE_NAMES" | grep -c ".apk" || true)
           
           if [ "$COUNT" -gt 2 ]; then
