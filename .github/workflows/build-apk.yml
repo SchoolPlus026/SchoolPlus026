@@ -322,11 +322,18 @@ jobs:
 
       - name: 🧹 Auto-Delete Old APKs (Keep Last 2)
         run: |
-          echo "Fetching list of APKs in app-updates bucket..."
-          curl -sS -X POST "${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/list/app-updates" \
+          HTTP_STATUS=$(curl -sS -o /tmp/apk_list.json -w "%{http_code}" \
+            -X POST "${{ secrets.VITE_SUPABASE_URL }}/storage/v1/object/list/app-updates" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
-            -d '{"prefix":"","limit":100,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}' > /tmp/apk_list.json
+            -d '{"prefix":"","limit":100,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}')
+          
+          echo "List HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ Failed to list bucket objects. Response:"
+            cat /tmp/apk_list.json
+            exit 1
+          fi
           
           FILE_NAMES=$(jq -r '.[] | select(.name | endswith(".apk") and .name != "SchoolOS_Plus.apk") | .name' /tmp/apk_list.json)
           COUNT=$(echo "$FILE_NAMES" | grep -c ".apk" || true)
