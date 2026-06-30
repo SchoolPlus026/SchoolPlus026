@@ -402,5 +402,17 @@ We completed a rigorous schema-level and config-level comparison between the Jap
 *   **Missing Storage Buckets Restored:** Standard pg_dumps do not export the custom `storage` schema. Our audit found that the 5 production storage buckets and their 13 RLS policies were missing in India. 
 *   **Fix:** Recreated all 5 buckets (`school_assets`, `payment-screenshots`, `gallery`, `app-updates`, and `academic-archives`) and deployed all 13 storage RLS policies to the India database to prevent file upload failures. The definitions have also been appended to the schema master file.
 
+---
+
+## 8. Post-Migration Bug Bash & OAuth Alignment
+
+### A. Help / Tutorials Module Data Restoration
+*   **Audit Diagnosis:** The Help/Tutorials module database tables (`kb_categories` and `kb_articles`) on the new India Supabase project were completely empty (0 rows), causing the frontend to appear empty and missing features.
+*   **Fix:** Extracted the original production categories and articles data from the old Japan Supabase project and successfully seeded them into the new India Supabase project (restoring 7 categories and 4 tutorial articles with 100% legacy parity).
+
+### B. Google OAuth Configuration Alignment
+*   **Audit Diagnosis:** Identified a critical discrepancy where the Supabase India Auth Provider (GoTrue settings) was configured with an incorrect Google Client ID starting with `8612...` instead of Project B's Client ID starting with `7554...`.
+*   **Fix:** Executed a secure `PATCH` API request to the Supabase Management API using the Personal Access Token (`sbp_`) to update the Auth settings for the India project (`jbjtvosvwufimjcvvwcg`), aligning the backend Google Auth Provider with Project B (`7554...` Client ID and `GOCSPX-...` Client Secret).
+
 
 
