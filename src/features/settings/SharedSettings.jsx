@@ -220,22 +220,23 @@ export default function SharedSettings() {
       const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
       if (error) throw error;
 
-      // Clear cache and update store with fresh user
-      useAppStore.getState().setProfileLastFetched(null);
-      const { data: { user: updatedUser } } = await supabase.auth.getUser();
-      if (updatedUser) {
-        const currentUser = useAppStore.getState().user;
+      // Update Zustand store user object instantly by removing the Google identity
+      const currentUser = useAppStore.getState().user;
+      if (currentUser) {
+        const updatedIdentities = currentUser.identities?.filter(id => id.provider !== 'google') || [];
         useAppStore.getState().setUserAndRole({
-          ...updatedUser,
-          class: currentUser?.class || null,
-          avatar_url: currentUser?.avatar_url || null,
-          avatar_file_id: currentUser?.avatar_file_id || null,
-          hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
+          ...currentUser,
+          identities: updatedIdentities
         }, role);
       }
 
+      // Refresh session in the background to update Supabase local storage cache
+      await supabase.auth.refreshSession().catch(() => {});
+
+      // Clear profile cache
+      useAppStore.getState().setProfileLastFetched(null);
+
       alert('Google account disconnected successfully.');
-      window.location.reload();
     } catch (err) {
       alert(`Disconnecting Google failed: ${err.message}`);
     } finally {

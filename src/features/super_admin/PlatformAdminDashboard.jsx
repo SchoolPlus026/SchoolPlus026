@@ -838,12 +838,23 @@ export default function PlatformAdminDashboard() {
       const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
       if (error) throw error;
 
+      // Update Zustand store user object instantly by removing the Google identity
+      const currentUser = useAppStore.getState().user;
+      if (currentUser) {
+        const updatedIdentities = currentUser.identities?.filter(id => id.provider !== 'google') || [];
+        useAppStore.getState().setUserAndRole({
+          ...currentUser,
+          identities: updatedIdentities
+        }, role);
+      }
+
+      // Refresh session in the background to update Supabase local storage cache
+      await supabase.auth.refreshSession().catch(() => {});
+
+      // Clear profile cache
       useAppStore.getState().setProfileLastFetched(null);
-      const { data: { user: updatedUser } } = await supabase.auth.getUser();
-      if (updatedUser) useAppStore.getState().setUserAndRole(updatedUser, role);
 
       alert('Google account disconnected successfully.');
-      window.location.reload();
     } catch (err) {
       alert(`Disconnecting Google failed: ${err.message}`);
     } finally {
