@@ -231,26 +231,24 @@ export default function SharedSettings() {
       const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
       if (error) throw error;
 
-      // Update Zustand store user object instantly by removing the Google identity and provider
-      const currentUser = useAppStore.getState().user;
-      if (currentUser) {
-        const updatedIdentities = currentUser.identities?.filter(id => id.provider !== 'google') || [];
-        const updatedProviders = currentUser.app_metadata?.providers?.filter(p => p !== 'google') || [];
+      // Get fresh user with updated identities from the server
+      const { data: { user: updatedUser } } = await supabase.auth.getUser();
+      if (updatedUser) {
+        const currentUser = useAppStore.getState().user;
         useAppStore.getState().setUserAndRole({
-          ...currentUser,
-          identities: updatedIdentities,
-          app_metadata: {
-            ...currentUser.app_metadata,
-            providers: updatedProviders
-          }
+          ...updatedUser,
+          class: currentUser?.class || null,
+          avatar_url: currentUser?.avatar_url || null,
+          avatar_file_id: currentUser?.avatar_file_id || null,
+          hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
         }, role);
       }
 
-      // Refresh session in the background to update Supabase local storage cache
-      await supabase.auth.refreshSession().catch(() => {});
-
       // Clear profile cache
       useAppStore.getState().setProfileLastFetched(null);
+
+      // Refresh session in the background
+      await supabase.auth.refreshSession().catch(() => {});
 
       alert('Google account disconnected successfully.');
     } catch (err) {

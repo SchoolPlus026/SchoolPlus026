@@ -186,18 +186,16 @@ export default function UserProfile() {
       const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
       if (error) throw error;
 
-      // Update the store with fresh user (no google identity) instantly
-      const currentUser = useAppStore.getState().user;
-      if (currentUser) {
-        const updatedIdentities = currentUser.identities?.filter(id => id.provider !== 'google') || [];
-        const updatedProviders = currentUser.app_metadata?.providers?.filter(p => p !== 'google') || [];
+      // Get fresh user with updated identities from the server
+      const { data: { user: updatedUser } } = await supabase.auth.getUser();
+      if (updatedUser) {
+        const currentUser = useAppStore.getState().user;
         useAppStore.getState().setUserAndRole({
-          ...currentUser,
-          identities: updatedIdentities,
-          app_metadata: {
-            ...currentUser.app_metadata,
-            providers: updatedProviders
-          }
+          ...updatedUser,
+          class: currentUser?.class || null,
+          avatar_url: currentUser?.avatar_url || null,
+          avatar_file_id: currentUser?.avatar_file_id || null,
+          hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
         }, role);
       }
 

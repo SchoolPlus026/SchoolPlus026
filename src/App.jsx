@@ -164,9 +164,27 @@ export default function App() {
           return;
         }
 
+        // Get the freshest user data from Supabase Auth API — this includes up-to-date
+        // identities[] and app_metadata.providers[] which reflect any recently linked/unlinked
+        // Google accounts. The session.user object can sometimes be stale (from cached JWT).
+        let freshIdentities = session.user.identities;
+        let freshAppMetadata = session.user.app_metadata;
+        try {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (authUser) {
+            freshIdentities = authUser.identities;
+            freshAppMetadata = authUser.app_metadata;
+          }
+        } catch (_) {
+          // Non-critical — use identities from session if getUser() fails
+        }
+
         // Merge profile fields (class, avatar, etc.) into the auth user object
+        // Including fresh identities so Google connect/disconnect is immediately visible in UI
         const enrichedUser = { 
-          ...session.user, 
+          ...session.user,
+          identities: freshIdentities,
+          app_metadata: freshAppMetadata,
           class: profile.class || null,
           avatar_url: profile.avatar_url || null,
           avatar_file_id: profile.avatar_file_id || null,
@@ -198,18 +216,23 @@ export default function App() {
             }
 
             // --- School Code Mismatch Check ---
-            const params = new URLSearchParams(window.location.search);
-            const urlSchoolCode = params.get('school') || localStorage.getItem('oauth_school_code') || store.schoolSettings?.school_code;
+            // IMPORTANT: Skip this check if the user is already logged in (identity linking scenario)
+            // Only enforce it during fresh Google Sign-In (when store has no current user session)
+            const isAlreadyLoggedIn = !!store.user;
+            if (!isAlreadyLoggedIn) {
+              const params = new URLSearchParams(window.location.search);
+              const urlSchoolCode = params.get('school') || localStorage.getItem('oauth_school_code') || store.schoolSettings?.school_code;
 
-            if (urlSchoolCode && urlSchoolCode.toUpperCase() !== 'PLATFORM') {
-              const userSchoolCode = settings.school_code?.trim().toUpperCase();
-              const enteredSchoolCode = urlSchoolCode.trim().toUpperCase();
-              if (userSchoolCode !== enteredSchoolCode) {
-                await supabase.auth.signOut();
-                store.clearSession();
-                localStorage.removeItem('oauth_school_code');
-                alert(`🚫 Access Denied: Your account belongs to school '${userSchoolCode}', but you are attempting to log in to school '${enteredSchoolCode}'.`);
-                return;
+              if (urlSchoolCode && urlSchoolCode.toUpperCase() !== 'PLATFORM') {
+                const userSchoolCode = settings.school_code?.trim().toUpperCase();
+                const enteredSchoolCode = urlSchoolCode.trim().toUpperCase();
+                if (userSchoolCode !== enteredSchoolCode) {
+                  await supabase.auth.signOut();
+                  store.clearSession();
+                  localStorage.removeItem('oauth_school_code');
+                  alert(`🚫 Access Denied: Your account belongs to school '${userSchoolCode}', but you are attempting to log in to school '${enteredSchoolCode}'.`);
+                  return;
+                }
               }
             }
 
@@ -385,13 +408,21 @@ export default function App() {
         localStorage.setItem('show_sync_password_reset', 'true');
         window.dispatchEvent(new Event('sync_login_success'));
       } else if (event === 'USER_UPDATED' && session?.user) {
-        // Email/identity change confirmed — refresh the cached user object so
-        // the new email is reflected in the UI without requiring a full re-login.
+        // Email/identity change confirmed — get the FRESHEST user data from Auth API
+        // to ensure identities[] is up-to-date (reflects newly linked/unlinked Google accounts)
         const store = useAppStore.getState();
         const currentRole = store.role;
         const currentUser = store.user;
+        
+        // Try to get the freshest user from Auth API for up-to-date identities
+        let freshUser = session.user;
+        try {
+          const { data: { user: apiUser } } = await supabase.auth.getUser();
+          if (apiUser) freshUser = apiUser;
+        } catch (_) {}
+
         store.setUserAndRole({
-          ...session.user,
+          ...freshUser,
           class: currentUser?.class || null,
           avatar_url: currentUser?.avatar_url || null,
           avatar_file_id: currentUser?.avatar_file_id || null,
@@ -1060,15 +1091,44 @@ function GoogleRecoveryNudgeModal() {
     try {
       const redirectUrl = Capacitor.isNativePlatform() 
         ? 'schoolosplus://dashboard' 
-        : `${window.location.origin}/dashboard`;
+        : `${window.location.origin}${window.location.pathname}`;
 
-      const { error } = await supabase.auth.linkIdentity({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl
+      if (Capacitor.isNativePlatform()) {
+        const browserFinishedListener = await Browser.addListener('browserFinished', () => {
+          setLoading(false);
+          browserFinishedListener.remove();
+        });
+
+        const { data, error } = await supabase.auth.linkIdentity({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true
+          }
+        });
+        if (error) {
+          browserFinishedListener.remove();
+          throw error;
         }
-      });
-      if (error) throw error;
+        if (data?.url) {
+          await Browser.open({ url: data.url });
+        } else {
+          browserFinishedListener.remove();
+          throw new Error('Google link URL not found.');
+        }
+        // Don't reset setLoading here — browserFinished listener will do it
+        return;
+      } else {
+        const { error } = await supabase.auth.linkIdentity({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl
+          }
+        });
+        if (error) throw error;
+        // On web, the page will redirect — loading stays true intentionally
+        return;
+      }
     } catch (err) {
       if (err.message && err.message.includes('Manual linking is disabled')) {
         alert('Manual identity linking is disabled in your Supabase project configuration.');
@@ -1076,7 +1136,9 @@ function GoogleRecoveryNudgeModal() {
         alert(`Linking Google failed: ${err.message}`);
       }
     } finally {
-      setLoading(false);
+      if (!Capacitor.isNativePlatform()) {
+        setLoading(false);
+      }
     }
   };
 
