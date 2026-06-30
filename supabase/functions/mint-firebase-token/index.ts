@@ -2,6 +2,7 @@
  * mint-firebase-token/index.ts
  * ─────────────────────────────────────────────────────────────────────────────
  * Supabase Edge Function — Firebase Auth Token Minter
+ * Trigger CI/CD deploy for Google OAuth configuration alignment.
  *
  * Purpose: Bridge Supabase Auth → Firebase Auth for the Bus Safe Drop module.
  *   Parent/Teacher apps call this once when opening the Live Tracking screen.
