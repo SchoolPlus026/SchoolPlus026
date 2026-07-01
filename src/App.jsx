@@ -660,6 +660,7 @@ export default function App() {
               const { error: codeErr } = await supabase.auth.exchangeCodeForSession(data.url);
               if (codeErr) {
                 console.error('[Deep Link] exchangeCodeForSession failed:', codeErr.message);
+                alert(`Login Failed: ${codeErr.message}`);
               }
               // After code exchange, onAuthStateChange SIGNED_IN fires — just close and reload
               try { await Browser.close(); } catch (_) {}
