@@ -296,7 +296,16 @@ export default function App() {
           if (isPopup) {
             localStorage.setItem('oauth_status', `error:${decodedError}`);
             try { window.opener.postMessage({ type: 'oauth-error', message: decodedError }, window.location.origin); } catch (_) {}
+            window.open('', '_self');
             window.close();
+            document.body.innerHTML = `
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
+                <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                <h2 style="margin-bottom: 10px; color: #ef4444;">Authentication Error</h2>
+                <p style="color: #94a3b8; font-size: 16px; max-width: 400px; line-height: 1.5;">${decodedError}</p>
+                <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please close this tab and return to the app.</p>
+              </div>
+            `;
             return;
           } else {
             alert(`Authentication Error: ${decodedError}`);
@@ -326,6 +335,17 @@ export default function App() {
               console.log('[Popup] Profile verified. Notifying parent of success...');
               localStorage.setItem('oauth_status', 'success');
               try { window.opener.postMessage({ type: 'oauth-success' }, window.location.origin); } catch (_) {}
+              
+              window.open('', '_self');
+              window.close();
+              
+              document.body.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
+                  <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+                  <h2 style="margin-bottom: 10px;">Login Successful!</h2>
+                  <p style="color: #94a3b8; font-size: 16px;">You can now close this tab and return to the main app window.</p>
+                </div>
+              `;
             } else {
               console.warn('[Popup] No profile found. Signing out and notifying parent of error...');
               await supabase.auth.signOut().catch(console.error);
@@ -334,6 +354,18 @@ export default function App() {
               try {
                 window.opener.postMessage({ type: 'oauth-error', message: errorMsgText }, window.location.origin);
               } catch (_) {}
+              
+              window.open('', '_self');
+              window.close();
+
+              document.body.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
+                  <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                  <h2 style="margin-bottom: 10px; color: #ef4444;">Account Not Found</h2>
+                  <p style="color: #94a3b8; font-size: 16px; max-width: 400px; line-height: 1.5;">${errorMsgText}</p>
+                  <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please close this tab and try again.</p>
+                </div>
+              `;
             }
           } else {
             console.warn('[Popup] No session found in popup callback.');
@@ -341,8 +373,19 @@ export default function App() {
             try {
               window.opener.postMessage({ type: 'oauth-error', message: 'Authentication failed.' }, window.location.origin);
             } catch (_) {}
+            
+            window.open('', '_self');
+            window.close();
+
+            document.body.innerHTML = `
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
+                <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                <h2 style="margin-bottom: 10px; color: #ef4444;">Login Failed</h2>
+                <p style="color: #94a3b8; font-size: 16px;">Authentication could not be completed.</p>
+                <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please close this tab and try again.</p>
+              </div>
+            `;
           }
-          window.close();
           return;
         }
 
