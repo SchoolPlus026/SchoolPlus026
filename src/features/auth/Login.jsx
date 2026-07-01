@@ -666,7 +666,7 @@ export default function Login() {
       }
 
       const redirectUrl = Capacitor.isNativePlatform() 
-        ? `schoolosplus://dashboard?school=${schoolCode}` 
+        ? 'schoolosplus://dashboard' 
         : `${window.location.origin}/?school=${schoolCode}`;
 
       if (Capacitor.isNativePlatform()) {
