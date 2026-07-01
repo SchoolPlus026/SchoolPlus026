@@ -1,0 +1,1368 @@
+﻿2026-06-30T15:13:53.4590168Z Current runner version: '2.335.1'
+2026-06-30T15:13:53.4620026Z ##[group]Runner Image Provisioner
+2026-06-30T15:13:53.4621489Z Hosted Compute Agent
+2026-06-30T15:13:53.4622269Z Version: 20260611.554
+2026-06-30T15:13:53.4623335Z Commit: 5e0782fdc9014723d3be820dd114dd31555c2bd1
+2026-06-30T15:13:53.4624313Z Build Date: 2026-06-11T21:40:46Z
+2026-06-30T15:13:53.4625246Z Worker ID: {a96b6670-999c-4f77-bbdb-4c4dc922e0dc}
+2026-06-30T15:13:53.4626358Z Azure Region: eastus
+2026-06-30T15:13:53.4627210Z ##[endgroup]
+2026-06-30T15:13:53.4628968Z ##[group]Operating System
+2026-06-30T15:13:53.4629851Z Ubuntu
+2026-06-30T15:13:53.4630489Z 24.04.4
+2026-06-30T15:13:53.4631206Z LTS
+2026-06-30T15:13:53.4631883Z ##[endgroup]
+2026-06-30T15:13:53.4632670Z ##[group]Runner Image
+2026-06-30T15:13:53.4633437Z Image: ubuntu-24.04
+2026-06-30T15:13:53.4634269Z Version: 20260622.220.1
+2026-06-30T15:13:53.4635820Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260622.220/images/ubuntu/Ubuntu2404-Readme.md
+2026-06-30T15:13:53.4638144Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260622.220
+2026-06-30T15:13:53.4639355Z ##[endgroup]
+2026-06-30T15:13:53.4640790Z ##[group]GITHUB_TOKEN Permissions
+2026-06-30T15:13:53.4643175Z Contents: write
+2026-06-30T15:13:53.4644067Z Metadata: read
+2026-06-30T15:13:53.4644745Z ##[endgroup]
+2026-06-30T15:13:53.4648638Z Secret source: Actions
+2026-06-30T15:13:53.4649555Z Prepare workflow directory
+2026-06-30T15:13:53.5003767Z Prepare all required actions
+2026-06-30T15:13:53.5043443Z Getting action download info
+2026-06-30T15:13:53.7614264Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+2026-06-30T15:13:53.8546503Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-06-30T15:13:53.9551977Z Download action repository 'actions/setup-java@v4' (SHA:c1e323688fd81a25caa38c78aa6df2d33d3e20d9)
+2026-06-30T15:13:54.1964270Z Download action repository 'softprops/action-gh-release@v2' (SHA:3bb12739c298aeb8a4eeaf626c5b8d85266b0e65)
+2026-06-30T15:13:54.4819744Z Complete job name: Build SchoolOS+ APK
+2026-06-30T15:13:54.6021174Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-06-30T15:13:54.6033750Z ##[group]Run actions/checkout@v4
+2026-06-30T15:13:54.6035394Z with:
+2026-06-30T15:13:54.6036796Z   repository: SchoolPlus026/SchoolPlus026
+2026-06-30T15:13:54.6047220Z   token: ***
+2026-06-30T15:13:54.6048333Z   ssh-strict: true
+2026-06-30T15:13:54.6049454Z   ssh-user: git
+2026-06-30T15:13:54.6050608Z   persist-credentials: true
+2026-06-30T15:13:54.6051816Z   clean: true
+2026-06-30T15:13:54.6052965Z   sparse-checkout-cone-mode: true
+2026-06-30T15:13:54.6054265Z   fetch-depth: 1
+2026-06-30T15:13:54.6055384Z   fetch-tags: false
+2026-06-30T15:13:54.6056838Z   show-progress: true
+2026-06-30T15:13:54.6058009Z   lfs: false
+2026-06-30T15:13:54.6059155Z   submodules: false
+2026-06-30T15:13:54.6060316Z   set-safe-directory: true
+2026-06-30T15:13:54.6062042Z ##[endgroup]
+2026-06-30T15:13:54.7112767Z Syncing repository: SchoolPlus026/SchoolPlus026
+2026-06-30T15:13:54.7117016Z ##[group]Getting Git version info
+2026-06-30T15:13:54.7119046Z Working directory is '/home/runner/work/SchoolPlus026/SchoolPlus026'
+2026-06-30T15:13:54.7121902Z [command]/usr/bin/git version
+2026-06-30T15:13:54.7168358Z git version 2.54.0
+2026-06-30T15:13:54.7192810Z ##[endgroup]
+2026-06-30T15:13:54.7207930Z Temporarily overriding HOME='/home/runner/work/_temp/52af4bd0-e1ea-407f-a00f-c9f4921c016d' before making global git config changes
+2026-06-30T15:13:54.7213014Z Adding repository directory to the temporary git global config as a safe directory
+2026-06-30T15:13:54.7217242Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/SchoolPlus026/SchoolPlus026
+2026-06-30T15:13:54.7267074Z Deleting the contents of '/home/runner/work/SchoolPlus026/SchoolPlus026'
+2026-06-30T15:13:54.7271685Z ##[group]Initializing the repository
+2026-06-30T15:13:54.7276684Z [command]/usr/bin/git init /home/runner/work/SchoolPlus026/SchoolPlus026
+2026-06-30T15:13:54.7388257Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-06-30T15:13:54.7391740Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-06-30T15:13:54.7396255Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-06-30T15:13:54.7399018Z hint: call:
+2026-06-30T15:13:54.7400208Z hint:
+2026-06-30T15:13:54.7401635Z hint: 	git config --global init.defaultBranch <name>
+2026-06-30T15:13:54.7403993Z hint:
+2026-06-30T15:13:54.7405797Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-06-30T15:13:54.7408440Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-06-30T15:13:54.7410583Z hint:
+2026-06-30T15:13:54.7411772Z hint: 	git branch -m <name>
+2026-06-30T15:13:54.7413055Z hint:
+2026-06-30T15:13:54.7414713Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-06-30T15:13:54.7417646Z Initialized empty Git repository in /home/runner/work/SchoolPlus026/SchoolPlus026/.git/
+2026-06-30T15:13:54.7422627Z [command]/usr/bin/git remote add origin https://github.com/SchoolPlus026/SchoolPlus026
+2026-06-30T15:13:54.7485146Z ##[endgroup]
+2026-06-30T15:13:54.7488496Z ##[group]Disabling automatic garbage collection
+2026-06-30T15:13:54.7490180Z [command]/usr/bin/git config --local gc.auto 0
+2026-06-30T15:13:54.7521999Z ##[endgroup]
+2026-06-30T15:13:54.7524819Z ##[group]Setting up auth
+2026-06-30T15:13:54.7527669Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-06-30T15:13:54.7564375Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-06-30T15:13:54.7908332Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-06-30T15:13:54.7939294Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-06-30T15:13:54.8160499Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-06-30T15:13:54.8193245Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-06-30T15:13:54.8424919Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-06-30T15:13:54.8460198Z ##[endgroup]
+2026-06-30T15:13:54.8462092Z ##[group]Fetching the repository
+2026-06-30T15:13:54.8470918Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +0f3f5000c1d9ef0fd6d9019c0a6edcce9452cf0d:refs/remotes/origin/main
+2026-06-30T15:13:55.4160830Z From https://github.com/SchoolPlus026/SchoolPlus026
+2026-06-30T15:13:55.4162624Z  * [new ref]         0f3f5000c1d9ef0fd6d9019c0a6edcce9452cf0d -> origin/main
+2026-06-30T15:13:55.4196120Z ##[endgroup]
+2026-06-30T15:13:55.4196849Z ##[group]Determining the checkout info
+2026-06-30T15:13:55.4199040Z ##[endgroup]
+2026-06-30T15:13:55.4204059Z [command]/usr/bin/git sparse-checkout disable
+2026-06-30T15:13:55.4250776Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-06-30T15:13:55.4278573Z ##[group]Checking out the ref
+2026-06-30T15:13:55.4282444Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-06-30T15:13:55.4874155Z Switched to a new branch 'main'
+2026-06-30T15:13:55.4877679Z branch 'main' set up to track 'origin/main'.
+2026-06-30T15:13:55.4890277Z ##[endgroup]
+2026-06-30T15:13:55.4943966Z [command]/usr/bin/git log -1 --format=%H
+2026-06-30T15:13:55.4972626Z 0f3f5000c1d9ef0fd6d9019c0a6edcce9452cf0d
+2026-06-30T15:13:55.5304332Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-06-30T15:13:55.5306802Z ##[group]Run actions/setup-node@v4
+2026-06-30T15:13:55.5307381Z with:
+2026-06-30T15:13:55.5307736Z   node-version: 20
+2026-06-30T15:13:55.5308085Z   always-auth: false
+2026-06-30T15:13:55.5308445Z   check-latest: false
+2026-06-30T15:13:55.5311476Z   token: ***
+2026-06-30T15:13:55.5311805Z ##[endgroup]
+2026-06-30T15:13:55.6852300Z Attempting to download 20...
+2026-06-30T15:13:55.6963569Z (node:2301) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-06-30T15:13:56.1357945Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-06-30T15:13:56.1398691Z Acquiring 20.20.2 - x64 from https://github.com/actions/node-versions/releases/download/20.20.2-23521894959/node-20.20.2-linux-x64.tar.gz
+2026-06-30T15:13:56.4826315Z Extracting ...
+2026-06-30T15:13:56.4957092Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/c225182f-f4f6-4acb-ae50-b43d08ec425f -f /home/runner/work/_temp/526dc833-fad0-492c-bef0-a098c1365b1a
+2026-06-30T15:13:57.5198310Z Adding to the cache ...
+2026-06-30T15:13:59.1987824Z ##[group]Environment details
+2026-06-30T15:13:59.4301205Z node: v20.20.2
+2026-06-30T15:13:59.4301742Z npm: 10.8.2
+2026-06-30T15:13:59.4302232Z yarn: 1.22.22
+2026-06-30T15:13:59.4303119Z ##[endgroup]
+2026-06-30T15:13:59.4513326Z ##[group]Run npm install --legacy-peer-deps
+2026-06-30T15:13:59.4513843Z [36;1mnpm install --legacy-peer-deps[0m
+2026-06-30T15:13:59.4675125Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:13:59.4675577Z ##[endgroup]
+2026-06-30T15:14:02.3425704Z npm warn deprecated q@1.5.1: You or someone you depend on is using Q, the JavaScript Promise library that gave JavaScript developers strong feelings about promises. They can almost certainly migrate to the native JavaScript promise now. Thank you literally everyone for joining me in this bet against the odds. Be excellent to each other.
+2026-06-30T15:14:02.3429003Z npm warn deprecated
+2026-06-30T15:14:02.3430024Z npm warn deprecated (For a CapTP with native promises, see @endo/eventual-send and @endo/captp)
+2026-06-30T15:14:02.4761509Z npm warn deprecated prebuild-install@7.1.3: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
+2026-06-30T15:14:02.8027838Z npm warn deprecated tar@6.2.1: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-06-30T15:14:02.8614253Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-06-30T15:14:02.9035283Z npm warn deprecated git-semver-tags@4.1.1: This package is no longer maintained. For the JavaScript API, please use @conventional-changelog/git-client instead.
+2026-06-30T15:14:02.9654494Z npm warn deprecated git-raw-commits@2.0.11: This package is no longer maintained. For the JavaScript API, please use @conventional-changelog/git-client instead.
+2026-06-30T15:14:03.9416129Z npm warn deprecated @xmldom/xmldom@0.7.13: this version has critical issues, please update to the latest version
+2026-06-30T15:14:04.9008368Z npm warn deprecated glob@9.3.5: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-06-30T15:14:05.0172265Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-06-30T15:14:05.0446661Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2026-06-30T15:15:29.1801917Z 
+2026-06-30T15:15:29.1802814Z added 724 packages, and audited 725 packages in 1m
+2026-06-30T15:15:29.1803347Z 
+2026-06-30T15:15:29.1803710Z 96 packages are looking for funding
+2026-06-30T15:15:29.1804330Z   run `npm fund` for details
+2026-06-30T15:15:30.0908757Z 
+2026-06-30T15:15:30.0910846Z 34 vulnerabilities (1 low, 17 moderate, 15 high, 1 critical)
+2026-06-30T15:15:30.0911475Z 
+2026-06-30T15:15:30.0911937Z To address issues that do not require attention, run:
+2026-06-30T15:15:30.0912533Z   npm audit fix
+2026-06-30T15:15:30.0912771Z 
+2026-06-30T15:15:30.0913156Z To address all issues possible (including breaking changes), run:
+2026-06-30T15:15:30.0913705Z   npm audit fix --force
+2026-06-30T15:15:30.0913922Z 
+2026-06-30T15:15:30.0914193Z Some issues need review, and may require choosing
+2026-06-30T15:15:30.0914671Z a different dependency.
+2026-06-30T15:15:30.0914898Z 
+2026-06-30T15:15:30.0915073Z Run `npm audit` for details.
+2026-06-30T15:15:30.1424093Z ##[group]Run echo "VITE_SUPABASE_URL=***" >> .env
+2026-06-30T15:15:30.1424742Z [36;1mecho "VITE_SUPABASE_URL=***" >> .env[0m
+2026-06-30T15:15:30.1426476Z [36;1mecho "VITE_SUPABASE_ANON_KEY=***" >> .env[0m
+2026-06-30T15:15:30.1427200Z [36;1mecho "VITE_GOOGLE_CLIENT_ID=***" >> .env[0m
+2026-06-30T15:15:30.1427579Z [36;1mecho "VITE_APP_VERSION_CODE=198" >> .env[0m
+2026-06-30T15:15:30.1427957Z [36;1mecho "VITE_APP_VERSION_NAME=main" >> .env[0m
+2026-06-30T15:15:30.1428456Z [36;1mecho "VITE_FIREBASE_API_KEY=***" >> .env[0m
+2026-06-30T15:15:30.1428947Z [36;1mecho "VITE_FIREBASE_AUTH_DOMAIN=***" >> .env[0m
+2026-06-30T15:15:30.1429634Z [36;1mecho "VITE_FIREBASE_DATABASE_URL=***" >> .env[0m
+2026-06-30T15:15:30.1430082Z [36;1mecho "VITE_FIREBASE_PROJECT_ID=***" >> .env[0m
+2026-06-30T15:15:30.1430601Z [36;1mecho "VITE_FIREBASE_STORAGE_BUCKET=***" >> .env[0m
+2026-06-30T15:15:30.1431040Z [36;1mecho "VITE_FIREBASE_MESSAGING_SENDER_ID=***" >> .env[0m
+2026-06-30T15:15:30.1431594Z [36;1mecho "VITE_FIREBASE_APP_ID=***" >> .env[0m
+2026-06-30T15:15:30.1432362Z [36;1mecho "VITE_FIREBASE_VAPID_KEY=***" >> .env[0m
+2026-06-30T15:15:30.1432828Z [36;1mecho "✅ .env file created with all VITE_ variables (including Firebase)"[0m
+2026-06-30T15:15:30.1464436Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:30.1464749Z ##[endgroup]
+2026-06-30T15:15:30.1524706Z ✅ .env file created with all VITE_ variables (including Firebase)
+2026-06-30T15:15:30.1567189Z ##[group]Run npm run build
+2026-06-30T15:15:30.1567542Z [36;1mnpm run build[0m
+2026-06-30T15:15:30.1598165Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:30.1598468Z env:
+2026-06-30T15:15:30.1598948Z   VITE_SUPABASE_URL: ***
+2026-06-30T15:15:30.1600410Z   VITE_SUPABASE_ANON_KEY: ***
+2026-06-30T15:15:30.1600932Z   VITE_GOOGLE_CLIENT_ID: ***
+2026-06-30T15:15:30.1601222Z   VITE_APP_VERSION_CODE: 198
+2026-06-30T15:15:30.1601498Z   VITE_APP_VERSION_NAME: main
+2026-06-30T15:15:30.1601869Z   VITE_FIREBASE_API_KEY: ***
+2026-06-30T15:15:30.1602224Z   VITE_FIREBASE_AUTH_DOMAIN: ***
+2026-06-30T15:15:30.1602800Z   VITE_FIREBASE_DATABASE_URL: ***
+2026-06-30T15:15:30.1603138Z   VITE_FIREBASE_PROJECT_ID: ***
+2026-06-30T15:15:30.1603532Z   VITE_FIREBASE_STORAGE_BUCKET: ***
+2026-06-30T15:15:30.1603877Z   VITE_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-06-30T15:15:30.1604282Z   VITE_FIREBASE_APP_ID: ***
+2026-06-30T15:15:30.1604922Z   VITE_FIREBASE_VAPID_KEY: ***
+2026-06-30T15:15:30.1605253Z ##[endgroup]
+2026-06-30T15:15:30.2795535Z 
+2026-06-30T15:15:30.2796787Z > schoolos_plus@1.0.46 build
+2026-06-30T15:15:30.2797736Z > vite build
+2026-06-30T15:15:30.2797942Z 
+2026-06-30T15:15:30.4927467Z [36mvite v5.4.21 [32mbuilding for production...[36m[39m
+2026-06-30T15:15:30.5223295Z [vite-plugin:sw] ✅ Generated public/firebase-messaging-sw.js
+2026-06-30T15:15:30.5480527Z transforming...
+2026-06-30T15:15:39.3536928Z [32m✓[39m 2529 modules transformed.
+2026-06-30T15:15:39.9121623Z rendering chunks...
+2026-06-30T15:15:40.6808611Z [1m[33m[plugin:vite:reporter][39m[22m [33m[plugin vite:reporter] 
+2026-06-30T15:15:40.6813890Z (!) /home/runner/work/SchoolPlus026/SchoolPlus026/node_modules/@capacitor/filesystem/dist/esm/index.js is dynamically imported by /home/runner/work/SchoolPlus026/SchoolPlus026/src/features/settings/AdminSettings.jsx but also statically imported by /home/runner/work/SchoolPlus026/SchoolPlus026/src/components/VersionChecker.jsx, /home/runner/work/SchoolPlus026/SchoolPlus026/src/features/reports/Reports.jsx, /home/runner/work/SchoolPlus026/SchoolPlus026/src/features/settings/SharedSettings.jsx, dynamic import will not move module into another chunk.
+2026-06-30T15:15:40.6818396Z [39m
+2026-06-30T15:15:40.6819207Z [1m[33m[plugin:vite:reporter][39m[22m [33m[plugin vite:reporter] 
+2026-06-30T15:15:40.6823773Z (!) /home/runner/work/SchoolPlus026/SchoolPlus026/node_modules/@capacitor-community/file-opener/dist/esm/index.js is dynamically imported by /home/runner/work/SchoolPlus026/SchoolPlus026/src/features/settings/AdminSettings.jsx but also statically imported by /home/runner/work/SchoolPlus026/SchoolPlus026/src/components/VersionChecker.jsx, /home/runner/work/SchoolPlus026/SchoolPlus026/src/features/settings/SharedSettings.jsx, dynamic import will not move module into another chunk.
+2026-06-30T15:15:40.6827055Z [39m
+2026-06-30T15:15:40.7338073Z computing gzip size...
+2026-06-30T15:15:40.7936420Z [2mdist/[22m[32mindex.html                                 [39m[1m[2m    1.31 kB[22m[1m[22m[2m │ gzip:   0.64 kB[22m
+2026-06-30T15:15:40.7938100Z [2mdist/[22m[2massets/[22m[35mindex-81BIOwYj.css                  [39m[1m[2m   86.81 kB[22m[1m[22m[2m │ gzip:  15.46 kB[22m
+2026-06-30T15:15:40.7939840Z [2mdist/[22m[2massets/[22m[36mweb-BXSRTqyD.js                     [39m[1m[2m    0.36 kB[22m[1m[22m[2m │ gzip:   0.25 kB[22m
+2026-06-30T15:15:40.7941981Z [2mdist/[22m[2massets/[22m[36mweb-Dzr7NbGy.js                     [39m[1m[2m    0.38 kB[22m[1m[22m[2m │ gzip:   0.25 kB[22m
+2026-06-30T15:15:40.7943016Z [33m
+2026-06-30T15:15:40.7943740Z (!) Some chunks are larger than 500 kB after minification. Consider:
+2026-06-30T15:15:40.7944442Z - Using dynamic import() to code-split the application
+2026-06-30T15:15:40.7945743Z - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+2026-06-30T15:15:40.7947305Z - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+2026-06-30T15:15:40.7949156Z [2mdist/[22m[2massets/[22m[36mweb-DoWpjsQA.js                     [39m[1m[2m    0.67 kB[22m[1m[22m[2m │ gzip:   0.33 kB[22m
+2026-06-30T15:15:40.7950266Z [2mdist/[22m[2massets/[22m[36mweb-BwJTGp_d.js                     [39m[1m[2m    0.92 kB[22m[1m[22m[2m │ gzip:   0.47 kB[22m
+2026-06-30T15:15:40.7951300Z [2mdist/[22m[2massets/[22m[36mweb-Bhgn862g.js                     [39m[1m[2m    1.74 kB[22m[1m[22m[2m │ gzip:   0.65 kB[22m
+2026-06-30T15:15:40.7952290Z [2mdist/[22m[2massets/[22m[36mweb-D3tpLp5F.js                     [39m[1m[2m    8.62 kB[22m[1m[22m[2m │ gzip:   2.94 kB[22m
+2026-06-30T15:15:40.7953293Z [2mdist/[22m[2massets/[22m[36mpurify.es-BwoZCkIS.js               [39m[1m[2m   22.03 kB[22m[1m[22m[2m │ gzip:   8.77 kB[22m
+2026-06-30T15:15:40.7954334Z [2mdist/[22m[2massets/[22m[36mjspdf.plugin.autotable-YX7q820F.js  [39m[1m[2m   39.56 kB[22m[1m[22m[2m │ gzip:  12.77 kB[22m
+2026-06-30T15:15:40.7955369Z [2mdist/[22m[2massets/[22m[36mindex.es-EjZ9Hc3z.js                [39m[1m[2m  150.73 kB[22m[1m[22m[2m │ gzip:  51.57 kB[22m
+2026-06-30T15:15:40.7957530Z [2mdist/[22m[2massets/[22m[36mhtml2canvas.esm-CBrSDip1.js         [39m[1m[2m  201.42 kB[22m[1m[22m[2m │ gzip:  48.03 kB[22m
+2026-06-30T15:15:40.7959487Z [2mdist/[22m[2massets/[22m[36mjspdf.es.min-5bo9rsIo.js            [39m[1m[2m  357.70 kB[22m[1m[22m[2m │ gzip: 118.00 kB[22m
+2026-06-30T15:15:40.7961403Z [2mdist/[22m[2massets/[22m[36mindex--X1beC3A.js                   [39m[1m[33m2,369.08 kB[39m[22m[2m │ gzip: 620.88 kB[22m
+2026-06-30T15:15:40.7962548Z [32m✓ built in 10.28s[39m
+2026-06-30T15:15:40.8947190Z ##[group]Run npx cap add android || true
+2026-06-30T15:15:40.8947627Z [36;1mnpx cap add android || true[0m
+2026-06-30T15:15:40.8947956Z [36;1mnpx cap sync android[0m
+2026-06-30T15:15:40.8979629Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:40.8979937Z ##[endgroup]
+2026-06-30T15:15:41.4542176Z ✔ Adding native android project in android in 36.98ms
+2026-06-30T15:15:41.4543054Z ✔ add in 37.77ms
+2026-06-30T15:15:41.5089050Z ✔ Copying web assets from dist to android/app/src/main/assets/public in 13.42ms
+2026-06-30T15:15:41.5094583Z ✔ Creating capacitor.config.json in android/app/src/main/assets in 417.99μs
+2026-06-30T15:15:41.5202021Z [info] Found 1 Cordova plugin for android:
+2026-06-30T15:15:41.5203129Z        com.razorpay.cordova@1.4.15
+2026-06-30T15:15:41.5287746Z ✔ copy android in 52.10ms
+2026-06-30T15:15:41.5527384Z ✔ Updating Android plugins in 9.15ms
+2026-06-30T15:15:41.5533274Z [info] Found 9 Capacitor plugins for android:
+2026-06-30T15:15:41.5534539Z        @capacitor-community/file-opener@8.0.0
+2026-06-30T15:15:41.5535524Z        @capacitor/app@6.0.3
+2026-06-30T15:15:41.5536722Z        @capacitor/browser@6.0.6
+2026-06-30T15:15:41.5537591Z        @capacitor/camera@6.1.3
+2026-06-30T15:15:41.5538155Z        @capacitor/filesystem@6.0.4
+2026-06-30T15:15:41.5538728Z        @capacitor/geolocation@6.1.1
+2026-06-30T15:15:41.5539346Z        @capacitor/push-notifications@6.0.5
+2026-06-30T15:15:41.5539879Z        @capacitor/share@6.0.4
+2026-06-30T15:15:41.5540457Z        @capgo/capacitor-passkey@8.3.1
+2026-06-30T15:15:41.5889791Z [info] Found 1 Cordova plugin for android:
+2026-06-30T15:15:41.5890480Z        com.razorpay.cordova@1.4.15
+2026-06-30T15:15:41.6068751Z ✔ update android in 70.69ms
+2026-06-30T15:15:41.6212247Z ✔ Syncing Gradle in 306.72μs
+2026-06-30T15:15:41.6213357Z [success] android platform added!
+2026-06-30T15:15:41.6214147Z Follow the Developer Workflow guide to get building:
+2026-06-30T15:15:41.6214787Z https://capacitorjs.com/docs/basics/workflow
+2026-06-30T15:15:41.6468259Z [CapacitorPasskey] Updated Android passkey wiring for ***.web.app.
+2026-06-30T15:15:42.2242579Z ✔ Copying web assets from dist to android/app/src/main/assets/public in 18.97ms
+2026-06-30T15:15:42.2255643Z ✔ Creating capacitor.config.json in android/app/src/main/assets in 1.06ms
+2026-06-30T15:15:42.2360134Z [info] Found 1 Cordova plugin for android:
+2026-06-30T15:15:42.2360709Z        com.razorpay.cordova@1.4.15
+2026-06-30T15:15:42.2454702Z ✔ copy android in 57.09ms
+2026-06-30T15:15:42.2703647Z ✔ Updating Android plugins in 7.68ms
+2026-06-30T15:15:42.2707638Z [info] Found 9 Capacitor plugins for android:
+2026-06-30T15:15:42.2708332Z        @capacitor-community/file-opener@8.0.0
+2026-06-30T15:15:42.2708913Z        @capacitor/app@6.0.3
+2026-06-30T15:15:42.2709436Z        @capacitor/browser@6.0.6
+2026-06-30T15:15:42.2709964Z        @capacitor/camera@6.1.3
+2026-06-30T15:15:42.2710506Z        @capacitor/filesystem@6.0.4
+2026-06-30T15:15:42.2711065Z        @capacitor/geolocation@6.1.1
+2026-06-30T15:15:42.2711700Z        @capacitor/push-notifications@6.0.5
+2026-06-30T15:15:42.2712274Z        @capacitor/share@6.0.4
+2026-06-30T15:15:42.2712838Z        @capgo/capacitor-passkey@8.3.1
+2026-06-30T15:15:42.3133952Z [info] Found 1 Cordova plugin for android:
+2026-06-30T15:15:42.3134663Z        com.razorpay.cordova@1.4.15
+2026-06-30T15:15:42.3310433Z ✔ update android in 77.35ms
+2026-06-30T15:15:42.3445251Z [info] Sync finished in 0.177s
+2026-06-30T15:15:42.3953647Z ##[group]Run WRAPPER="android/gradle/wrapper/gradle-wrapper.properties"
+2026-06-30T15:15:42.3954432Z [36;1mWRAPPER="android/gradle/wrapper/gradle-wrapper.properties"[0m
+2026-06-30T15:15:42.3954857Z [36;1mif [ -f "$WRAPPER" ]; then[0m
+2026-06-30T15:15:42.3955311Z [36;1m  sed -i 's/gradle-[0-9.]\+-all.zip/gradle-8.7-all.zip/' "$WRAPPER"[0m
+2026-06-30T15:15:42.3955785Z [36;1m  echo "✅ Gradle Wrapper upgraded to 8.7"[0m
+2026-06-30T15:15:42.3956535Z [36;1m  grep "gradle-8.7-all.zip" "$WRAPPER"[0m
+2026-06-30T15:15:42.3956876Z [36;1melse[0m
+2026-06-30T15:15:42.3957215Z [36;1m  echo "⚠️  Gradle Wrapper properties not found at $WRAPPER"[0m
+2026-06-30T15:15:42.3957609Z [36;1mfi[0m
+2026-06-30T15:15:42.3989489Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:42.3989800Z ##[endgroup]
+2026-06-30T15:15:42.4078698Z ✅ Gradle Wrapper upgraded to 8.7
+2026-06-30T15:15:42.4090945Z distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-all.zip
+2026-06-30T15:15:42.4120754Z ##[group]Run VARIABLES="android/variables.gradle"
+2026-06-30T15:15:42.4121255Z [36;1mVARIABLES="android/variables.gradle"[0m
+2026-06-30T15:15:42.4121609Z [36;1mif [ -f "$VARIABLES" ]; then[0m
+2026-06-30T15:15:42.4122011Z [36;1m  sed -i 's/minSdkVersion = .*/minSdkVersion = 24/' "$VARIABLES"[0m
+2026-06-30T15:15:42.4122557Z [36;1m  sed -i 's/compileSdkVersion = .*/compileSdkVersion = 35/' "$VARIABLES"[0m
+2026-06-30T15:15:42.4123102Z [36;1m  sed -i 's/targetSdkVersion = .*/targetSdkVersion = 35/' "$VARIABLES"[0m
+2026-06-30T15:15:42.4123655Z [36;1m  echo "✅ variables.gradle patched for Passkey (minSdk 24, targetSdk 35)"[0m
+2026-06-30T15:15:42.4124103Z [36;1mfi[0m
+2026-06-30T15:15:42.4124331Z [36;1m[0m
+2026-06-30T15:15:42.4124598Z [36;1mBUILD_GRADLE="android/app/build.gradle"[0m
+2026-06-30T15:15:42.4124959Z [36;1mif [ -f "$BUILD_GRADLE" ]; then[0m
+2026-06-30T15:15:42.4125822Z [36;1m  perl -pi -e 's/(compileSdk rootProject.*)/$1\n    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_21\n        targetCompatibility JavaVersion.VERSION_21\n    }/' "$BUILD_GRADLE"[0m
+2026-06-30T15:15:42.4127019Z [36;1m  echo "✅ app/build.gradle patched with Java 21 compileOptions"[0m
+2026-06-30T15:15:42.4127417Z [36;1mfi[0m
+2026-06-30T15:15:42.4159028Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:42.4159334Z ##[endgroup]
+2026-06-30T15:15:42.4260834Z ✅ variables.gradle patched for Passkey (minSdk 24, targetSdk 35)
+2026-06-30T15:15:42.4284347Z ✅ app/build.gradle patched with Java 21 compileOptions
+2026-06-30T15:15:42.4328601Z ##[group]Run mkdir -p ~/.gradle
+2026-06-30T15:15:42.4329259Z [36;1mmkdir -p ~/.gradle[0m
+2026-06-30T15:15:42.4329847Z [36;1mcat > ~/.gradle/init.gradle << 'INITEOF'[0m
+2026-06-30T15:15:42.4330494Z [36;1mallprojects {[0m
+2026-06-30T15:15:42.4330996Z [36;1m  buildscript {[0m
+2026-06-30T15:15:42.4331486Z [36;1m    repositories {[0m
+2026-06-30T15:15:42.4332095Z [36;1m      maven { url 'https://maven.google.com' }[0m
+2026-06-30T15:15:42.4332847Z [36;1m      maven { url 'https://jcenter.bintray.com' }[0m
+2026-06-30T15:15:42.4333628Z [36;1m      maven { url 'https://plugins.gradle.org/m2/' }[0m
+2026-06-30T15:15:42.4334276Z [36;1m      google()[0m
+2026-06-30T15:15:42.4334744Z [36;1m      mavenCentral()[0m
+2026-06-30T15:15:42.4335231Z [36;1m    }[0m
+2026-06-30T15:15:42.4335706Z [36;1m  }[0m
+2026-06-30T15:15:42.4336377Z [36;1m  repositories {[0m
+2026-06-30T15:15:42.4337112Z [36;1m    maven { url 'https://maven.google.com' }[0m
+2026-06-30T15:15:42.4337947Z [36;1m    maven { url 'https://jcenter.bintray.com' }[0m
+2026-06-30T15:15:42.4338722Z [36;1m    maven { url 'https://plugins.gradle.org/m2/' }[0m
+2026-06-30T15:15:42.4339381Z [36;1m    google()[0m
+2026-06-30T15:15:42.4339847Z [36;1m    mavenCentral()[0m
+2026-06-30T15:15:42.4340335Z [36;1m  }[0m
+2026-06-30T15:15:42.4340754Z [36;1m}[0m
+2026-06-30T15:15:42.4341156Z [36;1mINITEOF[0m
+2026-06-30T15:15:42.4341742Z [36;1mecho "✅ init.gradle written to ~/.gradle/init.gradle"[0m
+2026-06-30T15:15:42.4342479Z [36;1mcat ~/.gradle/init.gradle[0m
+2026-06-30T15:15:42.4380648Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:42.4380962Z ##[endgroup]
+2026-06-30T15:15:42.4465438Z ✅ init.gradle written to ~/.gradle/init.gradle
+2026-06-30T15:15:42.4473477Z allprojects {
+2026-06-30T15:15:42.4474049Z   buildscript {
+2026-06-30T15:15:42.4474609Z     repositories {
+2026-06-30T15:15:42.4475300Z       maven { url 'https://maven.google.com' }
+2026-06-30T15:15:42.4476504Z       maven { url 'https://jcenter.bintray.com' }
+2026-06-30T15:15:42.4477346Z       maven { url 'https://plugins.gradle.org/m2/' }
+2026-06-30T15:15:42.4477990Z       google()
+2026-06-30T15:15:42.4478416Z       mavenCentral()
+2026-06-30T15:15:42.4478859Z     }
+2026-06-30T15:15:42.4479233Z   }
+2026-06-30T15:15:42.4479684Z   repositories {
+2026-06-30T15:15:42.4480246Z     maven { url 'https://maven.google.com' }
+2026-06-30T15:15:42.4480959Z     maven { url 'https://jcenter.bintray.com' }
+2026-06-30T15:15:42.4481725Z     maven { url 'https://plugins.gradle.org/m2/' }
+2026-06-30T15:15:42.4482335Z     google()
+2026-06-30T15:15:42.4482788Z     mavenCentral()
+2026-06-30T15:15:42.4483204Z   }
+2026-06-30T15:15:42.4483587Z }
+2026-06-30T15:15:42.4525252Z ##[group]Run MANIFEST="android/app/src/main/AndroidManifest.xml"
+2026-06-30T15:15:42.4526432Z [36;1mMANIFEST="android/app/src/main/AndroidManifest.xml"[0m
+2026-06-30T15:15:42.4527137Z [36;1mif [ ! -f "$MANIFEST" ]; then[0m
+2026-06-30T15:15:42.4527906Z [36;1m  echo "❌ AndroidManifest.xml not found at $MANIFEST"[0m
+2026-06-30T15:15:42.4528594Z [36;1m  exit 1[0m
+2026-06-30T15:15:42.4528993Z [36;1mfi[0m
+2026-06-30T15:15:42.4529582Z [36;1m# 1. Add FCM and Geolocation permissions right before </manifest>[0m
+2026-06-30T15:15:42.4539564Z [36;1msed -i 's|</manifest>|    <!-- Geolocation Permissions -->\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />\n    <!-- FCM: Android 13+ POST_NOTIFICATIONS runtime permission (REQUIRED) -->\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <!-- FCM: Notification vibration support -->\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <!-- FCM: Wake device to deliver messages reliably -->\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <!-- FCM: Allows FCM token refresh after device reboot -->\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <!-- OTA Update: Required to install downloaded APKs in-app (Android 8+) -->\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n    <!-- Camera and Media Permissions for Scanner & Plugin Stability -->\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />\n</manifest>|' "$MANIFEST"[0m
+2026-06-30T15:15:42.4549937Z [36;1m[0m
+2026-06-30T15:15:42.4550777Z [36;1m# 2. Add custom deep link (schoolosplus) and WebAuthn app link intent filters right before </activity>[0m
+2026-06-30T15:15:42.4558753Z [36;1msed -i 's|</activity>|            <!-- Custom Deep Links (oauth2redirect) -->\n            <intent-filter>\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="schoolosplus" android:host="oauth2redirect" />\n            </intent-filter>\n            <!-- Custom Deep Links (dashboard) -->\n            <intent-filter>\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="schoolosplus" android:host="dashboard" />\n            </intent-filter>\n            <!-- WebAuthn App Links -->\n            <intent-filter android:autoVerify="true">\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="https" android:host="***.web.app" />\n            </intent-filter>\n        </activity>|' "$MANIFEST"[0m
+2026-06-30T15:15:42.4566927Z [36;1m[0m
+2026-06-30T15:15:42.4567694Z [36;1mecho "✅ FCM, Geolocation, OTA & Deep Link permissions patched into AndroidManifest.xml"[0m
+2026-06-30T15:15:42.4569033Z [36;1mgrep -q "ACCESS_FINE_LOCATION" "$MANIFEST" && echo "✅ Geolocation confirmed" || (echo "❌ Patch FAILED" && exit 1)[0m
+2026-06-30T15:15:42.4570933Z [36;1mgrep -q "REQUEST_INSTALL_PACKAGES" "$MANIFEST" && echo "✅ OTA install permission confirmed" || (echo "❌ OTA patch FAILED" && exit 1)[0m
+2026-06-30T15:15:42.4572573Z [36;1mgrep -q "schoolosplus" "$MANIFEST" && echo "✅ Deep Link scheme confirmed" || (echo "❌ Deep Link patch FAILED" && exit 1)[0m
+2026-06-30T15:15:42.4618994Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:42.4619511Z ##[endgroup]
+2026-06-30T15:15:42.4726387Z ✅ FCM, Geolocation, OTA & Deep Link permissions patched into AndroidManifest.xml
+2026-06-30T15:15:42.4738628Z ✅ Geolocation confirmed
+2026-06-30T15:15:42.4751418Z ✅ OTA install permission confirmed
+2026-06-30T15:15:42.4764950Z ✅ Deep Link scheme confirmed
+2026-06-30T15:15:42.4804890Z ##[group]Run echo "***
+2026-06-30T15:15:42.4815390Z [36;1mecho "***[0m
+2026-06-30T15:15:42.4815744Z [36;1m" | base64 --decode > android/app/google-services.json[0m
+2026-06-30T15:15:42.4816472Z [36;1mecho "✅ google-services.json written to android/app/"[0m
+2026-06-30T15:15:42.4847355Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:42.4847655Z ##[endgroup]
+2026-06-30T15:15:42.4919208Z ✅ google-services.json written to android/app/
+2026-06-30T15:15:42.4948217Z ##[group]Run KEYSTORE_PATH="/home/runner/work/SchoolPlus026/SchoolPlus026/schoolos.jks"
+2026-06-30T15:15:42.4948960Z [36;1mKEYSTORE_PATH="/home/runner/work/SchoolPlus026/SchoolPlus026/schoolos.jks"[0m
+2026-06-30T15:15:42.4967315Z [36;1mB64="***"[0m
+2026-06-30T15:15:42.4967583Z [36;1m[0m
+2026-06-30T15:15:42.4967856Z [36;1mif [ -n "$B64" ] && [ "$B64" != "" ]; then[0m
+2026-06-30T15:15:42.4968300Z [36;1m  echo "🔑 Restoring keystore from KEYSTORE_BASE64 secret..."[0m
+2026-06-30T15:15:42.4968775Z [36;1m  echo "$B64" | base64 --decode > "$KEYSTORE_PATH"[0m
+2026-06-30T15:15:42.4969253Z [36;1m  echo "✅ Keystore restored: $(ls -lh $KEYSTORE_PATH | awk '{print $5}')"[0m
+2026-06-30T15:15:42.4969675Z [36;1melse[0m
+2026-06-30T15:15:42.4970039Z [36;1m  echo "⚠️  KEYSTORE_BASE64 secret not set — generating a new keystore..."[0m
+2026-06-30T15:15:42.4970612Z [36;1m  JAVA_KEYTOOL=$(find /usr/lib/jvm -name "keytool" 2>/dev/null | head -1)[0m
+2026-06-30T15:15:42.4971073Z [36;1m  if [ -z "$JAVA_KEYTOOL" ]; then[0m
+2026-06-30T15:15:42.4971452Z [36;1m    JAVA_KEYTOOL=$(which keytool 2>/dev/null || true)[0m
+2026-06-30T15:15:42.4971801Z [36;1m  fi[0m
+2026-06-30T15:15:42.4972061Z [36;1m  "$JAVA_KEYTOOL" -genkeypair -v \[0m
+2026-06-30T15:15:42.4972400Z [36;1m    -keystore "$KEYSTORE_PATH" \[0m
+2026-06-30T15:15:42.4972719Z [36;1m    -alias schoolos \[0m
+2026-06-30T15:15:42.4973051Z [36;1m    -keyalg RSA -keysize 2048 -validity 10000 \[0m
+2026-06-30T15:15:42.4973507Z [36;1m    -dname "CN=SchoolOS, OU=App, O=SchoolOS, L=Mumbai, S=MH, C=IN" \[0m
+2026-06-30T15:15:42.4973947Z [36;1m    -storepass *** \[0m
+2026-06-30T15:15:42.4974282Z [36;1m    -keypass ***[0m
+2026-06-30T15:15:42.4974556Z [36;1m  echo ""[0m
+2026-06-30T15:15:42.4974871Z [36;1m  echo "════════════════════════════════════════════════════"[0m
+2026-06-30T15:15:42.4975509Z [36;1m  echo "ACTION REQUIRED: Copy the base64 below and save it"[0m
+2026-06-30T15:15:42.4976210Z [36;1m  echo "as GitHub Secret: KEYSTORE_BASE64"[0m
+2026-06-30T15:15:42.4976653Z [36;1m  echo "This ensures the same key is used for all future APK"[0m
+2026-06-30T15:15:42.4977147Z [36;1m  echo "builds, allowing users to install updates over old APKs."[0m
+2026-06-30T15:15:42.4977607Z [36;1m  echo "════════════════════════════════════════════════════"[0m
+2026-06-30T15:15:42.4977979Z [36;1m  base64 -w 0 "$KEYSTORE_PATH"[0m
+2026-06-30T15:15:42.4978286Z [36;1m  echo ""[0m
+2026-06-30T15:15:42.4978584Z [36;1m  echo "════════════════════════════════════════════════════"[0m
+2026-06-30T15:15:42.4978996Z [36;1m  echo "✅ Keystore generated at $KEYSTORE_PATH"[0m
+2026-06-30T15:15:42.4979333Z [36;1mfi[0m
+2026-06-30T15:15:42.5010265Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:42.5010575Z ##[endgroup]
+2026-06-30T15:15:42.5068196Z 🔑 Restoring keystore from KEYSTORE_BASE64 secret...
+2026-06-30T15:15:42.5107132Z ✅ Keystore restored: 2.7K
+2026-06-30T15:15:42.5134463Z ##[group]Run npx @capacitor/assets generate --android
+2026-06-30T15:15:42.5134939Z [36;1mnpx @capacitor/assets generate --android[0m
+2026-06-30T15:15:42.5165540Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:42.5165846Z ##[endgroup]
+2026-06-30T15:15:43.3774051Z [log] xml(load) at /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/AndroidManifest.xml
+2026-06-30T15:15:43.3778827Z [log] xml(load) Found root namespaces in XML file: http://schemas.android.com/apk/res/android
+2026-06-30T15:15:43.4308611Z Generating assets for android
+2026-06-30T15:15:44.3442442Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-ldpi/ic_launcher_foreground.png (6.37 KB)
+2026-06-30T15:15:44.3444680Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3446796Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3448708Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png (10.33 KB)
+2026-06-30T15:15:44.3450515Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3452299Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3454165Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png (19.78 KB)
+2026-06-30T15:15:44.3456082Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3457928Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3459791Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png (31.2 KB)
+2026-06-30T15:15:44.3461729Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3463666Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3465700Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png (56.07 KB)
+2026-06-30T15:15:44.3467939Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3471006Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3473030Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png (87.78 KB)
+2026-06-30T15:15:44.3475080Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3477196Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3479247Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-ldpi/ic_launcher_background.png (277 B)
+2026-06-30T15:15:44.3481198Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3483544Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3485613Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-mdpi/ic_launcher_background.png (350 B)
+2026-06-30T15:15:44.3488187Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3490250Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3491792Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-hdpi/ic_launcher_background.png (531 B)
+2026-06-30T15:15:44.3493142Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3494459Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3495842Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xhdpi/ic_launcher_background.png (697 B)
+2026-06-30T15:15:44.3497331Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3498949Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3500748Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_background.png (1.02 KB)
+2026-06-30T15:15:44.3502154Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3503488Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3504899Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_background.png (1.69 KB)
+2026-06-30T15:15:44.3506717Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+2026-06-30T15:15:44.3508089Z CREATE android adaptive-icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+2026-06-30T15:15:44.3509380Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-ldpi/ic_launcher.png (944 B)
+2026-06-30T15:15:44.3510782Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-mdpi/ic_launcher.png (1.74 KB)
+2026-06-30T15:15:44.3512187Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-hdpi/ic_launcher.png (4.07 KB)
+2026-06-30T15:15:44.3513815Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png (7.35 KB)
+2026-06-30T15:15:44.3515225Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png (15.83 KB)
+2026-06-30T15:15:44.3516815Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png (26.45 KB)
+2026-06-30T15:15:44.3518233Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-ldpi/ic_launcher_round.png (2.28 KB)
+2026-06-30T15:15:44.3519440Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png (3.45 KB)
+2026-06-30T15:15:44.3520633Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png (6.48 KB)
+2026-06-30T15:15:44.3522662Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png (10.18 KB)
+2026-06-30T15:15:44.3523825Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png (19.2 KB)
+2026-06-30T15:15:44.3524945Z CREATE android icon /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png (29.92 KB)
+2026-06-30T15:15:44.3526294Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable/splash.png (7.2 KB)
+2026-06-30T15:15:44.3527386Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-ldpi/splash.png (6.23 KB)
+2026-06-30T15:15:44.3528995Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-mdpi/splash.png (11.88 KB)
+2026-06-30T15:15:44.3530524Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-hdpi/splash.png (26.65 KB)
+2026-06-30T15:15:44.3532263Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-xhdpi/splash.png (53.94 KB)
+2026-06-30T15:15:44.3534603Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-xxhdpi/splash.png (74.13 KB)
+2026-06-30T15:15:44.3536884Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-xxxhdpi/splash.png (100.39 KB)
+2026-06-30T15:15:44.3539002Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-ldpi/splash.png (4.49 KB)
+2026-06-30T15:15:44.3541073Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-mdpi/splash.png (7.2 KB)
+2026-06-30T15:15:44.3543176Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-hdpi/splash.png (14.26 KB)
+2026-06-30T15:15:44.3545239Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-xhdpi/splash.png (27.74 KB)
+2026-06-30T15:15:44.3547513Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-xxhdpi/splash.png (41.07 KB)
+2026-06-30T15:15:44.3549604Z CREATE android splash /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-xxxhdpi/splash.png (62.65 KB)
+2026-06-30T15:15:44.3551710Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-night/splash.png (7.37 KB)
+2026-06-30T15:15:44.3554014Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-night-ldpi/splash.png (7.37 KB)
+2026-06-30T15:15:44.3556489Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-night-mdpi/splash.png (14.51 KB)
+2026-06-30T15:15:44.3559069Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-night-hdpi/splash.png (33.16 KB)
+2026-06-30T15:15:44.3561456Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-night-xhdpi/splash.png (67.39 KB)
+2026-06-30T15:15:44.3563799Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-night-xxhdpi/splash.png (96.83 KB)
+2026-06-30T15:15:44.3566298Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-land-night-xxxhdpi/splash.png (136.63 KB)
+2026-06-30T15:15:44.3568644Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-night-ldpi/splash.png (5.68 KB)
+2026-06-30T15:15:44.3571230Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-night-mdpi/splash.png (9.49 KB)
+2026-06-30T15:15:44.3573568Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-night-hdpi/splash.png (21.04 KB)
+2026-06-30T15:15:44.3575852Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-night-xhdpi/splash.png (44.26 KB)
+2026-06-30T15:15:44.3578354Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-night-xxhdpi/splash.png (64.58 KB)
+2026-06-30T15:15:44.3580578Z CREATE android splash-dark /home/runner/work/SchoolPlus026/SchoolPlus026/android/app/src/main/res/drawable-port-night-xxxhdpi/splash.png (99.54 KB)
+2026-06-30T15:15:44.3581704Z 
+2026-06-30T15:15:44.3581713Z 
+2026-06-30T15:15:44.3581943Z Totals:
+2026-06-30T15:15:44.3582521Z android: 74 generated, 1.36 MB total
+2026-06-30T15:15:44.3771962Z ##[group]Run rm -rf android/app/src/main/res/mipmap-anydpi-v26/*
+2026-06-30T15:15:44.3772759Z [36;1mrm -rf android/app/src/main/res/mipmap-anydpi-v26/*[0m
+2026-06-30T15:15:44.3773479Z [36;1mrm -f android/app/src/main/res/drawable/ic_launcher_background.xml[0m
+2026-06-30T15:15:44.3774208Z [36;1mrm -f android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml[0m
+2026-06-30T15:15:44.3805755Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:44.3806549Z ##[endgroup]
+2026-06-30T15:15:44.3999402Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-06-30T15:15:44.4000743Z ##[group]Run actions/setup-java@v4
+2026-06-30T15:15:44.4001045Z with:
+2026-06-30T15:15:44.4001285Z   distribution: temurin
+2026-06-30T15:15:44.4001549Z   java-version: 21
+2026-06-30T15:15:44.4001808Z   cache: gradle
+2026-06-30T15:15:44.4002047Z   java-package: jdk
+2026-06-30T15:15:44.4002301Z   check-latest: false
+2026-06-30T15:15:44.4002552Z   server-id: github
+2026-06-30T15:15:44.4002804Z   server-username: GITHUB_ACTOR
+2026-06-30T15:15:44.4003101Z   server-password: GITHUB_TOKEN
+2026-06-30T15:15:44.4003395Z   overwrite-settings: true
+2026-06-30T15:15:44.4003670Z   job-status: success
+2026-06-30T15:15:44.4006702Z   token: ***
+2026-06-30T15:15:44.4006992Z ##[endgroup]
+2026-06-30T15:15:44.5791063Z ##[group]Installed distributions
+2026-06-30T15:15:44.6043072Z Resolved Java 21.0.11+10 from tool-cache
+2026-06-30T15:15:44.6043838Z Setting Java 21.0.11+10 as the default
+2026-06-30T15:15:44.6055767Z (node:2623) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-06-30T15:15:44.6057032Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-06-30T15:15:44.6059786Z Creating toolchains.xml for JDK version 21 from temurin
+2026-06-30T15:15:44.6142543Z Writing to /home/runner/.m2/toolchains.xml
+2026-06-30T15:15:44.6143122Z 
+2026-06-30T15:15:44.6143362Z Java configuration:
+2026-06-30T15:15:44.6143841Z   Distribution: temurin
+2026-06-30T15:15:44.6144320Z   Version: 21.0.11+10
+2026-06-30T15:15:44.6144902Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:15:44.6145358Z 
+2026-06-30T15:15:44.6146237Z ##[endgroup]
+2026-06-30T15:15:44.6149871Z Creating settings.xml with server-id: github
+2026-06-30T15:15:44.6163046Z Writing to /home/runner/.m2/settings.xml
+2026-06-30T15:15:48.6980875Z Cache hit for: setup-java-Linux-x64-gradle-9bbe35ba8148f8e4c41d530fa736b2b63b19f50dcef9d2da5166bf42cbbd0389
+2026-06-30T15:15:48.7094709Z (node:2623) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-06-30T15:15:49.7567452Z Received 205520896 of 608772825 (33.8%), 195.6 MBs/sec
+2026-06-30T15:15:50.7543636Z Received 406847488 of 608772825 (66.8%), 193.8 MBs/sec
+2026-06-30T15:15:51.5865492Z Received 608772825 of 608772825 (100.0%), 204.8 MBs/sec
+2026-06-30T15:15:51.5866598Z Cache Size: ~581 MB (608772825 B)
+2026-06-30T15:15:51.5910613Z [command]/usr/bin/tar -xf /home/runner/work/_temp/45e4e279-ab77-4845-bbc9-9b821dd0a0dc/cache.tzst -P -C /home/runner/work/SchoolPlus026/SchoolPlus026 --use-compress-program unzstd
+2026-06-30T15:15:55.3101700Z Cache restored successfully
+2026-06-30T15:15:55.3376723Z Cache restored from key: setup-java-Linux-x64-gradle-9bbe35ba8148f8e4c41d530fa736b2b63b19f50dcef9d2da5166bf42cbbd0389
+2026-06-30T15:15:55.3672540Z ##[group]Run chmod +x android/gradlew
+2026-06-30T15:15:55.3672930Z [36;1mchmod +x android/gradlew[0m
+2026-06-30T15:15:55.3704597Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:55.3704905Z env:
+2026-06-30T15:15:55.3705269Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:15:55.3706106Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:15:55.3706630Z ##[endgroup]
+2026-06-30T15:15:55.4106724Z ##[group]Run cat >> android/local.properties << EOF
+2026-06-30T15:15:55.4107246Z [36;1mcat >> android/local.properties << EOF[0m
+2026-06-30T15:15:55.4107740Z [36;1mstoreFile=/home/runner/work/SchoolPlus026/SchoolPlus026/schoolos.jks[0m
+2026-06-30T15:15:55.4108276Z [36;1mstorePassword=***[0m
+2026-06-30T15:15:55.4108582Z [36;1mkeyAlias=schoolos[0m
+2026-06-30T15:15:55.4108884Z [36;1mkeyPassword=***[0m
+2026-06-30T15:15:55.4109163Z [36;1mEOF[0m
+2026-06-30T15:15:55.4140266Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:55.4140568Z env:
+2026-06-30T15:15:55.4140931Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:15:55.4141508Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:15:55.4141937Z ##[endgroup]
+2026-06-30T15:15:55.4583960Z ##[group]Run TAG="main"
+2026-06-30T15:15:55.4584329Z [36;1mTAG="main"[0m
+2026-06-30T15:15:55.4584638Z [36;1mSHORT_SHA=$(git rev-parse --short HEAD)[0m
+2026-06-30T15:15:55.4585117Z [36;1mif [ -z "$TAG" ] || [ "$TAG" = "main" ] || [ "$TAG" = "refs/heads/main" ]; then[0m
+2026-06-30T15:15:55.4585562Z [36;1m  VERSION_NAME="1.0.198-${SHORT_SHA}"[0m
+2026-06-30T15:15:55.4586101Z [36;1m  TAG="v$VERSION_NAME"[0m
+2026-06-30T15:15:55.4586407Z [36;1melse[0m
+2026-06-30T15:15:55.4586657Z [36;1m  VERSION_NAME="${TAG#v}"[0m
+2026-06-30T15:15:55.4586947Z [36;1mfi[0m
+2026-06-30T15:15:55.4587186Z [36;1mVERSION_CODE="198"[0m
+2026-06-30T15:15:55.4587625Z [36;1msed -i "s/versionCode .*/versionCode $VERSION_CODE/" android/app/build.gradle[0m
+2026-06-30T15:15:55.4588246Z [36;1msed -i "s/versionName .*/versionName \"$VERSION_NAME\"/" android/app/build.gradle[0m
+2026-06-30T15:15:55.4588848Z [36;1mecho "Patched -> versionCode=$VERSION_CODE, versionName=$VERSION_NAME"[0m
+2026-06-30T15:15:55.4620454Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:55.4620968Z env:
+2026-06-30T15:15:55.4621340Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:15:55.4621917Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:15:55.4622360Z ##[endgroup]
+2026-06-30T15:15:55.4992098Z Patched -> versionCode=198, versionName=1.0.198-0f3f500
+2026-06-30T15:15:55.5021792Z ##[group]Run cd android
+2026-06-30T15:15:55.5022152Z [36;1mcd android[0m
+2026-06-30T15:15:55.5022514Z [36;1m./gradlew assembleRelease --no-daemon --stacktrace \[0m
+2026-06-30T15:15:55.5023174Z [36;1m  -Pandroid.injected.signing.store.file=/home/runner/work/SchoolPlus026/SchoolPlus026/schoolos.jks \[0m
+2026-06-30T15:15:55.5023986Z [36;1m  -Pandroid.injected.signing.store.*** \[0m
+2026-06-30T15:15:55.5024431Z [36;1m  -Pandroid.injected.signing.key.alias=schoolos \[0m
+2026-06-30T15:15:55.5024951Z [36;1m  -Pandroid.injected.signing.key.***
+2026-06-30T15:15:55.5056770Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:15:55.5057080Z env:
+2026-06-30T15:15:55.5057462Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:15:55.5058017Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:15:55.5058471Z ##[endgroup]
+2026-06-30T15:15:56.8553388Z 
+2026-06-30T15:15:56.8554710Z Welcome to Gradle 8.7!
+2026-06-30T15:15:56.8555285Z 
+2026-06-30T15:15:56.8557050Z Here are the highlights of this release:
+2026-06-30T15:15:56.8566274Z  - Compiling and testing with Java 22
+2026-06-30T15:15:56.8567237Z  - Cacheable Groovy script compilation
+2026-06-30T15:15:56.8569761Z  - New methods in lazy collection properties
+2026-06-30T15:15:56.8570055Z 
+2026-06-30T15:15:56.8570391Z For more details see https://docs.gradle.org/8.7/release-notes.html
+2026-06-30T15:15:56.8570724Z 
+2026-06-30T15:15:57.1585365Z To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+2026-06-30T15:15:58.7549304Z Daemon will be stopped at the end of the build 
+2026-06-30T15:16:06.6596969Z 
+2026-06-30T15:16:06.6627289Z > Configure project :app
+2026-06-30T15:16:06.6657428Z WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+2026-06-30T15:16:08.8563324Z 
+2026-06-30T15:16:08.8583035Z > Configure project :capacitor-cordova-android-plugins
+2026-06-30T15:16:08.8584541Z WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+2026-06-30T15:16:10.3548971Z WARNING: We recommend using a newer Android Gradle plugin to use compileSdk = 35
+2026-06-30T15:16:10.3555170Z 
+2026-06-30T15:16:10.3556333Z This Android Gradle plugin (8.2.1) was tested up to compileSdk = 34.
+2026-06-30T15:16:10.3557215Z 
+2026-06-30T15:16:10.3557968Z You are strongly encouraged to update your project to use a newer
+2026-06-30T15:16:10.3559250Z Android Gradle plugin that has been tested with compileSdk = 35.
+2026-06-30T15:16:10.3563325Z 
+2026-06-30T15:16:10.3564150Z If you are already using the latest version of the Android Gradle plugin,
+2026-06-30T15:16:10.3565686Z you may need to wait until a newer version with support for compileSdk = 35 is available.
+2026-06-30T15:16:10.3574717Z 
+2026-06-30T15:16:10.3575299Z To suppress this warning, add/update
+2026-06-30T15:16:10.3576554Z     android.suppressUnsupportedCompileSdk=35
+2026-06-30T15:16:10.3577586Z to this project's gradle.properties.
+2026-06-30T15:16:12.0546685Z 
+2026-06-30T15:16:12.0553609Z > Task :app:preBuild UP-TO-DATE
+2026-06-30T15:16:12.0554423Z > Task :app:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1565569Z > Task :capacitor-android:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1634591Z > Task :capacitor-android:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1645614Z > Task :capacitor-app:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1647228Z > Task :capacitor-app:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1648199Z > Task :capacitor-browser:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1649586Z > Task :capacitor-browser:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1650582Z > Task :capacitor-app:writeReleaseAarMetadata
+2026-06-30T15:16:12.1651567Z > Task :capacitor-android:writeReleaseAarMetadata
+2026-06-30T15:16:12.1652544Z > Task :app:javaPreCompileRelease
+2026-06-30T15:16:12.1656446Z > Task :capacitor-camera:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1658472Z > Task :capacitor-camera:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1659566Z > Task :capacitor-browser:writeReleaseAarMetadata
+2026-06-30T15:16:12.1660694Z > Task :capacitor-community-file-opener:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1661923Z > Task :capacitor-community-file-opener:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1663035Z > Task :capacitor-camera:writeReleaseAarMetadata
+2026-06-30T15:16:12.1664199Z > Task :capacitor-cordova-android-plugins:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1666630Z > Task :capacitor-cordova-android-plugins:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1667905Z > Task :capacitor-community-file-opener:writeReleaseAarMetadata
+2026-06-30T15:16:12.1669008Z > Task :capacitor-filesystem:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1670022Z > Task :capacitor-filesystem:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1671157Z > Task :capacitor-cordova-android-plugins:writeReleaseAarMetadata
+2026-06-30T15:16:12.1672299Z > Task :capacitor-geolocation:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1673321Z > Task :capacitor-geolocation:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1674343Z > Task :capacitor-filesystem:writeReleaseAarMetadata
+2026-06-30T15:16:12.1675438Z > Task :capacitor-push-notifications:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1676776Z > Task :capacitor-push-notifications:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1677884Z > Task :capacitor-geolocation:writeReleaseAarMetadata
+2026-06-30T15:16:12.1678872Z > Task :capacitor-share:preBuild UP-TO-DATE
+2026-06-30T15:16:12.1679796Z > Task :capacitor-share:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.1680929Z > Task :capacitor-push-notifications:writeReleaseAarMetadata
+2026-06-30T15:16:12.2558834Z > Task :capgo-capacitor-passkey:preBuild UP-TO-DATE
+2026-06-30T15:16:12.2569724Z > Task :capgo-capacitor-passkey:preReleaseBuild UP-TO-DATE
+2026-06-30T15:16:12.2570882Z > Task :capacitor-share:writeReleaseAarMetadata
+2026-06-30T15:16:12.2571924Z > Task :capgo-capacitor-passkey:writeReleaseAarMetadata
+2026-06-30T15:16:12.2572893Z > Task :app:generateReleaseResValues
+2026-06-30T15:16:12.9547427Z > Task :app:checkReleaseAarMetadata
+2026-06-30T15:16:12.9549072Z > Task :app:processReleaseGoogleServices
+2026-06-30T15:16:12.9557326Z > Task :capacitor-android:generateReleaseResValues
+2026-06-30T15:16:12.9557881Z > Task :capacitor-android:generateReleaseResources
+2026-06-30T15:16:13.0552498Z > Task :capacitor-android:packageReleaseResources
+2026-06-30T15:16:13.0576848Z > Task :capacitor-app:generateReleaseResValues
+2026-06-30T15:16:13.0577715Z > Task :capacitor-app:generateReleaseResources
+2026-06-30T15:16:13.1568432Z > Task :capacitor-app:packageReleaseResources
+2026-06-30T15:16:13.1598007Z > Task :capacitor-browser:generateReleaseResValues
+2026-06-30T15:16:13.1600616Z > Task :capacitor-browser:generateReleaseResources
+2026-06-30T15:16:13.1621039Z > Task :capacitor-browser:packageReleaseResources
+2026-06-30T15:16:13.1628300Z > Task :capacitor-camera:generateReleaseResValues
+2026-06-30T15:16:13.1641250Z > Task :capacitor-camera:generateReleaseResources
+2026-06-30T15:16:13.1642401Z > Task :capacitor-camera:packageReleaseResources
+2026-06-30T15:16:13.1643832Z > Task :capacitor-community-file-opener:generateReleaseResValues
+2026-06-30T15:16:13.1645272Z > Task :capacitor-community-file-opener:generateReleaseResources
+2026-06-30T15:16:13.1646931Z > Task :capacitor-community-file-opener:packageReleaseResources
+2026-06-30T15:16:13.1652384Z > Task :capacitor-cordova-android-plugins:generateReleaseResValues
+2026-06-30T15:16:13.1653482Z > Task :capacitor-cordova-android-plugins:generateReleaseResources
+2026-06-30T15:16:13.1654548Z > Task :capacitor-cordova-android-plugins:packageReleaseResources
+2026-06-30T15:16:13.1656169Z > Task :capacitor-filesystem:generateReleaseResValues
+2026-06-30T15:16:13.1657075Z > Task :capacitor-filesystem:generateReleaseResources
+2026-06-30T15:16:13.1657970Z > Task :capacitor-filesystem:packageReleaseResources
+2026-06-30T15:16:13.1659160Z > Task :capacitor-geolocation:generateReleaseResValues
+2026-06-30T15:16:13.1659760Z > Task :capacitor-geolocation:generateReleaseResources
+2026-06-30T15:16:13.2565016Z > Task :capacitor-geolocation:packageReleaseResources
+2026-06-30T15:16:13.2583567Z > Task :capacitor-push-notifications:generateReleaseResValues
+2026-06-30T15:16:13.2584667Z > Task :capacitor-push-notifications:generateReleaseResources
+2026-06-30T15:16:13.2585783Z > Task :capacitor-push-notifications:packageReleaseResources
+2026-06-30T15:16:13.2586934Z > Task :capacitor-share:generateReleaseResValues
+2026-06-30T15:16:13.2587739Z > Task :capacitor-share:generateReleaseResources
+2026-06-30T15:16:13.2588540Z > Task :capacitor-share:packageReleaseResources
+2026-06-30T15:16:13.2589486Z > Task :capgo-capacitor-passkey:generateReleaseResValues
+2026-06-30T15:16:13.2590375Z > Task :capgo-capacitor-passkey:generateReleaseResources
+2026-06-30T15:16:13.2591218Z > Task :capgo-capacitor-passkey:packageReleaseResources
+2026-06-30T15:16:13.3547887Z > Task :app:mapReleaseSourceSetPaths
+2026-06-30T15:16:13.3563972Z > Task :app:generateReleaseResources
+2026-06-30T15:16:16.3547114Z > Task :app:packageReleaseResources
+2026-06-30T15:16:16.7597553Z > Task :app:createReleaseCompatibleScreenManifests
+2026-06-30T15:16:16.7599073Z > Task :app:extractDeepLinksRelease
+2026-06-30T15:16:16.7627027Z > Task :capacitor-android:extractDeepLinksRelease
+2026-06-30T15:16:16.8567510Z > Task :app:parseReleaseLocalResources
+2026-06-30T15:16:16.8647413Z > Task :capacitor-app:extractDeepLinksRelease
+2026-06-30T15:16:16.8677122Z > Task :capacitor-android:processReleaseManifest
+2026-06-30T15:16:16.8717281Z > Task :capacitor-browser:extractDeepLinksRelease
+2026-06-30T15:16:16.8777526Z > Task :capacitor-camera:extractDeepLinksRelease
+2026-06-30T15:16:16.8806492Z > Task :capacitor-app:processReleaseManifest
+2026-06-30T15:16:16.9552526Z > Task :capacitor-browser:processReleaseManifest
+2026-06-30T15:16:16.9577472Z > Task :capacitor-community-file-opener:extractDeepLinksRelease
+2026-06-30T15:16:16.9607318Z > Task :capacitor-camera:processReleaseManifest
+2026-06-30T15:16:16.9637261Z > Task :capacitor-cordova-android-plugins:extractDeepLinksRelease
+2026-06-30T15:16:16.9667055Z > Task :capacitor-community-file-opener:processReleaseManifest
+2026-06-30T15:16:16.9668422Z > Task :capacitor-filesystem:extractDeepLinksRelease
+2026-06-30T15:16:16.9697006Z > Task :capacitor-cordova-android-plugins:processReleaseManifest
+2026-06-30T15:16:16.9726666Z > Task :capacitor-geolocation:extractDeepLinksRelease
+2026-06-30T15:16:16.9756855Z > Task :capacitor-filesystem:processReleaseManifest
+2026-06-30T15:16:16.9758115Z > Task :capacitor-geolocation:processReleaseManifest
+2026-06-30T15:16:16.9787000Z > Task :capacitor-push-notifications:extractDeepLinksRelease
+2026-06-30T15:16:17.0548107Z > Task :capacitor-share:extractDeepLinksRelease
+2026-06-30T15:16:17.0567243Z > Task :capacitor-push-notifications:processReleaseManifest
+2026-06-30T15:16:17.0597171Z > Task :capgo-capacitor-passkey:extractDeepLinksRelease
+2026-06-30T15:16:17.0598434Z > Task :capacitor-share:processReleaseManifest
+2026-06-30T15:16:17.0627032Z > Task :capgo-capacitor-passkey:processReleaseManifest
+2026-06-30T15:16:17.1548293Z > Task :capacitor-android:compileReleaseLibraryResources
+2026-06-30T15:16:17.2548840Z > Task :app:mergeReleaseResources
+2026-06-30T15:16:17.4567535Z > Task :app:processReleaseMainManifest
+2026-06-30T15:16:17.7557212Z > Task :app:processReleaseManifest
+2026-06-30T15:16:17.7577336Z > Task :capacitor-app:compileReleaseLibraryResources
+2026-06-30T15:16:17.7578492Z > Task :app:processReleaseManifestForPackage
+2026-06-30T15:16:17.7637375Z > Task :capacitor-android:parseReleaseLocalResources
+2026-06-30T15:16:17.7638384Z > Task :capacitor-browser:compileReleaseLibraryResources
+2026-06-30T15:16:17.7678123Z > Task :capacitor-app:parseReleaseLocalResources
+2026-06-30T15:16:17.8560766Z > Task :capacitor-browser:parseReleaseLocalResources
+2026-06-30T15:16:17.8586965Z > Task :capacitor-camera:compileReleaseLibraryResources
+2026-06-30T15:16:17.8610020Z > Task :capacitor-camera:parseReleaseLocalResources
+2026-06-30T15:16:17.8637327Z > Task :capacitor-android:generateReleaseRFile
+2026-06-30T15:16:17.8647059Z > Task :capacitor-browser:generateReleaseRFile
+2026-06-30T15:16:17.8682384Z > Task :capacitor-app:generateReleaseRFile
+2026-06-30T15:16:17.8683779Z > Task :capacitor-community-file-opener:compileReleaseLibraryResources
+2026-06-30T15:16:17.8684737Z > Task :capacitor-camera:generateReleaseRFile
+2026-06-30T15:16:17.8687934Z > Task :capacitor-cordova-android-plugins:compileReleaseLibraryResources
+2026-06-30T15:16:17.8689072Z > Task :capacitor-community-file-opener:parseReleaseLocalResources
+2026-06-30T15:16:17.8690133Z > Task :capacitor-cordova-android-plugins:parseReleaseLocalResources
+2026-06-30T15:16:17.9577497Z > Task :capacitor-filesystem:compileReleaseLibraryResources
+2026-06-30T15:16:17.9578595Z > Task :capacitor-community-file-opener:generateReleaseRFile
+2026-06-30T15:16:17.9607129Z > Task :capacitor-cordova-android-plugins:generateReleaseRFile
+2026-06-30T15:16:17.9608121Z > Task :capacitor-filesystem:parseReleaseLocalResources
+2026-06-30T15:16:17.9608969Z > Task :capacitor-geolocation:compileReleaseLibraryResources
+2026-06-30T15:16:17.9609757Z > Task :capacitor-filesystem:generateReleaseRFile
+2026-06-30T15:16:17.9610624Z > Task :capacitor-push-notifications:compileReleaseLibraryResources
+2026-06-30T15:16:17.9611518Z > Task :capacitor-geolocation:parseReleaseLocalResources
+2026-06-30T15:16:17.9612321Z > Task :capacitor-share:compileReleaseLibraryResources
+2026-06-30T15:16:17.9613185Z > Task :capacitor-push-notifications:parseReleaseLocalResources
+2026-06-30T15:16:17.9614018Z > Task :capacitor-share:parseReleaseLocalResources
+2026-06-30T15:16:17.9614752Z > Task :capacitor-geolocation:generateReleaseRFile
+2026-06-30T15:16:17.9615596Z > Task :capgo-capacitor-passkey:compileReleaseLibraryResources
+2026-06-30T15:16:17.9616736Z > Task :capacitor-push-notifications:generateReleaseRFile
+2026-06-30T15:16:18.0555867Z > Task :capacitor-share:generateReleaseRFile
+2026-06-30T15:16:18.0558088Z > Task :capacitor-android:javaPreCompileRelease
+2026-06-30T15:16:18.0559266Z > Task :capacitor-app:javaPreCompileRelease
+2026-06-30T15:16:18.0560428Z > Task :capgo-capacitor-passkey:parseReleaseLocalResources
+2026-06-30T15:16:21.1549310Z 
+2026-06-30T15:16:21.1559264Z Note: /home/runner/work/SchoolPlus026/SchoolPlus026/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/Bridge.java uses or overrides a deprecated API.
+2026-06-30T15:16:21.1561093Z > Task :capacitor-android:compileReleaseJavaWithJavac
+2026-06-30T15:16:21.1587337Z Note: Recompile with -Xlint:deprecation for details.
+2026-06-30T15:16:21.1595474Z Note: Some input files use unchecked or unsafe operations.
+2026-06-30T15:16:21.1597063Z Note: Recompile with -Xlint:unchecked for details.
+2026-06-30T15:16:21.4547341Z 
+2026-06-30T15:16:21.4550891Z > Task :capgo-capacitor-passkey:generateReleaseRFile
+2026-06-30T15:16:21.5550188Z > Task :capacitor-android:bundleLibCompileToJarRelease
+2026-06-30T15:16:22.2591375Z > Task :capacitor-app:compileReleaseJavaWithJavac
+2026-06-30T15:16:22.2647403Z > Task :capacitor-app:bundleLibCompileToJarRelease
+2026-06-30T15:16:22.2676780Z > Task :capacitor-browser:javaPreCompileRelease
+2026-06-30T15:16:22.2706657Z > Task :capacitor-camera:javaPreCompileRelease
+2026-06-30T15:16:22.6547503Z > Task :capacitor-browser:compileReleaseJavaWithJavac
+2026-06-30T15:16:22.6597281Z > Task :capacitor-browser:bundleLibCompileToJarRelease
+2026-06-30T15:16:23.0577477Z > Task :app:processReleaseResources
+2026-06-30T15:16:23.1550588Z 
+2026-06-30T15:16:23.1553292Z Note: /home/runner/work/SchoolPlus026/SchoolPlus026/node_modules/@capacitor/camera/android/src/main/java/com/capacitorjs/plugins/camera/CameraBottomSheetDialogFragment.java uses unchecked or unsafe operations.
+2026-06-30T15:16:23.1556402Z Note: Recompile with -Xlint:unchecked for details.
+2026-06-30T15:16:23.1561616Z > Task :capacitor-camera:compileReleaseJavaWithJavac
+2026-06-30T15:16:23.1562355Z 
+2026-06-30T15:16:23.1563089Z > Task :capacitor-camera:bundleLibCompileToJarRelease
+2026-06-30T15:16:23.1564743Z > Task :capacitor-community-file-opener:javaPreCompileRelease
+2026-06-30T15:16:23.1566419Z > Task :capacitor-cordova-android-plugins:javaPreCompileRelease
+2026-06-30T15:16:23.3550813Z > Task :capacitor-community-file-opener:compileReleaseJavaWithJavac
+2026-06-30T15:16:23.3557570Z > Task :capacitor-community-file-opener:bundleLibCompileToJarRelease
+2026-06-30T15:16:23.5560574Z > Task :capacitor-cordova-android-plugins:compileReleaseJavaWithJavac
+2026-06-30T15:16:23.5587355Z > Task :capacitor-cordova-android-plugins:bundleLibCompileToJarRelease
+2026-06-30T15:16:23.5614927Z > Task :capacitor-filesystem:javaPreCompileRelease
+2026-06-30T15:16:23.5624515Z > Task :capacitor-geolocation:javaPreCompileRelease
+2026-06-30T15:16:23.8557459Z > Task :capacitor-filesystem:compileReleaseJavaWithJavac
+2026-06-30T15:16:23.8587441Z > Task :capacitor-filesystem:bundleLibCompileToJarRelease
+2026-06-30T15:16:24.1546863Z > Task :capacitor-geolocation:compileReleaseJavaWithJavac
+2026-06-30T15:16:24.1571938Z > Task :capacitor-geolocation:bundleLibCompileToJarRelease
+2026-06-30T15:16:24.1573133Z > Task :capacitor-push-notifications:javaPreCompileRelease
+2026-06-30T15:16:24.1585748Z > Task :capacitor-share:javaPreCompileRelease
+2026-06-30T15:16:24.5546701Z > Task :capacitor-push-notifications:compileReleaseJavaWithJavac
+2026-06-30T15:16:24.5552107Z > Task :capacitor-push-notifications:bundleLibCompileToJarRelease
+2026-06-30T15:16:24.7580440Z > Task :capacitor-share:compileReleaseJavaWithJavac
+2026-06-30T15:16:24.7621406Z > Task :capacitor-android:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:24.7647072Z > Task :capacitor-share:bundleLibCompileToJarRelease
+2026-06-30T15:16:24.7677135Z > Task :capacitor-android:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:24.7691866Z > Task :app:extractProguardFiles
+2026-06-30T15:16:24.8547750Z > Task :capacitor-android:createFullJarRelease
+2026-06-30T15:16:24.9552560Z > Task :capgo-capacitor-passkey:javaPreCompileRelease
+2026-06-30T15:16:24.9597850Z > Task :capacitor-android:mergeReleaseJniLibFolders
+2026-06-30T15:16:25.2547615Z > Task :capgo-capacitor-passkey:compileReleaseJavaWithJavac
+2026-06-30T15:16:25.2587263Z > Task :capgo-capacitor-passkey:bundleLibCompileToJarRelease
+2026-06-30T15:16:25.2617377Z > Task :capacitor-android:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:25.4552424Z > Task :app:compileReleaseJavaWithJavac
+2026-06-30T15:16:25.4574883Z > Task :capacitor-android:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:25.4580455Z > Task :capacitor-android:extractDeepLinksForAarRelease
+2026-06-30T15:16:25.4607335Z > Task :capacitor-android:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:25.5577903Z > Task :capacitor-android:extractReleaseAnnotations
+2026-06-30T15:16:25.5586196Z > Task :capacitor-android:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:25.5610621Z > Task :capacitor-android:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:25.5647047Z > Task :capacitor-android:mergeReleaseShaders
+2026-06-30T15:16:25.5648156Z > Task :capacitor-android:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:25.5687405Z > Task :capacitor-android:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:25.5717890Z > Task :capacitor-android:packageReleaseAssets
+2026-06-30T15:16:25.5727096Z > Task :capacitor-android:prepareReleaseArtProfile
+2026-06-30T15:16:25.5747113Z > Task :capacitor-android:prepareLintJarForPublish
+2026-06-30T15:16:25.5777240Z > Task :capacitor-android:extractProguardFiles
+2026-06-30T15:16:25.5807009Z > Task :capacitor-android:writeReleaseLintModelMetadata
+2026-06-30T15:16:25.6618640Z > Task :capacitor-app:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:25.6646970Z > Task :capacitor-app:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:25.6666868Z > Task :capacitor-app:createFullJarRelease
+2026-06-30T15:16:25.6696716Z > Task :capacitor-app:mergeReleaseJniLibFolders
+2026-06-30T15:16:25.6716851Z > Task :capacitor-app:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:25.6747146Z > Task :capacitor-app:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:25.6777182Z > Task :capacitor-app:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:25.6806716Z > Task :capacitor-app:extractDeepLinksForAarRelease
+2026-06-30T15:16:25.6836747Z > Task :capacitor-app:extractReleaseAnnotations
+2026-06-30T15:16:25.6857007Z > Task :capacitor-app:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:25.6896821Z > Task :capacitor-app:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:25.6920496Z > Task :capacitor-app:mergeReleaseShaders
+2026-06-30T15:16:25.6946730Z > Task :capacitor-app:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:25.6978035Z > Task :capacitor-app:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:25.7556225Z > Task :capacitor-android:mergeReleaseJavaResource
+2026-06-30T15:16:25.7566946Z > Task :capacitor-app:packageReleaseAssets
+2026-06-30T15:16:25.7586849Z > Task :capacitor-android:syncReleaseLibJars
+2026-06-30T15:16:25.8567465Z > Task :capacitor-android:bundleReleaseLocalLintAar
+2026-06-30T15:16:25.9551106Z > Task :capacitor-app:prepareLintJarForPublish
+2026-06-30T15:16:26.9562162Z > Task :capacitor-android:generateReleaseLintModel
+2026-06-30T15:16:26.9577074Z > Task :capacitor-app:prepareReleaseArtProfile
+2026-06-30T15:16:26.9607033Z > Task :capacitor-app:extractProguardFiles
+2026-06-30T15:16:26.9637069Z > Task :capacitor-app:mergeReleaseJavaResource
+2026-06-30T15:16:26.9666865Z > Task :capacitor-app:writeReleaseLintModelMetadata
+2026-06-30T15:16:26.9668310Z > Task :capacitor-app:syncReleaseLibJars
+2026-06-30T15:16:26.9696965Z > Task :capacitor-app:bundleReleaseLocalLintAar
+2026-06-30T15:16:27.0547625Z > Task :capacitor-browser:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:27.2601733Z > Task :capacitor-app:generateReleaseLintModel
+2026-06-30T15:16:27.2619822Z > Task :capacitor-browser:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:27.2624823Z > Task :capacitor-browser:createFullJarRelease
+2026-06-30T15:16:27.2659936Z > Task :capacitor-browser:mergeReleaseJniLibFolders
+2026-06-30T15:16:27.2717236Z > Task :capacitor-browser:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:27.2747798Z > Task :capacitor-browser:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:27.2779781Z > Task :capacitor-browser:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:27.2837630Z > Task :capacitor-browser:extractDeepLinksForAarRelease
+2026-06-30T15:16:27.3617594Z > Task :capacitor-browser:extractReleaseAnnotations
+2026-06-30T15:16:27.3667460Z > Task :capacitor-browser:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:27.3711302Z > Task :capacitor-browser:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:27.3807670Z > Task :capacitor-browser:mergeReleaseShaders
+2026-06-30T15:16:27.3808735Z > Task :capacitor-browser:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:27.3827216Z > Task :capacitor-browser:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:27.3828116Z > Task :capacitor-browser:packageReleaseAssets
+2026-06-30T15:16:27.3828945Z > Task :capacitor-browser:prepareLintJarForPublish
+2026-06-30T15:16:27.3829789Z > Task :capacitor-browser:prepareReleaseArtProfile
+2026-06-30T15:16:27.3830642Z > Task :capacitor-browser:mergeReleaseJavaResource
+2026-06-30T15:16:27.3831458Z > Task :capacitor-browser:extractProguardFiles
+2026-06-30T15:16:27.4607609Z > Task :capacitor-browser:syncReleaseLibJars
+2026-06-30T15:16:27.4637202Z > Task :capacitor-browser:bundleReleaseLocalLintAar
+2026-06-30T15:16:27.4697347Z > Task :capacitor-browser:writeReleaseLintModelMetadata
+2026-06-30T15:16:27.6585494Z > Task :capacitor-browser:generateReleaseLintModel
+2026-06-30T15:16:27.6597648Z > Task :capacitor-camera:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:27.6697243Z > Task :capacitor-camera:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:27.6707255Z > Task :capacitor-camera:createFullJarRelease
+2026-06-30T15:16:27.6756921Z > Task :capacitor-camera:mergeReleaseJniLibFolders
+2026-06-30T15:16:27.6809228Z > Task :capacitor-camera:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:27.6846999Z > Task :capacitor-camera:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:27.6851007Z > Task :capacitor-camera:extractDeepLinksForAarRelease
+2026-06-30T15:16:27.6907838Z > Task :capacitor-camera:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:27.7571745Z > Task :capacitor-camera:extractReleaseAnnotations
+2026-06-30T15:16:27.7627563Z > Task :capacitor-camera:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:27.7657144Z > Task :capacitor-camera:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:27.7718462Z > Task :capacitor-camera:mergeReleaseShaders
+2026-06-30T15:16:27.7777212Z > Task :capacitor-camera:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:27.7807159Z > Task :capacitor-camera:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:27.7813631Z > Task :capacitor-camera:packageReleaseAssets
+2026-06-30T15:16:27.7836718Z > Task :capacitor-camera:prepareLintJarForPublish
+2026-06-30T15:16:27.7887210Z > Task :capacitor-camera:prepareReleaseArtProfile
+2026-06-30T15:16:27.8571917Z > Task :capacitor-camera:mergeReleaseJavaResource
+2026-06-30T15:16:27.8627368Z > Task :capacitor-camera:extractProguardFiles
+2026-06-30T15:16:27.8628677Z > Task :capacitor-camera:syncReleaseLibJars
+2026-06-30T15:16:27.8707381Z > Task :capacitor-camera:bundleReleaseLocalLintAar
+2026-06-30T15:16:27.8708763Z > Task :capacitor-camera:writeReleaseLintModelMetadata
+2026-06-30T15:16:28.1557280Z > Task :capacitor-camera:generateReleaseLintModel
+2026-06-30T15:16:28.2569883Z > Task :capacitor-community-file-opener:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:28.2627629Z > Task :capacitor-community-file-opener:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:28.2677532Z > Task :capacitor-community-file-opener:createFullJarRelease
+2026-06-30T15:16:28.2737526Z > Task :capacitor-community-file-opener:mergeReleaseJniLibFolders
+2026-06-30T15:16:28.2747099Z > Task :capacitor-community-file-opener:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:28.2817511Z > Task :capacitor-community-file-opener:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:28.2857248Z > Task :capacitor-community-file-opener:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:28.2887182Z > Task :capacitor-community-file-opener:extractDeepLinksForAarRelease
+2026-06-30T15:16:28.3621990Z > Task :capacitor-community-file-opener:extractReleaseAnnotations
+2026-06-30T15:16:28.3623355Z > Task :capacitor-community-file-opener:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:28.3624518Z > Task :capacitor-community-file-opener:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:28.3625477Z > Task :capacitor-community-file-opener:mergeReleaseShaders
+2026-06-30T15:16:28.3626758Z > Task :capacitor-community-file-opener:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:28.3627890Z > Task :capacitor-community-file-opener:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:28.3628932Z > Task :capacitor-community-file-opener:packageReleaseAssets
+2026-06-30T15:16:28.3629969Z > Task :capacitor-community-file-opener:prepareLintJarForPublish
+2026-06-30T15:16:28.3630989Z > Task :capacitor-community-file-opener:prepareReleaseArtProfile
+2026-06-30T15:16:28.3631993Z > Task :capacitor-community-file-opener:mergeReleaseJavaResource
+2026-06-30T15:16:28.3632965Z > Task :capacitor-community-file-opener:syncReleaseLibJars
+2026-06-30T15:16:28.4547443Z > Task :capacitor-community-file-opener:bundleReleaseLocalLintAar
+2026-06-30T15:16:28.4577197Z > Task :capacitor-community-file-opener:extractProguardFiles
+2026-06-30T15:16:28.4578417Z > Task :capacitor-community-file-opener:writeReleaseLintModelMetadata
+2026-06-30T15:16:28.5548822Z > Task :capacitor-community-file-opener:generateReleaseLintModel
+2026-06-30T15:16:28.5587311Z > Task :capacitor-cordova-android-plugins:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:28.5617108Z > Task :capacitor-cordova-android-plugins:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:28.5644108Z > Task :capacitor-cordova-android-plugins:createFullJarRelease
+2026-06-30T15:16:28.5667179Z > Task :capacitor-cordova-android-plugins:mergeReleaseJniLibFolders
+2026-06-30T15:16:28.5687096Z > Task :capacitor-cordova-android-plugins:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:28.5724528Z > Task :capacitor-cordova-android-plugins:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:28.5734651Z > Task :capacitor-cordova-android-plugins:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:28.5748316Z > Task :capacitor-cordova-android-plugins:extractDeepLinksForAarRelease
+2026-06-30T15:16:28.6546544Z > Task :capacitor-cordova-android-plugins:extractReleaseAnnotations
+2026-06-30T15:16:28.6557365Z > Task :capacitor-cordova-android-plugins:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:28.6558749Z > Task :capacitor-cordova-android-plugins:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:28.6560052Z > Task :capacitor-cordova-android-plugins:mergeReleaseShaders
+2026-06-30T15:16:28.6561234Z > Task :capacitor-cordova-android-plugins:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:28.6562537Z > Task :capacitor-cordova-android-plugins:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:28.6563725Z > Task :capacitor-cordova-android-plugins:packageReleaseAssets
+2026-06-30T15:16:28.6567611Z > Task :capacitor-cordova-android-plugins:prepareReleaseArtProfile
+2026-06-30T15:16:28.6568811Z > Task :capacitor-cordova-android-plugins:prepareLintJarForPublish
+2026-06-30T15:16:28.6569999Z > Task :capacitor-cordova-android-plugins:mergeReleaseJavaResource
+2026-06-30T15:16:28.6571096Z > Task :capacitor-cordova-android-plugins:extractProguardFiles
+2026-06-30T15:16:28.6572149Z > Task :capacitor-cordova-android-plugins:syncReleaseLibJars
+2026-06-30T15:16:28.6573328Z > Task :capacitor-cordova-android-plugins:bundleReleaseLocalLintAar
+2026-06-30T15:16:28.6574584Z > Task :capacitor-cordova-android-plugins:writeReleaseLintModelMetadata
+2026-06-30T15:16:28.9567766Z > Task :capacitor-cordova-android-plugins:generateReleaseLintModel
+2026-06-30T15:16:28.9587336Z > Task :capacitor-filesystem:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:28.9596963Z > Task :capacitor-filesystem:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:28.9627105Z > Task :capacitor-filesystem:mergeReleaseJniLibFolders
+2026-06-30T15:16:28.9656960Z > Task :capacitor-filesystem:createFullJarRelease
+2026-06-30T15:16:29.0573586Z > Task :capacitor-filesystem:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:29.0597262Z > Task :capacitor-filesystem:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:29.0616134Z > Task :capacitor-filesystem:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:29.0643338Z > Task :capacitor-filesystem:extractDeepLinksForAarRelease
+2026-06-30T15:16:29.0674316Z > Task :capacitor-filesystem:extractReleaseAnnotations
+2026-06-30T15:16:29.0687013Z > Task :capacitor-filesystem:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:29.0706968Z > Task :capacitor-filesystem:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:29.0707874Z > Task :capacitor-filesystem:mergeReleaseShaders
+2026-06-30T15:16:29.0708746Z > Task :capacitor-filesystem:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:29.0709639Z > Task :capacitor-filesystem:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:29.0710480Z > Task :capacitor-filesystem:packageReleaseAssets
+2026-06-30T15:16:29.0711271Z > Task :capacitor-filesystem:prepareReleaseArtProfile
+2026-06-30T15:16:29.0712060Z > Task :capacitor-filesystem:prepareLintJarForPublish
+2026-06-30T15:16:29.0712845Z > Task :capacitor-filesystem:mergeReleaseJavaResource
+2026-06-30T15:16:29.0713595Z > Task :capacitor-filesystem:extractProguardFiles
+2026-06-30T15:16:29.1547015Z > Task :capacitor-filesystem:syncReleaseLibJars
+2026-06-30T15:16:29.1577390Z > Task :capacitor-filesystem:bundleReleaseLocalLintAar
+2026-06-30T15:16:29.1597023Z > Task :capacitor-filesystem:writeReleaseLintModelMetadata
+2026-06-30T15:16:29.2587701Z > Task :capacitor-filesystem:generateReleaseLintModel
+2026-06-30T15:16:29.2627260Z > Task :capacitor-geolocation:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:29.2695710Z > Task :capacitor-geolocation:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:29.2717035Z > Task :capacitor-geolocation:mergeReleaseJniLibFolders
+2026-06-30T15:16:29.3617418Z > Task :capacitor-geolocation:createFullJarRelease
+2026-06-30T15:16:29.3707815Z > Task :capacitor-geolocation:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:29.3767207Z > Task :capacitor-geolocation:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:29.3857604Z > Task :capacitor-geolocation:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:29.3897725Z > Task :capacitor-geolocation:extractDeepLinksForAarRelease
+2026-06-30T15:16:29.3957175Z > Task :capacitor-geolocation:extractReleaseAnnotations
+2026-06-30T15:16:29.4017410Z > Task :capacitor-geolocation:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:29.4018742Z > Task :capacitor-geolocation:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:29.4077324Z > Task :capacitor-geolocation:mergeReleaseShaders
+2026-06-30T15:16:29.4078567Z > Task :capacitor-geolocation:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:29.4079687Z > Task :capacitor-geolocation:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:29.4548357Z > Task :capacitor-geolocation:packageReleaseAssets
+2026-06-30T15:16:29.4587067Z > Task :capacitor-geolocation:prepareLintJarForPublish
+2026-06-30T15:16:29.4608495Z > Task :capacitor-geolocation:prepareReleaseArtProfile
+2026-06-30T15:16:29.4648357Z > Task :capacitor-geolocation:mergeReleaseJavaResource
+2026-06-30T15:16:29.4676963Z > Task :capacitor-geolocation:syncReleaseLibJars
+2026-06-30T15:16:29.4678325Z > Task :capacitor-geolocation:bundleReleaseLocalLintAar
+2026-06-30T15:16:29.4706973Z > Task :capacitor-geolocation:extractProguardFiles
+2026-06-30T15:16:29.4713881Z > Task :capacitor-geolocation:writeReleaseLintModelMetadata
+2026-06-30T15:16:29.6567309Z > Task :capacitor-geolocation:generateReleaseLintModel
+2026-06-30T15:16:29.6568609Z > Task :capacitor-push-notifications:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:29.6597086Z > Task :capacitor-push-notifications:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:29.6626802Z > Task :capacitor-push-notifications:mergeReleaseJniLibFolders
+2026-06-30T15:16:29.6636851Z > Task :capacitor-push-notifications:createFullJarRelease
+2026-06-30T15:16:29.6666903Z > Task :capacitor-push-notifications:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:29.7570692Z > Task :capacitor-push-notifications:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:29.7627447Z > Task :capacitor-push-notifications:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:29.7667410Z > Task :capacitor-push-notifications:extractDeepLinksForAarRelease
+2026-06-30T15:16:29.7707135Z > Task :capacitor-push-notifications:extractReleaseAnnotations
+2026-06-30T15:16:29.7777335Z > Task :capacitor-push-notifications:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:29.8557425Z > Task :capacitor-push-notifications:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:29.8617109Z > Task :capacitor-push-notifications:mergeReleaseShaders
+2026-06-30T15:16:29.8646379Z > Task :capacitor-push-notifications:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:29.8707312Z > Task :capacitor-push-notifications:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:29.8736964Z > Task :capacitor-push-notifications:packageReleaseAssets
+2026-06-30T15:16:29.8746918Z > Task :capacitor-push-notifications:prepareLintJarForPublish
+2026-06-30T15:16:29.8797269Z > Task :capacitor-push-notifications:prepareReleaseArtProfile
+2026-06-30T15:16:29.8810575Z > Task :capacitor-push-notifications:mergeReleaseJavaResource
+2026-06-30T15:16:29.8811755Z > Task :capacitor-push-notifications:extractProguardFiles
+2026-06-30T15:16:29.8836850Z > Task :capacitor-push-notifications:syncReleaseLibJars
+2026-06-30T15:16:29.8871236Z > Task :capacitor-push-notifications:bundleReleaseLocalLintAar
+2026-06-30T15:16:29.9597512Z > Task :capacitor-push-notifications:writeReleaseLintModelMetadata
+2026-06-30T15:16:30.1550355Z > Task :capacitor-push-notifications:generateReleaseLintModel
+2026-06-30T15:16:30.1587085Z > Task :capacitor-share:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:30.1588269Z > Task :capacitor-share:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:30.1589072Z > Task :capacitor-share:createFullJarRelease
+2026-06-30T15:16:30.2549345Z > Task :capacitor-share:mergeReleaseJniLibFolders
+2026-06-30T15:16:30.2564416Z > Task :capacitor-share:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:30.2566143Z > Task :capacitor-share:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:30.2567398Z > Task :capacitor-share:extractDeepLinksForAarRelease
+2026-06-30T15:16:30.2568721Z > Task :capacitor-share:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:30.2569910Z > Task :capacitor-share:extractReleaseAnnotations
+2026-06-30T15:16:30.2571001Z > Task :capacitor-share:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:30.2572268Z > Task :capacitor-share:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:30.2573386Z > Task :capacitor-share:mergeReleaseShaders
+2026-06-30T15:16:30.2574506Z > Task :capacitor-share:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:30.2575711Z > Task :capacitor-share:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:30.2577115Z > Task :capacitor-share:packageReleaseAssets
+2026-06-30T15:16:30.2578190Z > Task :capacitor-share:prepareLintJarForPublish
+2026-06-30T15:16:30.2579318Z > Task :capacitor-share:prepareReleaseArtProfile
+2026-06-30T15:16:30.2580412Z > Task :capacitor-share:mergeReleaseJavaResource
+2026-06-30T15:16:30.2581470Z > Task :capacitor-share:extractProguardFiles
+2026-06-30T15:16:30.2582507Z > Task :capacitor-share:syncReleaseLibJars
+2026-06-30T15:16:30.2583548Z > Task :capacitor-share:bundleReleaseLocalLintAar
+2026-06-30T15:16:30.2584665Z > Task :capacitor-share:writeReleaseLintModelMetadata
+2026-06-30T15:16:30.2585881Z > Task :capgo-capacitor-passkey:bundleLibRuntimeToJarRelease
+2026-06-30T15:16:30.3548854Z > Task :capacitor-share:generateReleaseLintModel
+2026-06-30T15:16:30.3601766Z > Task :capgo-capacitor-passkey:processReleaseJavaRes
+2026-06-30T15:16:30.3608805Z > Task :capgo-capacitor-passkey:createFullJarRelease
+2026-06-30T15:16:30.3609853Z > Task :capgo-capacitor-passkey:mergeReleaseJniLibFolders
+2026-06-30T15:16:30.3638055Z > Task :capgo-capacitor-passkey:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:30.3660787Z > Task :capgo-capacitor-passkey:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:30.3728182Z > Task :capgo-capacitor-passkey:copyReleaseJniLibsProjectAndLocalJars
+2026-06-30T15:16:30.3744286Z > Task :capgo-capacitor-passkey:extractDeepLinksForAarRelease
+2026-06-30T15:16:30.4546989Z > Task :capgo-capacitor-passkey:extractReleaseAnnotations
+2026-06-30T15:16:30.4567407Z > Task :capgo-capacitor-passkey:mergeReleaseGeneratedProguardFiles
+2026-06-30T15:16:30.4568995Z > Task :capgo-capacitor-passkey:mergeReleaseConsumerProguardFiles
+2026-06-30T15:16:30.4570173Z > Task :capgo-capacitor-passkey:mergeReleaseShaders
+2026-06-30T15:16:30.4571337Z > Task :capgo-capacitor-passkey:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:30.4572886Z > Task :capgo-capacitor-passkey:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:30.4574127Z > Task :capgo-capacitor-passkey:packageReleaseAssets
+2026-06-30T15:16:30.4575209Z > Task :capgo-capacitor-passkey:prepareLintJarForPublish
+2026-06-30T15:16:30.4576597Z > Task :capgo-capacitor-passkey:prepareReleaseArtProfile
+2026-06-30T15:16:30.4580514Z > Task :capgo-capacitor-passkey:extractProguardFiles
+2026-06-30T15:16:30.4582345Z > Task :capgo-capacitor-passkey:writeReleaseLintModelMetadata
+2026-06-30T15:16:30.4583620Z > Task :capgo-capacitor-passkey:mergeReleaseJavaResource
+2026-06-30T15:16:30.4585446Z > Task :capacitor-android:generateReleaseLintVitalModel
+2026-06-30T15:16:30.4586872Z > Task :capgo-capacitor-passkey:syncReleaseLibJars
+2026-06-30T15:16:30.4590513Z > Task :capgo-capacitor-passkey:bundleReleaseLocalLintAar
+2026-06-30T15:16:30.5546046Z > Task :capgo-capacitor-passkey:generateReleaseLintModel
+2026-06-30T15:16:30.6546645Z > Task :app:generateReleaseLintVitalReportModel
+2026-06-30T15:16:31.1579330Z > Task :capacitor-app:generateReleaseLintVitalModel
+2026-06-30T15:16:31.1601384Z > Task :capacitor-browser:generateReleaseLintVitalModel
+2026-06-30T15:16:31.2567316Z > Task :capacitor-camera:generateReleaseLintVitalModel
+2026-06-30T15:16:31.2597072Z > Task :capacitor-community-file-opener:generateReleaseLintVitalModel
+2026-06-30T15:16:31.2598783Z > Task :capacitor-cordova-android-plugins:generateReleaseLintVitalModel
+2026-06-30T15:16:31.3546470Z > Task :capacitor-filesystem:generateReleaseLintVitalModel
+2026-06-30T15:16:31.3567060Z > Task :capacitor-geolocation:generateReleaseLintVitalModel
+2026-06-30T15:16:31.3577199Z > Task :capacitor-push-notifications:generateReleaseLintVitalModel
+2026-06-30T15:16:31.3581227Z > Task :capacitor-share:generateReleaseLintVitalModel
+2026-06-30T15:16:31.4569516Z > Task :capgo-capacitor-passkey:generateReleaseLintVitalModel
+2026-06-30T15:16:31.4570872Z > Task :app:mergeReleaseJniLibFolders
+2026-06-30T15:16:31.4597552Z > Task :capacitor-android:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4627343Z > Task :capacitor-app:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4632162Z > Task :capacitor-browser:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4633349Z > Task :capacitor-camera:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4634595Z > Task :capacitor-community-file-opener:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4636318Z > Task :capacitor-cordova-android-plugins:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4637649Z > Task :capacitor-filesystem:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4638833Z > Task :capacitor-geolocation:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4640071Z > Task :capacitor-push-notifications:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4641272Z > Task :capacitor-share:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4642446Z > Task :capgo-capacitor-passkey:copyReleaseJniLibsProjectOnly
+2026-06-30T15:16:31.4643822Z > Task :capacitor-community-file-opener:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:31.5577374Z > Task :app:mergeReleaseNativeLibs NO-SOURCE
+2026-06-30T15:16:31.5589016Z > Task :app:stripReleaseDebugSymbols NO-SOURCE
+2026-06-30T15:16:31.5607113Z > Task :app:extractReleaseNativeSymbolTables NO-SOURCE
+2026-06-30T15:16:31.5615057Z > Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+2026-06-30T15:16:31.5640931Z > Task :capacitor-app:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:31.6547533Z > Task :capacitor-browser:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:31.6577213Z > Task :capacitor-camera:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:31.6617138Z > Task :capacitor-filesystem:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:31.9548661Z > Task :capacitor-geolocation:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:32.0561656Z > Task :capacitor-push-notifications:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:32.0607472Z > Task :capacitor-share:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:32.1597447Z > Task :capgo-capacitor-passkey:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:32.1599106Z > Task :capacitor-android:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:32.2567512Z > Task :capacitor-cordova-android-plugins:bundleLibRuntimeToDirRelease
+2026-06-30T15:16:32.7577281Z > Task :app:checkReleaseDuplicateClasses
+2026-06-30T15:16:34.1546376Z > Task :app:dexBuilderRelease
+2026-06-30T15:16:34.1567254Z > Task :app:desugarReleaseFileDependencies
+2026-06-30T15:16:38.0557233Z > Task :app:lintVitalAnalyzeRelease
+2026-06-30T15:16:38.0587040Z > Task :app:mergeReleaseArtProfile
+2026-06-30T15:16:38.6572927Z > Task :capacitor-app:lintVitalAnalyzeRelease
+2026-06-30T15:16:38.7587457Z > Task :app:mergeReleaseGlobalSynthetics
+2026-06-30T15:16:38.8572702Z > Task :app:mergeReleaseShaders
+2026-06-30T15:16:38.8678305Z > Task :app:compileReleaseShaders NO-SOURCE
+2026-06-30T15:16:38.8715272Z > Task :app:generateReleaseAssets UP-TO-DATE
+2026-06-30T15:16:39.0547199Z > Task :app:mergeReleaseAssets
+2026-06-30T15:16:39.5567454Z > Task :capacitor-browser:lintVitalAnalyzeRelease
+2026-06-30T15:16:39.9548173Z > Task :app:compressReleaseAssets
+2026-06-30T15:16:39.9577458Z > Task :app:processReleaseJavaRes NO-SOURCE
+2026-06-30T15:16:40.7597418Z > Task :app:mergeExtDexRelease
+2026-06-30T15:16:40.8567419Z > Task :capacitor-camera:lintVitalAnalyzeRelease
+2026-06-30T15:16:42.1554566Z > Task :app:mergeReleaseJavaResource
+2026-06-30T15:16:44.4597640Z > Task :capacitor-android:lintVitalAnalyzeRelease
+2026-06-30T15:16:44.7567690Z > Task :app:mergeDexRelease
+2026-06-30T15:16:44.7597448Z > Task :capacitor-community-file-opener:lintVitalAnalyzeRelease
+2026-06-30T15:16:45.2557179Z > Task :app:optimizeReleaseResources
+2026-06-30T15:16:45.4567919Z > Task :capacitor-filesystem:lintVitalAnalyzeRelease
+2026-06-30T15:16:45.4637266Z > Task :app:collectReleaseDependencies
+2026-06-30T15:16:45.6547895Z > Task :capacitor-cordova-android-plugins:lintVitalAnalyzeRelease
+2026-06-30T15:16:45.6578679Z > Task :app:sdkReleaseDependencyData
+2026-06-30T15:16:45.7620957Z > Task :app:compileReleaseArtProfile
+2026-06-30T15:16:45.7680572Z > Task :app:validateSigningRelease
+2026-06-30T15:16:45.8565394Z > Task :app:writeReleaseAppMetadata
+2026-06-30T15:16:45.8647472Z > Task :app:writeReleaseSigningConfigVersions
+2026-06-30T15:16:45.9548928Z > Task :capacitor-android:bundleReleaseAar
+2026-06-30T15:16:45.9591998Z > Task :capacitor-android:mapReleaseSourceSetPaths
+2026-06-30T15:16:46.0606598Z > Task :capacitor-geolocation:lintVitalAnalyzeRelease
+2026-06-30T15:16:46.2617561Z > Task :capacitor-push-notifications:lintVitalAnalyzeRelease
+2026-06-30T15:16:46.8597588Z > Task :capacitor-android:mergeReleaseResources
+2026-06-30T15:16:47.0557357Z > Task :app:packageRelease
+2026-06-30T15:16:47.0587129Z > Task :app:createReleaseApkListingFileRedirect
+2026-06-30T15:16:47.1547253Z > Task :capacitor-app:bundleReleaseAar
+2026-06-30T15:16:47.1627290Z > Task :capacitor-share:lintVitalAnalyzeRelease
+2026-06-30T15:16:47.1657146Z > Task :capacitor-app:mapReleaseSourceSetPaths
+2026-06-30T15:16:47.7545589Z > Task :capgo-capacitor-passkey:lintVitalAnalyzeRelease
+2026-06-30T15:16:47.8567207Z > Task :capacitor-app:mergeReleaseResources
+2026-06-30T15:16:47.8627150Z > Task :capacitor-browser:bundleReleaseAar
+2026-06-30T15:16:47.9557325Z > Task :capacitor-browser:mapReleaseSourceSetPaths
+2026-06-30T15:16:48.4567229Z > Task :app:lintVitalReportRelease
+2026-06-30T15:16:48.5557363Z > Task :capacitor-android:verifyReleaseResources
+2026-06-30T15:16:48.6569520Z > Task :capacitor-browser:mergeReleaseResources
+2026-06-30T15:16:48.6637167Z > Task :app:lintVitalRelease
+2026-06-30T15:16:48.6687016Z > Task :app:assembleRelease
+2026-06-30T15:16:48.6726959Z > Task :capacitor-android:assembleRelease
+2026-06-30T15:16:48.6756930Z > Task :capacitor-camera:bundleReleaseAar
+2026-06-30T15:16:48.6817125Z > Task :capacitor-camera:mapReleaseSourceSetPaths
+2026-06-30T15:16:49.0557189Z > Task :capacitor-app:verifyReleaseResources
+2026-06-30T15:16:49.3545450Z > Task :capacitor-browser:verifyReleaseResources
+2026-06-30T15:16:49.9627613Z > Task :capacitor-camera:mergeReleaseResources
+2026-06-30T15:16:49.9657101Z > Task :capacitor-app:assembleRelease
+2026-06-30T15:16:49.9686985Z > Task :capacitor-browser:assembleRelease
+2026-06-30T15:16:49.9735090Z > Task :capacitor-community-file-opener:bundleReleaseAar
+2026-06-30T15:16:49.9739915Z > Task :capacitor-community-file-opener:mapReleaseSourceSetPaths
+2026-06-30T15:16:50.5597441Z > Task :capacitor-community-file-opener:mergeReleaseResources
+2026-06-30T15:16:50.5647520Z > Task :capacitor-cordova-android-plugins:bundleReleaseAar
+2026-06-30T15:16:50.7547648Z > Task :capacitor-cordova-android-plugins:mapReleaseSourceSetPaths
+2026-06-30T15:16:51.4547039Z > Task :capacitor-camera:verifyReleaseResources
+2026-06-30T15:16:51.4549334Z > Task :capacitor-community-file-opener:verifyReleaseResources
+2026-06-30T15:16:51.5546228Z > Task :capacitor-cordova-android-plugins:mergeReleaseResources
+2026-06-30T15:16:51.5617827Z > Task :capacitor-camera:assembleRelease
+2026-06-30T15:16:51.5657271Z > Task :capacitor-community-file-opener:assembleRelease
+2026-06-30T15:16:51.6547418Z > Task :capacitor-filesystem:bundleReleaseAar
+2026-06-30T15:16:51.6548595Z > Task :capacitor-filesystem:mapReleaseSourceSetPaths
+2026-06-30T15:16:52.1608568Z > Task :capacitor-filesystem:mergeReleaseResources
+2026-06-30T15:16:52.2547435Z > Task :capacitor-geolocation:bundleReleaseAar
+2026-06-30T15:16:52.2577072Z > Task :capacitor-geolocation:mapReleaseSourceSetPaths
+2026-06-30T15:16:52.7567825Z > Task :capacitor-cordova-android-plugins:verifyReleaseResources
+2026-06-30T15:16:53.1558189Z > Task :capacitor-geolocation:mergeReleaseResources
+2026-06-30T15:16:53.1607233Z > Task :capacitor-cordova-android-plugins:assembleRelease
+2026-06-30T15:16:53.1650877Z > Task :capacitor-push-notifications:bundleReleaseAar
+2026-06-30T15:16:53.1693672Z > Task :capacitor-push-notifications:mapReleaseSourceSetPaths
+2026-06-30T15:16:53.5545012Z > Task :capacitor-filesystem:verifyReleaseResources
+2026-06-30T15:16:53.8545371Z > Task :capacitor-push-notifications:mergeReleaseResources
+2026-06-30T15:16:53.8576805Z > Task :capacitor-filesystem:assembleRelease
+2026-06-30T15:16:53.8596706Z > Task :capacitor-share:bundleReleaseAar
+2026-06-30T15:16:53.8626887Z > Task :capacitor-share:mapReleaseSourceSetPaths
+2026-06-30T15:16:54.1557615Z > Task :capacitor-geolocation:verifyReleaseResources
+2026-06-30T15:16:54.3545566Z > Task :capacitor-share:mergeReleaseResources
+2026-06-30T15:16:54.3586749Z > Task :capacitor-geolocation:assembleRelease
+2026-06-30T15:16:54.3587936Z > Task :capgo-capacitor-passkey:bundleReleaseAar
+2026-06-30T15:16:54.4567700Z > Task :capgo-capacitor-passkey:mapReleaseSourceSetPaths
+2026-06-30T15:16:54.6545653Z > Task :capacitor-push-notifications:verifyReleaseResources
+2026-06-30T15:16:54.9545446Z > Task :capgo-capacitor-passkey:mergeReleaseResources
+2026-06-30T15:16:54.9582030Z > Task :capacitor-push-notifications:assembleRelease
+2026-06-30T15:16:55.1545415Z > Task :capacitor-share:verifyReleaseResources
+2026-06-30T15:16:55.1557095Z > Task :capacitor-share:assembleRelease
+2026-06-30T15:16:55.5546445Z > Task :capgo-capacitor-passkey:verifyReleaseResources
+2026-06-30T15:16:55.5548101Z > Task :capgo-capacitor-passkey:assembleRelease
+2026-06-30T15:16:55.5548786Z 
+2026-06-30T15:16:55.5549195Z BUILD SUCCESSFUL in 59s
+2026-06-30T15:16:55.5549977Z 449 actionable tasks: 449 executed
+2026-06-30T15:16:55.9539539Z ##[group]Run VERSION_TAG="main"
+2026-06-30T15:16:55.9539929Z [36;1mVERSION_TAG="main"[0m
+2026-06-30T15:16:55.9540267Z [36;1mSHORT_SHA=$(git rev-parse --short HEAD)[0m
+2026-06-30T15:16:55.9540658Z [36;1m# Fallback for manual dispatch (no tag)[0m
+2026-06-30T15:16:55.9541187Z [36;1mif [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "main" ] || [ "$VERSION_TAG" = "refs/heads/main" ]; then[0m
+2026-06-30T15:16:55.9541715Z [36;1m  VERSION_TAG="v1.0.198-${SHORT_SHA}"[0m
+2026-06-30T15:16:55.9542041Z [36;1mfi[0m
+2026-06-30T15:16:55.9542394Z [36;1mAPK_SRC="android/app/build/outputs/apk/release/app-release.apk"[0m
+2026-06-30T15:16:55.9542877Z [36;1mAPK_DEST="SchoolOS_Plus_${VERSION_TAG}.apk"[0m
+2026-06-30T15:16:55.9543275Z [36;1m# Try release first, fall back to unsigned[0m
+2026-06-30T15:16:55.9543627Z [36;1mif [ ! -f "$APK_SRC" ]; then[0m
+2026-06-30T15:16:55.9544087Z [36;1m  APK_SRC="android/app/build/outputs/apk/release/app-release-unsigned.apk"[0m
+2026-06-30T15:16:55.9544562Z [36;1mfi[0m
+2026-06-30T15:16:55.9544809Z [36;1mcp "$APK_SRC" "$APK_DEST"[0m
+2026-06-30T15:16:55.9545141Z [36;1mecho "APK_FILE=$APK_DEST" >> $GITHUB_ENV[0m
+2026-06-30T15:16:55.9545534Z [36;1mecho "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV[0m
+2026-06-30T15:16:55.9546127Z [36;1mecho "✅ APK ready: $APK_DEST"[0m
+2026-06-30T15:16:55.9578481Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:16:55.9578786Z env:
+2026-06-30T15:16:55.9579157Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:16:55.9579729Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:16:55.9580165Z ##[endgroup]
+2026-06-30T15:16:55.9697482Z ✅ APK ready: SchoolOS_Plus_v1.0.198-0f3f500.apk
+2026-06-30T15:16:55.9767480Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-06-30T15:16:55.9769087Z ##[group]Run softprops/action-gh-release@v2
+2026-06-30T15:16:55.9769417Z with:
+2026-06-30T15:16:55.9769664Z   tag_name: v1.0.198-0f3f500
+2026-06-30T15:16:55.9769956Z   name: SchoolOS+ v1.0.198-0f3f500
+2026-06-30T15:16:55.9770612Z   body: 🚀 Automated release from GitHub Actions CI/CD pipeline.
+
+Note: The primary direct download link for users points to Supabase Storage.
+2026-06-30T15:16:55.9771283Z   files: SchoolOS_Plus_v1.0.198-0f3f500.apk
+2026-06-30T15:16:55.9771618Z   generate_release_notes: true
+2026-06-30T15:16:55.9771902Z   make_latest: true
+2026-06-30T15:16:55.9772163Z   overwrite_files: true
+2026-06-30T15:16:55.9774966Z   token: ***
+2026-06-30T15:16:55.9775212Z env:
+2026-06-30T15:16:55.9775563Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:16:55.9776443Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:16:55.9776908Z   APK_FILE: SchoolOS_Plus_v1.0.198-0f3f500.apk
+2026-06-30T15:16:55.9777250Z   VERSION_TAG: v1.0.198-0f3f500
+2026-06-30T15:16:55.9780015Z   GITHUB_TOKEN: ***
+2026-06-30T15:16:55.9780272Z ##[endgroup]
+2026-06-30T15:16:56.2857490Z 👩‍🏭 Creating new GitHub release for tag v1.0.198-0f3f500...
+2026-06-30T15:16:58.4878682Z Release 346922725 is not yet discoverable by tag v1.0.198-0f3f500, retrying... (2 retries remaining)
+2026-06-30T15:17:00.8231011Z Release 346922725 is not yet discoverable by tag v1.0.198-0f3f500, retrying... (1 retries remaining)
+2026-06-30T15:17:03.1648465Z ⬆️ Uploading SchoolOS_Plus_v1.0.198-0f3f500.apk...
+2026-06-30T15:17:04.1752897Z ✅ Uploaded SchoolOS_Plus_v1.0.198-0f3f500.apk
+2026-06-30T15:17:04.1753530Z Finalizing release...
+2026-06-30T15:17:05.0292611Z Getting assets list...
+2026-06-30T15:17:05.1895754Z 🎉 Release ready at https://github.com/SchoolPlus026/SchoolPlus026/releases/tag/v1.0.198-0f3f500
+2026-06-30T15:17:05.2030101Z ##[group]Run APK_FILE="SchoolOS_Plus_v1.0.198-0f3f500.apk"
+2026-06-30T15:17:05.2030637Z [36;1mAPK_FILE="SchoolOS_Plus_v1.0.198-0f3f500.apk"[0m
+2026-06-30T15:17:05.2031106Z [36;1mecho "Uploading versioned $APK_FILE to Supabase Storage..."[0m
+2026-06-30T15:17:05.2031517Z [36;1m[0m
+2026-06-30T15:17:05.2031890Z [36;1mHTTP_STATUS=$(curl -sS -o /tmp/upload_response.txt -w "%{http_code}" \[0m
+2026-06-30T15:17:05.2032694Z [36;1m  -X POST "***/storage/v1/object/app-updates/${APK_FILE}" \[0m
+2026-06-30T15:17:05.2034411Z [36;1m  -H "Authorization: ***" \[0m
+2026-06-30T15:17:05.2034851Z [36;1m  -H "Content-Type: application/vnd.android.package-archive" \[0m
+2026-06-30T15:17:05.2035288Z [36;1m  -H "x-upsert: true" \[0m
+2026-06-30T15:17:05.2035608Z [36;1m  --data-binary "@${APK_FILE}")[0m
+2026-06-30T15:17:05.2036169Z [36;1m  [0m
+2026-06-30T15:17:05.2036450Z [36;1mcat /tmp/upload_response.txt[0m
+2026-06-30T15:17:05.2036942Z [36;1mecho ""[0m
+2026-06-30T15:17:05.2037216Z [36;1m[0m
+2026-06-30T15:17:05.2037545Z [36;1mif [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "201" ]; then[0m
+2026-06-30T15:17:05.2038044Z [36;1m  echo "❌ Versioned upload failed with status $HTTP_STATUS"[0m
+2026-06-30T15:17:05.2038458Z [36;1m  exit 1[0m
+2026-06-30T15:17:05.2038703Z [36;1mfi[0m
+2026-06-30T15:17:05.2038927Z [36;1m[0m
+2026-06-30T15:17:05.2039272Z [36;1mecho "Uploading static SchoolOS_Plus.apk to Supabase Storage..."[0m
+2026-06-30T15:17:05.2039862Z [36;1mHTTP_STATUS_STATIC=$(curl -sS -o /tmp/upload_static_response.txt -w "%{http_code}" \[0m
+2026-06-30T15:17:05.2040623Z [36;1m  -X POST "***/storage/v1/object/app-updates/SchoolOS_Plus.apk" \[0m
+2026-06-30T15:17:05.2042224Z [36;1m  -H "Authorization: ***" \[0m
+2026-06-30T15:17:05.2042646Z [36;1m  -H "Content-Type: application/vnd.android.package-archive" \[0m
+2026-06-30T15:17:05.2043075Z [36;1m  -H "x-upsert: true" \[0m
+2026-06-30T15:17:05.2043623Z [36;1m  --data-binary "@${APK_FILE}")[0m
+2026-06-30T15:17:05.2043929Z [36;1m  [0m
+2026-06-30T15:17:05.2044203Z [36;1mcat /tmp/upload_static_response.txt[0m
+2026-06-30T15:17:05.2044527Z [36;1mecho ""[0m
+2026-06-30T15:17:05.2044763Z [36;1m[0m
+2026-06-30T15:17:05.2045123Z [36;1mif [ "$HTTP_STATUS_STATIC" != "200" ] && [ "$HTTP_STATUS_STATIC" != "201" ]; then[0m
+2026-06-30T15:17:05.2045654Z [36;1m  echo "❌ Static upload failed with status $HTTP_STATUS_STATIC"[0m
+2026-06-30T15:17:05.2046426Z [36;1m  exit 1[0m
+2026-06-30T15:17:05.2046672Z [36;1mfi[0m
+2026-06-30T15:17:05.2046897Z [36;1m[0m
+2026-06-30T15:17:05.2047139Z [36;1mecho "✅ Uploads successful!"[0m
+2026-06-30T15:17:05.2078207Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:17:05.2078499Z env:
+2026-06-30T15:17:05.2078860Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:17:05.2079411Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:17:05.2079942Z   APK_FILE: SchoolOS_Plus_v1.0.198-0f3f500.apk
+2026-06-30T15:17:05.2080291Z   VERSION_TAG: v1.0.198-0f3f500
+2026-06-30T15:17:05.2080577Z ##[endgroup]
+2026-06-30T15:17:05.2133450Z Uploading versioned SchoolOS_Plus_v1.0.198-0f3f500.apk to Supabase Storage...
+2026-06-30T15:17:07.8913442Z {"Key":"app-updates/SchoolOS_Plus_v1.0.198-0f3f500.apk","Id":"c34f8749-110b-4eb4-8012-999375d28cbe"}
+2026-06-30T15:17:07.8915022Z Uploading static SchoolOS_Plus.apk to Supabase Storage...
+2026-06-30T15:17:10.2392935Z {"Key":"app-updates/SchoolOS_Plus.apk","Id":"c3a6acd6-b262-42a4-a221-a6eba86746af"}
+2026-06-30T15:17:10.2394240Z ✅ Uploads successful!
+2026-06-30T15:17:10.2438320Z ##[group]Run HTTP_STATUS=$(curl -sS -o /tmp/apk_list.json -w "%{http_code}" \
+2026-06-30T15:17:10.2438975Z [36;1mHTTP_STATUS=$(curl -sS -o /tmp/apk_list.json -w "%{http_code}" \[0m
+2026-06-30T15:17:10.2439716Z [36;1m  -X POST "***/storage/v1/object/list/app-updates" \[0m
+2026-06-30T15:17:10.2441348Z [36;1m  -H "Authorization: ***" \[0m
+2026-06-30T15:17:10.2441739Z [36;1m  -H "Content-Type: application/json" \[0m
+2026-06-30T15:17:10.2442260Z [36;1m  -d '{"prefix":"","limit":100,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}')[0m
+2026-06-30T15:17:10.2442719Z [36;1m[0m
+2026-06-30T15:17:10.2442998Z [36;1mecho "List HTTP status: $HTTP_STATUS"[0m
+2026-06-30T15:17:10.2443363Z [36;1mif [ "$HTTP_STATUS" != "200" ]; then[0m
+2026-06-30T15:17:10.2443777Z [36;1m  echo "❌ Failed to list bucket objects. Response:"[0m
+2026-06-30T15:17:10.2444182Z [36;1m  cat /tmp/apk_list.json[0m
+2026-06-30T15:17:10.2444484Z [36;1m  exit 1[0m
+2026-06-30T15:17:10.2444771Z [36;1mfi[0m
+2026-06-30T15:17:10.2445012Z [36;1m[0m
+2026-06-30T15:17:10.2445516Z [36;1mFILE_NAMES=$(jq -r '.[] | select(.name | endswith(".apk") and .name != "SchoolOS_Plus.apk") | .name' /tmp/apk_list.json)[0m
+2026-06-30T15:17:10.2446437Z [36;1mCOUNT=$(echo "$FILE_NAMES" | grep -c ".apk" || true)[0m
+2026-06-30T15:17:10.2446808Z [36;1m[0m
+2026-06-30T15:17:10.2447054Z [36;1mif [ "$COUNT" -gt 2 ]; then[0m
+2026-06-30T15:17:10.2447442Z [36;1m  echo "Found $COUNT APKs. Deleting older versions..."[0m
+2026-06-30T15:17:10.2447886Z [36;1m  FILES_TO_DELETE=$(echo "$FILE_NAMES" | tail -n +3)[0m
+2026-06-30T15:17:10.2448277Z [36;1m  for FILE in $FILES_TO_DELETE; do[0m
+2026-06-30T15:17:10.2448631Z [36;1m    echo "Deleting old APK: $FILE"[0m
+2026-06-30T15:17:10.2449240Z [36;1m    curl -sS -X DELETE "***/storage/v1/object/app-updates/$FILE" \[0m
+2026-06-30T15:17:10.2450863Z [36;1m      -H "Authorization: ***"[0m
+2026-06-30T15:17:10.2451173Z [36;1m  done[0m
+2026-06-30T15:17:10.2451450Z [36;1m  echo "✅ Old APKs deleted."[0m
+2026-06-30T15:17:10.2451756Z [36;1melse[0m
+2026-06-30T15:17:10.2452060Z [36;1m  echo "✅ $COUNT APKs exist. No cleanup needed."[0m
+2026-06-30T15:17:10.2452417Z [36;1mfi[0m
+2026-06-30T15:17:10.2483773Z shell: /usr/bin/bash -e {0}
+2026-06-30T15:17:10.2484070Z env:
+2026-06-30T15:17:10.2484428Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:17:10.2485171Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.11-10/x64
+2026-06-30T15:17:10.2485644Z   APK_FILE: SchoolOS_Plus_v1.0.198-0f3f500.apk
+2026-06-30T15:17:10.2486223Z   VERSION_TAG: v1.0.198-0f3f500
+2026-06-30T15:17:10.2486517Z ##[endgroup]
+2026-06-30T15:17:10.6185378Z List HTTP status: 200
+2026-06-30T15:17:10.6213690Z jq: error (at /tmp/apk_list.json:0): Cannot index string with string "name"
+2026-06-30T15:17:10.6229644Z ##[error]Process completed with exit code 5.
+2026-06-30T15:17:10.6355677Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-06-30T15:17:10.6357232Z Post job cleanup.
+2026-06-30T15:17:10.7658484Z (node:2909) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-06-30T15:17:10.7660127Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-06-30T15:17:10.7826966Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-06-30T15:17:10.7828307Z Post job cleanup.
+2026-06-30T15:17:10.8666531Z [command]/usr/bin/git version
+2026-06-30T15:17:10.8737845Z git version 2.54.0
+2026-06-30T15:17:10.8779068Z Temporarily overriding HOME='/home/runner/work/_temp/440f7d7b-ba56-4965-9d8d-6a458bb125fa' before making global git config changes
+2026-06-30T15:17:10.8780955Z Adding repository directory to the temporary git global config as a safe directory
+2026-06-30T15:17:10.8785020Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/SchoolPlus026/SchoolPlus026
+2026-06-30T15:17:10.8826125Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-06-30T15:17:10.8861606Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-06-30T15:17:10.9089849Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-06-30T15:17:10.9116529Z http.https://github.com/.extraheader
+2026-06-30T15:17:10.9128710Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-06-30T15:17:10.9163110Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-06-30T15:17:10.9413206Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-06-30T15:17:10.9454130Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-06-30T15:17:10.9852678Z Cleaning up orphan processes
+2026-06-30T15:17:11.0124608Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/setup-node@v4, softprops/action-gh-release@v2. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

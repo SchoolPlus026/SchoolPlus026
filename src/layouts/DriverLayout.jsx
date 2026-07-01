@@ -3,6 +3,7 @@ import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, LayoutDashboard, Settings, ChevronLeft, RefreshCw } from 'lucide-react';
+import { clearActiveSessionLocally } from '../utils/multiAccount';
 import { useThrottledRefresh } from '../hooks/useThrottledRefresh';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
@@ -19,8 +20,12 @@ export default function DriverLayout() {
   const isDashboard = location.pathname.endsWith('/dashboard') || location.pathname === '/driver';
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (!window.confirm('Are you sure you want to logout?')) return;
+    await supabase.auth.signOut().catch(console.error);
+    clearActiveSessionLocally();
+    useAppStore.getState().clearSession();
     navigate('/login', { replace: true });
+    window.location.reload();
   };
 
   return (

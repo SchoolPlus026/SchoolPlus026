@@ -3,6 +3,7 @@ import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, Settings, LayoutDashboard, ChevronLeft, Globe } from 'lucide-react';
+import { clearActiveSessionLocally } from '../utils/multiAccount';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 
@@ -13,8 +14,12 @@ export default function PlatformAdminLayout() {
   const isDashboard = location.pathname.endsWith('/dashboard') || location.pathname === '/platform-admin';
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (!window.confirm('Are you sure you want to logout?')) return;
+    await supabase.auth.signOut().catch(console.error);
+    clearActiveSessionLocally();
+    useAppStore.getState().clearSession();
     navigate('/login', { replace: true });
+    window.location.reload();
   };
 
   return (

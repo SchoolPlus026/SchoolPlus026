@@ -289,23 +289,37 @@ export default function App() {
         const checkHashParams = new URLSearchParams(checkUrl.hash.startsWith('#') ? checkUrl.hash.substring(1) : checkUrl.hash);
         const errorMsg = checkUrl.searchParams.get('error_description') || checkUrl.searchParams.get('error') ||
                          checkHashParams.get('error_description') || checkHashParams.get('error');
+        
+        // isRealPopup = a JS popup window opened by our code (window.open()). 
+        // Has window.opener, can postMessage, can window.close().
+        const isRealPopup = !!(window.opener && window.opener !== window);
+        
+        // isOAuthCallback = this page load is a result of OAuth redirect (either popup or same-tab mobile fallback)
+        const isOAuthCallback = isRealPopup || checkUrl.searchParams.has('oauth_callback');
+
         if (errorMsg) {
           const decodedError = decodeURIComponent(errorMsg).replace(/\+/g, ' ');
           console.error('[OAuth Init] Auth error detected:', decodedError);
-          const isPopup = (window.opener && window.opener !== window) || checkUrl.searchParams.has('oauth_callback');
-          if (isPopup) {
+          if (isOAuthCallback) {
             localStorage.setItem('oauth_status', `error:${decodedError}`);
-            try { window.opener.postMessage({ type: 'oauth-error', message: decodedError }, window.location.origin); } catch (_) {}
-            window.open('', '_self');
-            window.close();
-            document.body.innerHTML = `
-              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
-                <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
-                <h2 style="margin-bottom: 10px; color: #ef4444;">Authentication Error</h2>
-                <p style="color: #94a3b8; font-size: 16px; max-width: 400px; line-height: 1.5;">${decodedError}</p>
-                <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please close this tab and return to the app.</p>
-              </div>
-            `;
+            if (isRealPopup) {
+              try { window.opener.postMessage({ type: 'oauth-error', message: decodedError }, window.location.origin); } catch (_) {}
+              window.open('', '_self');
+              window.close();
+              document.body.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
+                  <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                  <h2 style="margin-bottom: 10px; color: #ef4444;">Authentication Error</h2>
+                  <p style="color: #94a3b8; font-size: 16px; max-width: 400px; line-height: 1.5;">${decodedError}</p>
+                  <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please close this tab and return to the app.</p>
+                </div>
+              `;
+            } else {
+              // Mobile same-tab: redirect back to login with error
+              alert(`Login Failed: ${decodedError}`);
+              const school = checkUrl.searchParams.get('school') || '';
+              window.location.replace(`/?school=${school}`);
+            }
             return;
           } else {
             alert(`Authentication Error: ${decodedError}`);
@@ -318,75 +332,90 @@ export default function App() {
         const { data } = await supabase.auth.getSession();
         session = data?.session || null;
 
-        // Check if this window is a popup (either opener is present OR it has oauth_callback parameter)
-        const isPopup = (window.opener && window.opener !== window) || checkUrl.searchParams.has('oauth_callback');
-
-        if (isPopup) {
-          console.log('[Popup] OAuth callback detected. Session exists:', !!session);
+        if (isOAuthCallback) {
+          console.log('[OAuth] Callback detected. isRealPopup:', isRealPopup, 'Session exists:', !!session);
           if (session) {
-            console.log('[Popup] Verifying user profile exists...');
-            const { data: profile } = await supabase
+            console.log('[OAuth] Verifying user profile exists...');
+            const { data: oauthProfile } = await supabase
               .from('users')
               .select('id')
               .eq('id', session.user.id)
               .maybeSingle();
 
-            if (profile) {
-              console.log('[Popup] Profile verified. Notifying parent of success...');
+            if (oauthProfile) {
+              console.log('[OAuth] Profile verified. isRealPopup:', isRealPopup);
               localStorage.setItem('oauth_status', 'success');
-              try { window.opener.postMessage({ type: 'oauth-success' }, window.location.origin); } catch (_) {}
-              
-              window.open('', '_self');
-              window.close();
-              
-              document.body.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
-                  <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
-                  <h2 style="margin-bottom: 10px;">Login Successful!</h2>
-                  <p style="color: #94a3b8; font-size: 16px;">You can now close this tab and return to the main app window.</p>
-                </div>
-              `;
+              if (isRealPopup) {
+                // True JS popup: notify parent and self-close
+                try { window.opener.postMessage({ type: 'oauth-success' }, window.location.origin); } catch (_) {}
+                window.open('', '_self');
+                window.close();
+                document.body.innerHTML = `
+                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+                    <h2 style="margin-bottom: 10px;">Login Successful!</h2>
+                    <p style="color: #94a3b8; font-size: 16px;">You can now close this tab and return to the main app window.</p>
+                  </div>
+                `;
+                return;
+              } else {
+                // Mobile same-tab fallback redirect: clean URL and proceed normally to load the app
+                console.log('[OAuth] Mobile same-tab redirect success. Cleaning URL and loading app...');
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete('oauth_callback');
+                cleanUrl.searchParams.delete('code');
+                cleanUrl.hash = '';
+                window.history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search);
+                // fall through — let initializeApp continue and syncUserSession will populate the store,
+                // then the React Router's root route will redirect to dashboard automatically.
+              }
             } else {
-              console.warn('[Popup] No profile found. Signing out and notifying parent of error...');
+              // No user profile — sign out and show error
+              console.warn('[OAuth] No profile found for this Google account.');
               await supabase.auth.signOut().catch(console.error);
               const errorMsgText = `No account registered under email '${session.user.email}'. Please check your school code or contact your admin.`;
               localStorage.setItem('oauth_status', `error:${errorMsgText}`);
-              try {
-                window.opener.postMessage({ type: 'oauth-error', message: errorMsgText }, window.location.origin);
-              } catch (_) {}
-              
+              if (isRealPopup) {
+                try { window.opener.postMessage({ type: 'oauth-error', message: errorMsgText }, window.location.origin); } catch (_) {}
+                window.open('', '_self');
+                window.close();
+                document.body.innerHTML = `
+                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                    <h2 style="margin-bottom: 10px; color: #ef4444;">Account Not Found</h2>
+                    <p style="color: #94a3b8; font-size: 16px; max-width: 400px; line-height: 1.5;">${errorMsgText}</p>
+                    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please close this tab and try again.</p>
+                  </div>
+                `;
+              } else {
+                // Mobile same-tab: redirect back to login with error in localStorage
+                const school = checkUrl.searchParams.get('school') || '';
+                window.location.replace(`/?school=${school}`);
+              }
+              return;
+            }
+          } else {
+            // No session after callback
+            console.warn('[OAuth] No session found after OAuth callback.');
+            localStorage.setItem('oauth_status', 'error:Authentication failed. Please try again.');
+            if (isRealPopup) {
+              try { window.opener.postMessage({ type: 'oauth-error', message: 'Authentication failed.' }, window.location.origin); } catch (_) {}
               window.open('', '_self');
               window.close();
-
               document.body.innerHTML = `
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
-                  <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-                  <h2 style="margin-bottom: 10px; color: #ef4444;">Account Not Found</h2>
-                  <p style="color: #94a3b8; font-size: 16px; max-width: 400px; line-height: 1.5;">${errorMsgText}</p>
+                  <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                  <h2 style="margin-bottom: 10px; color: #ef4444;">Login Failed</h2>
+                  <p style="color: #94a3b8; font-size: 16px;">Authentication could not be completed.</p>
                   <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please close this tab and try again.</p>
                 </div>
               `;
+            } else {
+              const school = checkUrl.searchParams.get('school') || '';
+              window.location.replace(`/?school=${school}`);
             }
-          } else {
-            console.warn('[Popup] No session found in popup callback.');
-            localStorage.setItem('oauth_status', 'error:Authentication failed.');
-            try {
-              window.opener.postMessage({ type: 'oauth-error', message: 'Authentication failed.' }, window.location.origin);
-            } catch (_) {}
-            
-            window.open('', '_self');
-            window.close();
-
-            document.body.innerHTML = `
-              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff;">
-                <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
-                <h2 style="margin-bottom: 10px; color: #ef4444;">Login Failed</h2>
-                <p style="color: #94a3b8; font-size: 16px;">Authentication could not be completed.</p>
-                <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please close this tab and try again.</p>
-              </div>
-            `;
+            return;
           }
-          return;
         }
 
         // 4. Now that session is established, clean the URL from auth tokens

@@ -241,7 +241,8 @@ export default function UserProfile() {
       .then(({ data }) => { 
         setProfile(data); 
         setLoading(false); 
-      });
+      })
+      .catch(() => { setLoading(false); });
 
     supabase.auth.getUser().then(({ data: { user: freshUser } }) => {
       if (freshUser) {

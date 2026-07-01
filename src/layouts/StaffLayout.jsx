@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Bell } from 'lucide-react';
+import { clearActiveSessionLocally } from '../utils/multiAccount';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
 import NavbarAccountSwitcher from '../components/NavbarAccountSwitcher';
@@ -17,8 +18,12 @@ export default function StaffLayout() {
   const location = useLocation();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (!window.confirm('Are you sure you want to logout?')) return;
+    await supabase.auth.signOut().catch(console.error);
+    clearActiveSessionLocally();
+    useAppStore.getState().clearSession();
     navigate('/login', { replace: true });
+    window.location.reload();
   };
 
   return (

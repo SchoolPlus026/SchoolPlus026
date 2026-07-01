@@ -3,6 +3,7 @@ import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, LayoutDashboard, Settings, ChevronLeft, RefreshCw } from 'lucide-react';
+import { clearActiveSessionLocally } from '../utils/multiAccount';
 import { useThrottledRefresh } from '../hooks/useThrottledRefresh';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggle from '../components/ThemeToggle';
@@ -20,8 +21,12 @@ export default function TeacherLayout() {
   const isDashboard = location.pathname.endsWith('/dashboard') || location.pathname === '/teacher';
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (!window.confirm('Are you sure you want to logout?')) return;
+    await supabase.auth.signOut().catch(console.error);
+    clearActiveSessionLocally();
+    useAppStore.getState().clearSession();
     navigate('/login', { replace: true });
+    window.location.reload();
   };
 
   return (
@@ -53,7 +58,6 @@ export default function TeacherLayout() {
             <LayoutDashboard size={18} />
           </Link>
           <ThemeToggle />
-          <NavbarAccountSwitcher />
           <button onClick={handleRefresh}
             disabled={refreshing || cooldownLeft > 0}
             title={cooldownLeft > 0 ? `Please wait ${cooldownLeft}s` : "Refresh data"}
@@ -67,6 +71,7 @@ export default function TeacherLayout() {
           <Link to="/teacher/settings" className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all" title="Settings">
             <Settings size={18} />
           </Link>
+          <NavbarAccountSwitcher />
 
         </div>
       </header>
