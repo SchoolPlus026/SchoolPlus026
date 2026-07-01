@@ -359,15 +359,15 @@ export default function App() {
                 `;
                 return;
               } else {
-                // Mobile same-tab fallback redirect: clean URL and proceed normally to load the app
-                console.log('[OAuth] Mobile same-tab redirect success. Cleaning URL and loading app...');
+                // Mobile same-tab fallback redirect: clean URL and reload to boot up logged in
+                console.log('[OAuth] Mobile same-tab redirect success. Cleaning URL and reloading...');
                 const cleanUrl = new URL(window.location.href);
                 cleanUrl.searchParams.delete('oauth_callback');
                 cleanUrl.searchParams.delete('code');
                 cleanUrl.hash = '';
                 window.history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search);
-                // fall through — let initializeApp continue and syncUserSession will populate the store,
-                // then the React Router's root route will redirect to dashboard automatically.
+                window.location.reload();
+                return;
               }
             } else {
               // No user profile — sign out and show error
@@ -627,7 +627,11 @@ export default function App() {
             return;
           }
 
-          if (url.protocol === 'schoolosplus:' || data.url.startsWith('schoolosplus://')) {
+          const isAppScheme = url.protocol === 'schoolosplus:' || data.url.startsWith('schoolosplus://');
+          const isWebCallback = (url.hostname === 'www.schoolosplus.in' || url.hostname === 'schoolosplus.in') && 
+                                (url.searchParams.has('oauth_callback') || data.url.includes('oauth_callback') || data.url.includes('code=') || data.url.includes('access_token='));
+
+          if (isAppScheme || isWebCallback) {
             // Extract hash parameters
             const hashStr = url.hash || (data.url.includes('#') ? '#' + data.url.split('#')[1] : '');
             const hashParams = new URLSearchParams(hashStr.startsWith('#') ? hashStr.substring(1) : hashStr);

@@ -3,14 +3,21 @@ import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 import { LogOut, LayoutGrid, ShieldAlert } from 'lucide-react';
+import { clearActiveSessionLocally } from '../utils/multiAccount';
 
 export default function SuperAdminLayout() {
   const { user } = useAppStore();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    if (!window.confirm('Are you sure you want to logout?')) return;
+    supabase.auth.signOut().catch(console.error);
+    clearActiveSessionLocally();
+    useAppStore.getState().clearSession();
     navigate('/login', { replace: true });
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   return (

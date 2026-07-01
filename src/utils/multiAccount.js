@@ -56,25 +56,29 @@ export function clearActiveSessionLocally() {
   }
 }
 
-export async function logoutAndRemoveAccount(userId, navigate) {
+export function logoutAndRemoveAccount(userId, navigate) {
   const list = removeAccount(userId);
   if (list.length > 0) {
     const target = list[0];
-    try {
-      const { error } = await supabase.auth.setSession({
-        access_token: target.session.access_token,
-        refresh_token: target.session.refresh_token
-      });
-      if (error) throw error;
-      navigate(target.role === 'platform_admin' ? '/platform-admin' : `/${target.role}`, { replace: true });
-      window.location.reload();
-    } catch (err) {
-      logoutAndRemoveAccount(target.user_id, navigate);
-    }
+    (async () => {
+      try {
+        const { error } = await supabase.auth.setSession({
+          access_token: target.session.access_token,
+          refresh_token: target.session.refresh_token
+        });
+        if (error) throw error;
+        navigate(target.role === 'platform_admin' ? '/platform-admin' : `/${target.role}`, { replace: true });
+        window.location.reload();
+      } catch (err) {
+        logoutAndRemoveAccount(target.user_id, navigate);
+      }
+    })();
   } else {
-    await supabase.auth.signOut().catch(console.error);
+    supabase.auth.signOut().catch(console.error);
     clearActiveSessionLocally();
     navigate('/login', { replace: true });
-    window.location.reload();
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   }
 }

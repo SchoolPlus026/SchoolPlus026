@@ -20,13 +20,15 @@ export default function TeacherLayout() {
   const { refreshing, cooldownLeft, handleRefresh } = useThrottledRefresh();
   const isDashboard = location.pathname.endsWith('/dashboard') || location.pathname === '/teacher';
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     if (!window.confirm('Are you sure you want to logout?')) return;
-    await supabase.auth.signOut().catch(console.error);
+    supabase.auth.signOut().catch(console.error);
     clearActiveSessionLocally();
     useAppStore.getState().clearSession();
     navigate('/login', { replace: true });
-    window.location.reload();
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   return (

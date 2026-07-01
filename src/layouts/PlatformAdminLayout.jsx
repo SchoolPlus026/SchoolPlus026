@@ -13,13 +13,15 @@ export default function PlatformAdminLayout() {
   const location = useLocation();
   const isDashboard = location.pathname.endsWith('/dashboard') || location.pathname === '/platform-admin';
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     if (!window.confirm('Are you sure you want to logout?')) return;
-    await supabase.auth.signOut().catch(console.error);
+    supabase.auth.signOut().catch(console.error);
     clearActiveSessionLocally();
     useAppStore.getState().clearSession();
     navigate('/login', { replace: true });
-    window.location.reload();
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   return (
