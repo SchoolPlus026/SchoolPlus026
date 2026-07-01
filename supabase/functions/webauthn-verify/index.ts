@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 // CRITICAL: rpID MUST exactly match the Android App Links host in AndroidManifest.xml
-const rpID = Deno.env.get("RP_ID") || "schoolpro-d95a8.web.app";
+const rpID = Deno.env.get("RP_ID") || "www.schoolosplus.in";
 
 // All valid origins for this app.
 // Android native Credential Manager sends: android:apk-key-hash:<base64url-sha256>
@@ -23,6 +23,8 @@ const ANDROID_APK_ORIGIN = "android:apk-key-hash:r5sAqNnCzBHvVIjMs9w5Au8xULnKB0E
 const ALLOWED_ORIGINS = [
   `https://${rpID}`,                 // Firebase Hosting web origin
   "https://schoolpro-d95a8.web.app", // Explicit (matches rpID)
+  "https://www.schoolosplus.in",     // Custom domain www
+  "https://schoolosplus.in",         // Custom domain naked
   "http://localhost",                // Local dev
   "http://localhost:5173",           // Vite dev server
   "capacitor://localhost",           // Capacitor WebView

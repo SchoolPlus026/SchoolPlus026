@@ -19,7 +19,7 @@ serve(async (req) => {
 
     const brevoApiKey = Deno.env.get('BREVO_API_KEY');
     const senderEmail = Deno.env.get('BREVO_SENDER_EMAIL') || 'schoolosplus@gmail.com';
-    const appFrontendUrl = Deno.env.get('APP_FRONTEND_URL') || 'https://schoolpro-d95a8.web.app';
+    const appFrontendUrl = Deno.env.get('APP_FRONTEND_URL') || 'https://www.schoolosplus.in';
 
     if (!brevoApiKey) {
       return new Response(JSON.stringify({ 

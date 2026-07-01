@@ -14,7 +14,7 @@ const corsHeaders = {
 const rpName = "SchoolOS+";
 // CRITICAL: rpID must match android:host in AndroidManifest, capacitor.config.json CapacitorPasskey.origin,
 // and the domain that serves /.well-known/assetlinks.json
-const rpID = Deno.env.get("RP_ID") || "schoolpro-d95a8.web.app";
+const rpID = Deno.env.get("RP_ID") || "www.schoolosplus.in";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
