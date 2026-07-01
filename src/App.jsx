@@ -276,6 +276,21 @@ export default function App() {
       try {
         const store = useAppStore.getState();
 
+        // Check for error parameters in the URL from Supabase OAuth failures
+        const checkUrl = new URL(window.location.href);
+        const checkHashParams = new URLSearchParams(checkUrl.hash.startsWith('#') ? checkUrl.hash.substring(1) : checkUrl.hash);
+        const errorMsg = checkUrl.searchParams.get('error_description') || checkUrl.searchParams.get('error') ||
+                         checkHashParams.get('error_description') || checkHashParams.get('error');
+        if (errorMsg) {
+          const decodedError = decodeURIComponent(errorMsg).replace(/\+/g, ' ');
+          console.error('[OAuth Init] Auth error detected:', decodedError);
+          alert(`Authentication Error: ${decodedError}`);
+          if (window.opener && window.opener !== window) {
+            window.close();
+            return;
+          }
+        }
+
         // 1. Check if we are inside an OAuth popup window and already have a session
         if (window.opener && window.opener !== window) {
           const { data: { session: activeSession } } = await supabase.auth.getSession();
