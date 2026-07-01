@@ -51,6 +51,15 @@ export default function Login() {
   const [savedAccounts, setSavedAccounts] = useState([]);
   useEffect(() => {
     setSavedAccounts(getSavedAccounts());
+
+    const handleOauthError = (e) => {
+      setError(e.detail || 'Authentication failed.');
+    };
+
+    window.addEventListener('oauth-login-error', handleOauthError);
+    return () => {
+      window.removeEventListener('oauth-login-error', handleOauthError);
+    };
   }, []);
 
   const handleSwitchAccount = async (account) => {

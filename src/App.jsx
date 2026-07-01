@@ -114,9 +114,14 @@ export default function App() {
       setSwUpdateReg(e.detail);
     };
     const handleOAuthMessage = (e) => {
-      if (e.origin === window.location.origin && e.data?.type === 'oauth-success') {
-        console.log('[App] Received oauth-success message from popup. Reloading...');
-        window.location.reload();
+      if (e.origin === window.location.origin) {
+        if (e.data?.type === 'oauth-success') {
+          console.log('[App] Received oauth-success message from popup. Reloading...');
+          window.location.reload();
+        } else if (e.data?.type === 'oauth-error') {
+          console.warn('[App] Received oauth-error message from popup:', e.data.message);
+          window.dispatchEvent(new CustomEvent('oauth-login-error', { detail: e.data.message }));
+        }
       }
     };
 
@@ -166,6 +171,9 @@ export default function App() {
             console.warn('syncUserSession: User profile not found, signing out cleanly.', profileError);
             await supabase.auth.signOut();
             store.clearSession();
+            if (!(window.opener && window.opener !== window)) {
+              alert(`No account found for email '${session.user.email}'. Please register your school first or contact your admin.`);
+            }
           } else {
             console.warn('syncUserSession: Network/connectivity error, keeping cached session.', profileError);
           }
@@ -295,10 +303,26 @@ export default function App() {
         if (window.opener && window.opener !== window) {
           const { data: { session: activeSession } } = await supabase.auth.getSession();
           if (activeSession) {
-            console.log('[Popup] Session already exists, closing popup...');
-            try {
-              window.opener.postMessage({ type: 'oauth-success' }, window.location.origin);
-            } catch (_) {}
+            console.log('[Popup] Session already exists. Verifying user profile exists...');
+            const { data: profile } = await supabase
+              .from('users')
+              .select('id')
+              .eq('id', activeSession.user.id)
+              .maybeSingle();
+
+            if (profile) {
+              console.log('[Popup] Profile verified. Notifying parent of success...');
+              try { window.opener.postMessage({ type: 'oauth-success' }, window.location.origin); } catch (_) {}
+            } else {
+              console.warn('[Popup] No profile found. Signing out and notifying parent of error...');
+              await supabase.auth.signOut().catch(console.error);
+              try {
+                window.opener.postMessage({ 
+                  type: 'oauth-error', 
+                  message: `No account registered under email '${activeSession.user.email}'. Please register your school first.` 
+                }, window.location.origin);
+              } catch (_) {}
+            }
             window.close();
             return;
           }
@@ -312,10 +336,26 @@ export default function App() {
 
         // 3. If we are inside an OAuth popup window, close the popup now that session is established
         if (window.opener && window.opener !== window && session) {
-          console.log('[Popup] Session established, closing popup and notifying parent...');
-          try {
-            window.opener.postMessage({ type: 'oauth-success' }, window.location.origin);
-          } catch (_) {}
+          console.log('[Popup] Session established. Verifying user profile exists...');
+          const { data: profile } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (profile) {
+            console.log('[Popup] Profile verified. Notifying parent of success...');
+            try { window.opener.postMessage({ type: 'oauth-success' }, window.location.origin); } catch (_) {}
+          } else {
+            console.warn('[Popup] No profile found. Signing out and notifying parent of error...');
+            await supabase.auth.signOut().catch(console.error);
+            try {
+              window.opener.postMessage({ 
+                type: 'oauth-error', 
+                message: `No account registered under email '${session.user.email}'. Please register your school first.` 
+              }, window.location.origin);
+            } catch (_) {}
+          }
           window.close();
           return;
         }
