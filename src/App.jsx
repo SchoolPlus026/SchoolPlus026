@@ -98,7 +98,7 @@ import ManageSubscription from './features/billing/ManageSubscription';
 import FeatureGuard from './components/FeatureGuard';
 
 export default function App() {
-  const { user, role, setSchoolSettings, setUserAndRole } = useAppStore();
+  const { user, role } = useAppStore();
   const [isInitializing, setIsInitializing] = useState(!user);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [swUpdateReg, setSwUpdateReg] = useState(null);
@@ -588,11 +588,6 @@ export default function App() {
         store.setProfileLastFetched(null); // force fresh re-fetch next init
       }
 
-      // On SIGNED_IN: ALWAYS sync session (covers Google Login returning to app)
-      if (event === 'SIGNED_IN' && session?.user) {
-        await syncUserSession(session);
-      }
-
       // Synchronize multi-account stored credentials on token refresh or login updates
       if (session?.user && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
         (async () => {
@@ -716,7 +711,7 @@ export default function App() {
         appUrlListener.then(l => l.remove());
       }
     };
-  }, [setSchoolSettings, setUserAndRole]);
+  }, []);
 
   if (isInitializing) {
     return (
