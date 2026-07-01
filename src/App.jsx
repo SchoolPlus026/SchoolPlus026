@@ -292,68 +292,54 @@ export default function App() {
         if (errorMsg) {
           const decodedError = decodeURIComponent(errorMsg).replace(/\+/g, ' ');
           console.error('[OAuth Init] Auth error detected:', decodedError);
-          alert(`Authentication Error: ${decodedError}`);
-          if (window.opener && window.opener !== window) {
+          const isPopup = (window.opener && window.opener !== window) || checkUrl.searchParams.has('oauth_callback');
+          if (isPopup) {
+            localStorage.setItem('oauth_status', `error:${decodedError}`);
+            try { window.opener.postMessage({ type: 'oauth-error', message: decodedError }, window.location.origin); } catch (_) {}
             window.close();
             return;
+          } else {
+            alert(`Authentication Error: ${decodedError}`);
           }
         }
 
-        // 1. Check if we are inside an OAuth popup window and already have a session
-        if (window.opener && window.opener !== window) {
-          const { data: { session: activeSession } } = await supabase.auth.getSession();
-          if (activeSession) {
-            console.log('[Popup] Session already exists. Verifying user profile exists...');
-            const { data: profile } = await supabase
-              .from('users')
-              .select('id')
-              .eq('id', activeSession.user.id)
-              .maybeSingle();
-
-            if (profile) {
-              console.log('[Popup] Profile verified. Notifying parent of success...');
-              try { window.opener.postMessage({ type: 'oauth-success' }, window.location.origin); } catch (_) {}
-            } else {
-              console.warn('[Popup] No profile found. Signing out and notifying parent of error...');
-              await supabase.auth.signOut().catch(console.error);
-              try {
-                window.opener.postMessage({ 
-                  type: 'oauth-error', 
-                  message: `No account registered under email '${activeSession.user.email}'. Please register your school first.` 
-                }, window.location.origin);
-              } catch (_) {}
-            }
-            window.close();
-            return;
-          }
-        }
-
-        // 2. Fetch session. This allows Supabase to see the code or hash parameters in the URL
+        // Fetch session. This allows Supabase to see the code or hash parameters in the URL
         // and perform the PKCE or implicit auth flow exchange before we strip the parameters!
         let session = null;
         const { data } = await supabase.auth.getSession();
         session = data?.session || null;
 
-        // 3. If we are inside an OAuth popup window, close the popup now that session is established
-        if (window.opener && window.opener !== window && session) {
-          console.log('[Popup] Session established. Verifying user profile exists...');
-          const { data: profile } = await supabase
-            .from('users')
-            .select('id')
-            .eq('id', session.user.id)
-            .maybeSingle();
+        // Check if this window is a popup (either opener is present OR it has oauth_callback parameter)
+        const isPopup = (window.opener && window.opener !== window) || checkUrl.searchParams.has('oauth_callback');
 
-          if (profile) {
-            console.log('[Popup] Profile verified. Notifying parent of success...');
-            try { window.opener.postMessage({ type: 'oauth-success' }, window.location.origin); } catch (_) {}
+        if (isPopup) {
+          console.log('[Popup] OAuth callback detected. Session exists:', !!session);
+          if (session) {
+            console.log('[Popup] Verifying user profile exists...');
+            const { data: profile } = await supabase
+              .from('users')
+              .select('id')
+              .eq('id', session.user.id)
+              .maybeSingle();
+
+            if (profile) {
+              console.log('[Popup] Profile verified. Notifying parent of success...');
+              localStorage.setItem('oauth_status', 'success');
+              try { window.opener.postMessage({ type: 'oauth-success' }, window.location.origin); } catch (_) {}
+            } else {
+              console.warn('[Popup] No profile found. Signing out and notifying parent of error...');
+              await supabase.auth.signOut().catch(console.error);
+              const errorMsgText = `No account registered under email '${session.user.email}'. Please check your school code or contact your admin.`;
+              localStorage.setItem('oauth_status', `error:${errorMsgText}`);
+              try {
+                window.opener.postMessage({ type: 'oauth-error', message: errorMsgText }, window.location.origin);
+              } catch (_) {}
+            }
           } else {
-            console.warn('[Popup] No profile found. Signing out and notifying parent of error...');
-            await supabase.auth.signOut().catch(console.error);
+            console.warn('[Popup] No session found in popup callback.');
+            localStorage.setItem('oauth_status', 'error:Authentication failed.');
             try {
-              window.opener.postMessage({ 
-                type: 'oauth-error', 
-                message: `No account registered under email '${session.user.email}'. Please register your school first.` 
-              }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', message: 'Authentication failed.' }, window.location.origin);
             } catch (_) {}
           }
           window.close();

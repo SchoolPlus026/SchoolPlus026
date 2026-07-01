@@ -684,15 +684,17 @@ export default function Login() {
           throw new Error('Google Sign-In URL not found.');
         }
       } else {
+        const redirectUrlWeb = `${window.location.origin}/?school=${schoolCode}&oauth_callback=true`;
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: redirectUrl,
+            redirectTo: redirectUrlWeb,
             skipBrowserRedirect: true
           }
         });
         if (error) throw error;
         if (data?.url) {
+          localStorage.removeItem('oauth_status');
           const width = 500;
           const height = 600;
           const left = window.screen.width / 2 - width / 2;
@@ -702,8 +704,45 @@ export default function Login() {
             'google-oauth',
             `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
           );
+
+          // LocalStorage fallback polling (handles COOP window.opener block)
+          const checkStatusInterval = setInterval(() => {
+            const status = localStorage.getItem('oauth_status');
+            if (status) {
+              clearInterval(checkStatusInterval);
+              localStorage.removeItem('oauth_status');
+              setLoading(false);
+              if (status === 'success') {
+                console.log('[Login] OAuth succeeded via storage signal. Reloading parent...');
+                window.location.reload();
+              } else if (status.startsWith('error:')) {
+                const errMsg = status.substring(6);
+                console.warn('[Login] OAuth failed via storage signal:', errMsg);
+                setError(errMsg);
+              }
+            }
+            if (popup && popup.closed) {
+              // Popup closed manually by user
+              clearInterval(checkStatusInterval);
+              setTimeout(() => {
+                const finalStatus = localStorage.getItem('oauth_status');
+                if (finalStatus) {
+                  localStorage.removeItem('oauth_status');
+                  if (finalStatus === 'success') {
+                    window.location.reload();
+                  } else if (finalStatus.startsWith('error:')) {
+                    setError(finalStatus.substring(6));
+                  }
+                } else {
+                  setLoading(false);
+                }
+              }, 600);
+            }
+          }, 500);
+
           if (!popup || popup.closed || typeof popup.closed === 'undefined') {
             // Popup was blocked — fallback to full page redirect
+            clearInterval(checkStatusInterval);
             window.location.href = data.url;
           }
         } else {
