@@ -151,13 +151,16 @@ export default function App() {
 
     async function syncUserSession(session) {
       if (!session?.user) return;
+      console.log('[SyncSession] syncUserSession started for user:', session.user.email);
       try {
         const store = useAppStore.getState();
+        console.log('[SyncSession] querying users table for profile...');
         const { data: profile, error: profileError } = await supabase
           .from('users')
           .select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class')
           .eq('id', session.user.id)
           .single();
+        console.log('[SyncSession] users query complete. profile:', profile, 'error:', profileError);
 
         if (profileError || !profile) {
           // Check if it is a network error rather than a missing user row
@@ -281,11 +284,14 @@ export default function App() {
     }
 
     async function initializeApp() {
+      console.log('[InitApp] initializeApp started');
       try {
         const store = useAppStore.getState();
+        console.log('[InitApp] store fetched');
 
         // Check for error parameters in the URL from Supabase OAuth failures
         const checkUrl = new URL(window.location.href);
+        console.log('[InitApp] checkUrl:', checkUrl.toString());
         const checkHashParams = new URLSearchParams(checkUrl.hash.startsWith('#') ? checkUrl.hash.substring(1) : checkUrl.hash);
         const errorMsg = checkUrl.searchParams.get('error_description') || checkUrl.searchParams.get('error') ||
                          checkHashParams.get('error_description') || checkHashParams.get('error');
@@ -293,9 +299,11 @@ export default function App() {
         // isRealPopup = a JS popup window opened by our code (window.open()). 
         // Has window.opener, can postMessage, can window.close().
         const isRealPopup = !!(window.opener && window.opener !== window);
+        console.log('[InitApp] isRealPopup:', isRealPopup);
         
         // isOAuthCallback = this page load is a result of OAuth redirect (either popup or same-tab mobile fallback)
         const isOAuthCallback = isRealPopup || checkUrl.searchParams.has('oauth_callback');
+        console.log('[InitApp] isOAuthCallback:', isOAuthCallback);
 
         if (errorMsg) {
           const decodedError = decodeURIComponent(errorMsg).replace(/\+/g, ' ');
@@ -328,9 +336,12 @@ export default function App() {
 
         // Fetch session. This allows Supabase to see the code or hash parameters in the URL
         // and perform the PKCE or implicit auth flow exchange before we strip the parameters!
+        console.log('[InitApp] calling supabase.auth.getSession()...');
         let session = null;
-        const { data } = await supabase.auth.getSession();
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        console.log('[InitApp] getSession completed. data:', data, 'error:', sessionError);
         session = data?.session || null;
+        console.log('[InitApp] session is:', session);
 
         if (isOAuthCallback) {
           console.log('[OAuth] Callback detected. isRealPopup:', isRealPopup, 'Session exists:', !!session);
