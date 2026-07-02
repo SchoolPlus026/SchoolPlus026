@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { KeyRound, ShieldCheck, Loader2, Save, Lock } from 'lucide-react';
+import { KeyRound, ShieldCheck, Loader2, Save, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 
 const QUESTIONS = [
   "What is your mother's maiden name?",
@@ -18,6 +18,7 @@ export default function RecoverySetup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   // Form states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -178,40 +179,51 @@ export default function RecoverySetup() {
 
   return (
     <div className="card">
-      <div className="settings-header" style={{ marginBottom: '16px' }}>
-        <div className="icon-box" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' }}>
-          <KeyRound size={20} />
+      <div 
+        className="settings-header cursor-pointer flex justify-between items-center" 
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        style={{ marginBottom: isCollapsed ? '0' : '16px' }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="icon-box" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' }}>
+            <KeyRound size={20} />
+          </div>
+          <div className="text-content">
+            <h4>Account Recovery PIN</h4>
+            <p>Configure a secure PIN and backup questions to recover your password without emails.</p>
+          </div>
         </div>
-        <div className="text-content">
-          <h4>Account Recovery PIN</h4>
-          <p>Configure a secure PIN and backup questions to recover your password without emails.</p>
+        <div>
+          {isCollapsed ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronUp size={20} className="text-slate-400" />}
         </div>
       </div>
 
-      {profile?.setup_completed ? (
-        <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-sm text-emerald-400 font-semibold">
-          <ShieldCheck size={18} />
-          <span>Account Recovery is active. You can update your PIN below anytime.</span>
-        </div>
-      ) : (
-        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2 text-sm text-amber-400 font-semibold">
-          <span>⚠️ Recovery setup is pending. Please configure your PIN and backup questions.</span>
-        </div>
-      )}
+      {!isCollapsed && (
+        <div className="mt-4 border-t border-[var(--card-border)] pt-4">
+          {profile?.setup_completed ? (
+            <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-sm text-emerald-400 font-semibold">
+              <ShieldCheck size={18} />
+              <span>Account Recovery is active. You can update your PIN below anytime.</span>
+            </div>
+          ) : (
+            <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2 text-sm text-amber-400 font-semibold">
+              <span>⚠️ Recovery setup is pending. Please configure your PIN and backup questions.</span>
+            </div>
+          )}
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm font-semibold">
-          {error}
-        </div>
-      )}
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm font-semibold">
+              {error}
+            </div>
+          )}
 
-      {success && (
-        <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm font-semibold">
-          {success}
-        </div>
-      )}
+          {success && (
+            <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm font-semibold">
+              {success}
+            </div>
+          )}
 
-      <form onSubmit={handleSave} className="space-y-4">
+          <form onSubmit={handleSave} className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Current Password</label>
           <div className="relative">
@@ -329,6 +341,8 @@ export default function RecoverySetup() {
           )}
         </button>
       </form>
+      </div>
+      )}
     </div>
   );
 }

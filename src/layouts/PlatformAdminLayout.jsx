@@ -6,6 +6,7 @@ import { LogOut, Settings, LayoutDashboard, ChevronLeft, Globe } from 'lucide-re
 import { clearActiveSessionLocally } from '../utils/multiAccount';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
+import NavbarAccountSwitcher from '../components/NavbarAccountSwitcher';
 
 export default function PlatformAdminLayout() {
   const { user } = useAppStore();
@@ -52,6 +53,7 @@ export default function PlatformAdminLayout() {
             <LayoutDashboard size={18} />
           </Link>
           <ThemeToggle />
+          <NavbarAccountSwitcher />
           <Link
             to="/platform-admin/settings"
             className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-all"

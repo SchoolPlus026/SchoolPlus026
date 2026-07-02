@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Fingerprint, Trash2, Loader2, Plus, ShieldCheck } from 'lucide-react';
+import { Fingerprint, Trash2, Loader2, Plus, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorPasskey } from '@capgo/capacitor-passkey';
 import { registerWebAuthnWeb } from '../../utils/webauthnWeb';
@@ -21,6 +21,7 @@ export default function BiometricSetup() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   // Only render on native app or mobile web/PWA
   if (!isMobileOrPWA()) {
@@ -124,15 +125,27 @@ export default function BiometricSetup() {
 
   return (
     <div className="card">
-      <div className="settings-header" style={{ marginBottom: '16px' }}>
-        <div className="icon-box" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4f46e5' }}>
-          <Fingerprint size={20} />
+      <div 
+        className="settings-header cursor-pointer flex justify-between items-center" 
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        style={{ marginBottom: isCollapsed ? '0' : '16px' }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="icon-box" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4f46e5' }}>
+            <Fingerprint size={20} />
+          </div>
+          <div className="text-content">
+            <h4>Biometric Login</h4>
+            <p>Use Fingerprint or FaceID to sign in instantly.</p>
+          </div>
         </div>
-        <div className="text-content">
-          <h4>Biometric Login</h4>
-          <p>Use Fingerprint or FaceID to sign in instantly.</p>
+        <div>
+          {isCollapsed ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronUp size={20} className="text-slate-400" />}
         </div>
       </div>
+
+      {!isCollapsed && (
+        <div className="mt-4 border-t border-[var(--card-border)] pt-4">
 
       {error && (
         <div style={{ marginBottom: '16px', padding: '12px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', borderRadius: '8px', fontSize: '14px' }}>
@@ -182,6 +195,8 @@ export default function BiometricSetup() {
             Enable Biometric Login
           </button>
         </div>
+      )}
+      </div>
       )}
     </div>
   );

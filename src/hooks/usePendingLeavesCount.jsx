@@ -1,9 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
+import { useTieredCache } from './useTieredCache';
 
 export function usePendingLeavesCount() {
   const { user, role, schoolSettings } = useAppStore();
+  const cacheConfig = useTieredCache({
+    freeStaleTime: 10 * 60 * 1000,
+    premiumStaleTime: 30 * 1000,
+    premiumRefetchInterval: 60000
+  });
 
   return useQuery({
     queryKey: ['pending_leaves_count', role, user?.id, schoolSettings?.school_id],
@@ -56,6 +62,6 @@ export function usePendingLeavesCount() {
       return 0;
     },
     enabled: !!user?.id && !!schoolSettings?.school_id && (role === 'admin' || role === 'teacher'),
-    refetchInterval: 60000 // Refetch every minute
+    ...cacheConfig
   });
 }

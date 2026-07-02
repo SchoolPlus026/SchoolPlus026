@@ -12,17 +12,19 @@ const LANGUAGES = [
 ];
 
 export function buildMessage(lang, { name, className, schoolName, amount, dueDate }) {
-  const amt = Number(amount).toLocaleString('en-IN');
-  const due = dueDate
-    ? new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
-    : '—';
   if (lang === 'hi') {
-    return `[FEE_REMINDER] प्रिय ${name} के अभिभावक (कक्षा: ${className}), ${schoolName} की ओर से शुल्क अनुस्मारक। देय राशि: ₹${amt}। कृपया ${due} तक भुगतान करें। किसी भी सहायता के लिए कार्यालय से संपर्क करें।`;
+    const amtPart = amount ? ` देय राशि: ₹${Number(amount).toLocaleString('en-IN')}।` : '';
+    const duePart = dueDate ? ` कृपया ${new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} तक भुगतान करें।` : ' कृपया बकाया शुल्क का भुगतान करें।';
+    return `[FEE_REMINDER] प्रिय ${name} के अभिभावक (कक्षा: ${className}), ${schoolName} की ओर से शुल्क अनुस्मारक।${amtPart}${duePart} किसी भी सहायता के लिए कार्यालय से संपर्क करें।`;
   }
   if (lang === 'mr') {
-    return `[FEE_REMINDER] प्रिय ${name} यांच्या पालकांसाठी (इयत्ता: ${className}), ${schoolName} कडून शुल्क स्मरणपत्र। देय रक्कम: ₹${amt}. कृपया ${due} पर्यंत भरणा करा. अधिक माहितीसाठी कार्यालयाशी संपर्क साधा.`;
+    const amtPart = amount ? ` देय रक्कम: ₹${Number(amount).toLocaleString('en-IN')}।` : '';
+    const duePart = dueDate ? ` कृपया ${new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} पर्यंत भरणा करा।` : ' कृपया थकीत शुल्काचा भरणा करा।';
+    return `[FEE_REMINDER] प्रिय ${name} यांच्या पालकांसाठी (इयत्ता: ${className}), ${schoolName} कडून शुल्क स्मरणपत्र।${amtPart}${duePart} अधिक माहितीसाठी कार्यालयाशी संपर्क साधा.`;
   }
-  return `[FEE_REMINDER] Dear Parent of ${name} (Class: ${className}), this is a fee reminder from ${schoolName}. Amount due: ₹${amt}. Please clear the dues by ${due}. Contact the office for any assistance.`;
+  const amtPart = amount ? ` Amount due: ₹${Number(amount).toLocaleString('en-IN')}.` : '';
+  const duePart = dueDate ? ` Please clear the dues by ${new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}.` : ' Please clear the outstanding dues.';
+  return `[FEE_REMINDER] Dear Parent of ${name} (Class: ${className}), this is a fee reminder from ${schoolName}.${amtPart}${duePart} Contact the office for any assistance.`;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -79,7 +81,7 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
       setPrevInputs({ lang, targetAmount, dueDate, firstStudentId: currentStudentId });
     }
 
-    if (targetAmount && dueDate && firstSelected) {
+    if (firstSelected) {
       const msg = buildMessage(lang, {
         name:      firstSelected.name,
         className: firstSelected.class || '—',
@@ -91,7 +93,7 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
       if (inputsChanged || !messageText) {
         setMessageText(msg);
       }
-    } else if (!firstSelected || !targetAmount || !dueDate) {
+    } else {
       setMessageText('');
     }
   }, [lang, targetAmount, dueDate, firstSelected, schoolName]);
@@ -100,10 +102,6 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleSend = async () => {
-    if (!targetAmount || !dueDate) {
-      alert('Please enter both Target Amount and Due Date before sending.');
-      return;
-    }
     if (selected.length === 0) {
       alert('Please select at least one student to remind.');
       return;
@@ -165,7 +163,7 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
         {/* ── Field 1: Target Amount ── */}
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
-            Target Reminder Amount (₹)
+            Target Reminder Amount (Optional) (₹)
           </label>
           <input
             type="number"
@@ -183,7 +181,7 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
         {/* ── Field 2: Due Date ── */}
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
-            Payment Due Date
+            Payment Due Date (Optional)
           </label>
           <input
             type="date"
@@ -295,13 +293,13 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
         {/* ── Send Button ── */}
         <button
           onClick={handleSend}
-          disabled={sending || selected.length === 0 || !targetAmount || !dueDate || !messageText.trim()}
+          disabled={sending || selected.length === 0 || !messageText.trim()}
           style={{
             width: '100%', padding: '14px', borderRadius: '16px', border: 'none',
             background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
             color: '#fff', fontWeight: 800, fontSize: '14px', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-            opacity: (sending || selected.length === 0 || !targetAmount || !dueDate || !messageText.trim()) ? 0.55 : 1,
+            opacity: (sending || selected.length === 0 || !messageText.trim()) ? 0.55 : 1,
             transition: 'all 0.2s', boxShadow: '0 6px 20px rgba(79,70,229,0.35)',
           }}
         >

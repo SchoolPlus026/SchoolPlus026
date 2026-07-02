@@ -3,11 +3,16 @@ import { Bell } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { usePlan } from '../hooks/usePlan';
-import { isNightTime } from '../hooks/useTieredCache';
+import { useTieredCache } from '../hooks/useTieredCache';
 
 export default function NotificationBell() {
   const { user } = useAppStore();
   const { isFree } = usePlan();
+  const cacheConfig = useTieredCache({
+    freeStaleTime: 10 * 60 * 1000,
+    premiumStaleTime: 30 * 1000,
+    premiumRefetchInterval: 60000
+  });
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
@@ -60,14 +65,10 @@ export default function NotificationBell() {
     // Fetch once on mount
     fetchNotifications();
 
-    // Setup polling (Premium only + not at night)
-    const night = isNightTime();
+    // Setup polling based on caching engine refetchInterval
     let interval = null;
-    if (!isFree && !night) {
-      const store = useAppStore.getState();
-      const pollMinutes = store.platformSettings?.free_tier_cron_minutes ?? 1; // default to 1 min
-      const pollMs = pollMinutes * 60 * 1000;
-      interval = setInterval(fetchNotifications, pollMs);
+    if (cacheConfig.refetchInterval) {
+      interval = setInterval(fetchNotifications, cacheConfig.refetchInterval);
     }
 
     // 3. Listen to FCM foreground pushes to increment counter client-side
@@ -92,7 +93,7 @@ export default function NotificationBell() {
       if (interval) clearInterval(interval);
       window.removeEventListener('sp-push-received', handlePushReceived);
     };
-  }, [identifier, isFree]);
+  }, [identifier, isFree, cacheConfig.refetchInterval]);
 
   // Fetch when user opens the bell to ensure fresh data
   useEffect(() => {

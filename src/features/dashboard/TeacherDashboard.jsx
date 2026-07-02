@@ -17,6 +17,7 @@ import FeatureGuard from '../../components/FeatureGuard';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { ArrowRight } from 'lucide-react';
+import { useTieredCache } from '../../hooks/useTieredCache';
 
 
 // Exact legacy module list for Teacher role:
@@ -152,6 +153,12 @@ function TeacherDashboardContent() {
 
   const today = getISTTodayStr();
 
+  const cacheConfig = useTieredCache({
+    freeStaleTime: 10 * 60 * 1000,
+    premiumStaleTime: 30 * 1000,
+    premiumRefetchInterval: 60000
+  });
+
   // Query for pending substitutions today
   const { data: pendingSubs = [] } = useQuery({
     queryKey: ['teacher-pending-substitutions', user?.id, today],
@@ -174,7 +181,7 @@ function TeacherDashboardContent() {
       });
     },
     enabled: !!user?.id && !!schoolSettings?.school_id,
-    refetchInterval: 60000,
+    ...cacheConfig,
   });
 
   React.useEffect(() => {

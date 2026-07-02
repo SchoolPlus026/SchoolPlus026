@@ -49,9 +49,9 @@ export default function AdminFeeManager() {
   const uniqueClasses = schoolSettings?.classes || [];
 
   // 2. Fetch Fees master ledgers (Filtered by Class student IDs)
-  const studentIds = students.map(s => s.id);
+  const studentIds = (students || []).map(s => s.id);
   const { data: feesData = [], isLoading: feesLoading } = useQuery({
-    queryKey: ['fees', currentYear, schoolSettings?.school_id, filterClass, studentIds],
+    queryKey: ['fees', currentYear, schoolSettings?.school_id, filterClass],
     queryFn: async () => {
       if (studentIds.length === 0) return [];
       const { data, error } = await supabase
@@ -257,20 +257,22 @@ export default function AdminFeeManager() {
                    {classStudentsWithDues.length > 0 && <span style={{ color: 'var(--text-muted)', fontWeight: 800, marginLeft: '4px' }}>({classStudentsWithDues.length})</span>}
                  </label>
 
-                 {checkedStudents.length > 0 && (
-                   <button
-                     onClick={() => setShowConfigurator(true)}
-                     style={{
-                       display: 'flex', alignItems: 'center', gap: '6px',
-                       background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                       color: 'white', border: 'none', borderRadius: '12px',
-                       padding: '8px 16px', fontSize: '12px', fontWeight: 800,
-                       cursor: 'pointer', boxShadow: '0 4px 12px rgba(79,70,229,0.3)',
-                     }}
-                   >
-                     <Bell size={13} /> Send Reminder ({checkedStudents.length})
-                   </button>
-                 )}
+                  <button
+                    disabled={checkedStudents.length === 0}
+                    onClick={() => setShowConfigurator(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      background: checkedStudents.length === 0 ? '#cbd5e1' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                      color: checkedStudents.length === 0 ? '#94a3b8' : 'white',
+                      border: 'none', borderRadius: '12px',
+                      padding: '8px 16px', fontSize: '12px', fontWeight: 800,
+                      cursor: checkedStudents.length === 0 ? 'not-allowed' : 'pointer',
+                      boxShadow: checkedStudents.length === 0 ? 'none' : '0 4px 12px rgba(79,70,229,0.3)',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <Bell size={13} /> Send Reminder {checkedStudents.length > 0 && `(${checkedStudents.length})`}
+                  </button>
                </div>
 
                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">2. Select Student to Manage Fees</label>

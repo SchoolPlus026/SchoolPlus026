@@ -5,12 +5,17 @@ import { Target, DollarSign, CalendarX, Loader2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
-import { isNightTime } from '../../hooks/useTieredCache';
+import { useTieredCache } from '../../hooks/useTieredCache';
 
 export default function ExecutiveBriefingWidget({ forceShow = false }) {
   const { schoolSettings } = useAppStore();
   const navigate = useNavigate();
-  const night = isNightTime();
+  
+  const cacheConfig = useTieredCache({
+    freeStaleTime: 10 * 60 * 1000,
+    premiumStaleTime: 30 * 1000,
+    premiumRefetchInterval: 60000
+  });
   
   const today = new Date().toISOString().split('T')[0];
   const [dismissed, setDismissed] = useState(() => {
@@ -53,9 +58,8 @@ export default function ExecutiveBriefingWidget({ forceShow = false }) {
         pending_complaints: complaintsRes.count?.toString() || "0"
       };
     },
-    enabled: !!schoolSettings?.school_id && !dismissed && !night,
-    refetchInterval: night ? false : 60000,
-    staleTime: night ? 3600000 : 30000
+    enabled: !!schoolSettings?.school_id && !dismissed,
+    ...cacheConfig
   });
 
   const handleDismiss = () => {

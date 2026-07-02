@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { safeInvokeEdgeFn } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Monitor, Smartphone, Loader2, CheckCircle2, Copy, RefreshCw, ShieldAlert, X } from 'lucide-react';
+import { Monitor, Smartphone, Loader2, CheckCircle2, Copy, RefreshCw, ShieldAlert, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 
 /**
@@ -18,6 +18,7 @@ import { Capacitor } from '@capacitor/core';
 export default function WebSyncPanel() {
   const { user, role } = useAppStore();
   const cleanRole = (role || '').toLowerCase();
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   // Guard: Admin only
   if (cleanRole !== 'admin' && cleanRole !== 'platform_admin') {
@@ -154,19 +155,31 @@ export default function WebSyncPanel() {
 
   return (
     <div className="card">
-      <div className="settings-header" style={{ marginBottom: '16px' }}>
-        <div className="icon-box" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
-          {isNative ? <Smartphone size={20} /> : <Monitor size={20} />}
+      <div 
+        className="settings-header cursor-pointer flex justify-between items-center" 
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        style={{ marginBottom: isCollapsed ? '0' : '16px' }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="icon-box" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
+            {isNative ? <Smartphone size={20} /> : <Monitor size={20} />}
+          </div>
+          <div className="text-content">
+            <h4>{isNative ? 'Link PC Login (Admin Only)' : 'Link Mobile Login (Admin Only)'}</h4>
+            <p>
+              {isNative
+                ? 'Generate a sync code to log in on your computer without a password.'
+                : 'Generate a QR code or 6-digit sync code to log in on your mobile app.'}
+            </p>
+          </div>
         </div>
-        <div className="text-content">
-          <h4>{isNative ? 'Link PC Login (Admin Only)' : 'Link Mobile Login (Admin Only)'}</h4>
-          <p>
-            {isNative
-              ? 'Generate a sync code to log in on your computer without a password.'
-              : 'Generate a QR code or 6-digit sync code to log in on your mobile app.'}
-          </p>
+        <div>
+          {isCollapsed ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronUp size={20} className="text-slate-400" />}
         </div>
       </div>
+
+      {!isCollapsed && (
+        <div className="mt-4 border-t border-[var(--card-border)] pt-4">
 
       {genError && (
         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm font-semibold flex gap-2">
@@ -320,6 +333,8 @@ export default function WebSyncPanel() {
             </div>
           )}
         </button>
+      )}
+      </div>
       )}
     </div>
   );

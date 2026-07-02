@@ -94,12 +94,19 @@ export default function NoticeManager() {
         });
 
       if (error) throw error;
-      await triggerFCMNotification(payload.title, payload.scope, schoolSettings.school_id);
+      try {
+        await triggerFCMNotification(payload.title, payload.scope, schoolSettings.school_id);
+      } catch (fcmErr) {
+        console.warn('FCM Notification trigger failed:', fcmErr.message);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notices'] });
       resetForm();
     },
+    onError: (err) => {
+      alert('Failed to send notice: ' + err.message);
+    }
   });
 
   function resetForm() {
@@ -144,8 +151,8 @@ export default function NoticeManager() {
 
       if (error) {
         console.error('Error checking notice count:', error);
-      } else if (count >= 5) {
-        alert('Free Plan limit reached: You can create a maximum of 5 notices per month on the Free Plan. Please upgrade to the Premium Plan for unlimited notices.');
+      } else if (count >= 50) {
+        alert('Free Plan limit reached: You can create a maximum of 50 notices per month on the Free Plan. Please upgrade to the Premium Plan for unlimited notices.');
         return;
       }
 
@@ -184,7 +191,12 @@ export default function NoticeManager() {
         <div className="absolute left-0 bottom-0 w-32 h-32 bg-primary/20 blur-3xl rounded-full -ml-16 -mb-16 pointer-events-none" />
         <div className="relative z-10">
           <h2 className="text-xl font-bold text-white tracking-tight mb-1">Notice Board Manager</h2>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Send school-wide announcements</p>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1.5">Send school-wide announcements</p>
+          <p className="text-[10px] text-indigo-300 font-semibold uppercase tracking-wider">
+            Notice retention policy: Deletes after {
+              schoolSettings?.notice_retention_months_override || (schoolSettings?.plan_type === 'free' ? 3 : 6)
+            } month(s)
+          </p>
         </div>
         <button
           onClick={() => { setIsComposing(!isComposing); if (isComposing) resetForm(); }}
@@ -291,6 +303,7 @@ export default function NoticeManager() {
 
             <div className="flex justify-end pt-4 border-t border-glass">
               <button
+                type="submit"
                 disabled={isBusy}
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold uppercase tracking-wider text-xs px-8 py-4 rounded-xl disabled:opacity-50 transition-colors shadow-lg shadow-emerald-500/20"
               >

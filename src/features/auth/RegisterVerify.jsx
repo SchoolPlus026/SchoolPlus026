@@ -221,6 +221,27 @@ export default function RegisterVerify() {
       }
 
       const headers = { Authorization: `Bearer ${session.access_token}` };
+      
+      const invokeWithTimeout = async (body) => {
+        const controller = new AbortController();
+        const tId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+        try {
+          const res = await supabase.functions.invoke('gdrive-upload', {
+            body,
+            headers,
+            signal: controller.signal
+          });
+          clearTimeout(tId);
+          return res;
+        } catch (err) {
+          clearTimeout(tId);
+          if (err.name === 'AbortError') {
+            throw new Error('Google Drive upload request timed out. Please check your network and try again.');
+          }
+          throw err;
+        }
+      };
+
       let folderId = registration.verification_folder_url ? 
         registration.verification_folder_url.split('id=').pop() : null;
       
@@ -229,11 +250,9 @@ export default function RegisterVerify() {
       // 1. Establish Google Drive folder if not present
       if (requestedPhotos.length > 0 && !folderId) {
         setProgressText('Establishing Google Drive verification folder...');
-        const createRes = await supabase.functions.invoke('gdrive-upload', {
-          body: { action: 'create_folder', folderName, uploadToPlatformAdminDrive: true },
-          headers
-        });
+        const createRes = await invokeWithTimeout({ action: 'create_folder', folderName, uploadToPlatformAdminDrive: true });
         if (createRes.error) throw new Error(`Google Drive folder creation failed: ${createRes.error.message}`);
+        if (createRes.data?.error) throw new Error(createRes.data.error);
         folderId = createRes.data?.id;
       }
 
@@ -244,16 +263,13 @@ export default function RegisterVerify() {
         setProgressText('Compressing and uploading administrator selfie...');
         const compressedSelfie = await compressImage(selfieFile);
         const base64 = await fileToBase64(compressedSelfie);
-        const res = await supabase.functions.invoke('gdrive-upload', {
-          body: {
-            action: 'upload_file',
-            parentFolderId: folderId,
-            fileName: `selfie_${Date.now()}_${selfieFile.name}`,
-            mimeType: selfieFile.type,
-            fileBase64: base64,
-            uploadToPlatformAdminDrive: true
-          },
-          headers
+        const res = await invokeWithTimeout({
+          action: 'upload_file',
+          parentFolderId: folderId,
+          fileName: `selfie_${Date.now()}_${selfieFile.name}`,
+          mimeType: selfieFile.type,
+          fileBase64: base64,
+          uploadToPlatformAdminDrive: true
         });
         if (res.error) throw new Error(`Selfie upload failed: ${res.error.message}`);
         if (res.data?.success) {
@@ -263,6 +279,8 @@ export default function RegisterVerify() {
             webViewLink: res.data.webViewLink,
             thumbnailLink: res.data.thumbnailLink
           });
+        } else if (res.data?.error) {
+          throw new Error(`Selfie upload failed: ${res.data.error}`);
         }
       }
 
@@ -271,16 +289,13 @@ export default function RegisterVerify() {
         setProgressText('Compressing and uploading premise event photo...');
         const compressedEvent = await compressImage(eventFile);
         const base64 = await fileToBase64(compressedEvent);
-        const res = await supabase.functions.invoke('gdrive-upload', {
-          body: {
-            action: 'upload_file',
-            parentFolderId: folderId,
-            fileName: `event_${Date.now()}_${eventFile.name}`,
-            mimeType: eventFile.type,
-            fileBase64: base64,
-            uploadToPlatformAdminDrive: true
-          },
-          headers
+        const res = await invokeWithTimeout({
+          action: 'upload_file',
+          parentFolderId: folderId,
+          fileName: `event_${Date.now()}_${eventFile.name}`,
+          mimeType: eventFile.type,
+          fileBase64: base64,
+          uploadToPlatformAdminDrive: true
         });
         if (res.error) throw new Error(`Event photo upload failed: ${res.error.message}`);
         if (res.data?.success) {
@@ -290,6 +305,8 @@ export default function RegisterVerify() {
             webViewLink: res.data.webViewLink,
             thumbnailLink: res.data.thumbnailLink
           });
+        } else if (res.data?.error) {
+          throw new Error(`Event photo upload failed: ${res.data.error}`);
         }
       }
 

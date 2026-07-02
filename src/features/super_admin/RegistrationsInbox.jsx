@@ -57,6 +57,10 @@ function RegistrationCard({ reg, onApprove, onReject, onVerifyRequest, processin
   const sc = STATUS_CONFIG[reg.status] || STATUS_CONFIG.pending;
 
   const handleSendVerify = () => {
+    if (!verifyReason.trim()) {
+      alert('Please enter a reason or instruction for the verification request.');
+      return;
+    }
     const selectedFields = enableFields ? Object.keys(reqFields).filter(k => reqFields[k]) : [];
     const selectedPhotos = enablePhotos ? Object.keys(reqPhotos).filter(k => reqPhotos[k]) : [];
     onVerifyRequest(reg.id, verifyReason, { fields: selectedFields, photos: selectedPhotos });
@@ -272,7 +276,7 @@ function RegistrationCard({ reg, onApprove, onReject, onVerifyRequest, processin
                   
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button onClick={() => setShowVerifyForm(false)} style={cancelBtn}>Cancel</button>
-                    <button disabled={processing || !verifyReason.trim() || (!enableFields && !enablePhotos)}
+                    <button disabled={processing}
                       onClick={handleSendVerify}
                       style={actionBtn('#fbbf24')}>
                       {processing === reg.id ? 'Sending...' : <><Clock size={14} /> Send Request</>}

@@ -15,7 +15,7 @@ function hasAttendanceForDate(attendanceData, isoDate) {
 }
 
 
-import { isNightTime } from '../../hooks/useTieredCache';
+import { useTieredCache } from '../../hooks/useTieredCache';
 
 export default function PendingAttendanceWidget({ forceShow = false }) {
   const { schoolSettings } = useAppStore();
@@ -25,7 +25,11 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
     return !!localStorage.getItem(`dismissed_duty_${today}`);
   });
 
-  const night = isNightTime();
+  const cacheConfig = useTieredCache({
+    freeStaleTime: 10 * 60 * 1000,
+    premiumStaleTime: 30 * 1000,
+    premiumRefetchInterval: 60000
+  });
 
   const { data: missingData = { missing: [], totalSubmitted: 0 }, isLoading: loading } = useQuery({
     queryKey: ['attendance', 'duty_radar_client', schoolSettings?.school_id],
@@ -115,9 +119,8 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       
       return { missing, totalSubmitted: submittedClasses.size };
     },
-    enabled: !!schoolSettings?.school_id && !dismissed && !night,
-    refetchInterval: night ? false : 60000,
-    staleTime: night ? 3600000 : 30000
+    enabled: !!schoolSettings?.school_id && !dismissed,
+    ...cacheConfig
   });
 
   const handleDismiss = () => {

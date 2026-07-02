@@ -3,7 +3,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { ref, set } from 'firebase/database';
 import { rtdb } from '../../config/firebaseClient';
-import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft, Lock, Clock, Sliders, Mail, Eye, EyeOff } from 'lucide-react';
+import { Building, Settings as SettingsIcon, Megaphone, Users, Save, Send, Image as ImageIcon, HelpCircle, Activity, Shield, CreditCard, CheckCircle, X, ExternalLink, Crown, Plus, AlertTriangle, Trash2, HardDrive, Loader2, DollarSign, BookOpen, ChevronLeft, Lock, Clock, Sliders, Mail, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -12,6 +12,9 @@ import PlatformKnowledgeBaseManager from '../knowledge-base/PlatformKnowledgeBas
 import RegistrationsInbox from './RegistrationsInbox';
 import BiometricSetup from '../settings/BiometricSetup';
 import FeatureAccessManager from './FeatureAccessManager';
+import AccountSwitcher from '../../components/AccountSwitcher';
+import RecoverySetup from '../settings/RecoverySetup';
+import WebSyncPanel from '../settings/WebSyncPanel';
 
 export default function PlatformAdminDashboard() {
   const { user, role, setImpersonation } = useAppStore();
@@ -65,6 +68,10 @@ export default function PlatformAdminDashboard() {
   const [editCode, setEditCode] = useState('');
   const [editPlanType, setEditPlanType] = useState('free');
   const [editBillingCycle, setEditBillingCycle] = useState('monthly');
+  const [editStudentEmailsAllowedOverride, setEditStudentEmailsAllowedOverride] = useState(null);
+  const [editTeacherEmailsAllowedOverride, setEditTeacherEmailsAllowedOverride] = useState(null);
+  const [editOptimizationEngineOverride, setEditOptimizationEngineOverride] = useState(null);
+  const [editNoticeRetentionMonthsOverride, setEditNoticeRetentionMonthsOverride] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Delete School State
@@ -89,6 +96,10 @@ export default function PlatformAdminDashboard() {
   const [paGdriveConfig, setPaGdriveConfig] = useState([]);
   const [connectingDrive, setConnectingDrive] = useState(false);
   const [disconnectingDrive, setDisconnectingDrive] = useState(false);
+  const [brandingCollapsed, setBrandingCollapsed] = useState(true);
+  const [gdriveCollapsed, setGdriveCollapsed] = useState(true);
+  const [pwdCollapsed, setPwdCollapsed] = useState(true);
+  const [accountCollapsed, setAccountCollapsed] = useState(true);
 
   // Email & Google OAuth states
   const [newEmail, setNewEmail] = useState('');
@@ -105,6 +116,11 @@ export default function PlatformAdminDashboard() {
   const [premiumRefreshCooldown, setPremiumRefreshCooldown] = useState(10);
   const [freeCacheHours, setFreeCacheHours] = useState(6);
   const [premiumCacheHours, setPremiumCacheHours] = useState(1);
+  const [freeTierStudentEmailsAllowed, setFreeTierStudentEmailsAllowed] = useState(false);
+  const [freeTierTeacherEmailsAllowed, setFreeTierTeacherEmailsAllowed] = useState(true);
+  const [optimizationEngine, setOptimizationEngine] = useState('standard');
+  const [freeTierMaxNoticeRetentionMonths, setFreeTierMaxNoticeRetentionMonths] = useState(3);
+  const [premiumTierMaxNoticeRetentionMonths, setPremiumTierMaxNoticeRetentionMonths] = useState(6);
   const [savingOptimizationSettings, setSavingOptimizationSettings] = useState(false);
 
   // Broadcast State
@@ -409,6 +425,10 @@ export default function PlatformAdminDashboard() {
         plan_type: editPlanType,
         billing_cycle: editPlanType === 'premium' ? editBillingCycle : null,
         subscription_tier: editPlanType === 'premium' ? 'Premium' : editPlanType === 'trial' ? 'Trial' : 'Free',
+        student_emails_allowed_override: editStudentEmailsAllowedOverride === 'true' ? true : editStudentEmailsAllowedOverride === 'false' ? false : null,
+        teacher_emails_allowed_override: editTeacherEmailsAllowedOverride === 'true' ? true : editTeacherEmailsAllowedOverride === 'false' ? false : null,
+        optimization_engine_override: editOptimizationEngineOverride === 'null' ? null : editOptimizationEngineOverride,
+        notice_retention_months_override: editNoticeRetentionMonthsOverride === '' ? null : parseInt(editNoticeRetentionMonthsOverride)
       };
       if (editPlanType === 'trial') {
         updateData.trial_start_date = now.toISOString();
@@ -596,6 +616,11 @@ export default function PlatformAdminDashboard() {
         setPremiumRefreshCooldown(platSettings.premium_tier_refresh_cooldown ?? 10);
         setFreeCacheHours(platSettings.free_tier_cache_hours ?? 6);
         setPremiumCacheHours(platSettings.premium_tier_cache_hours ?? 1);
+        setFreeTierStudentEmailsAllowed(!!platSettings.free_tier_student_emails_allowed);
+        setFreeTierTeacherEmailsAllowed(platSettings.free_tier_teacher_emails_allowed !== false);
+        setOptimizationEngine(platSettings.optimization_engine || 'standard');
+        setFreeTierMaxNoticeRetentionMonths(platSettings.free_tier_max_notice_retention_months ?? 3);
+        setPremiumTierMaxNoticeRetentionMonths(platSettings.premium_tier_max_notice_retention_months ?? 6);
       }
     } catch (err) {
       console.error('Error fetching quota controls:', err.message);
@@ -635,6 +660,11 @@ export default function PlatformAdminDashboard() {
           premium_tier_refresh_cooldown: parseInt(premiumRefreshCooldown),
           free_tier_cache_hours: parseInt(freeCacheHours),
           premium_tier_cache_hours: parseInt(premiumCacheHours),
+          free_tier_student_emails_allowed: freeTierStudentEmailsAllowed,
+          free_tier_teacher_emails_allowed: freeTierTeacherEmailsAllowed,
+          optimization_engine: optimizationEngine,
+          free_tier_max_notice_retention_months: parseInt(freeTierMaxNoticeRetentionMonths),
+          premium_tier_max_notice_retention_months: parseInt(premiumTierMaxNoticeRetentionMonths)
         })
         .neq('id', '00000000-0000-0000-0000-000000000000'); // updates the single platform_settings row
 
@@ -1234,7 +1264,7 @@ export default function PlatformAdminDashboard() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
                   {/* Night Mode Config */}
                   <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-700/30">
                     <div className="flex justify-between items-center mb-4">
@@ -1331,9 +1361,77 @@ export default function PlatformAdminDashboard() {
                           type="number"
                           min="1"
                           max="300"
-                          value={premiumRefreshCooldown}
-                          onChange={(e) => setPremiumRefreshCooldown(parseInt(e.target.value) || 10)}
-                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Platform Scaling & Retention Rules */}
+                  <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-700/30 space-y-4">
+                    <span className="text-xs font-black text-slate-200 uppercase tracking-widest block">Scaling & Notice Retention Controls</span>
+                    
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Optimization Engine</label>
+                      <select
+                        value={optimizationEngine}
+                        onChange={(e) => setOptimizationEngine(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none font-bold"
+                        style={{ background: '#0f172a' }}
+                      >
+                        <option value="standard">Standard Optimized Polling</option>
+                        <option value="time_based">Time-Based Throttling</option>
+                        <option value="strict_minimum">Strict Minimum (No Polling)</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Free Student Emails</label>
+                        <select
+                          value={freeTierStudentEmailsAllowed ? 'true' : 'false'}
+                          onChange={(e) => setFreeTierStudentEmailsAllowed(e.target.value === 'true')}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none font-bold"
+                          style={{ background: '#0f172a' }}
+                        >
+                          <option value="false">Blocked</option>
+                          <option value="true">Allowed</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Free Teacher Emails</label>
+                        <select
+                          value={freeTierTeacherEmailsAllowed ? 'true' : 'false'}
+                          onChange={(e) => setFreeTierTeacherEmailsAllowed(e.target.value === 'true')}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none font-bold"
+                          style={{ background: '#0f172a' }}
+                        >
+                          <option value="false">Blocked</option>
+                          <option value="true">Allowed</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Free Max Notice (Months)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="24"
+                          value={freeTierMaxNoticeRetentionMonths}
+                          onChange={(e) => setFreeTierMaxNoticeRetentionMonths(parseInt(e.target.value) || 3)}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Premium Max Notice (M)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="24"
+                          value={premiumTierMaxNoticeRetentionMonths}
+                          onChange={(e) => setPremiumTierMaxNoticeRetentionMonths(parseInt(e.target.value) || 6)}
+                          className="w-full bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-xl p-2.5 outline-none font-bold"
                         />
                       </div>
                     </div>
@@ -1591,6 +1689,10 @@ export default function PlatformAdminDashboard() {
                               setEditCode(s.school_code);
                               setEditPlanType(s.plan_type || 'free');
                               setEditBillingCycle(s.billing_cycle || 'monthly');
+                              setEditStudentEmailsAllowedOverride(s.student_emails_allowed_override);
+                              setEditTeacherEmailsAllowedOverride(s.teacher_emails_allowed_override);
+                              setEditOptimizationEngineOverride(s.optimization_engine_override || 'null');
+                              setEditNoticeRetentionMonthsOverride(s.notice_retention_months_override || '');
                             }}
                           >Edit</button>
                           <button
@@ -1909,16 +2011,26 @@ export default function PlatformAdminDashboard() {
 
       {/* ── SECTION 5: PLATFORM SETTINGS ── */}
       {activeTab === 'settings' && (
-        <div className="card fade-in">
-          <div className="settings-header">
-            <div className="icon-box"><SettingsIcon size={20} /></div>
-            <div className="text-content">
-              <h4>Platform Branding</h4>
-              <p>Update the global app name and logo shown on the login screen.</p>
+        <div className="space-y-6 fade-in">
+          <div className="card">
+          <div 
+            className="settings-header cursor-pointer flex justify-between items-center"
+            onClick={() => setBrandingCollapsed(!brandingCollapsed)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="icon-box"><SettingsIcon size={20} /></div>
+              <div className="text-content">
+                <h4>Platform Branding</h4>
+                <p>Update the global app name and logo shown on the login screen.</p>
+              </div>
+            </div>
+            <div>
+              {brandingCollapsed ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronUp size={20} className="text-slate-400" />}
             </div>
           </div>
 
-          <div className="space-y-4 mt-6">
+          {!brandingCollapsed && (
+            <div className="space-y-4 mt-6 border-t border-[var(--card-border)] pt-4">
             <div>
               <label className="muted small block mb-2 font-semibold">Platform Name</label>
               <input
@@ -2039,19 +2151,42 @@ export default function PlatformAdminDashboard() {
               <Save size={16} /> {savingPlatform ? 'Saving...' : 'Save Settings'}
             </button>
           </div>
+          )}
+        </div>
 
           <BiometricSetup />
 
-          {/* ---- PLATFORM GDRIVE ---- */}
           <div className="mt-6" style={{ borderTop: '1px solid var(--card-border)', paddingTop: 24 }}>
-            <div className="settings-header">
-              <div className="icon-box"><HardDrive size={20} /></div>
-              <div className="text-content">
-                <h4>Platform Google Drive</h4>
-                <p>Connect P.A. Google Drive for Help video uploads.</p>
+            <AccountSwitcher />
+          </div>
+
+          <div className="mt-6" style={{ borderTop: '1px solid var(--card-border)', paddingTop: 24 }}>
+            <RecoverySetup />
+          </div>
+
+          <div className="mt-6" style={{ borderTop: '1px solid var(--card-border)', paddingTop: 24 }}>
+            <WebSyncPanel />
+          </div>
+
+          {/* ---- PLATFORM GDRIVE ---- */}
+          <div className="mt-6 border-t border-[var(--card-border)] pt-6">
+            <div 
+              className="settings-header cursor-pointer flex justify-between items-center"
+              onClick={() => setGdriveCollapsed(!gdriveCollapsed)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="icon-box"><HardDrive size={20} /></div>
+                <div className="text-content">
+                  <h4>Platform Google Drive</h4>
+                  <p>Connect P.A. Google Drive for Help video uploads.</p>
+                </div>
+              </div>
+              <div>
+                {gdriveCollapsed ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronUp size={20} className="text-slate-400" />}
               </div>
             </div>
-            <div className="mt-4 space-y-3">
+            {!gdriveCollapsed && (
+              <div className="mt-4 space-y-3 border-t border-[var(--card-border)] pt-4">
               {paGdriveConfig.map((drive, idx) => (
                 <div key={drive.id || idx} className="p-4 border border-green-500/30 bg-green-500/10 rounded-xl flex items-center gap-3">
                   <div className="flex-1 text-sm">
@@ -2100,19 +2235,29 @@ export default function PlatformAdminDashboard() {
                 {connectingDrive ? <><Loader2 size={16} className="animate-spin" /> Connecting...</> : <><Plus size={16} /> {paGdriveConfig.length > 0 ? 'Add Another Drive' : 'Connect Platform Google Drive'}</>}
               </button>
             </div>
+            )}
           </div>
 
           {/* ---- CHANGE PASSWORD (Platform Admin) ---- */}
           <div className="mt-6 border-t border-[var(--card-border)] pt-6">
-            <div className="settings-header">
-              <div className="icon-box"><Lock size={20} className="text-indigo-400" /></div>
-              <div className="text-content">
-                <h4>Change Password</h4>
-                <p>Keep your account secure</p>
+            <div 
+              className="settings-header cursor-pointer flex justify-between items-center"
+              onClick={() => setPwdCollapsed(!pwdCollapsed)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="icon-box"><Lock size={20} className="text-indigo-400" /></div>
+                <div className="text-content">
+                  <h4>Change Password</h4>
+                  <p>Keep your account secure</p>
+                </div>
+              </div>
+              <div>
+                {pwdCollapsed ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronUp size={20} className="text-slate-400" />}
               </div>
             </div>
 
-            <div className="space-y-4 mt-6">
+            {!pwdCollapsed && (
+              <div className="space-y-4 mt-6 border-t border-[var(--card-border)] pt-4">
               <div>
                 <label className="muted small block mb-2 font-semibold">Current Password</label>
                 <div style={{ position: 'relative' }}>
@@ -2152,19 +2297,29 @@ export default function PlatformAdminDashboard() {
                 {pwdLoading ? 'Updating...' : 'Update Password'}
               </button>
             </div>
+            )}
           </div>
 
           {/* ---- ACCOUNT & RECOVERY SETTINGS (Platform Admin) ---- */}
           <div className="mt-6 border-t border-[var(--card-border)] pt-6">
-            <div className="settings-header mb-5">
-              <div className="icon-box"><Lock size={20} className="text-indigo-400" /></div>
-              <div className="text-content">
-                <h4>Account & Recovery Settings</h4>
-                <p>Manage your linked Google account and update recovery email</p>
+            <div 
+              className="settings-header cursor-pointer flex justify-between items-center"
+              onClick={() => setAccountCollapsed(!accountCollapsed)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="icon-box"><Lock size={20} className="text-indigo-400" /></div>
+                <div className="text-content">
+                  <h4>Account & Recovery Settings</h4>
+                  <p>Manage your linked Google account and update recovery email</p>
+                </div>
+              </div>
+              <div>
+                {accountCollapsed ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronUp size={20} className="text-slate-400" />}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {!accountCollapsed && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6 border-t border-[var(--card-border)] pt-4">
               {/* Change Email Section */}
               <div className="space-y-4">
                 <h5 className="font-semibold text-sm">Change/Update Email</h5>
@@ -2246,9 +2401,10 @@ export default function PlatformAdminDashboard() {
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
+    )}
       {/* —— ADD SCHOOL MODAL —— */}
       {showAddSchool && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: '16px', overflowY: 'auto' }}>
@@ -2350,6 +2506,56 @@ export default function PlatformAdminDashboard() {
                   </select>
                 </div>
               )}
+              
+              {/* Overrides for Free Plan */}
+              {editPlanType === 'free' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span className="muted small font-bold uppercase tracking-wider" style={{ display: 'block', marginBottom: '4px' }}>Free Tier Overrides</span>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label className="muted small block" style={{ marginBottom: '4px' }}>Student Emails</label>
+                      <select className="sp-input block w-full text-xs" value={editStudentEmailsAllowedOverride === null ? 'null' : String(editStudentEmailsAllowedOverride)} onChange={e => setEditStudentEmailsAllowedOverride(e.target.value === 'null' ? null : e.target.value === 'true')}>
+                        <option value="null">Default (Blocked)</option>
+                        <option value="true">Allowed</option>
+                        <option value="false">Blocked</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="muted small block" style={{ marginBottom: '4px' }}>Teacher Emails</label>
+                      <select className="sp-input block w-full text-xs" value={editTeacherEmailsAllowedOverride === null ? 'null' : String(editTeacherEmailsAllowedOverride)} onChange={e => setEditTeacherEmailsAllowedOverride(e.target.value === 'null' ? null : e.target.value === 'true')}>
+                        <option value="null">Default (Allowed)</option>
+                        <option value="true">Allowed</option>
+                        <option value="false">Blocked</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Optimization Engine Override</label>
+                <select className="sp-input block w-full" value={editOptimizationEngineOverride || 'null'} onChange={e => setEditOptimizationEngineOverride(e.target.value === 'null' ? null : e.target.value)} style={{ background: '#1e293b' }}>
+                  <option value="null">Use Global Default</option>
+                  <option value="standard">Standard Optimized Polling</option>
+                  <option value="time_based">Time-Based Throttling</option>
+                  <option value="strict_minimum">Strict Minimum (No Polling)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Notice Retention Override (Months)</label>
+                <input 
+                  type="number" 
+                  min="1" 
+                  max="24"
+                  className="sp-input block w-full" 
+                  value={editNoticeRetentionMonthsOverride ?? ''} 
+                  placeholder="Use Global Default"
+                  onChange={e => setEditNoticeRetentionMonthsOverride(e.target.value === '' ? null : parseInt(e.target.value))} 
+                />
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
                 <button type="button" className="btn outline" style={{ flex: 1 }} onClick={() => setEditingSchool(null)}>Cancel</button>
                 <button type="submit" disabled={savingEdit} className="btn accent" style={{ flex: 2 }}>

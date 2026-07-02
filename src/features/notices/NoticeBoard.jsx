@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Loader2, Megaphone, Calendar, Users, Briefcase, Trash2, PenTool } from 'lucide-react';
+import { Loader2, Megaphone, Calendar, Users, Briefcase, Trash2, PenTool, Clock } from 'lucide-react';
 
 const getDirectGDriveImageUrl = (url) => {
   if (!url) return '';
@@ -103,6 +103,16 @@ export default function NoticeBoard() {
       <div className="section-title">
          <Megaphone className="text-accent" />
          <h3>Notice Board</h3>
+      </div>
+
+      {/* Notice Retention Policy Info Banner */}
+      <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '-8px' }}>
+        <Clock size={14} className="text-indigo-400" />
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          Notice retention policy: Notices are automatically deleted after <strong>{
+            schoolSettings?.notice_retention_months_override || (schoolSettings?.plan_type === 'free' ? 3 : 6)
+          } month(s)</strong>.
+        </span>
       </div>
 
       {notices?.length === 0 ? (

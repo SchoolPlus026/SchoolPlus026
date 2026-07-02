@@ -6,7 +6,7 @@ import {
   CheckCircle2, RefreshCw, Zap, ShieldAlert, X, ThumbsUp, ThumbsDown, Plus, Check
 } from 'lucide-react';
 import { usePlan } from '../../hooks/usePlan';
-import { isNightTime } from '../../hooks/useTieredCache';
+import { useTieredCache, isNightTime } from '../../hooks/useTieredCache';
 
 // ─── Attendance JSONB Decode Codec (v82_attendance_jsonb_compression) ───
 const STATUS_DECODE = { P: 'Present', A: 'Absent', L: 'Late', H: 'Half_day', V: 'Leave' };
@@ -81,6 +81,11 @@ const getEffectiveSubStatus = (sub) => {
 
 export default function OffClasses() {
   const { role, user, schoolSettings } = useAppStore();
+  const cacheConfig = useTieredCache({
+    freeStaleTime: 10 * 60 * 1000,
+    premiumStaleTime: 30 * 1000,
+    premiumRefetchInterval: 60000
+  });
   const [loading, setLoading] = useState(true);
   const [absentPeriods, setAbsentPeriods] = useState([]);
   const [freePeriods, setFreePeriods] = useState([]);
@@ -225,15 +230,14 @@ export default function OffClasses() {
 
   useEffect(() => {
     if (!schoolSettings?.school_id) return;
-    const nightTime = isNightTime();
     let intervalId = null;
-    if (!isFree && !nightTime) {
+    if (cacheConfig.refetchInterval) {
       intervalId = setInterval(() => {
         loadData();
-      }, 60000);
+      }, cacheConfig.refetchInterval);
     }
     return () => { if (intervalId) clearInterval(intervalId); };
-  }, [schoolSettings?.school_id, loadData, isFree]);
+  }, [schoolSettings?.school_id, loadData, cacheConfig.refetchInterval]);
 
   // ── Admin: assign a substitute manually ────────────────────────────────
   const assignSubstitute = async (absentPeriod, substituteTeacherId, assignedBy = 'admin') => {

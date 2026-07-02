@@ -5,9 +5,9 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import AccountSwitcher from '../../components/AccountSwitcher';
 import { 
-  Building, Sun, Globe, Lock, Database, ShieldAlert, 
+  Building, Sun, Globe, Lock, Database, ShieldAlert, Clock,
   Upload, Save, Eye, EyeOff, MoreHorizontal, ChevronRight, Loader2, Image as ImageIcon, Trash2, HardDrive, HelpCircle, FileText, Send, Plus, X,
-  Phone, Mail, MapPin, Sparkles
+  Phone, Mail, MapPin, Sparkles, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { logAuditAction } from '../../utils/auditLogger';
@@ -342,6 +342,7 @@ export default function AdminSettings() {
 
   /* ── Platform Settings & Legal ── */
   const [platformSettings, setPlatformSettings] = useState(null);
+  const [archiveCollapsed, setArchiveCollapsed] = useState(true);
 
   /* ── Support Ticket State ── */
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -551,6 +552,35 @@ export default function AdminSettings() {
   const [logoUrl, setLogoUrl]         = useState(schoolSettings?.logo_url || '');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [savingName, setSavingName]   = useState(false);
+  const [noticeRetentionMonths, setNoticeRetentionMonths] = useState(schoolSettings?.notice_retention_months_override ?? null);
+  const [savingRetention, setSavingRetention] = useState(false);
+
+  const handleSaveNoticeRetention = async () => {
+    setSavingRetention(true);
+    try {
+      const val = noticeRetentionMonths === '' ? null : noticeRetentionMonths;
+      const maxAllowed = schoolSettings.plan_type === 'free'
+        ? (platformSettings?.free_tier_max_notice_retention_months || 3)
+        : (platformSettings?.premium_tier_max_notice_retention_months || 6);
+
+      if (val !== null && val > maxAllowed) {
+        throw new Error(`Retention period cannot exceed ${maxAllowed} months for this school's plan tier.`);
+      }
+
+      const { error } = await supabase
+        .from('school_settings')
+        .update({ notice_retention_months_override: val })
+        .eq('school_id', schoolSettings.school_id);
+
+      if (error) throw error;
+      setSchoolSettings({ ...schoolSettings, notice_retention_months_override: val });
+      alert('Notice retention policy updated successfully!');
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setSavingRetention(false);
+    }
+  };
 
   const handleSaveSchoolName = async () => {
     if (!schoolName.trim()) return alert('School name cannot be empty.');
@@ -831,6 +861,40 @@ export default function AdminSettings() {
               }
             </button>
           </div>
+
+          {/* Notice Retention Configuration */}
+          <div style={{ padding: '16px', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--card-border)', marginTop: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Clock size={16} className="text-indigo-400" />
+              <label style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>Notice Retention Policy</label>
+            </div>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
+              Set how long noticeboard circulars are kept before they are automatically deleted to optimize storage.
+              {schoolSettings?.plan_type === 'free' 
+                ? ` Free tier maximum limit: ${platformSettings?.free_tier_max_notice_retention_months || 3} months.`
+                : ` Premium tier maximum limit: ${platformSettings?.premium_tier_max_notice_retention_months || 6} months.`
+              }
+            </p>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px' }}>
+              <input
+                type="number"
+                min="1"
+                max={schoolSettings?.plan_type === 'free' 
+                  ? (platformSettings?.free_tier_max_notice_retention_months || 3) 
+                  : (platformSettings?.premium_tier_max_notice_retention_months || 6)
+                }
+                value={noticeRetentionMonths ?? ''}
+                onChange={e => setNoticeRetentionMonths(e.target.value === '' ? null : parseInt(e.target.value))}
+                className="sp-input"
+                style={{ width: '80px', textAlign: 'center' }}
+                placeholder="Default"
+              />
+              <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)' }}>month(s)</span>
+            </div>
+            <button onClick={handleSaveNoticeRetention} disabled={savingRetention} className="btn accent w-full">
+              <Save size={16} /> {savingRetention ? 'Saving...' : 'Update Retention Period'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1036,18 +1100,28 @@ export default function AdminSettings() {
 
       {/* ── 5.4 ACADEMIC YEAR ARCHIVAL ── */}
       <div className="card">
-        <div className="settings-header">
-          <div className="icon-box" style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}>
-            <HardDrive size={20} />
+        <div 
+          className="settings-header cursor-pointer flex justify-between items-center"
+          onClick={() => setArchiveCollapsed(!archiveCollapsed)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="icon-box" style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}>
+              <HardDrive size={20} />
+            </div>
+            <div className="text-content">
+              <h4>Academic Year Archival</h4>
+              <p>Archive past year data to free storage &amp; download secure JSON snapshots.</p>
+            </div>
           </div>
-          <div className="text-content">
-            <h4>Academic Year Archival</h4>
-            <p>Archive past year data to free storage &amp; download secure JSON snapshots.</p>
+          <div>
+            {archiveCollapsed ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronUp size={20} className="text-slate-400" />}
           </div>
         </div>
-        <div className="mt-4">
-          <ArchiveConsole />
-        </div>
+        {!archiveCollapsed && (
+          <div className="mt-4 border-t border-[var(--card-border)] pt-4">
+            <ArchiveConsole />
+          </div>
+        )}
       </div>
 
       {/* ── 5.5 GOOGLE DRIVE STORAGE ── */}

@@ -96,14 +96,55 @@ import AchieversBoard from './features/achievers/AchieversBoard';
 // Subscription / Billing
 import ManageSubscription from './features/billing/ManageSubscription';
 import FeatureGuard from './components/FeatureGuard';
-
 export default function App() {
-  const { user, role } = useAppStore();
+  const { user, role, platformSettings } = useAppStore();
   const [isInitializing, setIsInitializing] = useState(!user);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [swUpdateReg, setSwUpdateReg] = useState(null);
+  const [showNightPopup, setShowNightPopup] = useState(false);
+  const [showNightBanner, setShowNightBanner] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkNightPopup = () => {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      
+      const settings = platformSettings;
+      if (!settings || settings.night_mode_enabled === false) {
+        setShowNightPopup(false);
+        setShowNightBanner(false);
+        return;
+      }
+
+      const parseTimeToMinutes = (timeStr) => {
+        if (!timeStr) return 0;
+        const parts = timeStr.split(':').map(Number);
+        if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return 0;
+        return parts[0] * 60 + parts[1];
+      };
+
+      const startMin = parseTimeToMinutes(settings.night_start_time || '23:30');
+      const endMin = parseTimeToMinutes(settings.night_end_time || '05:30');
+
+      let isNight = false;
+      if (startMin > endMin) {
+        isNight = currentMinutes >= startMin || currentMinutes < endMin;
+      } else {
+        isNight = currentMinutes >= startMin && currentMinutes < endMin;
+      }
+      
+      const dismissedPopup = localStorage.getItem(`dismissed_night_popup_${now.toDateString()}`);
+      setShowNightPopup(isNight && !dismissedPopup);
+
+      const dismissedBanner = localStorage.getItem(`dismissed_night_banner_${now.toDateString()}`);
+      setShowNightBanner(isNight && dismissedPopup && !dismissedBanner);
+    };
+
+    checkNightPopup();
+    const interval = setInterval(checkNightPopup, 60000);
+    return () => clearInterval(interval);
+  }, [platformSettings]);
 
   useEffect(() => {
 
@@ -227,11 +268,35 @@ export default function App() {
           if (settings) {
             const isFreeSchool = settings.plan_type === 'free';
             const isStudent = profile.role === 'student';
-            if (isFreeSchool && isStudent) {
-              await supabase.auth.signOut();
-              store.clearSession();
-              alert("🚫 Google Login / Email Password Reset is not supported for students in Free schools. Please use your local credentials.");
-              return;
+            
+            let platSettings = store.platformSettings;
+            if (isFreeSchool && !platSettings) {
+              const { data } = await supabase.from('platform_settings').select('*').single();
+              if (data) platSettings = data;
+            }
+            
+            if (isFreeSchool) {
+              const studentAllowed = settings.student_emails_allowed_override !== null
+                ? settings.student_emails_allowed_override
+                : (platSettings?.free_tier_student_emails_allowed ?? false);
+                
+              const teacherAllowed = settings.teacher_emails_allowed_override !== null
+                ? settings.teacher_emails_allowed_override
+                : (platSettings?.free_tier_teacher_emails_allowed ?? true);
+
+              if (isStudent && !studentAllowed) {
+                await supabase.auth.signOut();
+                store.clearSession();
+                alert("🚫 Email login/recovery is disabled for students in this school. Please use your local login credentials.");
+                return;
+              }
+              
+              if (profile.role === 'teacher' && !teacherAllowed) {
+                await supabase.auth.signOut();
+                store.clearSession();
+                alert("🚫 Email login/recovery is disabled for teachers in this school. Please contact your school administrator.");
+                return;
+              }
             }
 
             // --- School Code Mismatch Check ---
@@ -505,7 +570,7 @@ export default function App() {
           try {
             const { data } = await supabase
               .from('platform_settings')
-              .select('free_tier_refresh_cooldown, premium_tier_refresh_cooldown, night_mode_enabled, night_start_time, night_end_time, free_tier_cache_hours, premium_tier_cache_hours')
+              .select('*')
               .single();
             if (data) {
               platSettings = data;
@@ -753,6 +818,184 @@ export default function App() {
   return (
     <ToastProvider>
       <PwaInstallBanner />
+
+      {/* Night Mode Banner */}
+      {showNightBanner && user && (
+        <div style={{
+          background: 'rgba(251, 191, 36, 0.12)',
+          borderBottom: '1px solid rgba(251, 191, 36, 0.25)',
+          color: '#fbbf24',
+          padding: '10px 16px',
+          fontSize: '11px',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          zIndex: 9999,
+          position: 'relative',
+          backdropFilter: 'blur(8px)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>🌙</span>
+            <span>SchoolOS+ is running in server power saver mode. App speed is reduced; full automatic updates resume at 5:30 AM.</span>
+          </div>
+          <button
+            onClick={() => {
+              const now = new Date();
+              localStorage.setItem(`dismissed_night_banner_${now.toDateString()}`, 'true');
+              setShowNightBanner(false);
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#fbbf24',
+              cursor: 'pointer',
+              fontWeight: 800,
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Night Mode Popup Modal */}
+      <AnimatePresence>
+        {showNightPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 99999,
+              background: 'rgba(15, 23, 42, 0.85)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px',
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              style={{
+                position: 'relative',
+                width: '100%',
+                maxWidth: '440px',
+                background: 'rgba(30, 41, 59, 0.85)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '24px',
+                padding: '28px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                color: '#fff',
+                textAlign: 'center',
+                backdropFilter: 'blur(20px)',
+              }}
+            >
+              {/* Close Button at top right */}
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  localStorage.setItem(`dismissed_night_popup_${now.toDateString()}`, 'true');
+                  setShowNightPopup(false);
+                  setShowNightBanner(true);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#cbd5e1',
+                  transition: 'background 0.2s',
+                }}
+              >
+                <X size={16} />
+              </button>
+
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '20px',
+                background: 'rgba(251, 191, 36, 0.1)',
+                border: '1px solid rgba(251, 191, 36, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                color: '#fbbf24',
+              }}>
+                <Clock size={28} />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '8px', letterSpacing: '-0.02em', textTransform: 'none' }}>
+                Server Power Saving Mode Active
+              </h3>
+              <p style={{ fontSize: '12px', color: '#94a3b8', lineHeight: 1.6, marginBottom: '24px' }}>
+                To save server energy, the app is running in power saving mode. Full speed and background syncing will resume at <strong>5:30 AM IST</strong>. You can dismiss this message to continue using the app normally.
+              </p>
+              
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.4)',
+                borderRadius: '16px',
+                padding: '16px',
+                textAlign: 'left',
+                fontSize: '11px',
+                color: '#cbd5e1',
+                marginBottom: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.03)',
+              }}>
+                <span style={{ fontWeight: 800, textTransform: 'uppercase', fontSize: '10px', color: '#94a3b8', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>
+                  What you can do:
+                </span>
+                <ul style={{ paddingLeft: '4px', listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#10b981' }}>✓</span> View class timetables & school notices
+                  </li>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#10b981' }}>✓</span> Add data locally & view offline logs
+                  </li>
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  localStorage.setItem(`dismissed_night_popup_${now.toDateString()}`, 'true');
+                  setShowNightPopup(false);
+                  setShowNightBanner(true);
+                }}
+                className="btn accent w-full"
+                style={{
+                  height: '46px',
+                  borderRadius: '14px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  fontSize: '11px',
+                }}
+              >
+                Browse Cached App
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Premium PWA Upgrade: SW Update Banner */}
       <AnimatePresence>

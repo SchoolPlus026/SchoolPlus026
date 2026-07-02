@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTieredCache } from '../../hooks/useTieredCache';
 
 // Helper to get current date in IST
 function getISTNow() {
@@ -32,6 +33,12 @@ function parsePeriodStartTimeIST(periodLabel, dateStr) {
 
 export default function TeacherDutyBanner() {
   const { schoolSettings, user, role } = useAppStore();
+
+  const cacheConfig = useTieredCache({
+    freeStaleTime: 10 * 60 * 1000,
+    premiumStaleTime: 30 * 1000,
+    premiumRefetchInterval: 60000
+  });
 
   const { data: missingPeriods = [], isLoading } = useQuery({
     queryKey: ['attendance', 'duty_radar', schoolSettings?.school_id, user?.id],
@@ -69,7 +76,7 @@ export default function TeacherDutyBanner() {
       return Object.values(uniqueClasses).sort((a, b) => a.period_order - b.period_order);
     },
     enabled: !!schoolSettings?.school_id && role === 'teacher' && !!user?.id,
-    refetchInterval: 60000, // Check every minute as fallback
+    ...cacheConfig,
   });
 
   if (isLoading || missingPeriods.length === 0) return null;
