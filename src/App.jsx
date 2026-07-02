@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Lock, Loader2, Eye, EyeOff, WifiOff } from 'lucide-react';
+import { X, Lock, Loader2, Eye, EyeOff, WifiOff, Clock } from 'lucide-react';
 import { ToastProvider } from './components/ToastProvider';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
