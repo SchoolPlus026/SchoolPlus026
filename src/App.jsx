@@ -98,12 +98,22 @@ import ManageSubscription from './features/billing/ManageSubscription';
 import FeatureGuard from './components/FeatureGuard';
 export default function App() {
   const { user, role, platformSettings } = useAppStore();
+  const navigate = useNavigate();
   const [isInitializing, setIsInitializing] = useState(!user);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [swUpdateReg, setSwUpdateReg] = useState(null);
   const [showNightPopup, setShowNightPopup] = useState(false);
   const [showNightBanner, setShowNightBanner] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    if (!isInitializing && window.pendingDeepLink) {
+      const path = window.pendingDeepLink;
+      console.log('[Deep Link] Dispatching deferred deep link navigation to:', path);
+      navigate(path);
+      delete window.pendingDeepLink;
+    }
+  }, [isInitializing, navigate]);
 
   useEffect(() => {
     const checkNightPopup = () => {
@@ -693,8 +703,14 @@ export default function App() {
           
           if (url.pathname === '/register-verify' || data.url.includes('/register-verify')) {
             const search = url.search || '';
-            console.log('[Deep Link] Routing to register-verify:', `/register-verify${search}`);
-            navigate(`/register-verify${search}`);
+            const targetPath = `/register-verify${search}`;
+            console.log('[Deep Link] Target path resolved:', targetPath);
+            if (isInitializing) {
+              console.log('[Deep Link] App is initializing. Deferring navigation.');
+              window.pendingDeepLink = targetPath;
+            } else {
+              navigate(targetPath);
+            }
             return;
           }
 
