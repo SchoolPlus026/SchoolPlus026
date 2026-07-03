@@ -4,6 +4,53 @@ import { usePending } from '../hooks/usePending';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../config/supabaseClient';
 
+const compressImage = (file, maxW = 1200, maxH = 1200, quality = 0.75) => {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) {
+      return resolve(file);
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxW) {
+            height = Math.round((height * maxW) / width);
+            width = maxW;
+          }
+        } else {
+          if (height > maxH) {
+            width = Math.round((width * maxH) / height);
+            height = maxH;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            return resolve(file);
+          }
+          const compressedFile = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          });
+          resolve(compressedFile);
+        }, 'image/jpeg', quality);
+      };
+    };
+  });
+};
+
 export default function PendingBanner() {
   const { isPending, isRejected, isVerificationRequested } = usePending();
   const schoolSettings = useAppStore((s) => s.schoolSettings);
@@ -78,104 +125,62 @@ export default function PendingBanner() {
 
     setUploading(true);
     setErrorText('');
-    setProgressText('Authenticating...');
+    setProgressText('Preparing updates...');
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const headers = { Authorization: `Bearer ${session.access_token}` };
-
-      // 1. Search if the folder already exists in the Platform Admin's Google Drive
-      setProgressText('Checking Google Drive destination...');
-      const folderName = `School Verification - ${schoolSettings.name}`;
-      
-      const searchRes = await supabase.functions.invoke('gdrive-upload', {
-        body: {
-          action: 'search_folder',
-          folderName,
-          uploadToPlatformAdminDrive: true
-        },
-        headers
-      });
-
-      if (searchRes.error) throw new Error(searchRes.error.message || 'Drive communication error');
-      
-      let folderId = searchRes.data?.id;
-
-      // 2. If folder does not exist, create it
-      if (!folderId) {
-        setProgressText('Creating verification folder in Google Drive...');
-        const createRes = await supabase.functions.invoke('gdrive-upload', {
-          body: {
-            action: 'create_folder',
-            folderName,
-            uploadToPlatformAdminDrive: true
-          },
-          headers
-        });
-        if (createRes.error) throw new Error(createRes.error.message || 'Failed to create folder');
-        folderId = createRes.data?.id;
-      }
-
-      if (!folderId) throw new Error('Unable to establish destination Google Drive folder.');
-
-      const uploadedPhotos = [];
-
-      // 3. Upload each file to the folder
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setProgressText(`Uploading photo ${i + 1} of ${files.length} ("${file.name}")...`);
-
-        const base64 = await fileToBase64(file);
-        
-        const uploadRes = await supabase.functions.invoke('gdrive-upload', {
-          body: {
-            action: 'upload_file',
-            parentFolderId: folderId,
-            fileName: file.name,
-            mimeType: file.type,
-            fileBase64: base64,
-            uploadToPlatformAdminDrive: true
-          },
-          headers
-        });
-
-        if (uploadRes.error) throw new Error(uploadRes.error.message || `Upload failed for ${file.name}`);
-        
-        const uploadData = uploadRes.data;
-        if (uploadData?.success) {
-          uploadedPhotos.push({
-            name: uploadData.name,
-            url: uploadData.webViewLink,
-            webViewLink: uploadData.webViewLink,
-            thumbnailLink: uploadData.thumbnailLink
-          });
-        } else {
-          throw new Error(`Upload failed for ${file.name}`);
-        }
-      }
-
-      // 4. Update the database record
-      setProgressText('Submitting verification to Platform Admin...');
-      
       // Get the registration row ID first
       const { data: reg, error: regFetchErr } = await supabase
         .from('school_registrations')
-        .select('id')
+        .select('id, verification_photos')
         .eq('school_id', schoolSettings.school_id)
         .single();
 
       if (regFetchErr || !reg) throw new Error('Associated school registration record not found.');
 
+      setProgressText('Compressing and uploading verification photos in parallel...');
+      
+      const uploadPromises = files.map(async (file, idx) => {
+        // Compress image to high quality (2000x2000, 0.85)
+        const compressedFile = await compressImage(file, 2000, 2000, 0.85);
+        const filePath = `verification/${reg.id}/doc_${Date.now()}_${idx}_${file.name}`;
+
+        const { error: uploadErr } = await supabase.storage
+          .from('school_assets')
+          .upload(filePath, compressedFile, { cacheControl: '3600', upsert: true });
+
+        if (uploadErr) throw uploadErr;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('school_assets')
+          .getPublicUrl(filePath);
+
+        return {
+          name: file.name,
+          url: publicUrlData.publicUrl,
+          webViewLink: publicUrlData.publicUrl,
+          thumbnailLink: publicUrlData.publicUrl
+        };
+      });
+
+      const uploadedPhotos = await Promise.all(uploadPromises);
+      const combinedPhotos = [...(reg.verification_photos || []), ...uploadedPhotos];
+
+      setProgressText('Submitting verification to Platform Admin...');
+      
+      const storageFolderUrl = supabase.storage
+        .from('school_assets')
+        .getPublicUrl(`verification/${reg.id}`).data.publicUrl;
+
       // Update school_registrations
-      const folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
       const { error: regUpdateErr } = await supabase
         .from('school_registrations')
         .update({
           status: 'pending',
-          verification_folder_url: folderUrl,
-          verification_photos: uploadedPhotos
+          verification_folder_url: storageFolderUrl,
+          verification_photos: combinedPhotos
         })
         .eq('id', reg.id);
 
@@ -193,13 +198,14 @@ export default function PendingBanner() {
 
       setSuccess(true);
       setFiles([]);
+      
       // Update global app state so the banner instantly updates to "Account Under Review"
       setTimeout(() => {
         setSchoolSettings({
           ...schoolSettings,
           subscription_status: 'Pending'
         });
-      }, 2000);
+      }, 1500);
 
     } catch (err) {
       console.error('Verification upload error:', err);

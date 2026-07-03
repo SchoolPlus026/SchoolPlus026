@@ -97,7 +97,7 @@ export default function UserManagement() {
   const [addForm, setAddForm] = useState({
     email: '', username: '', name: '', password: '', contact: '',
     userClass: '', dob: '', bloodGroup: '', address: '',
-    designation: '', qualification: '', aadharCard: '',
+    designation: '', qualification: '',
   });
   // Bus allocation for new driver (only visible when activeTab === 'driver')
   const [busAlloc, setBusAlloc] = useState({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
@@ -185,7 +185,6 @@ export default function UserManagement() {
         p_blood_group: f.bloodGroup || null,
         p_designation: f.designation || null,
         p_qualification: f.qualification || null,
-        p_aadhar_card: f.aadharCard || null,
       });
       if (error) throw error;
 
@@ -247,7 +246,7 @@ export default function UserManagement() {
         });
       }
 
-      setAddForm({ email: '', username: '', name: '', password: '', contact: '', userClass: '', dob: '', bloodGroup: '', address: '', designation: '', qualification: '', aadharCard: '' });
+      setAddForm({ email: '', username: '', name: '', password: '', contact: '', userClass: '', dob: '', bloodGroup: '', address: '', designation: '', qualification: '' });
       setBusAlloc({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
       alert('User created successfully!');
     },
@@ -268,7 +267,6 @@ export default function UserManagement() {
         p_address: editForm.address || null,
         p_blood_group: editForm.blood_group || null,
         p_qualification: editForm.qualification || null,
-        p_aadhar_card: editForm.aadhar_card || null,
         p_designation: editForm.designation || null,
       });
       if (error) throw error;
@@ -590,7 +588,7 @@ export default function UserManagement() {
               <EField label="Date of Birth" field="dob" type="date" editForm={editForm} setEditForm={setEditForm} />
               <EField label="Blood Group" field="blood_group" options={['A+','A-','B+','B-','O+','O-','AB+','AB-']} editForm={editForm} setEditForm={setEditForm} />
               <EField label="Address" field="address" editForm={editForm} setEditForm={setEditForm} />
-              <EField label="Aadhar Card Number" field="aadhar_card" editForm={editForm} setEditForm={setEditForm} />
+
 
               {(activeTab === 'student' || activeTab === 'teacher') && (
                 <EField label="Class / Standard" field="class" options={classes} allowCustom={true} editForm={editForm} setEditForm={setEditForm} />
@@ -735,11 +733,6 @@ export default function UserManagement() {
                     <div>
                       <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Qualification</label>
                       <input type="text" value={addForm.qualification} onChange={e => setAddForm(f => ({ ...f, qualification: e.target.value }))} placeholder="e.g. M.Sc, B.Ed"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Aadhar Card</label>
-                      <input type="text" value={addForm.aadharCard} onChange={e => setAddForm(f => ({ ...f, aadharCard: e.target.value }))} placeholder="12-digit number"
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary" />
                     </div>
                     {activeTab === 'staff' && (

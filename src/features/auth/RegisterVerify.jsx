@@ -242,72 +242,65 @@ export default function RegisterVerify() {
         }
       };
 
-      let folderId = registration.verification_folder_url ? 
-        registration.verification_folder_url.split('id=').pop() : null;
-      
-      const folderName = `School Verification - ${formData.school_name}`;
-      
-      // 1. Establish Google Drive folder if not present
-      if (requestedPhotos.length > 0 && !folderId) {
-        setProgressText('Establishing Google Drive verification folder...');
-        const createRes = await invokeWithTimeout({ action: 'create_folder', folderName, uploadToPlatformAdminDrive: true });
-        if (createRes.error) throw new Error(`Google Drive folder creation failed: ${createRes.error.message}`);
-        if (createRes.data?.error) throw new Error(createRes.data.error);
-        folderId = createRes.data?.id;
-      }
-
       const newUploadedPhotos = [...(registration.verification_photos || [])];
+      const uploadPromises = [];
 
-      // 2. Upload Selfie if provided
+      // 2. Upload Selfie if provided (high-quality: 2000x2000, 0.85)
       if (selfieFile) {
-        setProgressText('Compressing and uploading administrator selfie...');
-        const compressedSelfie = await compressImage(selfieFile);
-        const base64 = await fileToBase64(compressedSelfie);
-        const res = await invokeWithTimeout({
-          action: 'upload_file',
-          parentFolderId: folderId,
-          fileName: `selfie_${Date.now()}_${selfieFile.name}`,
-          mimeType: selfieFile.type,
-          fileBase64: base64,
-          uploadToPlatformAdminDrive: true
-        });
-        if (res.error) throw new Error(`Selfie upload failed: ${res.error.message}`);
-        if (res.data?.success) {
-          newUploadedPhotos.push({
+        uploadPromises.push((async () => {
+          const compressedSelfie = await compressImage(selfieFile, 2000, 2000, 0.85);
+          const filePath = `verification/${regId}/selfie_${Date.now()}_${selfieFile.name}`;
+          
+          const { error: uploadErr } = await supabase.storage
+            .from('school_assets')
+            .upload(filePath, compressedSelfie, { cacheControl: '3600', upsert: true });
+
+          if (uploadErr) throw new Error(`Selfie upload failed: ${uploadErr.message}`);
+
+          const { data: publicUrlData } = supabase.storage
+            .from('school_assets')
+            .getPublicUrl(filePath);
+
+          return {
             name: 'selfie_' + selfieFile.name,
-            url: res.data.webViewLink,
-            webViewLink: res.data.webViewLink,
-            thumbnailLink: res.data.thumbnailLink
-          });
-        } else if (res.data?.error) {
-          throw new Error(`Selfie upload failed: ${res.data.error}`);
-        }
+            url: publicUrlData.publicUrl,
+            webViewLink: publicUrlData.publicUrl,
+            thumbnailLink: publicUrlData.publicUrl
+          };
+        })());
       }
 
-      // 3. Upload Event Photo if provided
+      // 3. Upload Event Photo if provided (high-quality: 2000x2000, 0.85)
       if (eventFile) {
-        setProgressText('Compressing and uploading premise event photo...');
-        const compressedEvent = await compressImage(eventFile);
-        const base64 = await fileToBase64(compressedEvent);
-        const res = await invokeWithTimeout({
-          action: 'upload_file',
-          parentFolderId: folderId,
-          fileName: `event_${Date.now()}_${eventFile.name}`,
-          mimeType: eventFile.type,
-          fileBase64: base64,
-          uploadToPlatformAdminDrive: true
-        });
-        if (res.error) throw new Error(`Event photo upload failed: ${res.error.message}`);
-        if (res.data?.success) {
-          newUploadedPhotos.push({
+        uploadPromises.push((async () => {
+          const compressedEvent = await compressImage(eventFile, 2000, 2000, 0.85);
+          const filePath = `verification/${regId}/event_${Date.now()}_${eventFile.name}`;
+
+          const { error: uploadErr } = await supabase.storage
+            .from('school_assets')
+            .upload(filePath, compressedEvent, { cacheControl: '3600', upsert: true });
+
+          if (uploadErr) throw new Error(`Event photo upload failed: ${uploadErr.message}`);
+
+          const { data: publicUrlData } = supabase.storage
+            .from('school_assets')
+            .getPublicUrl(filePath);
+
+          return {
             name: 'event_' + eventFile.name,
-            url: res.data.webViewLink,
-            webViewLink: res.data.webViewLink,
-            thumbnailLink: res.data.thumbnailLink
-          });
-        } else if (res.data?.error) {
-          throw new Error(`Event photo upload failed: ${res.data.error}`);
-        }
+            url: publicUrlData.publicUrl,
+            webViewLink: publicUrlData.publicUrl,
+            thumbnailLink: publicUrlData.publicUrl
+          };
+        })());
+      }
+
+      if (uploadPromises.length > 0) {
+        setProgressText('Uploading verification photos in parallel...');
+        const uploadResults = await Promise.all(uploadPromises);
+        uploadResults.forEach(photo => {
+          if (photo) newUploadedPhotos.push(photo);
+        });
       }
 
       // 4. Update school registration details
@@ -323,12 +316,16 @@ export default function RegisterVerify() {
         }
       });
 
+      const storageFolderUrl = supabase.storage
+        .from('school_assets')
+        .getPublicUrl(`verification/${regId}`).data.publicUrl;
+
       const { error: updateErr } = await supabase
         .from('school_registrations')
         .update({
           ...updatedFields,
           verification_photos: newUploadedPhotos,
-          verification_folder_url: folderId ? `https://drive.google.com/drive/folders/${folderId}` : null,
+          verification_folder_url: storageFolderUrl,
           verification_message: message,
           status: 'verification_submitted' // Send to verification_submitted state for review
         })

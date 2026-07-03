@@ -1099,7 +1099,7 @@ export default function AdminSettings() {
       </div>
 
       {/* ── 5.4 ACADEMIC YEAR ARCHIVAL ── */}
-      <div className="card">
+      <div className={`card transition-all duration-300 ${!archiveCollapsed ? 'card-expanded-highlight' : ''}`}>
         <div 
           className="settings-header cursor-pointer flex justify-between items-center"
           onClick={() => setArchiveCollapsed(!archiveCollapsed)}

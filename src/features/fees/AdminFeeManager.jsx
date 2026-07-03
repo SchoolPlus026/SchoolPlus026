@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { usePending } from '../../hooks/usePending';
-import { Loader2, IndianRupee, Calendar, ChevronLeft, CreditCard, History, CheckCircle, Send, Bell } from 'lucide-react';
+import { Loader2, IndianRupee, Calendar, ChevronLeft, CreditCard, History, CheckCircle, Send, Bell, X } from 'lucide-react';
 import { ReminderConfiguratorModal } from './TeacherFeeReminder';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminFeeManager() {
   const { schoolSettings } = useAppStore();
@@ -212,19 +213,37 @@ export default function AdminFeeManager() {
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl">
            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-6">Manage Fees</h2>
 
-           {/* ── Reminder Success Toast ── */}
-           {reminderSuccessCount !== null && (
-             <div style={{
-               display: 'flex', alignItems: 'center', gap: '10px',
-               background: 'linear-gradient(135deg, #10b981, #059669)',
-               color: 'white', borderRadius: '16px', padding: '12px 18px', marginBottom: '20px',
-             }}>
-               <CheckCircle size={18} />
-               <span style={{ fontWeight: 700, fontSize: '13px' }}>
-                 ✅ Reminders sent to {reminderSuccessCount} student{reminderSuccessCount !== 1 ? 's' : ''}!
-               </span>
-             </div>
-           )}
+            {/* ── Reminder Success Toast ── */}
+            <AnimatePresence>
+              {reminderSuccessCount !== null && (
+                <motion.div
+                  initial={{ opacity: 0, y: -15, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  className="flex items-center justify-between gap-3 p-4 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/25 dark:to-teal-500/25 backdrop-blur-md mb-6 shadow-lg shadow-emerald-500/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-500 dark:bg-emerald-500/30 dark:text-emerald-400">
+                      <CheckCircle size={18} className="animate-bounce" />
+                    </div>
+                    <div className="text-left">
+                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Dues Reminded Successfully</h4>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-0.5">
+                        Fee notification sent to {reminderSuccessCount} student{reminderSuccessCount !== 1 ? 's' : ''}!
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setReminderSuccessCount(null)}
+                    className="p-1.5 hover:bg-emerald-500/15 rounded-lg text-slate-400 hover:text-emerald-500 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
            <div className="mb-6">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">1. Select Class</label>

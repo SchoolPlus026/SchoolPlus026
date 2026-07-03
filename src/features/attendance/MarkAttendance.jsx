@@ -369,18 +369,65 @@ export default function MarkAttendance() {
                             <br/>
                             <span className="muted small">{target.username}</span>
                         </div>
-                        {['Present', 'Absent', 'Leave', 'Half_day'].map(st => (
-                            <label key={st} className={`cursor-pointer ${disabled ? 'pointer-events-none' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '10px' }}>
-                                <input 
-                                  type="radio" 
-                                  name={`status_${target.id}`} 
-                                  value={st} 
-                                  checked={status === st} 
-                                  disabled={disabled}
-                                  onChange={() => handleStatusChange(target.id, st)}
-                                /> {st.replace('_', ' ')}
-                            </label>
-                        ))}
+                        {['Present', 'Absent', 'Leave', 'Half_day'].map(st => {
+                            const isSelected = status === st;
+                            const isAnySelected = !!status;
+                            const isFaded = isAnySelected && !isSelected;
+                            
+                            const STATUS_COLORS = {
+                              Present: {
+                                active: 'bg-emerald-500/10 text-emerald-600 border-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40',
+                                hover: 'hover:bg-emerald-500/5 hover:text-emerald-600 dark:hover:bg-emerald-500/10'
+                              },
+                              Absent: {
+                                active: 'bg-red-500/10 text-red-600 border-red-500 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/40',
+                                hover: 'hover:bg-red-500/5 hover:text-red-600 dark:hover:bg-red-500/10'
+                              },
+                              Leave: {
+                                active: 'bg-blue-500/10 text-blue-600 border-blue-500 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/40',
+                                hover: 'hover:bg-blue-500/5 hover:text-blue-600 dark:hover:bg-blue-500/10'
+                              },
+                              Half_day: {
+                                active: 'bg-amber-500/10 text-amber-700 border-amber-500 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40',
+                                hover: 'hover:bg-amber-500/5 hover:text-amber-700 dark:hover:bg-amber-500/10'
+                              }
+                            };
+                            const colors = STATUS_COLORS[st];
+
+                            return (
+                                <label 
+                                  key={st} 
+                                  className={`cursor-pointer border rounded-xl px-3 py-1.5 font-semibold text-xs transition-all duration-200 flex items-center gap-1.5 select-none
+                                    ${disabled ? 'pointer-events-none opacity-50' : ''}
+                                    ${isSelected 
+                                      ? `${colors.active} border-solid font-bold scale-105 shadow-sm` 
+                                      : `border-[var(--card-border)] text-[var(--text-muted)] bg-[var(--bg-main)] ${colors.hover}`
+                                    }
+                                  `}
+                                  style={{
+                                    opacity: isFaded ? 0.15 : 1,
+                                    marginRight: '6px'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (isFaded && !disabled) e.currentTarget.style.opacity = '0.8';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (isFaded && !disabled) e.currentTarget.style.opacity = '0.15';
+                                  }}
+                                >
+                                    <input 
+                                      type="radio" 
+                                      name={`status_${target.id}`} 
+                                      value={st} 
+                                      checked={isSelected} 
+                                      disabled={disabled}
+                                      onChange={() => handleStatusChange(target.id, st)}
+                                      className="sr-only"
+                                    />
+                                    <span>{st.replace('_', ' ')}</span>
+                                </label>
+                            );
+                        })}
                     </div>
                  );
                })

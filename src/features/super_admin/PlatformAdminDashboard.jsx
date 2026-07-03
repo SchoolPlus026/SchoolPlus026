@@ -2012,9 +2012,9 @@ export default function PlatformAdminDashboard() {
       {/* ── SECTION 5: PLATFORM SETTINGS ── */}
       {activeTab === 'settings' && (
         <div className="space-y-6 fade-in">
-          <div className="card">
-          <div 
-            className="settings-header cursor-pointer flex justify-between items-center"
+          <div className={`card transition-all duration-300 ${!brandingCollapsed ? 'card-expanded-highlight' : ''}`}>
+            <div 
+              className="settings-header cursor-pointer flex justify-between items-center"
             onClick={() => setBrandingCollapsed(!brandingCollapsed)}
           >
             <div className="flex items-center gap-3">
@@ -2169,7 +2169,7 @@ export default function PlatformAdminDashboard() {
           </div>
 
           {/* ---- PLATFORM GDRIVE ---- */}
-          <div className="mt-6 border-t border-[var(--card-border)] pt-6">
+          <div className={`card mt-6 transition-all duration-300 ${!gdriveCollapsed ? 'card-expanded-highlight' : ''}`}>
             <div 
               className="settings-header cursor-pointer flex justify-between items-center"
               onClick={() => setGdriveCollapsed(!gdriveCollapsed)}
@@ -2239,7 +2239,7 @@ export default function PlatformAdminDashboard() {
           </div>
 
           {/* ---- CHANGE PASSWORD (Platform Admin) ---- */}
-          <div className="mt-6 border-t border-[var(--card-border)] pt-6">
+          <div className={`card mt-6 transition-all duration-300 ${!pwdCollapsed ? 'card-expanded-highlight' : ''}`}>
             <div 
               className="settings-header cursor-pointer flex justify-between items-center"
               onClick={() => setPwdCollapsed(!pwdCollapsed)}
@@ -2301,7 +2301,7 @@ export default function PlatformAdminDashboard() {
           </div>
 
           {/* ---- ACCOUNT & RECOVERY SETTINGS (Platform Admin) ---- */}
-          <div className="mt-6 border-t border-[var(--card-border)] pt-6">
+          <div className={`card mt-6 transition-all duration-300 ${!accountCollapsed ? 'card-expanded-highlight' : ''}`}>
             <div 
               className="settings-header cursor-pointer flex justify-between items-center"
               onClick={() => setAccountCollapsed(!accountCollapsed)}

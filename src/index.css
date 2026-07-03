@@ -841,3 +841,17 @@ html.light option {
   color: #0f172a !important;
   background-color: #ffffff !important;
 }
+
+/* Accordion active/expanded state highlight */
+.card-expanded-highlight {
+  border-color: rgba(99, 102, 241, 0.45) !important;
+  background-color: rgba(99, 102, 241, 0.015) !important;
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.08), 0 8px 10px -6px rgba(99, 102, 241, 0.08) !important;
+}
+
+[data-theme="dark"] .card-expanded-highlight,
+html:not(.light) .card-expanded-highlight {
+  background-color: rgba(99, 102, 241, 0.03) !important;
+  border-color: rgba(129, 140, 248, 0.45) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35) !important;
+}

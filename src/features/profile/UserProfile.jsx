@@ -564,10 +564,6 @@ export default function UserProfile() {
                   <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Info size={16} className="text-slate-400" /></div>
                   <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Blood Group</div><div className="font-semibold text-[15px] text-[var(--text-main)] space-x-1">{profile.blood_group ? <span className="text-red-400 font-black">{profile.blood_group}</span> : '—'}</div></div>
                </div>
-               <div className="flex items-start gap-3">
-                  <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><FileText size={16} className="text-slate-400" /></div>
-                  <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Aadhar Card</div><div className="font-semibold text-[15px] text-[var(--text-main)] tracking-widest font-mono text-sm">{profile.aadhar_card || '—'}</div></div>
-               </div>
             </div>
          </div>
 

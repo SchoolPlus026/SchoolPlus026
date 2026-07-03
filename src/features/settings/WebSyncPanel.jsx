@@ -154,7 +154,7 @@ export default function WebSyncPanel() {
   const isNative = Capacitor.isNativePlatform();
 
   return (
-    <div className="card">
+    <div className={`card transition-all duration-300 ${!isCollapsed ? 'card-expanded-highlight' : ''}`}>
       <div 
         className="settings-header cursor-pointer flex justify-between items-center" 
         onClick={() => setIsCollapsed(!isCollapsed)}
