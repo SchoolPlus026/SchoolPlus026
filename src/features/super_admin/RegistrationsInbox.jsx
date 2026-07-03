@@ -162,8 +162,8 @@ function RegistrationCard({ reg, onApprove, onReject, onVerifyRequest, processin
             </div>
           )}
 
-          {/* Action Buttons — pending / verification_requested only */}
-          {(reg.status === 'pending' || reg.status === 'verification_requested') && (
+          {/* Action Buttons — pending / verification_requested / verification_submitted only */}
+          {(reg.status === 'pending' || reg.status === 'verification_requested' || reg.status === 'verification_submitted') && (
             <div>
               {!showApproveForm && !showRejectForm && !showVerifyForm && (
                 <div style={{ display: 'flex', gap: 10 }}>
