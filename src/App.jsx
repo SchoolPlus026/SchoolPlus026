@@ -22,6 +22,7 @@ import PwaInstallBanner from './components/PwaInstallBanner';
 import GlobalUploadToasts from './components/GlobalUploadToasts';
 import EmergencyOverlay from './components/EmergencyOverlay';
 import HelpButton from './components/HelpButton';
+import ConsentGate from './components/ConsentGate';
 
 // Layout Wrappers
 import AdminLayout from './layouts/AdminLayout';
@@ -104,7 +105,44 @@ export default function App() {
   const [swUpdateReg, setSwUpdateReg] = useState(null);
   const [showNightPopup, setShowNightPopup] = useState(false);
   const [showNightBanner, setShowNightBanner] = useState(false);
+  const [mustAgreeConsent, setMustAgreeConsent] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    async function checkConsent() {
+      if (!user?.id) {
+        setMustAgreeConsent(false);
+        return;
+      }
+      if (role === 'platform_admin') {
+        setMustAgreeConsent(false);
+        return;
+      }
+      try {
+        const { data: consent } = await supabase
+          .from('user_consents')
+          .select('status, accepted_version')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        const platformVersion = platformSettings?.updated_at || '1.0.0';
+
+        if (!consent || consent.status !== 'agreed' || consent.accepted_version !== platformVersion) {
+          setMustAgreeConsent(true);
+        } else {
+          setMustAgreeConsent(false);
+        }
+      } catch (err) {
+        console.warn('Failed to check user consent:', err.message);
+      }
+    }
+    
+    if (user && platformSettings) {
+      checkConsent();
+    } else {
+      setMustAgreeConsent(false);
+    }
+  }, [user?.id, platformSettings?.updated_at, role]);
 
   useEffect(() => {
     if (!isInitializing && window.pendingDeepLink) {
@@ -818,6 +856,12 @@ export default function App() {
           </p>
         </div>
       </div>
+    );
+  }
+
+  if (mustAgreeConsent) {
+    return (
+      <ConsentGate onAccept={() => setMustAgreeConsent(false)} />
     );
   }
 

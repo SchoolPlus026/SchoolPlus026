@@ -83,10 +83,30 @@ export default function PlatformAdminDashboard() {
   // Platform Settings State
   const [platformName, setPlatformName] = useState('');
   const [platformLogo, setPlatformLogo] = useState('');
-  const [termsConditions, setTermsConditions] = useState('');
+  const [selectedRole, setSelectedRole] = useState('admin');
+  const [roleTerms, setRoleTerms] = useState({
+    admin: '', teacher: '', student: '', driver: '', staff: ''
+  });
+  const [rolePrivacy, setRolePrivacy] = useState({
+    admin: '', teacher: '', student: '', driver: '', staff: ''
+  });
+  const [roleDisclaimer, setRoleDisclaimer] = useState({
+    admin: '', teacher: '', student: '', driver: '', staff: ''
+  });
+  const [driverGpsDisclaimer, setDriverGpsDisclaimer] = useState('');
+  
+  const handleRoleTermsChange = (val) => {
+    setRoleTerms(prev => ({ ...prev, [selectedRole]: val }));
+  };
+  const handleRolePrivacyChange = (val) => {
+    setRolePrivacy(prev => ({ ...prev, [selectedRole]: val }));
+  };
+  const handleRoleDisclaimerChange = (val) => {
+    setRoleDisclaimer(prev => ({ ...prev, [selectedRole]: val }));
+  };
+
   const [aboutApp, setAboutApp] = useState('');
   const [refundPolicy, setRefundPolicy] = useState('');
-  const [privacyPolicy, setPrivacyPolicy] = useState('');
   const [supportEmail, setSupportEmail] = useState('');
   const [developerName, setDeveloperName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
@@ -552,15 +572,37 @@ export default function PlatformAdminDashboard() {
     if (data) {
       setPlatformName(data.app_name || '');
       setPlatformLogo(data.logo_url || '');
-      setTermsConditions(data.terms_conditions || '');
       setAboutApp(data.about_app || '');
       setRefundPolicy(data.refund_policy || '');
-      setPrivacyPolicy(data.privacy_policy || '');
       setSupportEmail(data.support_email || 'schoolpro026@gmail.com');
       setDeveloperName(data.developer_name || '');
       setContactNumber(data.contact_number || '');
       setContactEmail(data.contact_email || '');
       setContactAddress(data.contact_address || 'Parli Vaijnath, Maharashtra');
+      
+      setRoleTerms({
+        admin: data.terms_admin || '',
+        teacher: data.terms_teacher || '',
+        student: data.terms_student || '',
+        driver: data.terms_driver || '',
+        staff: data.terms_staff || ''
+      });
+      setRolePrivacy({
+        admin: data.privacy_admin || '',
+        teacher: data.privacy_teacher || '',
+        student: data.privacy_student || '',
+        driver: data.privacy_driver || '',
+        staff: data.privacy_staff || ''
+      });
+      setRoleDisclaimer({
+        admin: data.disclaimer_admin || '',
+        teacher: data.disclaimer_teacher || '',
+        student: data.disclaimer_student || '',
+        driver: data.disclaimer_driver || '',
+        staff: data.disclaimer_staff || ''
+      });
+      setDriverGpsDisclaimer(data.disclaimer_driver_gps || '');
+
       const gd = Array.isArray(data.pa_gdrive_config) ? data.pa_gdrive_config : (data.pa_gdrive_config ? [data.pa_gdrive_config] : []);
       setPaGdriveConfig(gd);
     }
@@ -743,15 +785,34 @@ export default function PlatformAdminDashboard() {
     const { error } = await supabase.from('platform_settings').update({
       app_name: platformName,
       logo_url: platformLogo,
-      terms_conditions: termsConditions,
       about_app: aboutApp,
       refund_policy: refundPolicy,
-      privacy_policy: privacyPolicy,
       support_email: supportEmail,
       developer_name: developerName,
       contact_number: contactNumber,
       contact_email: contactEmail,
-      contact_address: contactAddress || 'Parli Vaijnath, Maharashtra'
+      contact_address: contactAddress || 'Parli Vaijnath, Maharashtra',
+      
+      terms_admin: roleTerms.admin,
+      terms_teacher: roleTerms.teacher,
+      terms_student: roleTerms.student,
+      terms_driver: roleTerms.driver,
+      terms_staff: roleTerms.staff,
+      
+      privacy_admin: rolePrivacy.admin,
+      privacy_teacher: rolePrivacy.teacher,
+      privacy_student: rolePrivacy.student,
+      privacy_driver: rolePrivacy.driver,
+      privacy_staff: rolePrivacy.staff,
+      
+      disclaimer_admin: roleDisclaimer.admin,
+      disclaimer_teacher: roleDisclaimer.teacher,
+      disclaimer_student: roleDisclaimer.student,
+      disclaimer_driver: roleDisclaimer.driver,
+      disclaimer_staff: roleDisclaimer.staff,
+      
+      disclaimer_driver_gps: driverGpsDisclaimer,
+      updated_at: new Date().toISOString()
     }).neq('id', '00000000-0000-0000-0000-000000000000'); // Update all (there's only 1 row)
 
     setSavingPlatform(false);
@@ -2042,15 +2103,87 @@ export default function PlatformAdminDashboard() {
               />
             </div>
 
-            <div>
-              <label className="muted small block mb-2 font-semibold">Terms & Conditions</label>
-              <textarea
-                rows={4}
-                className="sp-input"
-                placeholder="Platform usage terms..."
-                value={termsConditions}
-                onChange={e => setTermsConditions(e.target.value)}
-              />
+            <div className="bg-slate-950/40 p-4 rounded-2xl border border-slate-800 space-y-4 mb-4 mt-2">
+              <h5 className="font-bold text-xs text-indigo-400 uppercase tracking-widest">Role-Specific Legal Policies</h5>
+              <div>
+                <label className="muted small block mb-2 font-semibold text-slate-300">Select Target User Role to Edit</label>
+                <select
+                  className="sp-input bg-slate-900 border border-slate-700 text-white rounded-lg p-2 w-full"
+                  value={selectedRole}
+                  onChange={e => setSelectedRole(e.target.value)}
+                >
+                  <option value="admin">School Admin</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="student">Student / Parent</option>
+                  <option value="driver">Driver</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="muted small block mb-2 font-semibold text-slate-300">
+                  {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}: Terms & Conditions
+                </label>
+                <textarea
+                  rows={6}
+                  className="sp-input"
+                  placeholder={`Terms & Conditions for ${selectedRole}...`}
+                  value={roleTerms[selectedRole] || ''}
+                  onChange={e => handleRoleTermsChange(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="muted small block mb-2 font-semibold text-slate-300">
+                  {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}: Privacy Policy
+                </label>
+                <textarea
+                  rows={6}
+                  className="sp-input"
+                  placeholder={`Privacy Policy for ${selectedRole}...`}
+                  value={rolePrivacy[selectedRole] || ''}
+                  onChange={e => handleRolePrivacyChange(e.target.value)}
+                />
+              </div>
+
+              {selectedRole === 'admin' && (
+                <div>
+                  <label className="muted small block mb-2 font-semibold text-slate-300">School Admin: Refund Policy</label>
+                  <textarea
+                    rows={6}
+                    className="sp-input"
+                    placeholder="Refund Policy for School Admins..."
+                    value={refundPolicy}
+                    onChange={e => setRefundPolicy(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="muted small block mb-2 font-semibold text-slate-300">
+                  {selectedRole === 'admin' ? 'Institutional Controller Disclaimer (Checkbox 2)' : 'Data Deletion Disclaimer (Checkbox 2)'}
+                </label>
+                <textarea
+                  rows={3}
+                  className="sp-input"
+                  placeholder="Consent disclaimer text..."
+                  value={roleDisclaimer[selectedRole] || ''}
+                  onChange={e => handleRoleDisclaimerChange(e.target.value)}
+                />
+              </div>
+
+              {selectedRole === 'driver' && (
+                <div>
+                  <label className="muted small block mb-2 font-semibold text-slate-300">Driver: GPS Routing Consent Disclaimer (Checkbox 3)</label>
+                  <textarea
+                    rows={3}
+                    className="sp-input"
+                    placeholder="GPS tracking consent text..."
+                    value={driverGpsDisclaimer}
+                    onChange={e => setDriverGpsDisclaimer(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             <div>
@@ -2061,28 +2194,6 @@ export default function PlatformAdminDashboard() {
                 placeholder="Description shown on login/about page..."
                 value={aboutApp}
                 onChange={e => setAboutApp(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="muted small block mb-2 font-semibold">Refund Policy</label>
-              <textarea
-                rows={4}
-                className="sp-input"
-                placeholder="Platform refund policy..."
-                value={refundPolicy}
-                onChange={e => setRefundPolicy(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="muted small block mb-2 font-semibold">Privacy Policy</label>
-              <textarea
-                rows={4}
-                className="sp-input"
-                placeholder="Platform privacy policy..."
-                value={privacyPolicy}
-                onChange={e => setPrivacyPolicy(e.target.value)}
               />
             </div>
 

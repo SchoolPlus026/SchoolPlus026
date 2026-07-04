@@ -7,7 +7,7 @@ import {
   Sun, Moon, Globe, Lock, Database, ShieldAlert, Info,
   Upload, Eye, EyeOff, Trash2,
   Phone, Mail, MapPin, Send, HelpCircle, X, Building, FileText,
-  Loader2
+  Loader2, ShieldCheck
 } from 'lucide-react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -79,11 +79,33 @@ const T = {
 };
 
 export default function SharedSettings() {
-  const { user, role, schoolSettings } = useAppStore();
+  const { user, role, schoolSettings, clearSession } = useAppStore();
   const [toastMsg, setToastMsg] = useState('');
   const [loading, setLoading]   = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
   const userRole = (role || '').toLowerCase();
+
+  const getRolePolicy = (type) => {
+    if (!platformSettings) return '';
+    const suffix = userRole === 'teacher' ? 'teacher' : 
+                   userRole === 'student' ? 'student' : 
+                   userRole === 'driver' ? 'driver' : 
+                   userRole === 'staff' ? 'staff' : 'admin';
+                   
+    if (type === 'terms') {
+      return platformSettings[`terms_${suffix}`] || platformSettings?.terms_conditions || '';
+    }
+    if (type === 'privacy') {
+      return platformSettings[`privacy_${suffix}`] || platformSettings?.privacy_policy || '';
+    }
+    if (type === 'disclaimer') {
+      return platformSettings[`disclaimer_${suffix}`] || '';
+    }
+    if (type === 'gps') {
+      return platformSettings?.disclaimer_driver_gps || '';
+    }
+    return '';
+  };
 
   // Email & Google OAuth states
   const [newEmail, setNewEmail] = useState('');
@@ -292,6 +314,39 @@ export default function SharedSettings() {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showContactDetailsModal, setShowContactDetailsModal] = useState(false);
   const [legalTab, setLegalTab] = useState(null); // 'about' | 'terms' | 'refund' | 'privacy' | null
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
+
+  const handleWithdrawConsent = async () => {
+    if (!user?.id) return;
+    setIsWithdrawing(true);
+    try {
+      const { error } = await supabase
+        .from('user_consents')
+        .upsert({
+          user_id: user.id,
+          status: 'withdrawn',
+          accepted_version: platformSettings?.updated_at || '1.0.0',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      await supabase.auth.signOut();
+      clearSession();
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to withdraw consent:', err);
+      toast('Failed to withdraw consent. Please try again.', setToastMsg);
+    } finally {
+      setIsWithdrawing(false);
+      setShowWithdrawConfirm(false);
+      setShowConsentModal(false);
+    }
+  };
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [submittingTicket, setSubmittingTicket] = useState(false);
@@ -849,7 +904,7 @@ export default function SharedSettings() {
           <div className="icon-box"><FileText size={20} /></div>
           <div className="text-content">
             <h4>About {platformSettings?.app_name || 'SchoolOS+'}</h4>
-            <p>Platform information and terms of service</p>
+            <p>Platform information and details</p>
           </div>
         </div>
         <div className="mt-4 flex flex-col gap-2">
@@ -858,21 +913,38 @@ export default function SharedSettings() {
               <FileText size={16} /> About App
             </button>
           )}
-          {platformSettings?.terms_conditions && (
-            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('terms')}>
-              <FileText size={16} /> Terms & Conditions
+        </div>
+      </div>
+
+      {/* ── PRIVACY & SECURITY ── */}
+      <div className="card">
+        <div className="settings-header">
+          <div className="icon-box"><ShieldCheck size={20} /></div>
+          <div className="text-content">
+            <h4>Privacy & Security</h4>
+            <p>Your legal documents, terms, and consent settings</p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-2">
+          <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('terms')}>
+            <FileText size={16} /> Terms & Conditions
+          </button>
+          <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('privacy')}>
+            <FileText size={16} /> Privacy Policy
+          </button>
+          {getRolePolicy('disclaimer') && (
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('disclaimer')}>
+              <ShieldCheck size={16} /> Data Deletion Disclaimer
             </button>
           )}
-          {platformSettings?.refund_policy && (userRole === 'admin' || userRole === 'platform_admin') && (
-            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('refund')}>
-              <FileText size={16} /> Refund Policy
+          {userRole === 'driver' && getRolePolicy('gps') && (
+            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('gps')}>
+              <ShieldCheck size={16} /> GPS Routing Consent Disclaimer
             </button>
           )}
-          {platformSettings?.privacy_policy && (
-            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('privacy')}>
-              <FileText size={16} /> Privacy Policy
-            </button>
-          )}
+          <button className="btn outline w-full text-left justify-start text-indigo-600 hover:text-indigo-700 border-indigo-500/20 hover:border-indigo-500/40" onClick={() => setShowConsentModal(true)}>
+            <ShieldCheck size={16} className="text-indigo-400" /> Consent Settings
+          </button>
         </div>
       </div>
 
@@ -1019,6 +1091,8 @@ export default function SharedSettings() {
                 {legalTab === 'about' ? 'About App' : 
                  legalTab === 'terms' ? 'Terms & Conditions' : 
                  legalTab === 'refund' ? 'Refund Policy' : 
+                 legalTab === 'disclaimer' ? 'Data Deletion Disclaimer' :
+                 legalTab === 'gps' ? 'GPS Routing Consent Disclaimer' :
                  'Privacy Policy'}
               </h3>
               <button onClick={() => setLegalTab(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1027,11 +1101,82 @@ export default function SharedSettings() {
             </div>
             <div className="overflow-y-auto flex-1 text-sm leading-relaxed whitespace-pre-wrap pr-2 text-slate-700" style={{ maxHeight: 'calc(80vh - 120px)' }}>
               {legalTab === 'about' ? platformSettings?.about_app : 
-               legalTab === 'terms' ? platformSettings?.terms_conditions : 
+               legalTab === 'terms' ? getRolePolicy('terms') : 
                legalTab === 'refund' ? platformSettings?.refund_policy : 
-               platformSettings?.privacy_policy}
+               legalTab === 'disclaimer' ? getRolePolicy('disclaimer') :
+               legalTab === 'gps' ? getRolePolicy('gps') :
+               getRolePolicy('privacy')}
             </div>
             <button onClick={() => setLegalTab(null)} className="btn outline w-full mt-4">Close</button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── CONSENT MODAL ── */}
+      {showConsentModal && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: '16px' }}>
+          <div className="card flex flex-col" style={{ width: '100%', maxWidth: '500px' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="m-0">Consent Settings</h3>
+              <button onClick={() => { setShowConsentModal(false); setShowWithdrawConfirm(false); }} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="space-y-4 text-sm flex-1">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                <p style={{ margin: 0 }} className="text-xs text-slate-500 font-semibold uppercase">Account Provider</p>
+                <p style={{ margin: 0 }} className="font-bold text-slate-800 text-sm">{schoolSettings?.name || 'My School Administrator'}</p>
+                <p style={{ margin: 0 }} className="text-xs text-slate-500 font-semibold uppercase pt-2">Current Status</p>
+                <p style={{ margin: 0 }} className="font-bold text-emerald-600 text-sm">🟢 AGREED (Active)</p>
+              </div>
+
+              <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 text-amber-800 text-xs leading-relaxed space-y-2">
+                <p style={{ margin: 0 }} className="font-black uppercase tracking-wider">Data Ownership & Deletion Notice</p>
+                <p style={{ margin: 0 }}>
+                  Your profile details (including name, role, class, and contact details) were added directly by your School Administrator. 
+                </p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>SchoolOS+ is a SaaS provider (Data Processor) and holds no liability for school-created accounts.</li>
+                  <li>If you no longer wish to use the app, you can withdraw your consent. This will immediately lock you out of the platform.</li>
+                  <li>To completely remove your historical records from the database, you must contact your School Administrator (Data Controller) directly.</li>
+                </ul>
+              </div>
+
+              {showWithdrawConfirm ? (
+                <div className="p-4 bg-red-50 rounded-xl border border-red-150 text-red-950 text-xs space-y-3">
+                  <p style={{ margin: 0 }} className="font-bold">Are you absolutely sure you want to withdraw consent?</p>
+                  <p style={{ margin: 0 }}>This will save your status as 'withdrawn', immediately sign you out, and block you from accessing all features of the application.</p>
+                  <div className="flex gap-2 pt-1">
+                    <button 
+                      onClick={handleWithdrawConsent}
+                      disabled={isWithdrawing}
+                      className="btn accent flex-1 text-center font-bold" 
+                      style={{ backgroundColor: '#ef4444', color: '#fff', fontSize: '11px', padding: '6px 12px' }}
+                    >
+                      {isWithdrawing ? 'Withdrawing...' : 'Yes, Withdraw'}
+                    </button>
+                    <button 
+                      onClick={() => setShowWithdrawConfirm(false)}
+                      disabled={isWithdrawing}
+                      className="btn outline flex-1 text-center font-bold" 
+                      style={{ fontSize: '11px', padding: '6px 12px' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setShowWithdrawConfirm(true)}
+                  className="btn outline w-full text-center font-bold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all"
+                  style={{ color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                >
+                  🔴 Withdraw Consent & Disagree
+                </button>
+              )}
+            </div>
           </div>
         </div>,
         document.body
