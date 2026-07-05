@@ -2161,12 +2161,14 @@ export default function PlatformAdminDashboard() {
 
               <div>
                 <label className="muted small block mb-2 font-semibold text-slate-300">
-                  {selectedRole === 'admin' ? 'Institutional Controller Disclaimer (Checkbox 2)' : 'Data Deletion Disclaimer (Checkbox 2)'}
+                  {selectedRole === 'admin' 
+                    ? 'Institutional Controller Disclaimer (Merged at bottom of Privacy Policy)' 
+                    : 'Data Deletion Disclaimer (Merged at bottom of Privacy Policy)'}
                 </label>
                 <textarea
                   rows={3}
                   className="sp-input"
-                  placeholder="Consent disclaimer text..."
+                  placeholder="This disclaimer text is dynamically appended at the bottom of the Privacy Policy on the app-side..."
                   value={roleDisclaimer[selectedRole] || ''}
                   onChange={e => handleRoleDisclaimerChange(e.target.value)}
                 />
@@ -2174,7 +2176,7 @@ export default function PlatformAdminDashboard() {
 
               {selectedRole === 'driver' && (
                 <div>
-                  <label className="muted small block mb-2 font-semibold text-slate-300">Driver: GPS Routing Consent Disclaimer (Checkbox 3)</label>
+                  <label className="muted small block mb-2 font-semibold text-slate-300">Driver: GPS Routing Consent Disclaimer (Checkbox 2)</label>
                   <textarea
                     rows={3}
                     className="sp-input"

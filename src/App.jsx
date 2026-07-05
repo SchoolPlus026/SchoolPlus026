@@ -118,6 +118,29 @@ export default function App() {
         setMustAgreeConsent(false);
         return;
       }
+
+      let currentPlatformSettings = platformSettings;
+      if (!currentPlatformSettings) {
+        try {
+          const { data } = await supabase
+            .from('platform_settings')
+            .select('*')
+            .single();
+          if (data) {
+            currentPlatformSettings = data;
+            useAppStore.getState().setPlatformSettings(data);
+            useAppStore.getState().setPlatformSettingsLastFetched(Date.now());
+          }
+        } catch (platErr) {
+          console.warn('Failed to fetch platform settings in checkConsent:', platErr.message);
+        }
+      }
+
+      if (!currentPlatformSettings) {
+        setMustAgreeConsent(false);
+        return;
+      }
+
       try {
         const { data: consent } = await supabase
           .from('user_consents')
@@ -125,9 +148,12 @@ export default function App() {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        const platformVersion = platformSettings?.updated_at || '1.0.0';
+        const platformVersion = currentPlatformSettings.updated_at || '1.0.0';
 
-        if (!consent || consent.status !== 'agreed' || consent.accepted_version !== platformVersion) {
+        const userAcceptedTime = consent?.accepted_version ? new Date(consent.accepted_version).getTime() : 0;
+        const currentPlatformVersionTime = platformVersion ? new Date(platformVersion).getTime() : 0;
+
+        if (!consent || consent.status !== 'agreed' || userAcceptedTime !== currentPlatformVersionTime) {
           setMustAgreeConsent(true);
         } else {
           setMustAgreeConsent(false);
@@ -137,7 +163,7 @@ export default function App() {
       }
     }
     
-    if (user && platformSettings) {
+    if (user) {
       checkConsent();
     } else {
       setMustAgreeConsent(false);
