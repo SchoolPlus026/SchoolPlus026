@@ -932,11 +932,7 @@ export default function SharedSettings() {
           <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('privacy')}>
             <FileText size={16} /> Privacy Policy
           </button>
-          {getRolePolicy('disclaimer') && (
-            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('disclaimer')}>
-              <ShieldCheck size={16} /> Data Deletion Disclaimer
-            </button>
-          )}
+
           {userRole === 'driver' && getRolePolicy('gps') && (
             <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('gps')}>
               <ShieldCheck size={16} /> GPS Routing Consent Disclaimer
@@ -1091,7 +1087,6 @@ export default function SharedSettings() {
                 {legalTab === 'about' ? 'About App' : 
                  legalTab === 'terms' ? 'Terms & Conditions' : 
                  legalTab === 'refund' ? 'Refund Policy' : 
-                 legalTab === 'disclaimer' ? 'Data Deletion Disclaimer' :
                  legalTab === 'gps' ? 'GPS Routing Consent Disclaimer' :
                  'Privacy Policy'}
               </h3>
@@ -1103,9 +1098,8 @@ export default function SharedSettings() {
               {legalTab === 'about' ? platformSettings?.about_app : 
                legalTab === 'terms' ? getRolePolicy('terms') : 
                legalTab === 'refund' ? platformSettings?.refund_policy : 
-               legalTab === 'disclaimer' ? getRolePolicy('disclaimer') :
                legalTab === 'gps' ? getRolePolicy('gps') :
-               getRolePolicy('privacy')}
+               getRolePolicy('privacy') + (getRolePolicy('disclaimer') ? `\n\n${getRolePolicy('disclaimer')}` : '')}
             </div>
             <button onClick={() => setLegalTab(null)} className="btn outline w-full mt-4">Close</button>
           </div>

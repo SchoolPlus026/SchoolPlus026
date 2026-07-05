@@ -42,7 +42,6 @@ export default function ConsentGate({ onAccept }) {
   };
 
   const termsText = getRolePolicyText('terms');
-  const privacyText = getRolePolicyText('privacy');
   const refundText = platformSettings?.refund_policy || 'Refund Policy placeholder text...';
   
   const defaultDisclaimer = isAdmin
@@ -50,10 +49,12 @@ export default function ConsentGate({ onAccept }) {
     : `I acknowledge my profile was created by ${schoolName} (Data Controller). To delete my data, I must contact my School Admin directly.`;
   const disclaimerText = getRolePolicyText('disclaimer') || defaultDisclaimer;
   
+  const privacyText = getRolePolicyText('privacy') + (disclaimerText ? '\n\n' + disclaimerText : '');
+  
   const gpsDisclaimerText = getRolePolicyText('gps');
   const policyVersion = platformSettings?.updated_at || '1.0.0';
 
-  const allChecked = agreePolicies && agreeRoster && (!isDriver || agreeGps);
+  const allChecked = agreePolicies && (!isDriver || agreeGps);
 
   const handleLogout = async () => {
     try {
@@ -185,25 +186,7 @@ export default function ConsentGate({ onAccept }) {
             </span>
           </label>
 
-          {/* Checkbox 2: Role-based Deletion Disclaimer */}
-          <label className="flex items-start gap-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={agreeRoster}
-              onChange={(e) => setAgreeRoster(e.target.checked)}
-              className="sr-only"
-            />
-            <div className={`mt-0.5 w-5 h-5 rounded-lg border flex items-center justify-center transition-all flex-shrink-0 ${
-              agreeRoster 
-                ? 'bg-indigo-500 border-indigo-500 text-white' 
-                : 'border-slate-700 bg-slate-950 text-transparent group-hover:border-slate-600'
-            }`}>
-              <Check size={14} strokeWidth={3} />
-            </div>
-            <span className="text-[11px] text-slate-400/90 select-none leading-relaxed">
-              {disclaimerText}
-            </span>
-          </label>
+
 
           {/* Checkbox 3: GPS Telemetry (Drivers Only) */}
           {isDriver && (

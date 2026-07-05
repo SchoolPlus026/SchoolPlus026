@@ -1286,11 +1286,7 @@ export default function AdminSettings() {
               <FileText size={16} /> Refund Policy
             </button>
           )}
-          {platformSettings?.disclaimer_admin && (
-            <button className="btn outline w-full text-left justify-start" onClick={() => setLegalTab('disclaimer')}>
-              <ShieldCheck size={16} /> Institutional Controller Disclaimer
-            </button>
-          )}
+
           <button className="btn outline w-full text-left justify-start text-indigo-600 hover:text-indigo-700 border-indigo-500/20 hover:border-indigo-500/40" onClick={() => setShowConsentModal(true)}>
             <ShieldCheck size={16} className="text-indigo-400" /> Consent Settings
           </button>
@@ -1546,7 +1542,6 @@ export default function AdminSettings() {
                 {legalTab === 'about' ? 'About App' : 
                  legalTab === 'terms' ? 'Terms & Conditions' : 
                  legalTab === 'refund' ? 'Refund Policy' : 
-                 legalTab === 'disclaimer' ? 'Institutional Controller Disclaimer' :
                  'Privacy Policy'}
               </h3>
               <button onClick={() => setLegalTab(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200">
@@ -1557,8 +1552,8 @@ export default function AdminSettings() {
               {legalTab === 'about' ? platformSettings?.about_app : 
                legalTab === 'terms' ? (platformSettings?.terms_admin || platformSettings?.terms_conditions) : 
                legalTab === 'refund' ? platformSettings?.refund_policy : 
-               legalTab === 'disclaimer' ? platformSettings?.disclaimer_admin :
-               (platformSettings?.privacy_admin || platformSettings?.privacy_policy)}
+               (platformSettings?.privacy_admin || platformSettings?.privacy_policy) + 
+               (platformSettings?.disclaimer_admin ? `\n\n${platformSettings.disclaimer_admin}` : '')}
             </div>
             <button onClick={() => setLegalTab(null)} className="btn outline w-full mt-4">Close</button>
           </div>
