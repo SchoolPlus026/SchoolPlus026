@@ -341,7 +341,8 @@ export default function Login() {
       try {
         const { data: bfCheck, error: rpcErr } = await supabase.rpc('check_and_log_login_attempt', {
           p_username: rawInput,
-          p_action: 'check'
+          p_action: 'check',
+          p_school_id: schoolSettings?.school_id
         });
         if (rpcErr) throw rpcErr;
         if (bfCheck?.locked) {
@@ -358,7 +359,10 @@ export default function Login() {
         loginEmail = rawInput;
       } else {
         const { data: lookupData, error: lookupError } = await supabase
-          .rpc('get_email_by_username', { p_username: rawInput });
+          .rpc('get_email_by_username', { 
+            p_username: rawInput,
+            p_school_id: schoolSettings?.school_id
+          });
         if (lookupError || !lookupData) {
           throw new Error(`No account found for username "${rawInput}". Please check your username.`);
         }
@@ -373,7 +377,8 @@ export default function Login() {
         try {
           await supabase.rpc('check_and_log_login_attempt', {
             p_username: rawInput,
-            p_action: 'fail'
+            p_action: 'fail',
+            p_school_id: schoolSettings?.school_id
           });
         } catch (_) {}
         throw new Error('Incorrect password or account not found.');
@@ -382,7 +387,8 @@ export default function Login() {
       try {
         await supabase.rpc('check_and_log_login_attempt', {
           p_username: rawInput,
-          p_action: 'success'
+          p_action: 'success',
+          p_school_id: schoolSettings?.school_id
         });
       } catch (_) {}
 
@@ -627,7 +633,10 @@ export default function Login() {
     try {
       // 1. Call secure RPC to verify plan status, user role, and retrieve verified email
       const { data: verifiedEmail, error: rpcError } = await supabase
-        .rpc('request_password_reset_email', { p_identifier: username.trim() });
+        .rpc('request_password_reset_email', { 
+          p_identifier: username.trim(),
+          p_school_id: schoolSettings?.school_id
+        });
 
       if (rpcError) throw rpcError;
 

@@ -6,8 +6,10 @@ import { usePending } from '../../hooks/usePending';
 import UserAvatar from '../../components/UserAvatar';
 import {
   Users, Search, UserPlus, Filter, Loader2, Phone, BookOpen,
-  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus, Plus, Trash2
+  CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus, Plus, Trash2,
+  Upload, Download, CheckCircle2, AlertTriangle, FileSpreadsheet, Play, Check, AlertCircle
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const formatClassName = (input) => {
   let str = input.trim().toUpperCase();
@@ -94,6 +96,15 @@ export default function UserManagement() {
 
   /* ── Add User Modal State ── */
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkStep, setBulkStep] = useState(1);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkHeaders, setBulkHeaders] = useState([]);
+  const [bulkRows, setBulkRows] = useState([]);
+  const [bulkMappings, setBulkMappings] = useState({});
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkResults, setBulkResults] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [addForm, setAddForm] = useState({
     email: '', username: '', name: '', password: '', contact: '',
     userClass: '', dob: '', bloodGroup: '', address: '',
@@ -102,6 +113,391 @@ export default function UserManagement() {
   // Bus allocation for new driver (only visible when activeTab === 'driver')
   const [busAlloc, setBusAlloc] = useState({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
 
+  /* ── Bulk Upload Helper Functions ── */
+  const getTargetFieldsForRole = (role) => {
+    const common = [
+      { key: 'name', label: 'Full Name *', required: true },
+      { key: 'email', label: 'Email', required: false },
+      { key: 'username', label: 'Username', required: false },
+      { key: 'password', label: 'Password', required: false },
+      { key: 'contact', label: 'Contact Number', required: false },
+      { key: 'dob', label: 'Date of Birth (YYYY-MM-DD)', required: false },
+      { key: 'bloodGroup', label: 'Blood Group', required: false },
+      { key: 'address', label: 'Address', required: false }
+    ];
+
+    if (role === 'student') {
+      return [
+        ...common.slice(0, 1),
+        { key: 'userClass', label: 'Class *', required: true },
+        ...common.slice(1)
+      ];
+    } else if (role === 'teacher' || role === 'staff') {
+      return [
+        ...common,
+        { key: 'designation', label: 'Designation', required: false },
+        { key: 'qualification', label: 'Qualification', required: false }
+      ];
+    }
+    return common; // driver
+  };
+
+  const findHeuristicMatch = (key, fileHeaders) => {
+    const synonyms = {
+      name: ['name', 'full name', 'student name', 'name of student', 'teacher name', 'driver name', 'staff name', 'full_name', 'student_name'],
+      userClass: ['class', 'grade', 'standard', 'class/section', 'class *', 'class/section *'],
+      email: ['email', 'email id', 'email address', 'email_id', 'mail'],
+      username: ['username', 'user name', 'roll number', 'roll no', 'admission number', 'admission no', 'national id', 'student national id', 'pen'],
+      password: ['password', 'pwd'],
+      contact: ['contact', 'phone', 'mobile', 'contact number', 'phone number', 'mobile number', 'mobile no', 'mobile no.'],
+      dob: ['dob', 'date of birth', 'birth date', 'date of birth (dob)'],
+      bloodGroup: ['blood group', 'blood_group', 'bg'],
+      designation: ['designation', 'role name'],
+      qualification: ['qualification']
+    };
+
+    const targets = synonyms[key] || [key];
+    return fileHeaders.find(header => 
+      targets.some(target => header.toLowerCase().includes(target.toLowerCase()))
+    );
+  };
+
+  const handleDownloadTemplate = () => {
+    let headers = [];
+    if (activeTab === 'student') {
+      headers = ['Full Name *', 'Class *', 'Email', 'Username', 'Password', 'Contact', 'DOB (YYYY-MM-DD)', 'Blood Group', 'Address'];
+    } else if (activeTab === 'teacher' || activeTab === 'staff') {
+      headers = ['Full Name *', 'Email', 'Username', 'Password', 'Contact', 'DOB (YYYY-MM-DD)', 'Blood Group', 'Address', 'Designation', 'Qualification'];
+    } else if (activeTab === 'driver') {
+      headers = ['Full Name *', 'Email', 'Username', 'Password', 'Contact', 'DOB (YYYY-MM-DD)', 'Blood Group', 'Address'];
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, `${activeTab}_bulk_upload_template.xlsx`);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        
+        if (data.length === 0) {
+          alert("The uploaded file is empty.");
+          return;
+        }
+
+        const headers = data[0].map(h => String(h || '').trim()).filter(Boolean);
+        const rows = data.slice(1).filter(r => r && r.some(cell => cell !== null && cell !== ''));
+
+        if (headers.length === 0) {
+          alert("No column headers detected in the file.");
+          return;
+        }
+
+        // Heuristics mapping
+        const detectedMappings = {};
+        const targetFields = getTargetFieldsForRole(activeTab);
+
+        targetFields.forEach(field => {
+          const match = findHeuristicMatch(field.key, headers);
+          detectedMappings[field.key] = match || "";
+        });
+
+        setBulkFile(file);
+        setBulkHeaders(headers);
+        setBulkRows(rows);
+        setBulkMappings(detectedMappings);
+        setBulkStep(2);
+      } catch (err) {
+        alert("Failed to parse file: " + err.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleStartImport = async () => {
+    setIsProcessing(true);
+    setBulkStep(3);
+    setBulkProgress(0);
+
+    const targetFields = getTargetFieldsForRole(activeTab);
+    const processedRows = [];
+    const initialFailures = [];
+
+    // Pre-validate rows and extract values client-side
+    bulkRows.forEach((row, rowIndex) => {
+      const rowNum = rowIndex + 2; // header is row 1
+      const payload = {};
+      let hasError = false;
+      const errorReasons = [];
+
+      targetFields.forEach(field => {
+        const fileColName = bulkMappings[field.key];
+        const colIndex = bulkHeaders.indexOf(fileColName);
+        let val = colIndex !== -1 ? row[colIndex] : undefined;
+        
+        // clean value
+        if (val === null || val === undefined) {
+          val = "";
+        } else {
+          val = String(val).trim();
+        }
+
+        payload[field.key] = val;
+      });
+
+      // Validation 1: Full Name is required
+      if (!payload.name) {
+        hasError = true;
+        errorReasons.push("Full Name is required");
+      }
+
+      // Validation 2: Class is required for students, must match classes list
+      if (activeTab === 'student') {
+        if (!payload.userClass) {
+          hasError = true;
+          errorReasons.push("Class is required");
+        } else {
+          // format and validate class
+          const formattedClass = formatClassName(payload.userClass);
+          if (!classes.includes(formattedClass)) {
+            hasError = true;
+            errorReasons.push(`Class "${payload.userClass}" is invalid (does not exist in school settings)`);
+          } else {
+            payload.userClass = formattedClass;
+          }
+        }
+      }
+
+      // Format DOB if present
+      if (payload.dob) {
+        const d = new Date(payload.dob);
+        if (isNaN(d.getTime())) {
+          payload.dob = null;
+        } else {
+          payload.dob = d.toISOString().split('T')[0];
+        }
+      } else {
+        payload.dob = null;
+      }
+
+      // Auto-generate username if blank
+      let isUsernameAutogenerated = false;
+      if (!payload.username) {
+        isUsernameAutogenerated = true;
+        const cleanName = payload.name ? payload.name.toLowerCase().replace(/[^a-z0-9]/g, '') : 'user';
+        const randomVal = Math.floor(1000 + Math.random() * 9000);
+        payload.username = `${cleanName}${randomVal}`;
+      }
+
+      // Auto-generate password if blank
+      if (!payload.password) {
+        payload.password = 'School@123';
+      }
+
+      // Auto-generate email if blank
+      let isDummyEmail = false;
+      if (!payload.email) {
+        isDummyEmail = true;
+        payload.email = `${payload.username.toLowerCase()}@${schoolSettings.school_code.toLowerCase()}.schoolos.com`;
+      } else {
+        // validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(payload.email)) {
+          hasError = true;
+          errorReasons.push(`Invalid email format: "${payload.email}"`);
+        }
+      }
+
+      if (hasError) {
+        initialFailures.push({
+          rowNum,
+          name: payload.name || "Unknown",
+          rawRowData: row,
+          reason: errorReasons.join(", ")
+        });
+      } else {
+        processedRows.push({
+          rowNum,
+          payload,
+          isDummyEmail,
+          rawRowData: row
+        });
+      }
+    });
+
+    const successList = [];
+    const failureList = [...initialFailures];
+    let processedCount = 0;
+    const totalToProcess = processedRows.length;
+
+    const runBatch = async (batch) => {
+      await Promise.all(batch.map(async (row) => {
+        try {
+          // Resolve username uniqueness strictly at the school level (up to 5 retries)
+          let finalUsername = row.payload.username;
+          let isUnique = false;
+          let attempts = 0;
+
+          while (!isUnique && attempts < 5) {
+            const checkUsername = attempts === 0 ? finalUsername : `${finalUsername}${attempts}`;
+            const { data: existingUser } = await supabase
+              .from('users')
+              .select('id')
+              .eq('school_id', schoolSettings.school_id)
+              .eq('username', checkUsername)
+              .maybeSingle();
+
+            if (!existingUser) {
+              finalUsername = checkUsername;
+              isUnique = true;
+            } else {
+              attempts++;
+            }
+          }
+
+          if (!isUnique) {
+            throw new Error(`Username conflict could not be resolved at the school level.`);
+          }
+
+          row.payload.username = finalUsername;
+
+          // If dummy email was built from username, update it
+          if (row.isDummyEmail) {
+            row.payload.email = `${finalUsername}@${schoolSettings.school_code.toLowerCase()}.schoolos.com`;
+          }
+
+          // Call SQL RPC (No Aadhar parameters)
+          const { data: newUid, error: rpcError } = await supabase.rpc('admin_create_user', {
+            p_email: row.payload.email,
+            p_password: row.payload.password,
+            p_role: activeTab === 'staff' ? 'staff' : activeTab,
+            p_name: row.payload.name,
+            p_username: row.payload.username,
+            p_school_id: schoolSettings.school_id,
+            p_class: row.payload.userClass || null,
+            p_contact: row.payload.contact || null,
+            p_dob: row.payload.dob || null,
+            p_address: row.payload.address || null,
+            p_blood_group: row.payload.bloodGroup || null,
+            p_designation: row.payload.designation || null,
+            p_qualification: row.payload.qualification || null
+          });
+
+          if (rpcError) throw rpcError;
+
+          // Trigger Welcome Email Edge Function (skip for students)
+          if (activeTab !== 'student' && row.payload.email) {
+            supabase.functions.invoke('send-welcome-email', {
+              body: {
+                email: row.payload.email,
+                name: row.payload.name,
+                username: row.payload.username,
+                password: row.payload.password,
+                role: activeTab === 'staff' ? 'staff' : activeTab,
+                schoolName: schoolSettings.name
+              }
+            }).catch(err => console.error('Failed to trigger welcome email:', err));
+          }
+
+          successList.push({
+            rowNum: row.rowNum,
+            name: row.payload.name,
+            class: row.payload.userClass || 'N/A',
+            username: row.payload.username,
+            password: row.payload.password,
+            email: row.payload.email
+          });
+        } catch (err) {
+          failureList.push({
+            rowNum: row.rowNum,
+            name: row.payload.name || "Unknown",
+            rawRowData: row.rawRowData,
+            reason: err.message || "Database error occurred"
+          });
+        } finally {
+          processedCount++;
+          if (totalToProcess > 0) {
+            setBulkProgress(Math.round((processedCount / totalToProcess) * 100));
+          }
+        }
+      }));
+    };
+
+    // Concurrency queue (3 concurrent requests, 300ms inter-batch delay)
+    const concurrency = 3;
+    const delayMs = 300;
+    for (let i = 0; i < processedRows.length; i += concurrency) {
+      const chunk = processedRows.slice(i, i + concurrency);
+      await runBatch(chunk);
+      if (i + concurrency < processedRows.length) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+
+    setBulkResults({ successList, failureList });
+    queryClient.invalidateQueries({ queryKey: ['users-list'] });
+    setIsProcessing(false);
+    setBulkStep(4);
+  };
+
+  const handleDownloadCredentials = () => {
+    if (!bulkResults?.successList) return;
+    const headers = ['Name', 'Role/Class', 'Username', 'Password', 'Email'];
+    const rows = bulkResults.successList.map(s => [
+      s.name,
+      activeTab === 'student' ? s.class : (activeTab.charAt(0).toUpperCase() + activeTab.slice(1)),
+      s.username,
+      s.password,
+      s.email
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Credentials");
+    XLSX.writeFile(wb, `${activeTab}_imported_credentials.xlsx`);
+  };
+
+  const handleDownloadFailures = () => {
+    if (!bulkResults?.failureList) return;
+    const headers = [...bulkHeaders, 'Error Reason'];
+    const rows = bulkResults.failureList.map(f => {
+      const dataRow = [...f.rawRowData];
+      while (dataRow.length < bulkHeaders.length) {
+        dataRow.push('');
+      }
+      dataRow.push(f.reason);
+      return dataRow;
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Failed Rows");
+    XLSX.writeFile(wb, `${activeTab}_failed_records.xlsx`);
+  };
+
+  const resetBulkUploadState = () => {
+    setBulkStep(1);
+    setBulkFile(null);
+    setBulkHeaders([]);
+    setBulkRows([]);
+    setBulkMappings({});
+    setBulkProgress(0);
+    setBulkResults(null);
+    setIsProcessing(false);
+    setIsBulkModalOpen(false);
+  };
+
   /* ── Edit Profile Panel State ── */
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -109,13 +505,13 @@ export default function UserManagement() {
   const classes = schoolSettings?.classes || [];
 
   useEffect(() => {
-    if (isAddModalOpen || editingUser || isCreateClassModalOpen || resettingUser) {
+    if (isAddModalOpen || isBulkModalOpen || editingUser || isCreateClassModalOpen || resettingUser) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [isAddModalOpen, editingUser, isCreateClassModalOpen, resettingUser]);
+  }, [isAddModalOpen, isBulkModalOpen, editingUser, isCreateClassModalOpen, resettingUser]);
 
   /* ── Fetch existing bus assignments for the Bus Allocation dropdown ── */
   const { data: existingBuses = [] } = useQuery({
@@ -414,6 +810,15 @@ export default function UserManagement() {
               className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-500/20 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 transition-all whitespace-nowrap active:scale-95"
             >
               <Plus size={20} /> Create Class
+            </button>
+            <button
+              onClick={() => {
+                if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                setIsBulkModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-indigo-500/20 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all whitespace-nowrap active:scale-95"
+            >
+              <Upload size={20} /> Bulk Add from Excel
             </button>
             <button
               onClick={() => {
@@ -880,7 +1285,10 @@ export default function UserManagement() {
       {/* ── CREATE CLASS MODAL ── */}
       {isCreateClassModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <form onSubmit={handleSaveClass} className="bg-white border border-border rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
+          <form
+            onSubmit={handleSaveClass}
+            className="bg-white border border-border rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in duration-200 relative"
+          >
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
                 <Plus size={20} />
@@ -890,7 +1298,7 @@ export default function UserManagement() {
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Manage Academy</p>
               </div>
             </div>
-            
+
             <p className="text-[11px] text-slate-500 mb-4 font-medium leading-relaxed">
               Enter the numeric grade or class number (e.g., 1, 2, 10, 11). Only numbers are accepted; the system will append the correct suffix (ST, ND, RD, TH) automatically.
             </p>
@@ -928,6 +1336,336 @@ export default function UserManagement() {
               </div>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ── BULK UPLOAD MODAL ── */}
+      {isBulkModalOpen && (
+        <div className="fixed inset-0 z-[110] overflow-y-auto py-10 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-4xl shadow-2xl relative max-h-[90vh] flex flex-col scale-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5 flex-shrink-0">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 tracking-tight">
+                  Bulk Add {activeTab === 'staff' ? 'Staff' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}s
+                </h3>
+                <p className="text-xs text-slate-400 font-semibold">Upload users via Excel or CSV spreadsheets</p>
+              </div>
+              <button 
+                onClick={resetBulkUploadState} 
+                disabled={isProcessing}
+                className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors disabled:opacity-50"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Step Indicators */}
+            <div className="flex items-center gap-3 mb-6 flex-shrink-0 select-none">
+              {[
+                { step: 1, label: 'Upload File' },
+                { step: 2, label: 'Column Mapping' },
+                { step: 3, label: 'Importing' },
+                { step: 4, label: 'Summary' }
+              ].map((s) => (
+                <React.Fragment key={s.step}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                      bulkStep === s.step 
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
+                        : bulkStep > s.step 
+                        ? 'bg-emerald-500 text-white' 
+                        : 'bg-slate-100 text-slate-400'
+                    }`}>
+                      {bulkStep > s.step ? <Check size={12} strokeWidth={3} className="text-white" /> : s.step}
+                    </div>
+                    <span className={`text-xs font-bold transition-colors ${
+                      bulkStep === s.step ? 'text-indigo-600' : bulkStep > s.step ? 'text-slate-700' : 'text-slate-400'
+                    }`}>
+                      {s.label}
+                    </span>
+                  </div>
+                  {s.step < 4 && <div className={`flex-1 h-0.5 rounded transition-colors ${bulkStep > s.step ? 'bg-emerald-300' : 'bg-slate-100'}`} />}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto flex-1 custom-scrollbar pr-1 min-h-[300px]">
+              
+              {/* STEP 1: UPLOAD FILE */}
+              {bulkStep === 1 && (
+                <div className="space-y-6">
+                  {/* Instructions Alert */}
+                  <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex gap-3">
+                    <BadgeInfo className="text-indigo-600 shrink-0 mt-0.5" size={18} />
+                    <div className="text-xs text-indigo-900 leading-relaxed font-semibold">
+                      <p className="font-bold text-indigo-950 mb-1">Spreadsheet Instructions:</p>
+                      The system will automatically generate Usernames and Passwords if you leave those columns blank, or you can provide your own. Required fields are marked with an asterisk (*). Invalid classes or missing names will cause rows to fail.
+                    </div>
+                  </div>
+
+                  {/* Actions Section */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {/* Template Card */}
+                    <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between items-start gap-4">
+                      <div>
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl inline-block mb-3">
+                          <FileSpreadsheet size={24} />
+                        </div>
+                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Download Template</h4>
+                        <p className="text-xs text-slate-500 font-semibold mt-1">Get a pre-formatted Excel template with correct role-specific column headers.</p>
+                      </div>
+                      <button
+                        onClick={handleDownloadTemplate}
+                        className="py-3 px-6 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs uppercase font-black tracking-wider rounded-xl transition-all flex items-center gap-2 shadow-sm"
+                      >
+                        <Download size={14} /> Download template.xlsx
+                      </button>
+                    </div>
+
+                    {/* Upload File Card */}
+                    <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between items-stretch gap-4 relative">
+                      <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-2xl p-6 bg-white hover:bg-slate-50 transition-all cursor-pointer relative min-h-[140px]">
+                        <Upload size={32} className="text-slate-400 mb-3" />
+                        <span className="text-xs font-black text-slate-600 uppercase tracking-wider text-center">Click to browse file</span>
+                        <span className="text-[10px] text-slate-400 font-semibold mt-1 text-center">Supports .xlsx, .xls, .csv files</span>
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleFileUpload}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: COLUMN MAPPING & PREVIEW */}
+              {bulkStep === 2 && (
+                <div className="space-y-6">
+                  {/* Warning Alert */}
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3">
+                    <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                    <div className="text-xs text-amber-900 leading-relaxed font-semibold">
+                      <p className="font-bold text-amber-950 mb-1">Verify Column Mapping:</p>
+                      Review the mapping below to ensure the system is reading columns from your file correctly. You can override any auto-detected column manually.
+                    </div>
+                  </div>
+
+                  {/* Mapping Fields Grid */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                    <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 pb-2 border-b border-slate-200">
+                      System Attributes vs Excel Columns
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {getTargetFieldsForRole(activeTab).map((field) => (
+                        <div key={field.key} className="flex flex-col gap-1.5">
+                          <label className="text-[10px] uppercase font-black text-slate-500 tracking-wider">
+                            {field.label}
+                          </label>
+                          <select
+                            value={bulkMappings[field.key] || ''}
+                            onChange={(e) => setBulkMappings(m => ({ ...m, [field.key]: e.target.value }))}
+                            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                          >
+                            <option value="">-- Skip / Auto-generate --</option>
+                            {bulkHeaders.map(h => (
+                              <option key={h} value={h}>{h}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Data Preview Table */}
+                  <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    <div className="p-3 bg-slate-50 text-xs font-black text-slate-500 uppercase tracking-widest border-b border-slate-200">
+                      Data Preview (First 3 Rows)
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100">
+                            {getTargetFieldsForRole(activeTab).map(field => (
+                              <th key={field.key} className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-wider whitespace-nowrap font-bold">
+                                {field.label}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bulkRows.slice(0, 3).map((row, rIdx) => (
+                            <tr key={rIdx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
+                              {getTargetFieldsForRole(activeTab).map(field => {
+                                const colName = bulkMappings[field.key];
+                                const colIndex = bulkHeaders.indexOf(colName);
+                                const val = colIndex !== -1 ? row[colIndex] : '';
+                                return (
+                                  <td key={field.key} className="p-3 text-xs font-bold text-slate-700 whitespace-nowrap">
+                                    {val === null || val === undefined || val === '' ? (
+                                      <span className="text-slate-300 italic font-semibold">
+                                        {field.key === 'password' ? 'School@123' : field.key === 'email' ? 'Auto-generated' : 'Blank'}
+                                      </span>
+                                    ) : (
+                                      val
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+
+              {/* STEP 3: PROCESSING QUEUE */}
+              {bulkStep === 3 && (
+                <div className="flex flex-col items-center justify-center py-12 px-6 space-y-6">
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full border-4 border-indigo-100 animate-pulse" />
+                    <Loader2 className="animate-spin text-indigo-600 absolute" size={40} />
+                  </div>
+
+                  <div className="text-center space-y-2">
+                    <h4 className="text-base font-black text-slate-800 uppercase tracking-wider">Importing Records</h4>
+                    <p className="text-xs text-slate-500 font-semibold">Creating authentication profiles and database rows. Please do not close the window.</p>
+                  </div>
+
+                  {/* Progress bar container */}
+                  <div className="w-full max-w-md bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
+                    <div 
+                      className="bg-indigo-600 h-full rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(79,70,229,0.3)]"
+                      style={{ width: `${bulkProgress}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-black text-indigo-600">{bulkProgress}% Complete</span>
+                </div>
+              )}
+
+              {/* STEP 4: IMPORT SUMMARY */}
+              {bulkStep === 4 && bulkResults && (
+                <div className="space-y-6">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Rows</div>
+                      <div className="text-2xl font-black text-slate-800 mt-1">
+                        {bulkResults.successList.length + bulkResults.failureList.length}
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-center">
+                      <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Imported Successfully</div>
+                      <div className="text-2xl font-black text-emerald-600 mt-1 flex items-center justify-center gap-1.5">
+                        <CheckCircle2 size={20} className="text-emerald-500" /> {bulkResults.successList.length}
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-center">
+                      <div className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Errors Encountered</div>
+                      <div className="text-2xl font-black text-rose-600 mt-1 flex items-center justify-center gap-1.5">
+                        {bulkResults.failureList.length > 0 ? <AlertCircle size={20} className="text-rose-500" /> : <CheckCircle2 size={20} className="text-emerald-500" />}
+                        {bulkResults.failureList.length}
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Actions Area */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row gap-3 items-center justify-between">
+                    <div className="text-xs text-slate-500 font-semibold text-center sm:text-left">
+                      Download the credentials list to distribute usernames/passwords, or the failure sheet to correct errors.
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                      {bulkResults.failureList.length > 0 && (
+                        <button
+                          onClick={handleDownloadFailures}
+                          className="flex-1 sm:flex-initial py-3 px-5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-100"
+                        >
+                          <Download size={14} /> Download Failed Rows
+                        </button>
+                      )}
+                      <button
+                        onClick={handleDownloadCredentials}
+                        className="flex-1 sm:flex-initial py-3 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-100"
+                      >
+                        <Download size={14} /> Download Credentials
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Error details if any */}
+                  {bulkResults.failureList.length > 0 && (
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm max-h-[250px] overflow-y-auto custom-scrollbar">
+                      <div className="p-3 bg-slate-50 text-xs font-black text-rose-500 uppercase tracking-widest border-b border-slate-200 sticky top-0">
+                        Error Logs List
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {bulkResults.failureList.map((err, idx) => (
+                          <div key={idx} className="p-3 text-xs font-semibold text-slate-700 flex gap-2 items-start">
+                            <span className="px-2 py-0.5 bg-rose-50 text-rose-600 rounded text-[10px] font-black shrink-0 mt-0.5">Row {err.rowNum}</span>
+                            <div className="flex-1">
+                              <span className="font-bold text-slate-900">{err.name}:</span> <span className="text-slate-500">{err.reason}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="p-6 border-t border-slate-100 flex-shrink-0 flex gap-3 sticky bottom-0 bg-white z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] mt-4">
+              {bulkStep === 1 && (
+                <button
+                  onClick={resetBulkUploadState}
+                  className="w-full py-3 text-sm font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors rounded-xl"
+                >
+                  Cancel
+                </button>
+              )}
+              {bulkStep === 2 && (
+                <>
+                  <button
+                    onClick={() => setBulkStep(1)}
+                    className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors rounded-xl border border-slate-200"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleStartImport}
+                    className="flex-[2] py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-sm rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
+                  >
+                    <Play size={16} /> Start Upload Queue
+                  </button>
+                </>
+              )}
+              {bulkStep === 4 && (
+                <button
+                  onClick={resetBulkUploadState}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-xl transition-colors"
+                >
+                  Finish & Close
+                </button>
+              )}
+            </div>
+
+          </div>
         </div>
       )}
     </div>
