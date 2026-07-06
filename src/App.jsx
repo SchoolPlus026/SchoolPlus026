@@ -154,7 +154,14 @@ export default function App() {
         const currentPlatformVersionTime = platformVersion ? new Date(platformVersion).getTime() : 0;
 
         if (!consent || consent.status !== 'agreed' || userAcceptedTime !== currentPlatformVersionTime) {
-          setMustAgreeConsent(true);
+          const localKey = `sp_consent_seen_${user.id}_${platformVersion}`;
+          const currentCount = parseInt(localStorage.getItem(localKey) || '0', 10);
+          if (currentCount < 2) {
+            localStorage.setItem(localKey, String(currentCount + 1));
+            setMustAgreeConsent(true);
+          } else {
+            setMustAgreeConsent(false);
+          }
         } else {
           setMustAgreeConsent(false);
         }

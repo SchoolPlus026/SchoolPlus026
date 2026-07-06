@@ -82,7 +82,7 @@ function BusLiveCard({ schoolId, busNumber, fbReady }) {
         <iframe
           key={`admin-map-${live.lat}-${live.lng}`}
           src={`https://maps.google.com/maps?q=${live.lat},${live.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
-          style={{ width: '100%', height: '180px', borderRadius: '12px', border: `2px solid ${isLive ? 'rgba(16,185,129,0.2)' : 'var(--card-border)'}`, display: 'block' }}
+          style={{ width: '100%', height: '320px', borderRadius: '12px', border: `2px solid ${isLive ? 'rgba(16,185,129,0.2)' : 'var(--card-border)'}`, display: 'block' }}
           title={`Bus ${busNumber} Live Location`}
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"

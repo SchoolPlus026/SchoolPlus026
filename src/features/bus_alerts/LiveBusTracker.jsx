@@ -411,7 +411,7 @@ export default function LiveBusTracker() {
                 key={`map-${trackingData.lat}-${trackingData.lng}`}
                 src={`https://maps.google.com/maps?q=${trackingData.lat},${trackingData.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
                 style={{
-                  width: '100%', height: '260px', borderRadius: '14px',
+                  width: '100%', height: '350px', borderRadius: '14px',
                   border: isLive ? '2px solid rgba(16,185,129,0.25)' : '2px solid var(--card-border)',
                   display: 'block',
                 }}

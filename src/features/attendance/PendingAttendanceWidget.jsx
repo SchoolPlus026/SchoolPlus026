@@ -171,7 +171,7 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
           <p className="text-xs text-slate-500 font-medium">All active classes have submitted attendance.</p>
         </div>
       ) : (
-        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+        <div className={`space-y-3 ${forceShow ? 'max-h-[70vh]' : 'max-h-[300px]'} overflow-y-auto pr-2 custom-scrollbar`}>
           {missing.length === 0 ? (
              <div className="text-center py-4 text-slate-400 text-sm">No active classes defined in system.</div>
           ) : (

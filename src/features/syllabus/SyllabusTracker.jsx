@@ -135,16 +135,37 @@ function TeacherSyllabus({ schoolId, user }) {
                 <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Checklist ({syllabus.chapters.filter(c => c.is_completed).length} / {syllabus.total_chapters} Completed)</span>
               </div>
               {syllabus.chapters.map((ch) => (
-                <div key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: '#fff', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
-                  <button onClick={() => toggleChapter(ch.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-                    {ch.is_completed ? <CheckCircle2 size={24} color="#10b981" /> : <Circle size={24} color="var(--text-faint)" />}
+                <div key={ch.id} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '16px', 
+                  padding: '14px 20px', 
+                  background: ch.is_completed ? 'rgba(16, 185, 129, 0.03)' : '#fff', 
+                  borderRadius: '16px', 
+                  border: '1px solid var(--card-border)',
+                  borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint)',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                }}>
+                  <button onClick={() => toggleChapter(ch.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', transition: 'transform 0.1s' }} onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'} onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}>
+                    {ch.is_completed ? <CheckCircle2 size={22} className="text-emerald-500" style={{ fill: 'rgba(16, 185, 129, 0.1)' }} /> : <Circle size={22} color="var(--text-faint)" />}
                   </button>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-muted)', minWidth: '80px' }}>Chapter {ch.id}</span>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-muted)', minWidth: '90px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Chapter {ch.id}</span>
                     <input 
                       type="text" defaultValue={ch.title || ''} onBlur={(e) => updateTitle(ch.id, e.target.value)}
-                      placeholder="(Optional) Topic name..."
-                      style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}
+                      placeholder="Add topic/chapter name..."
+                      style={{ 
+                        flex: 1, 
+                        background: 'transparent', 
+                        border: 'none', 
+                        outline: 'none', 
+                        fontSize: '14px', 
+                        fontWeight: 600, 
+                        color: 'var(--text-main)', 
+                        textDecoration: ch.is_completed ? 'line-through' : 'none',
+                        opacity: ch.is_completed ? 0.7 : 1
+                      }}
                     />
                   </div>
                 </div>
@@ -219,9 +240,22 @@ function StudentSyllabus({ schoolId, userClass }) {
               {isExpanded && (
                 <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--card-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {chapters.map(ch => (
-                    <div key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      {ch.is_completed ? <CheckCircle2 size={18} color="#10b981" /> : <Circle size={18} color="var(--text-faint)" />}
-                      <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
+                    <div key={ch.id} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '14px', 
+                      padding: '10px 16px', 
+                      background: ch.is_completed ? 'rgba(16, 185, 129, 0.02)' : 'var(--bg-faint, #f8fafc)', 
+                      borderRadius: '12px',
+                      borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint)'
+                    }}>
+                      {ch.is_completed ? <CheckCircle2 size={18} className="text-emerald-500" /> : <Circle size={18} color="var(--text-faint)" />}
+                      <span style={{ 
+                        fontSize: '14px', 
+                        fontWeight: 700, 
+                        color: ch.is_completed ? 'var(--text-muted)' : 'var(--text-main)',
+                        textDecoration: ch.is_completed ? 'line-through' : 'none'
+                      }}>
                         Chapter {ch.id}{ch.title ? `: ${ch.title}` : ''}
                       </span>
                     </div>
@@ -343,9 +377,22 @@ function AdminSyllabus({ schoolId }) {
                   <div style={{ padding: '16px', paddingTop: 0, borderTop: '1px solid var(--card-border)', background: '#fff' }}>
                     <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {chapters.map(ch => (
-                        <div key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          {ch.is_completed ? <CheckCircle2 size={16} color="#10b981" /> : <Circle size={16} color="var(--text-faint)" />}
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: ch.is_completed ? 'var(--text-muted)' : 'var(--text-main)', textDecoration: ch.is_completed ? 'line-through' : 'none' }}>
+                        <div key={ch.id} style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '12px', 
+                          padding: '10px 16px', 
+                          background: ch.is_completed ? 'rgba(16, 185, 129, 0.02)' : 'var(--bg-faint, #f8fafc)', 
+                          borderRadius: '12px',
+                          borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint)'
+                        }}>
+                          {ch.is_completed ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Circle size={16} color="var(--text-faint)" />}
+                          <span style={{ 
+                            fontSize: '13px', 
+                            fontWeight: 700, 
+                            color: ch.is_completed ? 'var(--text-muted)' : 'var(--text-main)', 
+                            textDecoration: ch.is_completed ? 'line-through' : 'none' 
+                          }}>
                             Chapter {ch.id}{ch.title ? `: ${ch.title}` : ''}
                           </span>
                         </div>

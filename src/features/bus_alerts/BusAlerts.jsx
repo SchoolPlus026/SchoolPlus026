@@ -639,7 +639,7 @@ export default function BusAlerts() {
                 key={`${displayCoords.lat}-${displayCoords.lng}`}
                 src={`https://maps.google.com/maps?q=${displayCoords.lat},${displayCoords.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
                 style={{
-                  width: '100%', height: '200px', borderRadius: '12px',
+                  width: '100%', height: '350px', borderRadius: '12px',
                   border: 'none', marginTop: '14px', display: 'block',
                 }}
                 title="Live Location Map"

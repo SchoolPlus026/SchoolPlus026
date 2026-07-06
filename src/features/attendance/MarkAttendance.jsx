@@ -361,15 +361,16 @@ export default function MarkAttendance() {
                  const isOnLeave = leavesList && leavesList.some(l => l.user_id === target.id);
                  const disabled = isAlreadyMarked && !isEditing;
                  return (
-                     <div key={target.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap', opacity: disabled ? 0.7 : 1 }}>
-                         <UserAvatar user={target} size="xs" />
-                         <div style={{ flex: 1, minWidth: '150px' }}>
-                             <strong>{target.name}</strong>
-                            {isOnLeave && <span className="badge ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Approved Leave</span>}
-                            <br/>
-                            <span className="muted small">{target.username}</span>
-                        </div>
-                        {['Present', 'Absent', 'Leave', 'Half_day'].map(st => {
+                      <div key={target.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderBottom: '1px solid var(--border-color)', flexWrap: 'nowrap', width: '100%', overflowX: 'auto', opacity: disabled ? 0.7 : 1 }}>
+                          <UserAvatar user={target} size="xs" />
+                          <div style={{ flex: '1 1 auto', minWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <strong style={{ fontSize: '13px', display: 'inline-block', color: 'var(--text-main)' }}>{target.name}</strong>
+                             {isOnLeave && <span className="badge ml-2 text-[9px] px-1 py-0.5 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Leave</span>}
+                             <br/>
+                             <span className="muted" style={{ fontSize: '10px', opacity: 0.7 }}>@{target.username}</span>
+                         </div>
+                         <div style={{ display: 'flex', flexShrink: 0, gap: '4px' }}>
+                         {['Present', 'Absent', 'Leave', 'Half_day'].map(st => {
                             const isSelected = status === st;
                             const isAnySelected = !!status;
                             const isFaded = isAnySelected && !isSelected;
@@ -394,46 +395,47 @@ export default function MarkAttendance() {
                             };
                             const colors = STATUS_COLORS[st];
 
-                            return (
-                                <label 
-                                  key={st} 
-                                  className={`cursor-pointer border rounded-xl px-3 py-1.5 font-semibold text-xs transition-all duration-200 flex items-center gap-1.5 select-none
-                                    ${disabled ? 'pointer-events-none opacity-50' : ''}
-                                    ${isSelected 
-                                      ? `${colors.active} border-solid font-bold scale-105 shadow-sm` 
-                                      : `border-[var(--card-border)] text-[var(--text-muted)] bg-[var(--bg-main)] ${colors.hover}`
-                                    }
-                                  `}
-                                  style={{
-                                    opacity: isFaded ? 0.15 : 1,
-                                    marginRight: '6px'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    if (isFaded && !disabled) e.currentTarget.style.opacity = '0.8';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    if (isFaded && !disabled) e.currentTarget.style.opacity = '0.15';
-                                  }}
-                                >
-                                    <input 
-                                      type="radio" 
-                                      name={`status_${target.id}`} 
-                                      value={st} 
-                                      checked={isSelected} 
-                                      disabled={disabled}
-                                      onChange={() => handleStatusChange(target.id, st)}
-                                      className="sr-only"
-                                    />
-                                    <span>{st.replace('_', ' ')}</span>
-                                </label>
-                            );
-                        })}
-                    </div>
-                 );
-               })
-           )}
-         </div>
-      </div>
-    </div>
-  );
+                             return (
+                                 <label 
+                                   key={st} 
+                                   className={`cursor-pointer border rounded-lg px-2 py-1 sm:px-3 sm:py-1.5 font-semibold text-[10px] sm:text-xs transition-all duration-200 flex items-center gap-1 select-none
+                                     ${disabled ? 'pointer-events-none opacity-50' : ''}
+                                     ${isSelected 
+                                       ? `${colors.active} border-solid font-bold scale-105 shadow-sm` 
+                                       : `border-[var(--card-border)] text-[var(--text-muted)] bg-[var(--bg-main)] ${colors.hover}`
+                                     }
+                                   `}
+                                   style={{
+                                     opacity: isFaded ? 0.15 : 1,
+                                     marginRight: '4px'
+                                   }}
+                                   onMouseEnter={(e) => {
+                                     if (isFaded && !disabled) e.currentTarget.style.opacity = '0.8';
+                                   }}
+                                   onMouseLeave={(e) => {
+                                     if (isFaded && !disabled) e.currentTarget.style.opacity = '0.15';
+                                   }}
+                                 >
+                                     <input 
+                                       type="radio" 
+                                       name={`status_${target.id}`} 
+                                       value={st} 
+                                       checked={isSelected} 
+                                       disabled={disabled}
+                                       onChange={() => handleStatusChange(target.id, st)}
+                                       className="sr-only"
+                                     />
+                                     <span>{st.replace('_', ' ')}</span>
+                                 </label>
+                             );
+                         })}
+                         </div>
+                      </div>
+                  );
+                })
+            )}
+          </div>
+       </div>
+     </div>
+   );
 }

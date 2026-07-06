@@ -627,7 +627,7 @@ export default function UserProfile() {
                   <div className="flex items-center gap-2 mt-2 sm:mt-4 flex-wrap">
                      <button 
                         onClick={handleOpenEditModal}
-                        className="px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+                        className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
                      >
                         <FileText size={14} />
                         Edit Profile
@@ -636,7 +636,7 @@ export default function UserProfile() {
                         <button 
                            onClick={handleRemoveAvatar} 
                            disabled={uploading}
-                           className="px-3.5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-50"
+                           className="px-3.5 py-2 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-50"
                         >
                            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                            Remove Photo
@@ -645,7 +645,7 @@ export default function UserProfile() {
                      <button 
                         onClick={triggerFileInput} 
                         disabled={uploading}
-                        className="px-3.5 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-50"
+                        className="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-50"
                      >
                         {uploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
                         Upload Photo
@@ -762,8 +762,8 @@ export default function UserProfile() {
                   )}
                   
                   {r === 'admin' && (
-                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3 text-amber-200 text-sm mt-2">
-                        <Info size={20} className="text-amber-400 shrink-0" />
+                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3 text-amber-800 dark:text-amber-200 text-sm mt-2 font-medium">
+                        <Info size={20} className="text-amber-600 dark:text-amber-400 shrink-0" />
                         <div>As an Administrator, you have full access to management modules, settings, and school database controls.</div>
                      </div>
                   )}
