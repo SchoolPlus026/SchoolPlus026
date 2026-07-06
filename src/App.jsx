@@ -110,7 +110,8 @@ export default function App() {
 
   useEffect(() => {
     async function checkConsent() {
-      if (!user?.id) {
+      const isAuthScreen = ['/login', '/register', '/reset-password', '/register-verify'].includes(location.pathname);
+      if (!user?.id || isAuthScreen || location.pathname === '/') {
         setMustAgreeConsent(false);
         return;
       }
@@ -175,7 +176,7 @@ export default function App() {
     } else {
       setMustAgreeConsent(false);
     }
-  }, [user?.id, platformSettings?.updated_at, role]);
+  }, [user?.id, platformSettings?.updated_at, role, location.pathname]);
 
   useEffect(() => {
     if (!isInitializing && window.pendingDeepLink) {

@@ -11,6 +11,47 @@ export default function PwaInstallBanner() {
   const [visible, setVisible] = useState(false);
   const [apkUrl, setApkUrl] = useState(null);
 
+  const canShowPrompt = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const stored = localStorage.getItem('sp_pwa_prompt_count_data');
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        if (data.date === today) {
+          if (data.count >= 4) {
+            return false;
+          }
+        }
+      } catch (e) {
+        console.warn('[PWA] Failed to parse prompt count data:', e);
+      }
+    }
+    return true;
+  };
+
+  const incrementPromptCount = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const stored = localStorage.getItem('sp_pwa_prompt_count_data');
+    let data = { date: today, count: 0 };
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.date === today) {
+          data = parsed;
+        }
+      } catch (e) {}
+    }
+    data.count += 1;
+    localStorage.setItem('sp_pwa_prompt_count_data', JSON.stringify(data));
+  };
+
+  const showPrompt = () => {
+    if (canShowPrompt()) {
+      incrementPromptCount();
+      setVisible(true);
+    }
+  };
+
   // ── Native Notification Permission Prompt with Cooldown ──
   useEffect(() => {
     if (Capacitor.isNativePlatform()) return;
@@ -117,7 +158,7 @@ export default function PwaInstallBanner() {
       if (useAppStore.getState().user) {
         const dismissedTime = localStorage.getItem('sp_pwa_dismissed');
         if (!dismissedTime || Date.now() - Number(dismissedTime) > 24 * 60 * 60 * 1000) {
-          setVisible(true);
+          showPrompt();
         }
       }
     };
@@ -145,7 +186,7 @@ export default function PwaInstallBanner() {
         if (!installed && useAppStore.getState().user) {
           const dismissedTime = localStorage.getItem('sp_pwa_dismissed');
           if (!dismissedTime || Date.now() - Number(dismissedTime) > 24 * 60 * 60 * 1000) {
-            setVisible(true);
+            showPrompt();
           }
         }
       }, 4000);
@@ -181,11 +222,11 @@ export default function PwaInstallBanner() {
               setVisible(false);
             } catch (err) {
               console.warn('[PWA] Direct prompt requires user interaction, displaying card overlay:', err);
-              setVisible(true);
+              showPrompt();
             }
           } else {
             console.info('[PWA] Show visual guidance overlay post-login (iOS or no deferred prompt).');
-            setVisible(true);
+            showPrompt();
           }
         }
       }
