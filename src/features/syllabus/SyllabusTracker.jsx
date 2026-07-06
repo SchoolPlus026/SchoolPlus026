@@ -140,13 +140,15 @@ function TeacherSyllabus({ schoolId, user }) {
                   alignItems: 'center', 
                   gap: '16px', 
                   padding: '14px 20px', 
-                  background: ch.is_completed ? 'rgba(16, 185, 129, 0.03)' : '#fff', 
+                  background: ch.is_completed ? 'rgba(16, 185, 129, 0.04)' : 'var(--card, #ffffff)', 
                   borderRadius: '16px', 
-                  border: '1px solid var(--card-border)',
-                  borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint)',
+                  border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
+                  borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint, #94a3b8)',
                   transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                }}>
+                  boxShadow: '0 4px 12px -2px rgba(0,0,0,0.03)'
+                }}
+                className="hover:translate-x-1 transition-transform"
+                >
                   <button onClick={() => toggleChapter(ch.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', transition: 'transform 0.1s' }} onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'} onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}>
                     {ch.is_completed ? <CheckCircle2 size={22} className="text-emerald-500" style={{ fill: 'rgba(16, 185, 129, 0.1)' }} /> : <Circle size={22} color="var(--text-faint)" />}
                   </button>
@@ -168,6 +170,17 @@ function TeacherSyllabus({ schoolId, user }) {
                       }}
                     />
                   </div>
+                  <span style={{ 
+                    fontSize: '9px', 
+                    fontWeight: 900, 
+                    textTransform: 'uppercase', 
+                    padding: '2.5px 7px', 
+                    borderRadius: '6px', 
+                    backgroundColor: ch.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-main, rgba(0,0,0,0.03))',
+                    color: ch.is_completed ? '#10b981' : 'var(--text-muted)'
+                  }}>
+                    {ch.is_completed ? 'Completed' : 'Pending'}
+                  </span>
                 </div>
               ))}
             </div>
@@ -244,19 +257,33 @@ function StudentSyllabus({ schoolId, userClass }) {
                       display: 'flex', 
                       alignItems: 'center', 
                       gap: '14px', 
-                      padding: '10px 16px', 
-                      background: ch.is_completed ? 'rgba(16, 185, 129, 0.02)' : 'var(--bg-faint, #f8fafc)', 
-                      borderRadius: '12px',
-                      borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint)'
+                      padding: '12px 18px', 
+                      background: ch.is_completed ? 'rgba(16, 185, 129, 0.04)' : 'var(--card, #ffffff)', 
+                      borderRadius: '14px',
+                      border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
+                      borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint, #94a3b8)',
+                      boxShadow: '0 4px 12px -2px rgba(0,0,0,0.02)'
                     }}>
                       {ch.is_completed ? <CheckCircle2 size={18} className="text-emerald-500" /> : <Circle size={18} color="var(--text-faint)" />}
                       <span style={{ 
                         fontSize: '14px', 
                         fontWeight: 700, 
                         color: ch.is_completed ? 'var(--text-muted)' : 'var(--text-main)',
-                        textDecoration: ch.is_completed ? 'line-through' : 'none'
+                        textDecoration: ch.is_completed ? 'line-through' : 'none',
+                        flex: 1
                       }}>
                         Chapter {ch.id}{ch.title ? `: ${ch.title}` : ''}
+                      </span>
+                      <span style={{ 
+                        fontSize: '9px', 
+                        fontWeight: 900, 
+                        textTransform: 'uppercase', 
+                        padding: '2.5px 7px', 
+                        borderRadius: '6px', 
+                        backgroundColor: ch.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-main, rgba(0,0,0,0.03))',
+                        color: ch.is_completed ? '#10b981' : 'var(--text-muted)'
+                      }}>
+                        {ch.is_completed ? 'Completed' : 'Pending'}
                       </span>
                     </div>
                   ))}
@@ -374,26 +401,40 @@ function AdminSyllabus({ schoolId }) {
                 </div>
 
                 {isExpanded && (
-                  <div style={{ padding: '16px', paddingTop: 0, borderTop: '1px solid var(--card-border)', background: '#fff' }}>
+                  <div style={{ padding: '16px', paddingTop: 0, borderTop: '1px solid var(--card-border)', background: 'var(--card, #ffffff)' }}>
                     <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {chapters.map(ch => (
                         <div key={ch.id} style={{ 
                           display: 'flex', 
                           alignItems: 'center', 
                           gap: '12px', 
-                          padding: '10px 16px', 
-                          background: ch.is_completed ? 'rgba(16, 185, 129, 0.02)' : 'var(--bg-faint, #f8fafc)', 
-                          borderRadius: '12px',
-                          borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint)'
+                          padding: '12px 18px', 
+                          background: ch.is_completed ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-faint, var(--bg-main, #f8fafc))', 
+                          borderRadius: '14px',
+                          border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
+                          borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint, #94a3b8)',
+                          boxShadow: '0 4px 12px -2px rgba(0,0,0,0.02)'
                         }}>
                           {ch.is_completed ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Circle size={16} color="var(--text-faint)" />}
                           <span style={{ 
                             fontSize: '13px', 
                             fontWeight: 700, 
                             color: ch.is_completed ? 'var(--text-muted)' : 'var(--text-main)', 
-                            textDecoration: ch.is_completed ? 'line-through' : 'none' 
+                            textDecoration: ch.is_completed ? 'line-through' : 'none',
+                            flex: 1
                           }}>
                             Chapter {ch.id}{ch.title ? `: ${ch.title}` : ''}
+                          </span>
+                          <span style={{ 
+                            fontSize: '9px', 
+                            fontWeight: 900, 
+                            textTransform: 'uppercase', 
+                            padding: '2.5px 7px', 
+                            borderRadius: '6px', 
+                            backgroundColor: ch.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-main, rgba(0,0,0,0.03))',
+                            color: ch.is_completed ? '#10b981' : 'var(--text-muted)'
+                          }}>
+                            {ch.is_completed ? 'Completed' : 'Pending'}
                           </span>
                         </div>
                       ))}

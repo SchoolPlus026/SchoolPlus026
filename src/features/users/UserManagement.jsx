@@ -1800,12 +1800,12 @@ export default function UserManagement() {
                     </div>
                   </div>
 
-                  {/* Data Preview Table */}
+                   {/* Data Preview Table */}
                   <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                     <div className="p-3 bg-slate-50 text-xs font-black text-slate-500 uppercase tracking-widest border-b border-slate-200">
-                      Data Preview (First 3 Rows)
+                      Data Preview ({bulkRows.length} Rows Parsed)
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-100">
@@ -1817,7 +1817,7 @@ export default function UserManagement() {
                           </tr>
                         </thead>
                         <tbody>
-                          {bulkRows.slice(0, 3).map((row, rIdx) => (
+                          {bulkRows.map((row, rIdx) => (
                             <tr key={rIdx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
                               {getTargetFieldsForRole(activeTab).map(field => {
                                 const colName = bulkMappings[field.key];

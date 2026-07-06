@@ -154,10 +154,10 @@ export default function PwaInstallBanner() {
       window.deferredPrompt = e; // make it globally accessible
       setIsInstalled(false); // If prompt fires, we are definitely NOT installed (or uninstalled)
 
-      // Only show automatically on mount if logged in and 24h cooldown has passed
+      // Only show automatically on mount if logged in and not dismissed in current session
       if (useAppStore.getState().user) {
-        const dismissedTime = localStorage.getItem('sp_pwa_dismissed');
-        if (!dismissedTime || Date.now() - Number(dismissedTime) > 24 * 60 * 60 * 1000) {
+        const isSessionDismissed = sessionStorage.getItem('sp_pwa_dismissed_session') === 'true';
+        if (!isSessionDismissed) {
           showPrompt();
         }
       }
@@ -179,17 +179,16 @@ export default function PwaInstallBanner() {
     };
     window.addEventListener('show-pwa-install-modal', handleShowManual);
 
-    // If it's a mobile device (Android/iOS), we check status manually after a short timeout
     if (isMobile) {
       setTimeout(async () => {
         const installed = await checkInstallation();
         if (!installed && useAppStore.getState().user) {
-          const dismissedTime = localStorage.getItem('sp_pwa_dismissed');
-          if (!dismissedTime || Date.now() - Number(dismissedTime) > 24 * 60 * 60 * 1000) {
+          const isSessionDismissed = sessionStorage.getItem('sp_pwa_dismissed_session') === 'true';
+          if (!isSessionDismissed) {
             showPrompt();
           }
         }
-      }, 4000);
+      }, 2000);
     }
 
     return () => {
@@ -210,6 +209,7 @@ export default function PwaInstallBanner() {
         console.info('[PWA] Login detected. Checking installation...');
         const installed = await checkInstallation();
         if (!installed && !Capacitor.isNativePlatform()) {
+          sessionStorage.removeItem('sp_pwa_dismissed_session'); // Clear session dismiss on login
           const activePrompt = deferredPrompt || window.deferredPrompt;
           if (activePrompt) {
             try {
@@ -255,7 +255,7 @@ export default function PwaInstallBanner() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem('sp_pwa_dismissed', Date.now().toString());
+    sessionStorage.setItem('sp_pwa_dismissed_session', 'true');
     setVisible(false);
   };
 

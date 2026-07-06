@@ -361,76 +361,77 @@ export default function MarkAttendance() {
                  const isOnLeave = leavesList && leavesList.some(l => l.user_id === target.id);
                  const disabled = isAlreadyMarked && !isEditing;
                  return (
-                      <div key={target.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderBottom: '1px solid var(--border-color)', flexWrap: 'nowrap', width: '100%', overflowX: 'auto', opacity: disabled ? 0.7 : 1 }}>
-                          <UserAvatar user={target} size="xs" />
-                          <div style={{ flex: '1 1 auto', minWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              <strong style={{ fontSize: '13px', display: 'inline-block', color: 'var(--text-main)' }}>{target.name}</strong>
-                             {isOnLeave && <span className="badge ml-2 text-[9px] px-1 py-0.5 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Leave</span>}
-                             <br/>
-                             <span className="muted" style={{ fontSize: '10px', opacity: 0.7 }}>@{target.username}</span>
-                         </div>
-                         <div style={{ display: 'flex', flexShrink: 0, gap: '4px' }}>
-                         {['Present', 'Absent', 'Leave', 'Half_day'].map(st => {
-                            const isSelected = status === st;
-                            const isAnySelected = !!status;
-                            const isFaded = isAnySelected && !isSelected;
-                            
-                            const STATUS_COLORS = {
-                              Present: {
-                                active: 'bg-emerald-500/10 text-emerald-600 border-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40',
-                                hover: 'hover:bg-emerald-500/5 hover:text-emerald-600 dark:hover:bg-emerald-500/10'
-                              },
-                              Absent: {
-                                active: 'bg-red-500/10 text-red-600 border-red-500 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/40',
-                                hover: 'hover:bg-red-500/5 hover:text-red-600 dark:hover:bg-red-500/10'
-                              },
-                              Leave: {
-                                active: 'bg-blue-500/10 text-blue-600 border-blue-500 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/40',
-                                hover: 'hover:bg-blue-500/5 hover:text-blue-600 dark:hover:bg-blue-500/10'
-                              },
-                              Half_day: {
-                                active: 'bg-amber-500/10 text-amber-700 border-amber-500 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40',
-                                hover: 'hover:bg-amber-500/5 hover:text-amber-700 dark:hover:bg-amber-500/10'
-                              }
-                            };
-                            const colors = STATUS_COLORS[st];
-
-                             return (
-                                 <label 
-                                   key={st} 
-                                   className={`cursor-pointer border rounded-lg px-2 py-1 sm:px-3 sm:py-1.5 font-semibold text-[10px] sm:text-xs transition-all duration-200 flex items-center gap-1 select-none
-                                     ${disabled ? 'pointer-events-none opacity-50' : ''}
-                                     ${isSelected 
-                                       ? `${colors.active} border-solid font-bold scale-105 shadow-sm` 
-                                       : `border-[var(--card-border)] text-[var(--text-muted)] bg-[var(--bg-main)] ${colors.hover}`
-                                     }
-                                   `}
-                                   style={{
-                                     opacity: isFaded ? 0.15 : 1,
-                                     marginRight: '4px'
-                                   }}
-                                   onMouseEnter={(e) => {
-                                     if (isFaded && !disabled) e.currentTarget.style.opacity = '0.8';
-                                   }}
-                                   onMouseLeave={(e) => {
-                                     if (isFaded && !disabled) e.currentTarget.style.opacity = '0.15';
-                                   }}
-                                 >
-                                     <input 
-                                       type="radio" 
-                                       name={`status_${target.id}`} 
-                                       value={st} 
-                                       checked={isSelected} 
-                                       disabled={disabled}
-                                       onChange={() => handleStatusChange(target.id, st)}
-                                       className="sr-only"
-                                     />
-                                     <span>{st.replace('_', ' ')}</span>
-                                 </label>
-                             );
-                         })}
-                         </div>
-                      </div>
+                      <div key={target.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '10px 4px', borderBottom: '1px solid var(--border-color)', flexWrap: 'nowrap', width: '100%', opacity: disabled ? 0.7 : 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 auto', minWidth: '0' }}>
+                            <UserAvatar user={target} size="xs" />
+                            <div style={{ minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <strong style={{ fontSize: '12px', fontWeight: 800, display: 'inline-block', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>{target.name}</strong>
+                               {isOnLeave && <span className="badge ml-1.5 text-[8px] px-1 py-0.2 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>Leave</span>}
+                               <br/>
+                               <span className="muted" style={{ fontSize: '8.5px', opacity: 0.65 }}>@{target.username}</span>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'nowrap', flexShrink: 0, gap: '3px' }}>
+                          {['Present', 'Absent', 'Leave', 'Half_day'].map(st => {
+                             const isSelected = status === st;
+                             const isAnySelected = !!status;
+                             const isFaded = isAnySelected && !isSelected;
+                             
+                             const STATUS_COLORS = {
+                               Present: {
+                                 active: 'bg-emerald-500/10 text-emerald-600 border-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40',
+                                 hover: 'hover:bg-emerald-500/5 hover:text-emerald-600 dark:hover:bg-emerald-500/10'
+                               },
+                               Absent: {
+                                 active: 'bg-red-500/10 text-red-600 border-red-500 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/40',
+                                 hover: 'hover:bg-red-500/5 hover:text-red-600 dark:hover:bg-red-500/10'
+                               },
+                               Leave: {
+                                 active: 'bg-blue-500/10 text-blue-600 border-blue-500 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/40',
+                                 hover: 'hover:bg-blue-500/5 hover:text-blue-600 dark:hover:bg-blue-500/10'
+                               },
+                               Half_day: {
+                                 active: 'bg-amber-500/10 text-amber-700 border-amber-500 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40',
+                                 hover: 'hover:bg-amber-500/5 hover:text-amber-700 dark:hover:bg-amber-500/10'
+                               }
+                             };
+                             const colors = STATUS_COLORS[st];
+ 
+                              return (
+                                  <label 
+                                    key={st} 
+                                    className={`cursor-pointer border rounded-lg px-1.5 py-0.5 sm:px-2.5 sm:py-1 font-semibold text-[9px] sm:text-xs transition-all duration-200 flex items-center gap-1 select-none
+                                      ${disabled ? 'pointer-events-none opacity-50' : ''}
+                                      ${isSelected 
+                                        ? `${colors.active} border-solid font-bold scale-102 shadow-sm` 
+                                        : `border-[var(--card-border)] text-[var(--text-muted)] bg-[var(--bg-main)] ${colors.hover}`
+                                      }
+                                    `}
+                                    style={{
+                                      opacity: isFaded ? 0.25 : 1,
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (isFaded && !disabled) e.currentTarget.style.opacity = '0.8';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (isFaded && !disabled) e.currentTarget.style.opacity = '0.25';
+                                    }}
+                                  >
+                                      <input 
+                                        type="radio" 
+                                        name={`status_${target.id}`} 
+                                        value={st} 
+                                        checked={isSelected} 
+                                        disabled={disabled}
+                                        onChange={() => handleStatusChange(target.id, st)}
+                                        className="sr-only"
+                                      />
+                                      <span>{st.replace('_', ' ')}</span>
+                                  </label>
+                              );
+                          })}
+                          </div>
+                       </div>
                   );
                 })
             )}

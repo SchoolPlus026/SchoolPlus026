@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { User, Loader2, Mail, Phone, MapPin, Briefcase, Calendar, Info, GraduationCap, FileText, Users, BookOpen, Award, Star, Camera, Trash2, Lock, Smartphone, Download, ChevronDown, X } from 'lucide-react';
@@ -56,8 +57,9 @@ const compressImage = (file) => {
 };
 
 export default function UserProfile() {
-  const { user, role, schoolSettings, setUserAndRole } = useAppStore();
+  const { user, role, schoolSettings, platformSettings, setUserAndRole } = useAppStore();
   const [profile, setProfile] = useState(null);
+  const [showDemoModal, setShowDemoModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -87,6 +89,18 @@ export default function UserProfile() {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
+      const cleanUsername = editUsername.trim().toLowerCase();
+      const cleanEmail = editEmail.trim().toLowerCase();
+      const origUsername = (profile?.username || '').toLowerCase();
+      const origEmail = (profile?.email || '').toLowerCase();
+      if (cleanUsername !== origUsername || cleanEmail !== origEmail) {
+        setShowDemoModal(true);
+        return;
+      }
+    }
     if (!editEmail.trim() || !editEmail.includes('@')) {
       alert('Please enter a valid email address.');
       return;
@@ -181,6 +195,12 @@ export default function UserProfile() {
 
   const handleUpdateEmail = async (e) => {
     e.preventDefault();
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
+      setShowDemoModal(true);
+      return;
+    }
     if (!newEmail.trim() || !newEmail.includes('@')) {
       setEmailError('Please enter a valid email address.');
       return;
@@ -291,6 +311,12 @@ export default function UserProfile() {
   };
 
   const handleUnlinkGoogle = async () => {
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
+      setShowDemoModal(true);
+      return;
+    }
     if (!window.confirm('Are you sure you want to disconnect your Google account? You will need to use your password to log in.')) return;
     setLinkingLoading(true);
     try {
@@ -404,6 +430,13 @@ export default function UserProfile() {
   };
 
   const handleFileChange = async (e) => {
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
+      setShowDemoModal(true);
+      if (e.target) e.target.value = '';
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -489,6 +522,12 @@ export default function UserProfile() {
   };
 
   const handleRemoveAvatar = async () => {
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
+      setShowDemoModal(true);
+      return;
+    }
     if (!window.confirm('Are you sure you want to remove your profile picture?')) return;
     setUploading(true);
 
@@ -627,7 +666,7 @@ export default function UserProfile() {
                   <div className="flex items-center gap-2 mt-2 sm:mt-4 flex-wrap">
                      <button 
                         onClick={handleOpenEditModal}
-                        className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+                        className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 border border-emerald-400 dark:border-emerald-500/25 text-xs font-black rounded-xl transition-all flex items-center gap-1.5"
                      >
                         <FileText size={14} />
                         Edit Profile
@@ -636,7 +675,7 @@ export default function UserProfile() {
                         <button 
                            onClick={handleRemoveAvatar} 
                            disabled={uploading}
-                           className="px-3.5 py-2 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-50"
+                           className="px-3.5 py-2 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-950 dark:text-red-400 border border-red-400 dark:border-red-500/25 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-50"
                         >
                            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                            Remove Photo
@@ -645,7 +684,7 @@ export default function UserProfile() {
                      <button 
                         onClick={triggerFileInput} 
                         disabled={uploading}
-                        className="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-50"
+                        className="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-950 dark:text-indigo-300 border border-indigo-400 dark:border-indigo-500/25 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-50"
                      >
                         {uploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
                         Upload Photo
@@ -762,11 +801,11 @@ export default function UserProfile() {
                   )}
                   
                   {r === 'admin' && (
-                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3 text-amber-800 dark:text-amber-200 text-sm mt-2 font-medium">
-                        <Info size={20} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                        <div>As an Administrator, you have full access to management modules, settings, and school database controls.</div>
-                     </div>
-                  )}
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3 text-amber-950 dark:text-amber-200 text-sm mt-2 font-bold">
+                         <Info size={20} className="text-amber-800 dark:text-amber-400 shrink-0" />
+                         <div>As an Administrator, you have full access to management modules, settings, and school database controls.</div>
+                      </div>
+                   )}
                </div>
             </div>
           </div>
@@ -1022,6 +1061,26 @@ export default function UserProfile() {
           </form>
         </div>
       </div>
+    )}
+    {showDemoModal && createPortal(
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.70)', padding: '16px' }}>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-[440px] text-center p-8 shadow-2xl relative" style={{ borderLeft: '4px solid #6366f1' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 8px 24px rgba(99,102,241,0.3)' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-3">Action Restricted</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+            This is a demo school for global testing. You cannot delete or alter core data here. You will get 100% control over your data when you register your own school.
+          </p>
+          <button
+            onClick={() => setShowDemoModal(false)}
+            className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-md shadow-indigo-200"
+          >
+            Understand & Close
+          </button>
+        </div>
+      </div>,
+      document.body
     )}
     </>
   );

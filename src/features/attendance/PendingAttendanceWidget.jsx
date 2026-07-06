@@ -143,59 +143,119 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       </div>
     );
   }
-
   return (
-    <div className="sp-card relative overflow-hidden mb-6">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+    <div className={forceShow ? "space-y-6" : "sp-card relative overflow-hidden mb-6"}>
+      {!forceShow && (
+        <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      )}
       
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl">
-            <Radar size={20} className={missing.length > 0 ? "animate-pulse" : ""} />
+      {/* Widget Header (Compact or Full Page) */}
+      {forceShow ? (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-6 rounded-3xl border border-glass shadow-xl relative overflow-hidden">
+          <div className="absolute left-0 bottom-0 w-32 h-32 bg-rose-500/10 blur-3xl rounded-full -ml-16 -mb-16 pointer-events-none" />
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl">
+              <Radar size={24} className={missing.length > 0 ? "animate-pulse" : ""} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white tracking-tight mb-1">Staff Pending Duty</h2>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Duty radar tracking active class attendance logs</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Staff Pending Duty</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Missing Attendance Logs</p>
+          <div className="relative z-10 flex gap-3 flex-wrap">
+            <div className="px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-center">
+              <div className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Pending Classes</div>
+              <div className="text-lg font-black text-rose-200 mt-0.5">{missing.length}</div>
+            </div>
+            <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
+              <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Completed Classes</div>
+              <div className="text-lg font-black text-emerald-200 mt-0.5">{totalSubmitted}</div>
+            </div>
           </div>
         </div>
-        {!forceShow && (
+      ) : (
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl">
+              <Radar size={20} className={missing.length > 0 ? "animate-pulse" : ""} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Staff Pending Duty</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Missing Attendance Logs</p>
+            </div>
+          </div>
           <button onClick={handleDismiss} className="text-slate-500 hover:text-slate-300 transition-colors">
             <X size={18} />
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
+      {/* Widget Body */}
       {missing.length === 0 && totalSubmitted > 0 ? (
-        <div className="text-center py-4 bg-slate-800/30 rounded-xl border border-white/5">
-          <p className="text-emerald-400 text-sm font-bold">All clear!</p>
-          <p className="text-xs text-slate-500 font-medium">All active classes have submitted attendance.</p>
+        <div className="text-center py-12 bg-slate-900/60 rounded-3xl border border-white/5 shadow-inner">
+          <Radar size={40} className="mx-auto text-emerald-500 mb-3 opacity-60" />
+          <p className="text-emerald-400 text-base font-black uppercase tracking-wider">All duties cleared!</p>
+          <p className="text-xs text-slate-400 font-bold mt-1">Every active class has successfully submitted attendance logs today.</p>
         </div>
       ) : (
-        <div className={`space-y-3 ${forceShow ? 'max-h-[70vh]' : 'max-h-[300px]'} overflow-y-auto pr-2 custom-scrollbar`}>
+        <div className={forceShow ? "" : "max-h-[300px] overflow-y-auto pr-2 custom-scrollbar"}>
           {missing.length === 0 ? (
-             <div className="text-center py-4 text-slate-400 text-sm">No active classes defined in system.</div>
+            <div className="text-center py-12 text-slate-400 text-sm bg-slate-900/60 rounded-3xl border border-white/5">
+              No active classes defined in the system settings.
+            </div>
+          ) : forceShow ? (
+            /* Premium Grid Layout for Full Page View */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+              {missing.map((m, i) => (
+                <div key={i} className="flex flex-col justify-between p-6 bg-slate-900 border border-slate-800 rounded-3xl hover:border-rose-500/40 transition-all hover:scale-[1.01] hover:shadow-lg relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-xl group-hover:bg-rose-500/10 transition-colors pointer-events-none" />
+                  <div>
+                    <h4 className="text-base font-black text-slate-200 tracking-tight">{m.teacher_name}</h4>
+                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Assigned Class Teacher</p>
+                    
+                    <div className="flex items-center gap-2 mt-4">
+                      <span className="text-[10px] font-black bg-rose-500/20 text-rose-300 px-2.5 py-0.5 rounded-lg uppercase tracking-wider">
+                        Class {m.class_name}
+                      </span>
+                      <span className="text-[10px] font-black bg-slate-800 text-slate-400 px-2.5 py-0.5 rounded-lg uppercase tracking-wider">
+                        {m.period_label || `Period ${m.period_order}`}
+                      </span>
+                    </div>
+                  </div>
+                  <button 
+                    className="w-full mt-6 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-950/30"
+                    onClick={() => alert(`Reminder sent to ${m.teacher_name}.`)}
+                  >
+                    Send Reminder <Send size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
           ) : (
-             missing.map((m, i) => (
-               <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl transition-colors">
-                 <div>
-                   <p className="text-sm font-bold text-slate-200">{m.teacher_name}</p>
-                   <div className="flex items-center gap-2 mt-1">
-                     <span className="text-[10px] font-black bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded uppercase tracking-wider">
-                       {m.class_name}
-                     </span>
-                     <span className="text-[10px] font-bold text-slate-400 uppercase">
-                       {m.period_label || `Period ${m.period_order}`}
-                     </span>
-                   </div>
-                 </div>
-                 <button 
-                   className="w-full sm:w-auto px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                   onClick={() => alert(`Reminder sent to ${m.teacher_name}.`)}
-                 >
-                   Send Reminder <Send size={12} />
-                 </button>
-               </div>
-             ))
+            /* Compact List Layout for Dashboard Widget */
+            <div className="space-y-3">
+              {missing.map((m, i) => (
+                <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl transition-colors">
+                  <div>
+                    <p className="text-sm font-bold text-slate-200">{m.teacher_name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] font-black bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded uppercase tracking-wider">
+                        {m.class_name}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">
+                        {m.period_label || `Period ${m.period_order}`}
+                      </span>
+                    </div>
+                  </div>
+                  <button 
+                    className="w-full sm:w-auto px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                    onClick={() => alert(`Reminder sent to ${m.teacher_name}.`)}
+                  >
+                    Send Reminder <Send size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
