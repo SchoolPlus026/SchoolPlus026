@@ -41,6 +41,7 @@ export default function AccountSwitcher() {
   const handleSwitch = async (target) => {
     if (target.user_id === user?.id) return;
     setSwitchingId(target.user_id);
+    sessionStorage.setItem('sp_switching_account', 'true');
     try {
       const { error } = await supabase.auth.setSession({
         access_token: target.session.access_token,
@@ -52,6 +53,7 @@ export default function AccountSwitcher() {
       navigate(target.role === 'platform_admin' ? '/platform-admin' : `/${target.role}`, { replace: true });
       window.location.reload();
     } catch (err) {
+      sessionStorage.removeItem('sp_switching_account');
       alert('Failed to switch accounts: Stored session has expired. Please remove and re-add this account.');
       setSwitchingId(null);
     }

@@ -111,7 +111,8 @@ export default function App() {
   useEffect(() => {
     async function checkConsent() {
       const isAuthScreen = ['/login', '/register', '/reset-password', '/register-verify'].includes(location.pathname);
-      if (!user?.id || isAuthScreen || location.pathname === '/') {
+      const isSwitching = sessionStorage.getItem('sp_switching_account') === 'true' || localStorage.getItem('sp_adding_account') === 'true';
+      if (!user?.id || isAuthScreen || location.pathname === '/' || isSwitching) {
         setMustAgreeConsent(false);
         return;
       }
@@ -186,6 +187,13 @@ export default function App() {
       delete window.pendingDeepLink;
     }
   }, [isInitializing, navigate]);
+
+  useEffect(() => {
+    if (!isInitializing && user?.id) {
+      sessionStorage.removeItem('sp_switching_account');
+      localStorage.removeItem('sp_adding_account');
+    }
+  }, [isInitializing, user?.id]);
 
   useEffect(() => {
     const checkNightPopup = () => {
