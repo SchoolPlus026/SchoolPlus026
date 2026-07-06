@@ -113,6 +113,7 @@ export default function PlatformAdminDashboard() {
   const [contactEmail, setContactEmail] = useState('');
   const [contactAddress, setContactAddress] = useState('Parli Vaijnath, Maharashtra');
   const [savingPlatform, setSavingPlatform] = useState(false);
+  const [allowDemoEdit, setAllowDemoEdit] = useState(false);
   const [paGdriveConfig, setPaGdriveConfig] = useState([]);
   const [connectingDrive, setConnectingDrive] = useState(false);
   const [disconnectingDrive, setDisconnectingDrive] = useState(false);
@@ -602,6 +603,7 @@ export default function PlatformAdminDashboard() {
         staff: data.disclaimer_staff || ''
       });
       setDriverGpsDisclaimer(data.disclaimer_driver_gps || '');
+      setAllowDemoEdit(!!data.allow_demo_edit);
 
       const gd = Array.isArray(data.pa_gdrive_config) ? data.pa_gdrive_config : (data.pa_gdrive_config ? [data.pa_gdrive_config] : []);
       setPaGdriveConfig(gd);
@@ -812,6 +814,7 @@ export default function PlatformAdminDashboard() {
       disclaimer_staff: roleDisclaimer.staff,
       
       disclaimer_driver_gps: driverGpsDisclaimer,
+      allow_demo_edit: allowDemoEdit,
       updated_at: new Date().toISOString()
     }).neq('id', '00000000-0000-0000-0000-000000000000'); // Update all (there's only 1 row)
 
@@ -2260,7 +2263,22 @@ export default function PlatformAdminDashboard() {
               </div>
             </div>
 
-            <button onClick={handleSavePlatform} disabled={savingPlatform} className="btn accent w-full mt-4">
+             <div className="border-t border-[var(--card-border)] pt-4 mt-4">
+               <label className="flex items-center gap-3 cursor-pointer group">
+                 <input
+                   type="checkbox"
+                   checked={allowDemoEdit}
+                   onChange={e => setAllowDemoEdit(e.target.checked)}
+                   className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                 />
+                 <div>
+                   <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">Allow Editing Demo School Data (School Code 100)</span>
+                   <p className="text-[10px] text-slate-500 font-semibold mt-0.5">When enabled, users will be allowed to modify data, change passwords, change email, and disconnect Google Accounts in the demo school.</p>
+                 </div>
+               </label>
+             </div>
+
+             <button onClick={handleSavePlatform} disabled={savingPlatform} className="btn accent w-full mt-4">
               <Save size={16} /> {savingPlatform ? 'Saving...' : 'Save Settings'}
             </button>
           </div>

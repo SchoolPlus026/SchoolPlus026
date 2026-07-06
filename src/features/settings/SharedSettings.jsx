@@ -144,6 +144,12 @@ export default function SharedSettings() {
 
   const handleUpdateEmail = async (e) => {
     e.preventDefault();
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
+      setShowDemoLockModal(true);
+      return;
+    }
     if (!newEmail.trim() || !newEmail.includes('@')) {
       setEmailError('Please enter a valid email address.');
       return;
@@ -254,6 +260,12 @@ export default function SharedSettings() {
   };
 
   const handleUnlinkGoogle = async () => {
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
+      setShowDemoLockModal(true);
+      return;
+    }
     if (!window.confirm('Are you sure you want to disconnect your Google account? You will need to use your password to log in.')) return;
     setLinkingLoading(true);
     try {
@@ -501,7 +513,8 @@ export default function SharedSettings() {
   const changePassword = async () => {
     // Check if this is a protected demo/test school
     const code = String(schoolSettings?.school_code || '').trim();
-    if (code === '100') {
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
       setShowDemoLockModal(true);
       return;
     }
