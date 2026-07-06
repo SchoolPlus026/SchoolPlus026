@@ -129,7 +129,7 @@ const EField = ({ label, field, type = 'text', options = null, allowCustom = fal
 // Global UserAvatar component is imported above
 
 export default function UserManagement() {
-  const { schoolSettings, setSchoolSettings, user: currentUser, role: currentRole } = useAppStore();
+  const { schoolSettings, setSchoolSettings, user: currentUser, role: currentRole, platformSettings } = useAppStore();
   const { isPending } = usePending();
   const [activeTab, setActiveTab] = useState(currentRole === 'teacher' ? 'student' : 'teacher');
   const [searchTerm, setSearchTerm] = useState('');
@@ -1317,7 +1317,9 @@ export default function UserManagement() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (String(schoolSettings?.school_code || '').trim() === '100') {
+                      const code = String(schoolSettings?.school_code || '').trim();
+                      const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+                      if (isDemoAndDisabled) {
                         setShowDemoModal(true);
                         return;
                       }
@@ -1571,7 +1573,9 @@ export default function UserManagement() {
                 </button>
                 <button
                   onClick={() => {
-                    if (String(schoolSettings?.school_code || '').trim() === '100') {
+                    const code = String(schoolSettings?.school_code || '').trim();
+                    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+                    if (isDemoAndDisabled) {
                       setShowDemoModal(true);
                     } else {
                       resetPasswordMutation.mutate();
