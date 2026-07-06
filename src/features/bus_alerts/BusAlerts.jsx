@@ -457,6 +457,7 @@ export default function BusAlerts() {
 
     // ── Step 4: Activate session ──────────────────────────────────────────
     localStorage.setItem(LS_KEY, 'true');
+    localStorage.setItem('sp_driver_tracking_start_ts', Date.now().toString());
     setIsActive(true);
     setIsStarting(false);
     console.log('[Session] tracking STARTED — schoolId:', schoolId, 'busKey:', busKey);
@@ -489,6 +490,7 @@ export default function BusAlerts() {
 
     // 2. Wipe local persistence
     localStorage.removeItem(LS_KEY);
+    localStorage.removeItem('sp_driver_tracking_start_ts');
     coordsRef.current = null;
 
     // Reset caching refs
@@ -520,11 +522,69 @@ export default function BusAlerts() {
     console.log('[Session] tracking STOPPED');
   }, [pushToFirebase, assignment, user]);
 
+  const createSystemNotice = useCallback(async () => {
+    if (!schoolSettings?.school_id) return;
+    try {
+      const busNum = assignment?.bus_number || 'Assigned Bus';
+      const route = assignment?.route_name ? ` (${assignment.route_name})` : '';
+      await supabase
+        .from('notices')
+        .insert({
+          school_id: schoolSettings.school_id,
+          title:     `System Notice: Bus ${busNum} Route Auto-Ended`,
+          content:   `The live tracking session for Bus ${busNum}${route} has been automatically ended after exceeding the maximum duration limit of 2 hours.`,
+          date:      new Date().toISOString().split('T')[0],
+          scope:     'all',
+          photo_url: null,
+          author_id: user?.id || null,
+          author_role: 'system',
+        });
+      console.log('[Notice] System notice published for auto-ended route.');
+    } catch (err) {
+      console.error('[Notice] Failed to create system notice:', err.message);
+    }
+  }, [schoolSettings?.school_id, assignment?.bus_number, assignment?.route_name, user?.id]);
+
+  // Periodic checker to auto-end route after 2 hours
+  useEffect(() => {
+    if (!isActive) return;
+
+    const checkInterval = setInterval(() => {
+      const startTs = Number(localStorage.getItem('sp_driver_tracking_start_ts') || '0');
+      if (startTs > 0 && Date.now() - startTs >= 2 * 60 * 60 * 1000) {
+        console.log('[GPS] Session exceeded 2 hours limit. Auto-ending route...');
+        stopTracking();
+        createSystemNotice();
+        alert('Your live tracking session has been automatically ended because it exceeded the 2-hour limit.');
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(checkInterval);
+  }, [isActive, stopTracking, createSystemNotice]);
+
   // ─── Auto-resume on mount if session was active ──────────────────────────
   useEffect(() => {
     if (assignment && localStorage.getItem(LS_KEY) === 'true' && !isActive) {
-      console.log('[Session] restoring persisted tracking session...');
-      startTracking();
+      const startTs = Number(localStorage.getItem('sp_driver_tracking_start_ts') || '0');
+      const elapsed = Date.now() - startTs;
+      if (startTs > 0 && elapsed >= 2 * 60 * 60 * 1000) {
+        console.log('[Session] persisted session has expired (>2 hours). Cleaning up...');
+        localStorage.removeItem(LS_KEY);
+        localStorage.removeItem('sp_driver_tracking_start_ts');
+        
+        pushToFirebase({
+          location_name:   'Trip Ended (Timeout)',
+          status:          'trip_ended',
+          last_updated_ts: Date.now(),
+          bus_number:      assignment?.bus_number || '',
+          driver_name:     assignment?.driver_name || user?.email || '',
+        });
+
+        createSystemNotice();
+      } else {
+        console.log('[Session] restoring persisted tracking session...');
+        startTracking();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignment]);

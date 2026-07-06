@@ -1842,6 +1842,15 @@ export default function UserManagement() {
                     </div>
                   </div>
 
+                  {/* Preview Explanation Alert */}
+                  <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex gap-3">
+                    <BadgeInfo className="text-indigo-600 shrink-0 mt-0.5" size={18} />
+                    <div className="text-xs text-indigo-900 leading-relaxed font-semibold">
+                      <p className="font-bold text-indigo-950 mb-1">Data Preview Info:</p>
+                      This step parses data from the spreadsheet and verifies formatting, but has <strong>NOT</strong> yet written anything to the database. You must click <strong>'Start Upload Queue'</strong> to commit changes.
+                    </div>
+                  </div>
+
                 </div>
               )}
 
@@ -1866,6 +1875,15 @@ export default function UserManagement() {
                     />
                   </div>
                   <span className="text-sm font-black text-indigo-600">{bulkProgress}% Complete</span>
+
+                  {/* Time Warning Box */}
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex gap-3 max-w-md w-full text-left">
+                    <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                    <div className="text-xs text-amber-900 leading-relaxed font-semibold">
+                      <p className="font-bold text-amber-950 mb-1">Time Warning:</p>
+                      Please wait. Writing to the database can take up to 2-3 minutes depending on your internet connection speed and the size of your upload. Do not close this browser or reload the page.
+                    </div>
+                  </div>
                 </div>
               )}
 
