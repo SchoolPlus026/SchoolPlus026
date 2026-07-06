@@ -14,6 +14,16 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
+const normalizeClassForMatching = (str) => {
+  if (!str) return '';
+  return String(str)
+    .toLowerCase()
+    .replace(/\b(class|grade|std|standard|sec|section|group)\b/g, '') // remove common prefixes/words
+    .replace(/\b(\d+)(st|nd|rd|th)\b/g, '$1')                        // remove ordinal suffixes
+    .replace(/[^a-z0-9]/g, '')                                       // remove non-alphanumeric
+    .trim();
+};
+
 const formatClassName = (input) => {
   let str = input.trim().toUpperCase();
   if (!str) return '';
@@ -43,39 +53,18 @@ const formatClassName = (input) => {
 };
 
 async function triggerDownload(blob, filename) {
-  if (Capacitor.isNativePlatform()) {
-    const arrayBuffer = await blob.arrayBuffer();
-    const uint8Array  = new Uint8Array(arrayBuffer);
-    let binary = '';
-    for (let i = 0; i < uint8Array.byteLength; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-    }
-    const base64Data = btoa(binary);
-
-    const writeResult = await Filesystem.writeFile({
-      path:      filename,
-      data:      base64Data,
-      directory: Directory.Documents,
-    });
-
-    await Share.share({
-      title:      filename,
-      url:        writeResult.uri,
-      dialogTitle: `Open or save ${filename}`,
-    });
-  } else {
-    const url = URL.createObjectURL(blob);
-    const a   = document.createElement('a');
-    a.href    = url;
-    a.download = filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 200);
-  }
+  // Force standard web download behavior on all platforms to prevent triggering OS share sheet on mobile browsers
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href    = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 200);
 }
 
 const EField = ({ label, field, type = 'text', options = null, allowCustom = false, editForm, setEditForm }) => (
@@ -311,13 +300,15 @@ export default function UserManagement() {
           hasError = true;
           errorReasons.push("Class is required");
         } else {
-          // format and validate class
-          const formattedClass = formatClassName(payload.userClass);
-          if (!classes.includes(formattedClass)) {
+          // Smart fuzzy matching of classes (ignoring prefixes, suffixes, and spaces)
+          const normExcel = normalizeClassForMatching(payload.userClass);
+          const matchedClass = classes.find(c => normalizeClassForMatching(c) === normExcel);
+          
+          if (!matchedClass) {
             hasError = true;
             errorReasons.push(`Class "${payload.userClass}" is invalid (does not exist in school settings)`);
           } else {
-            payload.userClass = formattedClass;
+            payload.userClass = matchedClass;
           }
         }
       }
@@ -1716,15 +1707,15 @@ export default function UserManagement() {
                   <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3">
                     <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
                     <div className="text-xs text-amber-900 leading-relaxed font-semibold">
-                      <p className="font-bold text-amber-950 mb-1">Verify Column Mapping:</p>
-                      Review the mapping below to ensure the system is reading columns from your file correctly. You can override any auto-detected column manually.
+                      <p className="font-bold text-amber-950 mb-1">Check Columns:</p>
+                      Make sure your Excel data matches the correct fields below. You can change them if they look wrong.
                     </div>
                   </div>
 
                   {/* Mapping Fields Grid */}
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
                     <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 pb-2 border-b border-slate-200">
-                      System Attributes vs Excel Columns
+                      MATCH EXCEL COLUMNS
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {getTargetFieldsForRole(activeTab).map((field) => (
