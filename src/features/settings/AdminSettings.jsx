@@ -745,6 +745,13 @@ export default function AdminSettings() {
   const [showNewPwd, setShowNewPwd] = useState(false);
 
   const handleChangePassword = async () => {
+    // Check if this is a protected demo/test school
+    const code = String(schoolSettings?.school_code || '').trim();
+    if (PROTECTED_SCHOOL_CODES.includes(code)) {
+      setShowDemoLockModal(true);
+      return;
+    }
+
     if (!oldPwd || !newPwd) return alert('Please fill both password fields.');
     if (newPwd.length < 6) return alert('New password must be at least 6 characters.');
     setPwdLoading(true);
@@ -1420,6 +1427,7 @@ export default function AdminSettings() {
             </button>
           </div>
         </div>,
+        document.body
       )}
 
       {/* ── LOGO FULL VIEW MODAL ── */}

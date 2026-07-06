@@ -108,7 +108,7 @@ export default function ConsentGate({ onAccept }) {
           </div>
           <div className="space-y-1">
             <h2 className="text-xl md:text-2xl font-black tracking-tight bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">
-              Welcome to SchoolOS+!
+              Welcome to SchoolOS+
             </h2>
             <p className="text-xs md:text-sm font-semibold text-indigo-400/90">
               Just a quick check before we start.
@@ -119,20 +119,22 @@ export default function ConsentGate({ onAccept }) {
         {/* Checkboxes Form */}
         <div className="w-full space-y-4 pt-2">
           {/* Checkbox 1: Legal Policies Acceptance */}
-          <label className="flex items-start gap-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={agreePolicies}
-              onChange={(e) => setAgreePolicies(e.target.checked)}
-              className="sr-only"
-            />
-            <div className={`mt-0.5 w-5 h-5 rounded-lg border flex items-center justify-center transition-all flex-shrink-0 ${
-              agreePolicies 
-                ? 'bg-indigo-500 border-indigo-500 text-white' 
-                : 'border-slate-700 bg-slate-950 text-transparent group-hover:border-slate-600'
-            }`}>
-              <Check size={14} strokeWidth={3} />
-            </div>
+          <div className="flex items-start gap-3 group">
+            <label className="relative mt-0.5 flex items-center justify-center cursor-pointer flex-shrink-0">
+              <input
+                type="checkbox"
+                checked={agreePolicies}
+                onChange={(e) => setAgreePolicies(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
+                agreePolicies 
+                  ? 'bg-indigo-500 border-indigo-500 text-white' 
+                  : 'border-slate-700 bg-slate-950 text-transparent group-hover:border-slate-600'
+              }`}>
+                <Check size={14} strokeWidth={3} />
+              </div>
+            </label>
             <span className="text-xs text-slate-400 font-medium select-none leading-relaxed">
               {isAdmin ? (
                 <>
@@ -184,7 +186,7 @@ export default function ConsentGate({ onAccept }) {
                 </>
               )}
             </span>
-          </label>
+          </div>
 
 
 

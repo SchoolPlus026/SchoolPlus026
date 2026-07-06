@@ -19,6 +19,7 @@ import { useAllModuleActivities, useMarkModuleViewed } from '../../hooks/useAllM
 
 // All toggleable school modules. Each MUST have a matching moduleId for the guard.
 const MODULES = [
+  { name: 'My Profile',     path: '/admin/profile',        icon: <User size={26} />,           colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
   { name: 'Users',          path: '/admin/users',          icon: <Users size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
   { name: 'Attendance',     path: '/admin/attendance',     icon: <ClipboardList size={26} />,  colorHex: '#818cf8', bgRgb: '129,140,248',  moduleId: 'attendance'    },
   { name: 'Fees',           path: '/admin/fees',           icon: <DollarSign size={26} />,     colorHex: '#34d399', bgRgb: '52,211,153',   moduleId: 'fees'          },
@@ -40,7 +41,6 @@ const MODULES = [
   { name: 'Executive Briefing', path: '/admin/executive-briefing',  icon: <Target size={26} />,         colorHex: '#818cf8', bgRgb: '129,140,248',  moduleId: 'executive_briefing'},
   { name: 'Staff Pending Duty', path: '/admin/staff-pending-duty',  icon: <Radar size={26} />,          colorHex: '#fb7185', bgRgb: '251,113,133',  moduleId: 'duty_radar'},
   { name: 'Achievers Board', path: '/admin/achievers', icon: <Trophy size={26} />, colorHex: '#F59E0B', bgRgb: '245,158,11', moduleId: 'default'},
-  { name: 'My Profile',     path: '/admin/profile',        icon: <User size={26} />,           colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
   { name: 'Settings',       path: '/admin/settings',       icon: <Settings size={26} />,       colorHex: '#94a3b8', bgRgb: '148,163,184',  moduleId: 'settings'      },
 ];
 

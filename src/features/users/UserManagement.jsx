@@ -54,18 +54,45 @@ const formatClassName = (input) => {
 };
 
 async function triggerDownload(blob, filename) {
-  // Force standard web download behavior on all platforms to prevent triggering OS share sheet on mobile browsers
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href    = url;
-  a.download = filename;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 200);
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const uint8Array  = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < uint8Array.byteLength; i++) {
+        binary += String.fromCharCode(uint8Array[i]);
+      }
+      const base64Data = btoa(binary);
+
+      const writeResult = await Filesystem.writeFile({
+        path:      filename,
+        data:      base64Data,
+        directory: Directory.Documents,
+        recursive: true
+      });
+
+      await Share.share({
+        title:      filename,
+        url:        writeResult.uri,
+        dialogTitle: `Open or save ${filename}`,
+      });
+    } catch (err) {
+      console.error("Native download error", err);
+      alert("Failed to download file: " + (err.message || err));
+    }
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href    = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 200);
+  }
 }
 
 const EField = ({ label, field, type = 'text', options = null, allowCustom = false, editForm, setEditForm }) => (
@@ -127,6 +154,8 @@ export default function UserManagement() {
   /* ── Add User Modal State ── */
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [downloadedCredentials, setDownloadedCredentials] = useState(false);
+  const [downloadedFailures, setDownloadedFailures] = useState(false);
   const [bulkStep, setBulkStep] = useState(1);
   const [bulkFile, setBulkFile] = useState(null);
   const [bulkHeaders, setBulkHeaders] = useState([]);
@@ -263,6 +292,8 @@ export default function UserManagement() {
     setIsProcessing(true);
     setBulkStep(3);
     setBulkProgress(0);
+    setDownloadedCredentials(false);
+    setDownloadedFailures(false);
 
     const targetFields = getTargetFieldsForRole(activeTab);
     const processedRows = [];
@@ -506,6 +537,7 @@ export default function UserManagement() {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
     await triggerDownload(blob, `${activeTab}_imported_credentials.xlsx`);
+    setDownloadedCredentials(true);
   };
 
   const handleDownloadFailures = async () => {
@@ -528,9 +560,20 @@ export default function UserManagement() {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
     await triggerDownload(blob, `${activeTab}_failed_records.xlsx`);
+    setDownloadedFailures(true);
   };
 
   const resetBulkUploadState = () => {
+    if (bulkResults) {
+      const hasUnsavedCredentials = (bulkResults.successList?.length > 0) && !downloadedCredentials;
+      const hasUnsavedFailures = (bulkResults.failureList?.length > 0) && !downloadedFailures;
+      
+      if (hasUnsavedCredentials || hasUnsavedFailures) {
+        const confirmed = window.confirm("Please download your credentials and error logs before closing. Are you sure you want to proceed?");
+        if (!confirmed) return;
+      }
+    }
+
     setBulkStep(1);
     setBulkFile(null);
     setBulkHeaders([]);
@@ -540,6 +583,8 @@ export default function UserManagement() {
     setBulkResults(null);
     setIsProcessing(false);
     setIsBulkModalOpen(false);
+    setDownloadedCredentials(false);
+    setDownloadedFailures(false);
   };
 
   /* ── Edit Profile Panel State ── */
@@ -698,12 +743,13 @@ export default function UserManagement() {
   const createUserMutation = useMutation({
     mutationFn: async () => {
       const f = addForm;
+      const finalEmail = f.email?.trim() || `${f.username?.toLowerCase() || 'user'}@${schoolSettings?.school_code?.toLowerCase()}.schoolos.com`;
       if (currentRole === 'teacher') {
         const { data, error } = await supabase.from('student_addition_requests').insert({
           school_id: schoolSettings.school_id,
           teacher_id: currentUser.id,
           student_details: {
-            email: f.email,
+            email: finalEmail,
             password: f.password,
             role: 'student',
             name: f.name,
@@ -721,7 +767,7 @@ export default function UserManagement() {
         return { isRequest: true, id: data?.id };
       } else {
         const { data, error } = await supabase.rpc('admin_create_user', {
-          p_email: f.email, p_password: f.password,
+          p_email: finalEmail, p_password: f.password,
           p_role: activeTab === 'staff' ? 'staff' : activeTab,
           p_name: f.name, p_username: f.username,
           p_school_id: schoolSettings.school_id,
@@ -1331,7 +1377,7 @@ export default function UserManagement() {
             <div className="overflow-y-auto flex-1 custom-scrollbar pr-1">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[['Full Name *', 'name', 'text', 'Jane Doe'], ['Username *', 'username', 'text', 'janedoe'], ['Email *', 'email', 'email', 'jane@school.com'], ['Password *', 'password', 'password', '••••••••']].map(([label, field, type, ph]) => (
+                  {[['Full Name *', 'name', 'text', 'Jane Doe'], ['Username *', 'username', 'text', 'janedoe'], ['Email (Optional)', 'email', 'email', 'jane@school.com'], ['Password *', 'password', 'password', '••••••••']].map(([label, field, type, ph]) => (
                     <div key={field}>
                       <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">{label}</label>
                       <input type={type} value={addForm[field]} onChange={e => setAddForm(f => ({ ...f, [field]: e.target.value }))} placeholder={ph}
@@ -1478,7 +1524,7 @@ export default function UserManagement() {
               <button onClick={() => { setIsAddModalOpen(false); setBusAlloc({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' }); }} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
               <button
                 onClick={() => createUserMutation.mutate()}
-                disabled={createUserMutation.isPending || !addForm.email || !addForm.password || !addForm.name || !addForm.username}
+                disabled={createUserMutation.isPending || !addForm.password || !addForm.name || !addForm.username}
                 className="px-6 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-all disabled:opacity-50 flex items-center gap-2"
               >
                 {createUserMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}

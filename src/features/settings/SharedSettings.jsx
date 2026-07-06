@@ -496,8 +496,16 @@ export default function SharedSettings() {
   const [newPwd, setNewPwd] = useState('');
   const [showOldPwd, setShowOldPwd] = useState(false);
   const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showDemoLockModal, setShowDemoLockModal] = useState(false);
 
   const changePassword = async () => {
+    // Check if this is a protected demo/test school
+    const code = String(schoolSettings?.school_code || '').trim();
+    if (code === '100') {
+      setShowDemoLockModal(true);
+      return;
+    }
+
     if (!oldPwd || !newPwd) return toast('Please enter both old and new passwords.', setToastMsg);
     if (newPwd.length < 6) return toast('New password must be at least 6 characters.', setToastMsg);
     setPwdLoading(true);
@@ -1171,6 +1179,33 @@ export default function SharedSettings() {
                 </button>
               )}
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── DEMO LOCK MODAL (Sales Protection) ── */}
+      {showDemoLockModal && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.70)', padding: '16px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '440px', borderLeft: '4px solid #6366f1', textAlign: 'center', padding: '32px 24px', backgroundColor: '#fff', color: '#1e293b' }}>
+            {/* Lock Icon */}
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 8px 24px rgba(99,102,241,0.3)' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1e293b', marginBottom: '12px', lineHeight: 1.3 }}>Action Restricted (Demo School)</h3>
+            <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.7, marginBottom: '20px' }}>
+              This is a <strong>demo school</strong> for global testing. You cannot delete or alter core data here. You will get <strong>100% control</strong> over your data when you register your own school.
+            </p>
+            <div style={{ background: 'rgba(99,102,241,0.08)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', border: '1px solid rgba(99,102,241,0.2)' }}>
+              <p style={{ fontSize: '12px', color: '#6366f1', fontWeight: 600, margin: 0 }}>💡 This demo environment is kept intact so you can freely explore all features without risk.</p>
+            </div>
+            <button
+              onClick={() => setShowDemoLockModal(false)}
+              className="btn accent w-full"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', borderColor: 'transparent', color: '#fff', padding: '10px', borderRadius: '8px', cursor: 'pointer', border: 'none' }}
+            >
+              Got it, Continue Exploring
+            </button>
           </div>
         </div>,
         document.body
