@@ -458,6 +458,9 @@ export default function BusAlerts() {
     // ── Step 4: Activate session ──────────────────────────────────────────
     localStorage.setItem(LS_KEY, 'true');
     localStorage.setItem('sp_driver_tracking_start_ts', Date.now().toString());
+    localStorage.setItem('sp_driver_tracking_bus_number', assignment?.bus_number || '');
+    localStorage.setItem('sp_driver_tracking_route_name', assignment?.route_name || '');
+    localStorage.setItem('sp_driver_tracking_driver_name', assignment?.driver_name || user?.email || '');
     setIsActive(true);
     setIsStarting(false);
     console.log('[Session] tracking STARTED — schoolId:', schoolId, 'busKey:', busKey);
@@ -491,6 +494,9 @@ export default function BusAlerts() {
     // 2. Wipe local persistence
     localStorage.removeItem(LS_KEY);
     localStorage.removeItem('sp_driver_tracking_start_ts');
+    localStorage.removeItem('sp_driver_tracking_bus_number');
+    localStorage.removeItem('sp_driver_tracking_route_name');
+    localStorage.removeItem('sp_driver_tracking_driver_name');
     coordsRef.current = null;
 
     // Reset caching refs
