@@ -10,6 +10,9 @@ import {
   Upload, Download, CheckCircle2, AlertTriangle, FileSpreadsheet, Play, Check, AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 const formatClassName = (input) => {
   let str = input.trim().toUpperCase();
@@ -38,6 +41,42 @@ const formatClassName = (input) => {
   });
   return str;
 };
+
+async function triggerDownload(blob, filename) {
+  if (Capacitor.isNativePlatform()) {
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8Array  = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.byteLength; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64Data = btoa(binary);
+
+    const writeResult = await Filesystem.writeFile({
+      path:      filename,
+      data:      base64Data,
+      directory: Directory.Documents,
+    });
+
+    await Share.share({
+      title:      filename,
+      url:        writeResult.uri,
+      dialogTitle: `Open or save ${filename}`,
+    });
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href    = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 200);
+  }
+}
 
 const EField = ({ label, field, type = 'text', options = null, allowCustom = false, editForm, setEditForm }) => (
   <div>
@@ -162,7 +201,7 @@ export default function UserManagement() {
     );
   };
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     let headers = [];
     if (activeTab === 'student') {
       headers = ['Full Name *', 'Class *', 'Email', 'Username', 'Password', 'Contact', 'DOB (YYYY-MM-DD)', 'Blood Group', 'Address'];
@@ -175,7 +214,11 @@ export default function UserManagement() {
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
-    XLSX.writeFile(wb, `${activeTab}_bulk_upload_template.xlsx`);
+    const wbBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    await triggerDownload(blob, `${activeTab}_bulk_upload_template.xlsx`);
   };
 
   const handleFileUpload = (e) => {
@@ -451,7 +494,7 @@ export default function UserManagement() {
     setBulkStep(4);
   };
 
-  const handleDownloadCredentials = () => {
+  const handleDownloadCredentials = async () => {
     if (!bulkResults?.successList) return;
     const headers = ['Name', 'Role/Class', 'Username', 'Password', 'Email'];
     const rows = bulkResults.successList.map(s => [
@@ -465,10 +508,14 @@ export default function UserManagement() {
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Credentials");
-    XLSX.writeFile(wb, `${activeTab}_imported_credentials.xlsx`);
+    const wbBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    await triggerDownload(blob, `${activeTab}_imported_credentials.xlsx`);
   };
 
-  const handleDownloadFailures = () => {
+  const handleDownloadFailures = async () => {
     if (!bulkResults?.failureList) return;
     const headers = [...bulkHeaders, 'Error Reason'];
     const rows = bulkResults.failureList.map(f => {
@@ -483,7 +530,11 @@ export default function UserManagement() {
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Failed Rows");
-    XLSX.writeFile(wb, `${activeTab}_failed_records.xlsx`);
+    const wbBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    await triggerDownload(blob, `${activeTab}_failed_records.xlsx`);
   };
 
   const resetBulkUploadState = () => {
@@ -567,84 +618,195 @@ export default function UserManagement() {
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
+  /* ── Student Addition Requests Query & Handlers (Teacher approval flow) ── */
+  const { data: studentRequests = [], refetch: refetchRequests } = useQuery({
+    queryKey: ['student-addition-requests', schoolSettings?.school_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_addition_requests')
+        .select(`
+          id,
+          status,
+          student_details,
+          created_at,
+          teacher:teacher_id (name)
+        `)
+        .eq('school_id', schoolSettings.school_id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!schoolSettings?.school_id && currentRole === 'admin',
+  });
+
+  const handleApproveStudentRequest = async (req) => {
+    if (!window.confirm(`Are you sure you want to approve and create student "${req.student_details?.name}"?`)) return;
+
+    try {
+      const details = req.student_details;
+
+      // 1. Create the user using admin_create_user RPC
+      const { data: newUid, error: createError } = await supabase.rpc('admin_create_user', {
+        p_email: details.email || `${details.username?.toLowerCase() || 'student'}@${schoolSettings?.school_code?.toLowerCase()}.schoolos.com`,
+        p_password: details.password || 'School@123',
+        p_role: 'student',
+        p_name: details.name,
+        p_username: details.username,
+        p_school_id: schoolSettings.school_id,
+        p_class: details.userClass || null,
+        p_contact: details.contact || null,
+        p_dob: details.dob || null,
+        p_address: details.address || null,
+        p_blood_group: details.bloodGroup || null,
+        p_designation: null,
+        p_qualification: null
+      });
+
+      if (createError) throw createError;
+
+      // 2. Mark request as approved
+      const { error: updateError } = await supabase
+        .from('student_addition_requests')
+        .update({ status: 'approved' })
+        .eq('id', req.id);
+
+      if (updateError) throw updateError;
+
+      // 3. Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['student-addition-requests'] });
+      alert('Student approved and created successfully!');
+    } catch (err) {
+      alert('Error approving request: ' + err.message);
+    }
+  };
+
+  const handleRejectStudentRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to reject this request?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('student_addition_requests')
+        .update({ status: 'rejected' })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['student-addition-requests'] });
+      alert('Request rejected successfully.');
+    } catch (err) {
+      alert('Error rejecting request: ' + err.message);
+    }
+  };
+
   /* ── Mutations ── */
   const createUserMutation = useMutation({
     mutationFn: async () => {
       const f = addForm;
-      const { data, error } = await supabase.rpc('admin_create_user', {
-        p_email: f.email, p_password: f.password,
-        p_role: activeTab === 'staff' ? 'staff' : activeTab,
-        p_name: f.name, p_username: f.username,
-        p_school_id: schoolSettings.school_id,
-        p_class: f.userClass || null, p_contact: f.contact || null,
-        p_dob: f.dob || null, p_address: f.address || null,
-        p_blood_group: f.bloodGroup || null,
-        p_designation: f.designation || null,
-        p_qualification: f.qualification || null,
-      });
-      if (error) throw error;
+      if (currentRole === 'teacher') {
+        const { data, error } = await supabase.from('student_addition_requests').insert({
+          school_id: schoolSettings.school_id,
+          teacher_id: currentUser.id,
+          student_details: {
+            email: f.email,
+            password: f.password,
+            role: 'student',
+            name: f.name,
+            username: f.username,
+            userClass: currentUser.class || '', // strictly locked/restricted to teacher's class
+            contact: f.contact || '',
+            dob: f.dob || null,
+            bloodGroup: f.bloodGroup || '',
+            address: f.address || ''
+          },
+          status: 'pending'
+        }).select('id').single();
 
-      // If adding a driver and bus allocation is requested, save to bus_assignments
-      if (activeTab === 'driver' && data) {
-        const newDriverId = data; // RPC returns the new user's UUID
-        const busNumber = busAlloc.mode === 'new'
-          ? busAlloc.newBusNumber.trim()
-          : existingBuses.find(b => b.id === busAlloc.existingBusId)?.bus_number;
+        if (error) throw error;
+        return { isRequest: true, id: data?.id };
+      } else {
+        const { data, error } = await supabase.rpc('admin_create_user', {
+          p_email: f.email, p_password: f.password,
+          p_role: activeTab === 'staff' ? 'staff' : activeTab,
+          p_name: f.name, p_username: f.username,
+          p_school_id: schoolSettings.school_id,
+          p_class: f.userClass || null, p_contact: f.contact || null,
+          p_dob: f.dob || null, p_address: f.address || null,
+          p_blood_group: f.bloodGroup || null,
+          p_designation: f.designation || null,
+          p_qualification: f.qualification || null,
+        });
+        if (error) throw error;
 
-        if (busNumber) {
-          if (busAlloc.mode === 'new') {
-            // Insert a brand new bus assignment
-            await supabase.from('bus_assignments').insert({
-              school_id:   schoolSettings.school_id,
-              bus_number:  busNumber,
-              route_name:  busAlloc.newRouteName.trim() || null,
-              driver_id:   newDriverId,
-              driver_name: f.name || f.email,
-              is_active:   true,
-            });
-          } else {
-            // Update existing bus assignment to point to new driver
-            await supabase
-              .from('bus_assignments')
-              .update({ driver_id: newDriverId, driver_name: f.name || f.email })
-              .eq('id', busAlloc.existingBusId);
+        // If adding a driver and bus allocation is requested, save to bus_assignments
+        if (activeTab === 'driver' && data) {
+          const newDriverId = data; // RPC returns the new user's UUID
+          const busNumber = busAlloc.mode === 'new'
+            ? busAlloc.newBusNumber.trim()
+            : existingBuses.find(b => b.id === busAlloc.existingBusId)?.bus_number;
+
+          if (busNumber) {
+            if (busAlloc.mode === 'new') {
+              // Insert a brand new bus assignment
+              await supabase.from('bus_assignments').insert({
+                school_id:   schoolSettings.school_id,
+                bus_number:  busNumber,
+                route_name:  busAlloc.newRouteName.trim() || null,
+                driver_id:   newDriverId,
+                driver_name: f.name || f.email,
+                is_active:   true,
+              });
+            } else {
+              // Update existing bus assignment to point to new driver
+              await supabase
+                .from('bus_assignments')
+                .update({ driver_id: newDriverId, driver_name: f.name || f.email })
+                .eq('id', busAlloc.existingBusId);
+            }
           }
         }
-      }
 
-      return {
-        id: data,
-        email: f.email,
-        username: f.username,
-        name: f.name,
-        password: f.password,
-        role: activeTab === 'staff' ? 'staff' : activeTab
-      };
+        return {
+          id: data,
+          email: f.email,
+          username: f.username,
+          name: f.name,
+          password: f.password,
+          role: activeTab === 'staff' ? 'staff' : activeTab
+        };
+      }
     },
     onSuccess: (createdUser) => {
       queryClient.invalidateQueries({ queryKey: ['users-list'] });
       queryClient.invalidateQueries({ queryKey: ['bus-assignments-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['student-addition-requests'] });
       setIsAddModalOpen(false);
 
-      // Trigger welcome email Deno Edge Function if NOT a student
-      if (createdUser && createdUser.role !== 'student' && createdUser.email) {
-        supabase.functions.invoke('send-welcome-email', {
-          body: {
-            email: createdUser.email,
-            name: createdUser.name,
-            username: createdUser.username,
-            password: createdUser.password,
-            role: createdUser.role,
-            schoolName: schoolSettings.name
-          }
-        }).catch(err => {
-          console.error('Failed to trigger welcome email:', err);
-        });
+      if (createdUser?.isRequest) {
+        alert('Student request submitted successfully for Admin approval!');
+      } else {
+        // Trigger welcome email Deno Edge Function if NOT a student
+        if (createdUser && createdUser.role !== 'student' && createdUser.email) {
+          supabase.functions.invoke('send-welcome-email', {
+            body: {
+              email: createdUser.email,
+              name: createdUser.name,
+              username: createdUser.username,
+              password: createdUser.password,
+              role: createdUser.role,
+              schoolName: schoolSettings.name
+            }
+          }).catch(err => {
+            console.error('Failed to trigger welcome email:', err);
+          });
+        }
+        alert('User created successfully!');
       }
 
       setAddForm({ email: '', username: '', name: '', password: '', contact: '', userClass: '', dob: '', bloodGroup: '', address: '', designation: '', qualification: '' });
       setBusAlloc({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
-      alert('User created successfully!');
     },
     onError: (err) => alert('Error: ' + err.message),
   });
@@ -754,20 +916,37 @@ export default function UserManagement() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <>
+      <div className="space-y-6 animate-in fade-in duration-500">
 
       {/* Tab Switcher */}
       {currentRole === 'admin' && (
         <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full sm:w-fit border border-slate-200 shadow-inner overflow-x-auto">
-          {[['teacher', 'Teachers', BookOpen], ['student', 'Students', Users], ['staff', 'Staff', Users], ['driver', 'Drivers', Bus]].map(([tab, label, Icon]) => (
-            <button
-              key={tab}
-              onClick={() => { setActiveTab(tab); setSelectedClass(''); setEditingUser(null); }}
-              className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === tab ? 'bg-white text-primary shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <Icon size={18} /> {label}
-            </button>
-          ))}
+          {[
+            ['teacher', 'Teachers', BookOpen],
+            ['student', 'Students', Users],
+            ['staff', 'Staff', Users],
+            ['driver', 'Drivers', Bus],
+            ['requests', 'New Student Requests', Users]
+          ].map(([tab, label, Icon]) => {
+            const isRequests = tab === 'requests';
+            const count = isRequests ? studentRequests.length : 0;
+            return (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setSelectedClass(''); setEditingUser(null); }}
+                className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab ? 'bg-white text-primary shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <Icon size={18} /> 
+                {label}
+                {count > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 text-[10px] font-black bg-rose-500 text-white rounded-full leading-none">
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -800,7 +979,7 @@ export default function UserManagement() {
             </select>
           </div>
         )}
-        {currentRole === 'admin' && (
+        {currentRole === 'admin' && activeTab !== 'requests' && (
           <div className="flex flex-col sm:flex-row gap-2">
             <button
               onClick={() => {
@@ -818,7 +997,7 @@ export default function UserManagement() {
               }}
               className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-indigo-500/20 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all whitespace-nowrap active:scale-95"
             >
-              <Upload size={20} /> Bulk Add from Excel
+              <Upload size={20} /> Bulk Add {activeTab === 'staff' ? 'Staff' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1) + 's'}
             </button>
             <button
               onClick={() => {
@@ -827,7 +1006,21 @@ export default function UserManagement() {
               }}
               className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95"
             >
-              <UserPlus size={20} /> Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+              <UserPlus size={20} /> Add {activeTab === 'staff' ? 'Staff' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            </button>
+          </div>
+        )}
+        {currentRole === 'teacher' && (
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => {
+                if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                setAddForm(f => ({ ...f, userClass: currentUser?.class || '' }));
+                setIsAddModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-primary/20 text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all whitespace-nowrap active:scale-95"
+            >
+              <UserPlus size={20} /> Add Student
             </button>
           </div>
         )}
@@ -835,7 +1028,69 @@ export default function UserManagement() {
 
       {/* User Table */}
       <div className="bg-white border border-border rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden">
-        {isLoading ? (
+        {activeTab === 'requests' ? (
+          studentRequests.length === 0 ? (
+            <div className="text-center py-24">
+              <p className="text-slate-500 font-medium">No pending student requests found.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              <div className="overflow-x-auto relative">
+                <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b border-border">
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Student Details</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Class</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Requested By</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {studentRequests.map((req) => {
+                      const details = req.student_details || {};
+                      return (
+                        <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-6 py-5">
+                            <div>
+                              <div className="font-bold text-slate-800 text-base">{details.name}</div>
+                              {details.email && <div className="text-xs font-semibold text-slate-400">{details.email}</div>}
+                              {details.username && (
+                                <div className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded inline-block mt-1">
+                                  @{details.username}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-5 font-bold text-slate-700">{details.userClass || 'N/A'}</td>
+                          <td className="px-6 py-5">
+                            <div className="text-sm font-bold text-slate-800">{req.teacher?.name || 'Unknown Teacher'}</div>
+                            <div className="text-[10px] text-slate-400 font-semibold">{new Date(req.created_at).toLocaleDateString()}</div>
+                          </td>
+                          <td className="px-6 py-5 text-right">
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => handleApproveStudentRequest(req)}
+                                className="py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-emerald-100 flex items-center gap-1"
+                              >
+                                <Check size={14} /> Accept
+                              </button>
+                              <button
+                                onClick={() => handleRejectStudentRequest(req.id)}
+                                className="py-2 px-4 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-rose-100 flex items-center gap-1"
+                              >
+                                <X size={14} /> Reject
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        ) : isLoading ? (
           <div className="p-6 space-y-5">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
               <div className="h-4 w-28 rounded-lg animate-shimmer"></div>
@@ -962,8 +1217,9 @@ export default function UserManagement() {
           </div>
         )}
       </div>
+    </div>
 
-      {/* ── EDIT PROFILE SIDE PANEL ── */}
+    {/* ── EDIT PROFILE SIDE PANEL ── */}
       {editingUser && (
         <div className="fixed inset-0 z-[110] flex items-stretch sm:items-center justify-stretch sm:justify-end bg-black/50 backdrop-blur-sm" onClick={() => setEditingUser(null)}>
           <div
@@ -1064,11 +1320,11 @@ export default function UserManagement() {
 
       {/* ── ADD USER MODAL ── */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-[110] overflow-y-auto py-10 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-2xl shadow-2xl animate-in slide-in-from-bottom-4 relative max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-[110] overflow-y-auto py-2 sm:py-10 flex items-center justify-center bg-black/60 backdrop-blur-sm px-2 sm:px-4">
+          <div className="bg-white border border-border rounded-3xl p-4 sm:p-6 w-full max-w-2xl shadow-2xl animate-in slide-in-from-bottom-4 relative max-h-[96vh] sm:max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-5 flex-shrink-0">
               <h3 className="text-lg font-black text-slate-800 tracking-tight">
-                Register New {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                Register New {currentRole === 'teacher' ? 'Student' : (activeTab.charAt(0).toUpperCase() + activeTab.slice(1))}
               </h3>
               <button onClick={() => setIsAddModalOpen(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
                 <X size={18} />
@@ -1115,16 +1371,17 @@ export default function UserManagement() {
                     <input type="text" value={addForm.contact} onChange={e => setAddForm(f => ({ ...f, contact: e.target.value }))} placeholder="+91..."
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary" />
                   </div>
-                  {(activeTab === 'student' || activeTab === 'teacher') && (
+                  {(activeTab === 'student' || activeTab === 'teacher' || currentRole === 'teacher') && (
                     <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Class / Standard (Enter new or select)</label>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Class / Standard</label>
                       <input
                         type="text"
                         list="addClassList"
                         value={addForm.userClass}
                         onChange={e => setAddForm(f => ({ ...f, userClass: e.target.value.toUpperCase() }))}
                         placeholder="e.g. 1ST, 2ND"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary"
+                        disabled={currentRole === 'teacher'}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-75 disabled:cursor-not-allowed"
                       />
                       <datalist id="addClassList">
                         {classes.map(c => <option key={c} value={c} />)}
@@ -1341,8 +1598,8 @@ export default function UserManagement() {
 
       {/* ── BULK UPLOAD MODAL ── */}
       {isBulkModalOpen && (
-        <div className="fixed inset-0 z-[110] overflow-y-auto py-10 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-          <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-4xl shadow-2xl relative max-h-[90vh] flex flex-col scale-in-95 duration-200">
+        <div className="fixed inset-0 z-[110] overflow-y-auto py-2 sm:py-10 flex items-center justify-center bg-black/60 backdrop-blur-sm px-2 sm:px-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-border rounded-3xl p-4 sm:p-6 w-full max-w-4xl shadow-2xl relative max-h-[96vh] sm:max-h-[90vh] flex flex-col scale-in-95 duration-200">
             
             {/* Header */}
             <div className="flex items-center justify-between mb-5 flex-shrink-0">
@@ -1407,7 +1664,7 @@ export default function UserManagement() {
                   </div>
 
                   {/* Actions Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-stretch gap-4 relative">
                     
                     {/* Template Card */}
                     <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between items-start gap-4">
@@ -1424,6 +1681,13 @@ export default function UserManagement() {
                       >
                         <Download size={14} /> Download template.xlsx
                       </button>
+                    </div>
+
+                    {/* OR Separator */}
+                    <div className="flex md:flex-col items-center justify-center gap-2 py-2 md:py-0">
+                      <div className="w-full md:w-px h-px md:h-12 bg-slate-200 flex-1" />
+                      <span className="text-[10px] font-black text-slate-400 bg-white px-2 uppercase tracking-widest">OR</span>
+                      <div className="w-full md:w-px h-px md:h-12 bg-slate-200 flex-1" />
                     </div>
 
                     {/* Upload File Card */}
@@ -1668,6 +1932,6 @@ export default function UserManagement() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
