@@ -1217,6 +1217,7 @@ export default function App() {
           <Route path="billing"       element={<ManageSubscription />} />
           <Route path="knowledge-base" element={<KnowledgeBase />} />
           <Route path="settings"      element={<AdminSettings />} />
+          <Route path="profile"       element={<UserProfile />} />
           <Route path="bus-alerts"    element={<AdminBusMonitor />} />
           <Route path="syllabus"      element={<SyllabusTracker />} />
           <Route path="lost-and-found" element={<FeatureGuard feature="lost_found"><LostAndFound /></FeatureGuard>} />
@@ -1319,6 +1320,7 @@ export default function App() {
         <Route path="/platform-admin" element={<NotificationProvider><PlatformAdminLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<PlatformAdminDashboard />} />
+          <Route path="profile" element={<UserProfile />} />
         </Route>
       </Route>
 

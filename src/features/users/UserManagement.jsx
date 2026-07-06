@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
@@ -121,6 +122,7 @@ export default function UserManagement() {
   /* ── Password Reset State ── */
   const [resettingUser, setResettingUser] = useState(null);
   const [newPass, setNewPass] = useState('');
+  const [showDemoModal, setShowDemoModal] = useState(false);
 
   /* ── Add User Modal State ── */
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -1269,6 +1271,10 @@ export default function UserManagement() {
                   <button
                     type="button"
                     onClick={() => {
+                      if (String(schoolSettings?.school_code || '').trim() === '100') {
+                        setShowDemoModal(true);
+                        return;
+                      }
                       if (window.confirm(`Are you absolutely sure you want to permanently delete this user (${editingUser.name || editingUser.email})? This will delete their login credentials, attendance history, and all other related records. This action CANNOT be undone.`)) {
                         const confirmInput = window.prompt(`To proceed, please type 'DELETE' below:`);
                         if (confirmInput === 'DELETE') {
@@ -1518,7 +1524,13 @@ export default function UserManagement() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => resetPasswordMutation.mutate()}
+                  onClick={() => {
+                    if (String(schoolSettings?.school_code || '').trim() === '100') {
+                      setShowDemoModal(true);
+                    } else {
+                      resetPasswordMutation.mutate();
+                    }
+                  }}
                   disabled={resetPasswordMutation.isPending || newPass.length < 6}
                   className="flex-[1.5] py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl disabled:opacity-50 transition-all shadow-md shadow-amber-200 flex items-center justify-center gap-1.5"
                 >
@@ -1922,6 +1934,27 @@ export default function UserManagement() {
 
           </div>
         </div>
+      )}
+
+      {showDemoModal && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.70)', padding: '16px' }}>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-[440px] text-center p-8 shadow-2xl relative" style={{ borderLeft: '4px solid #6366f1' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 8px 24px rgba(99,102,241,0.3)' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white mb-3">Action Restricted</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+              This is a demo school for global testing. You cannot delete or alter core data here. You will get 100% control over your data when you register your own school.
+            </p>
+            <button
+              onClick={() => setShowDemoModal(false)}
+              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-sm rounded-xl transition-all shadow-lg"
+            >
+              Got it, Continue
+            </button>
+          </div>
+        </div>,
+        document.body
       )}
     </>
   );

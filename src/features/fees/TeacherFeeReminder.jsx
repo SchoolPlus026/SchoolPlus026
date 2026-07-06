@@ -261,7 +261,7 @@ export function ReminderConfiguratorModal({ students, schoolSettings, onClose, o
         </div>
 
         {/* ── Message Preview ── */}
-        {firstSelected && targetAmount && dueDate && (
+        {firstSelected && (
           <div style={{ marginBottom: '20px', padding: '14px 16px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '14px' }}>
             <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
               📋 Message Preview (Editable)

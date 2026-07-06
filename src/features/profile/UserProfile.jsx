@@ -71,6 +71,110 @@ export default function UserProfile() {
   const [linkingLoading, setLinkingLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // Edit Profile modal states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editEmail, setEditEmail] = useState('');
+  const [editContact, setEditContact] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
+  const handleOpenEditModal = () => {
+    setEditEmail(profile?.email || '');
+    setEditContact(profile?.contact || '');
+    setEditUsername(profile?.username || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!editEmail.trim() || !editEmail.includes('@')) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+    
+    setEditSaving(true);
+    try {
+      let usernameChangedNow = false;
+      const cleanUsername = editUsername.trim().toLowerCase();
+      
+      // Username rule validation
+      if (cleanUsername !== (profile?.username || '').toLowerCase()) {
+        if (profile?.username_changed) {
+          throw new Error('You have already changed your username once. It is locked.');
+        }
+        
+        // Check uniqueness in same school tenant
+        const { data: existing } = await supabase
+          .from('users')
+          .select('id')
+          .eq('username', cleanUsername)
+          .eq('school_id', profile?.school_id)
+          .not('id', 'eq', profile?.id)
+          .maybeSingle();
+          
+        if (existing) {
+          throw new Error('This username is already taken. Please choose a different one.');
+        }
+        usernameChangedNow = true;
+      }
+
+      // Email update
+      let emailChangedNow = false;
+      const cleanEmail = editEmail.trim();
+      if (cleanEmail !== (profile?.email || '')) {
+        const { error: emailErr } = await supabase.rpc('update_user_email_direct', { p_email: cleanEmail });
+        if (emailErr) throw emailErr;
+        emailChangedNow = true;
+      }
+
+      // Update contact and username
+      const updates = {
+        contact: editContact.trim()
+      };
+      if (usernameChangedNow) {
+        updates.username = cleanUsername;
+        updates.username_changed = true;
+      }
+
+      const { error: updateErr } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', profile?.id);
+
+      if (updateErr) throw updateErr;
+
+      setProfile(prev => ({
+        ...prev,
+        contact: editContact.trim(),
+        ...(usernameChangedNow ? { username: cleanUsername, username_changed: true } : {}),
+        ...(emailChangedNow ? { email: cleanEmail } : {})
+      }));
+
+      // Invalidate profile fetching cache
+      useAppStore.getState().setProfileLastFetched(null);
+
+      // Refresh cached user in Zustand store
+      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      if (freshUser) {
+        const currentUser = useAppStore.getState().user;
+        useAppStore.getState().setUserAndRole({
+          ...freshUser,
+          class: currentUser?.class || null,
+          avatar_url: currentUser?.avatar_url || null,
+          avatar_file_id: currentUser?.avatar_file_id || null,
+          hide_avatar_from_class: !!currentUser?.hide_avatar_from_class
+        }, role);
+      }
+
+      alert('Profile updated successfully!');
+      setIsEditModalOpen(false);
+    } catch (err) {
+      alert('Failed to update profile: ' + err.message);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   // APK download states
   const [apkUrl, setApkUrl] = useState(null);
   const [apkLoading, setApkLoading] = useState(false);
@@ -454,7 +558,8 @@ export default function UserProfile() {
   const initial = profile.name ? profile.name.charAt(0).toUpperCase() : (profile.username ? profile.username.charAt(0).toUpperCase() : 'U');
 
   return (
-    <div className="space-y-6 fade-in pb-10 max-w-4xl mx-auto">
+    <>
+      <div className="space-y-6 fade-in pb-10 max-w-4xl mx-auto">
       
       {/* Banner & Avatar (Digital ID Card Header) */}
       <div className="relative overflow-hidden rounded-2xl shadow-xl border border-border bg-[var(--card)]">
@@ -519,7 +624,14 @@ export default function UserProfile() {
 
                {/* Action Buttons for own profile */}
                {profile.id === user.id && (
-                  <div className="flex items-center gap-2 mt-2 sm:mt-4">
+                  <div className="flex items-center gap-2 mt-2 sm:mt-4 flex-wrap">
+                     <button 
+                        onClick={handleOpenEditModal}
+                        className="px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+                     >
+                        <FileText size={14} />
+                        Edit Profile
+                     </button>
                      {profile.avatar_url && (
                         <button 
                            onClick={handleRemoveAvatar} 
@@ -797,5 +909,120 @@ export default function UserProfile() {
           </div>
        )}
     </div>
+
+    {/* ── EDIT PROFILE MODAL ── */}
+    {isEditModalOpen && (
+      <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div 
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-[500px] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+          style={{ animation: 'pwaZoomIn 0.3s ease-out' }}
+        >
+          <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
+              <FileText size={18} className="text-emerald-400" /> Edit Profile Details
+            </h3>
+            <button 
+              onClick={() => setIsEditModalOpen(false)}
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-400 hover:text-slate-600"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveProfile} className="space-y-4">
+            {/* Full Name - Disabled */}
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1.5">
+                Full Name <Lock size={10} className="text-slate-400" />
+              </label>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  disabled 
+                  value={profile?.name || ''} 
+                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-500 font-semibold cursor-not-allowed"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">To change your legal name, please contact the school administration.</p>
+            </div>
+
+            {/* Class/Designation - Disabled */}
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1.5">
+                Class / Designation <Lock size={10} className="text-slate-400" />
+              </label>
+              <input 
+                type="text" 
+                disabled 
+                value={profile?.role === 'student' ? (profile?.class || 'Unassigned') : (profile?.role === 'teacher' ? `Teacher (Class ${profile?.class || 'Unassigned'})` : (profile?.designation || 'Staff Member'))} 
+                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-500 font-semibold cursor-not-allowed"
+              />
+            </div>
+
+            {/* Username - Editable once */}
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 flex items-center justify-between">
+                <span>Username</span>
+                {profile?.username_changed && <span className="text-[9px] text-amber-500 font-bold lowercase tracking-normal bg-amber-500/10 px-2 py-0.5 rounded-full flex items-center gap-1"><Lock size={8} /> locked after 1 edit</span>}
+              </label>
+              <input 
+                type="text" 
+                required
+                disabled={profile?.username_changed}
+                value={editUsername} 
+                onChange={e => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                placeholder="Choose username (lowercase and numbers only)"
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-500 disabled:cursor-not-allowed"
+              />
+              {!profile?.username_changed && <p className="text-[10px] text-indigo-400 mt-1">⚠️ Warning: You can only change your username once. Choose wisely!</p>}
+            </div>
+
+            {/* Email - Editable */}
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Email Address</label>
+              <input 
+                type="email" 
+                required
+                value={editEmail} 
+                onChange={e => setEditEmail(e.target.value)}
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+            </div>
+
+            {/* Mobile Number - Editable */}
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Mobile Number</label>
+              <input 
+                type="tel" 
+                value={editContact} 
+                onChange={e => setEditContact(e.target.value.replace(/[^0-9]/g, ''))}
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                placeholder="Enter 10 digit number"
+                maxLength={10}
+              />
+            </div>
+
+            {/* Save & Close Actions */}
+            <div className="flex gap-2 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="flex-1 py-3 text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={editSaving}
+                className="flex-[1.5] py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-200 dark:shadow-none"
+              >
+                {editSaving ? <Loader2 size={14} className="animate-spin" /> : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

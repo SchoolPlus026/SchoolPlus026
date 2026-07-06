@@ -22,7 +22,7 @@ import ArchiveConsole from './ArchiveConsole';
 import { useToast } from '../../components/ToastProvider';
 
 /* ── Protected Demo Schools (Sales Protection) ── */
-const PROTECTED_SCHOOL_CODES = ['120', '777'];
+const PROTECTED_SCHOOL_CODES = ['100', '120', '777'];
 
 /* ─────────────────────────
    TRANSLATION DICTIONARY
@@ -617,11 +617,32 @@ export default function AdminSettings() {
 
   const handleSaveSchoolName = async () => {
     if (!schoolName.trim()) return alert('School name cannot be empty.');
+    
+    // Check if this is a protected demo/test school
+    const code = String(schoolSettings?.school_code || '').trim();
+    if (PROTECTED_SCHOOL_CODES.includes(code)) {
+      setShowDemoLockModal(true);
+      return;
+    }
+
+    const pwd = window.prompt("For security verification, please enter your current password to change the school name:");
+    if (!pwd) return;
+
     setSavingName(true);
     try {
+      // Verify password
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: pwd
+      });
+      if (authErr) {
+        throw new Error('Incorrect password. School name verification failed.');
+      }
+
       const { error } = await supabase.from('school_settings').update({ name: schoolName.trim() }).eq('school_id', schoolSettings.school_id);
       if (error) throw error;
       setSchoolSettings({ ...schoolSettings, name: schoolName.trim() });
+      alert('School name updated successfully!');
     } catch (err) {
       alert('Error: ' + err.message);
     } finally {
@@ -766,6 +787,7 @@ export default function AdminSettings() {
   /* ── Danger Zone ── */
   const [showResetModal, setShowResetModal] = useState(false);
   const [showDemoLockModal, setShowDemoLockModal] = useState(false);
+  const [showLogoFullView, setShowLogoFullView] = useState(false);
   const [confirmPwd, setConfirmPwd] = useState('');
   const [resetting, setResetting]   = useState(false);
 
@@ -860,7 +882,9 @@ export default function AdminSettings() {
                 <img
                   src={logoUrl}
                   alt="School Logo"
-                  style={{ width: '48px', height: '48px', objectFit: 'contain', background: '#fff', borderRadius: '12px', padding: '4px' }}
+                  onClick={() => setShowLogoFullView(true)}
+                  style={{ width: '48px', height: '48px', objectFit: 'contain', background: '#fff', borderRadius: '12px', padding: '4px', cursor: 'pointer' }}
+                  title="Click to view full size"
                 />
               ) : (
                 <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--input-bg)', display: 'grid', placeItems: 'center' }}>
@@ -1380,11 +1404,9 @@ export default function AdminSettings() {
             <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 8px 24px rgba(99,102,241,0.3)' }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '12px', lineHeight: 1.3 }}>Delete Function Temporarily Locked</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '12px', lineHeight: 1.3 }}>Action Restricted (Demo School)</h3>
             <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.7, marginBottom: '20px' }}>
-              This is <strong>test data</strong>, so the delete function is temporarily locked to prevent accidental wipes.
-              However, in your <strong>actual registered school</strong>, there will be no locks — you will have
-              <strong> full control</strong> to permanently delete your data anytime.
+              This is a <strong>demo school</strong> for global testing. You cannot delete or alter core data here. You will get <strong>100% control</strong> over your data when you register your own school.
             </p>
             <div style={{ background: 'rgba(99,102,241,0.08)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', border: '1px solid rgba(99,102,241,0.2)' }}>
               <p style={{ fontSize: '12px', color: '#6366f1', fontWeight: 600, margin: 0 }}>💡 This demo environment is kept intact so you can freely explore all features without risk.</p>
@@ -1396,6 +1418,36 @@ export default function AdminSettings() {
             >
               Got it, Continue Exploring
             </button>
+          </div>
+        </div>,
+      )}
+
+      {/* ── LOGO FULL VIEW MODAL ── */}
+      {showLogoFullView && logoUrl && createPortal(
+        <div 
+          onClick={() => setShowLogoFullView(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', padding: '24px', cursor: 'zoom-out' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '90%', maxHeight: '90%', cursor: 'default' }}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowLogoFullView(false)}
+              style={{ position: 'absolute', top: '-48px', right: '0', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', padding: '8px', cursor: 'pointer', color: 'white' }}
+              title="Close"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <img 
+              src={logoUrl} 
+              alt="Logo Preview" 
+              style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }} 
+            />
+            <div style={{ color: 'white', marginTop: '16px', fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {schoolSettings?.name} Logo
+            </div>
           </div>
         </div>,
         document.body

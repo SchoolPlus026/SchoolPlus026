@@ -138,8 +138,8 @@ export default function PwaInstallBanner() {
     };
     window.addEventListener('show-pwa-install-modal', handleShowManual);
 
-    // If it's iOS (Safari/Chrome), we won't get beforeinstallprompt, so we check status manually
-    if (isIOS) {
+    // If it's a mobile device (Android/iOS), we check status manually after a short timeout
+    if (isMobile) {
       setTimeout(async () => {
         const installed = await checkInstallation();
         if (!installed && useAppStore.getState().user) {
