@@ -400,7 +400,7 @@ export default function MarkAttendance() {
                               return (
                                   <label 
                                     key={st} 
-                                    className={`cursor-pointer border rounded-lg px-1.5 py-0.5 sm:px-2.5 sm:py-1 font-semibold text-[9px] sm:text-xs transition-all duration-200 flex items-center gap-1 select-none
+                                    className={`cursor-pointer border rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 font-semibold text-[10px] sm:text-xs transition-all duration-200 flex items-center gap-1 select-none whitespace-nowrap
                                       ${disabled ? 'pointer-events-none opacity-50' : ''}
                                       ${isSelected 
                                         ? `${colors.active} border-solid font-bold scale-102 shadow-sm` 

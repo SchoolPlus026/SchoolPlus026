@@ -135,28 +135,34 @@ function TeacherSyllabus({ schoolId, user }) {
                 <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Checklist ({syllabus.chapters.filter(c => c.is_completed).length} / {syllabus.total_chapters} Completed)</span>
               </div>
               {syllabus.chapters.map((ch) => (
-                <div key={ch.id} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '16px', 
-                  padding: '14px 20px', 
-                  background: ch.is_completed ? 'rgba(16, 185, 129, 0.04)' : 'var(--card, #ffffff)', 
-                  borderRadius: '16px', 
-                  border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
-                  borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint, #94a3b8)',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 12px -2px rgba(0,0,0,0.03)'
-                }}
-                className="hover:translate-x-1 transition-transform"
+                <div 
+                  key={ch.id} 
+                  onClick={() => toggleChapter(ch.id)}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '16px', 
+                    padding: '14px 20px', 
+                    background: ch.is_completed ? 'rgba(16, 185, 129, 0.06)' : 'var(--card, #ffffff)', 
+                    borderRadius: '16px', 
+                    border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
+                    borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint, #94a3b8)',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px -2px rgba(0,0,0,0.03)',
+                    cursor: 'pointer'
+                  }}
+                  className="hover:translate-x-1 hover:shadow-md transition-all"
                 >
-                  <button onClick={() => toggleChapter(ch.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', transition: 'transform 0.1s' }} onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'} onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}>
+                  <div style={{ flexShrink: 0 }}>
                     {ch.is_completed ? <CheckCircle2 size={22} className="text-emerald-500" style={{ fill: 'rgba(16, 185, 129, 0.1)' }} /> : <Circle size={22} color="var(--text-faint)" />}
-                  </button>
+                  </div>
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-muted)', minWidth: '90px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Chapter {ch.id}</span>
                     <input 
-                      type="text" defaultValue={ch.title || ''} onBlur={(e) => updateTitle(ch.id, e.target.value)}
-                      placeholder="Add topic/chapter name..."
+                      type="text" defaultValue={ch.title || ''} 
+                      onBlur={(e) => updateTitle(ch.id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Add chapter name..."
                       style={{ 
                         flex: 1, 
                         background: 'transparent', 
@@ -166,21 +172,25 @@ function TeacherSyllabus({ schoolId, user }) {
                         fontWeight: 600, 
                         color: 'var(--text-main)', 
                         textDecoration: ch.is_completed ? 'line-through' : 'none',
-                        opacity: ch.is_completed ? 0.7 : 1
+                        opacity: ch.is_completed ? 0.65 : 1,
+                        cursor: 'text'
                       }}
                     />
                   </div>
-                  <span style={{ 
-                    fontSize: '9px', 
-                    fontWeight: 900, 
-                    textTransform: 'uppercase', 
-                    padding: '2.5px 7px', 
-                    borderRadius: '6px', 
-                    backgroundColor: ch.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-main, rgba(0,0,0,0.03))',
-                    color: ch.is_completed ? '#10b981' : 'var(--text-muted)'
-                  }}>
-                    {ch.is_completed ? 'Completed' : 'Pending'}
-                  </span>
+                  {ch.is_completed && (
+                    <span style={{ 
+                      fontSize: '9px', 
+                      fontWeight: 900, 
+                      textTransform: 'uppercase', 
+                      padding: '2.5px 8px', 
+                      borderRadius: '6px', 
+                      backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                      color: '#10b981',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      ✓ Done
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

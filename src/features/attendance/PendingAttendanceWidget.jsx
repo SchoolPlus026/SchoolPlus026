@@ -85,12 +85,12 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
          if (hasAttendanceForDate(a.attendance_data, todayDate)) {
             const student = students.find(s => s.id === a.user_id);
             if (student && student.class) {
-               submittedClasses.add(student.class);
+               submittedClasses.add(student.class.toString().trim().toLowerCase());
             }
          }
       });
       
-      const missingClassNames = activeClasses.filter(c => !submittedClasses.has(c));
+      const missingClassNames = activeClasses.filter(c => !submittedClasses.has(c.toString().trim().toLowerCase()));
       
       const missing = missingClassNames.map(className => {
          const teacher = teachers.find(t => {
@@ -119,7 +119,7 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       
       return { missing, totalSubmitted: submittedClasses.size };
     },
-    enabled: !!schoolSettings?.school_id && !dismissed,
+    enabled: !!schoolSettings?.school_id && (!dismissed || forceShow),
     ...cacheConfig
   });
 
@@ -191,19 +191,15 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       )}
 
       {/* Widget Body */}
-      {missing.length === 0 && totalSubmitted > 0 ? (
-        <div className="text-center py-12 bg-slate-900/60 rounded-3xl border border-white/5 shadow-inner">
+      {missing.length === 0 ? (
+        <div className="text-center py-12 bg-emerald-500/5 rounded-3xl border border-emerald-500/10 shadow-inner">
           <Radar size={40} className="mx-auto text-emerald-500 mb-3 opacity-60" />
           <p className="text-emerald-400 text-base font-black uppercase tracking-wider">All duties cleared!</p>
           <p className="text-xs text-slate-400 font-bold mt-1">Every active class has successfully submitted attendance logs today.</p>
         </div>
       ) : (
         <div className={forceShow ? "" : "max-h-[300px] overflow-y-auto pr-2 custom-scrollbar"}>
-          {missing.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm bg-slate-900/60 rounded-3xl border border-white/5">
-              No active classes defined in the system settings.
-            </div>
-          ) : forceShow ? (
+          {forceShow ? (
             /* Premium Grid Layout for Full Page View */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
               {missing.map((m, i) => (

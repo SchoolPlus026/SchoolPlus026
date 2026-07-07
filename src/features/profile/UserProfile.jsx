@@ -748,7 +748,7 @@ export default function UserProfile() {
                    {r === 'student' && (
                       <div className="space-y-4 w-full">
                          <div className="flex items-start gap-3">
-                            <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Users size={16} className="text-amber-400/70" /></div>
+                            <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Users size={16} className="text-amber-600 dark:text-amber-400" /></div>
                             <div>
                                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Enrolled Class</div>
                                <div className="font-semibold text-xl text-[var(--text-main)]">{profile.class || 'Unassigned'}</div>
@@ -777,11 +777,11 @@ export default function UserProfile() {
                   {r === 'teacher' && (
                      <>
                         <div className="flex items-start gap-3">
-                           <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><BookOpen size={16} className="text-amber-400/70" /></div>
+                           <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><BookOpen size={16} className="text-amber-600 dark:text-amber-400" /></div>
                            <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Allocated Class</div><div className="font-semibold text-lg text-[var(--text-main)]">Class {profile.class || 'Unassigned'}</div></div>
                         </div>
                         <div className="flex items-start gap-3">
-                           <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Award size={16} className="text-amber-400/70" /></div>
+                           <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Award size={16} className="text-amber-600 dark:text-amber-400" /></div>
                            <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Qualification</div><div className="font-semibold text-[15px] text-[var(--text-main)]">{profile.qualification || '—'}</div></div>
                         </div>
                      </>
@@ -790,19 +790,19 @@ export default function UserProfile() {
                   {r === 'staff' && (
                      <>
                         <div className="flex items-start gap-3">
-                           <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Star size={16} className="text-amber-400/70" /></div>
+                           <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Star size={16} className="text-amber-600 dark:text-amber-400" /></div>
                            <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Designation</div><div className="font-semibold text-lg text-[var(--text-main)]">{profile.designation || 'Staff Member'}</div></div>
                         </div>
                         <div className="flex items-start gap-3">
-                           <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Award size={16} className="text-amber-400/70" /></div>
+                           <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Award size={16} className="text-amber-600 dark:text-amber-400" /></div>
                            <div><div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Qualification</div><div className="font-semibold text-[15px] text-[var(--text-main)]">{profile.qualification || '—'}</div></div>
                         </div>
                      </>
                   )}
                   
                   {r === 'admin' && (
-                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3 text-amber-950 dark:text-amber-200 text-sm mt-2 font-bold">
-                         <Info size={20} className="text-amber-800 dark:text-amber-400 shrink-0" />
+                      <div className="border rounded-xl p-4 flex gap-3 text-sm mt-2 font-bold" style={{ background: 'var(--glass)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}>
+                         <Info size={20} style={{ color: 'var(--text-muted)' }} className="shrink-0" />
                          <div>As an Administrator, you have full access to management modules, settings, and school database controls.</div>
                       </div>
                    )}

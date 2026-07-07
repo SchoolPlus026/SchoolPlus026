@@ -1167,9 +1167,8 @@ export default function UserManagement() {
             <div className="overflow-x-auto relative shadow-[inset_-12px_0_12px_-12px_rgba(0,0,0,0.1)]">
               <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
-                <tr className="bg-slate-50/50 border-b border-border">
+              <tr className="bg-slate-50/50 border-b border-border">
                   <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">User Details</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contact</th>
                   <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                     {activeTab === 'student' ? 'Class' : activeTab === 'teacher' ? 'Qualification' : 'Designation'}
                   </th>
@@ -1192,9 +1191,6 @@ export default function UserManagement() {
                           <div className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md inline-block mt-1">@{user.username}</div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-5 text-xs font-semibold text-slate-600">
-                      {user.contact || <span className="text-slate-300 italic">Not provided</span>}
                     </td>
                     <td className="px-6 py-5">
                       <span className="font-bold text-slate-700 text-sm">
@@ -1766,10 +1762,10 @@ export default function UserManagement() {
               {bulkStep === 2 && (
                 <div className="space-y-6">
                   {/* Warning Alert */}
-                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3">
-                    <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
-                    <div className="text-xs text-amber-900 leading-relaxed font-semibold">
-                      <p className="font-bold text-amber-950 mb-1">Check Columns:</p>
+                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex gap-3">
+                    <div className="text-blue-500 shrink-0 mt-0.5"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></div>
+                    <div className="text-xs text-blue-900 leading-relaxed font-semibold">
+                      <p className="font-bold text-blue-950 mb-1">Check Columns:</p>
                       Make sure your Excel data matches the correct fields below. You can change them if they look wrong.
                     </div>
                   </div>
@@ -1992,10 +1988,30 @@ export default function UserManagement() {
               )}
               {bulkStep === 4 && (
                 <button
-                  onClick={resetBulkUploadState}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-xl transition-colors"
+                  onClick={() => {
+                    const needsFailures = bulkResults?.failureList?.length > 0 && !downloadedFailures;
+                    const needsCredentials = bulkResults?.successList?.length > 0 && !downloadedCredentials;
+                    if (needsFailures && needsCredentials) {
+                      alert('Please download both the "Download Failed Rows" and "Download Credentials" files before closing.');
+                      return;
+                    } else if (needsFailures) {
+                      alert('Please download the "Download Failed Rows" file before closing.');
+                      return;
+                    } else if (needsCredentials) {
+                      alert('Please download the "Download Credentials" file before closing.');
+                      return;
+                    }
+                    resetBulkUploadState();
+                  }}
+                  className={`w-full py-3 font-black text-sm rounded-xl transition-colors ${
+                    (bulkResults?.failureList?.length > 0 && !downloadedFailures) || (bulkResults?.successList?.length > 0 && !downloadedCredentials)
+                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer'
+                  }`}
                 >
-                  Finish & Close
+                  {(bulkResults?.failureList?.length > 0 && !downloadedFailures) || (bulkResults?.successList?.length > 0 && !downloadedCredentials)
+                    ? '⬇ Download files to enable Finish'
+                    : 'Finish & Close'}
                 </button>
               )}
             </div>

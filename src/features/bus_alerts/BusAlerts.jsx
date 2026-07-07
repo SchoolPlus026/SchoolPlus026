@@ -4,7 +4,8 @@ import { supabase } from '../../config/supabaseClient';
 import { rtdb } from '../../config/firebaseClient';
 import { ref, set } from 'firebase/database';
 import { useAppStore } from '../../store/useAppStore';
-import { Bus, Navigation, Loader2, Wifi, WifiOff, Clock, CheckCircle2, MapPinOff } from 'lucide-react';
+import { Bus, Navigation, Loader2, Wifi, WifiOff, Clock, CheckCircle2, MapPinOff, Maximize2, Minimize2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import ModuleGuard from '../../components/ModuleGuard';
 import { Geolocation } from '@capacitor/geolocation';
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
@@ -94,6 +95,7 @@ export default function BusAlerts() {
   const [lastUpdated,   setLastUpdated]   = useState(null);
   const [isOnline,      setIsOnline]      = useState(navigator.onLine);
   const [gpsError,      setGpsError]      = useState(null);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
 
   const [fbReady,       setFbReady]       = useState(false);
   const [fbError,       setFbError]       = useState(null);
@@ -701,18 +703,69 @@ export default function BusAlerts() {
 
             {/* ── Google Maps Mini Map ── keyless embed, works in Android WebView */}
             {displayCoords && (
-              <iframe
-                key={`${displayCoords.lat}-${displayCoords.lng}`}
-                src={`https://maps.google.com/maps?q=${displayCoords.lat},${displayCoords.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
-                style={{
-                  width: '100%', height: '350px', borderRadius: '12px',
-                  border: 'none', marginTop: '14px', display: 'block',
-                }}
-                title="Live Location Map"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-              />
+              <div style={{ position: 'relative', marginTop: '14px' }}>
+                <iframe
+                  key={`${displayCoords.lat}-${displayCoords.lng}`}
+                  src={`https://maps.google.com/maps?q=${displayCoords.lat},${displayCoords.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+                  style={{
+                    width: '100%', height: '350px', borderRadius: '12px',
+                    border: 'none', display: 'block',
+                  }}
+                  title="Live Location Map"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
+                />
+                <button
+                  onClick={() => setMapFullscreen(true)}
+                  title="Expand map"
+                  style={{
+                    position: 'absolute', top: '10px', right: '10px',
+                    background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: '10px', padding: '8px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backdropFilter: 'blur(6px)', zIndex: 10
+                  }}
+                >
+                  <Maximize2 size={18} color="#fff" />
+                </button>
+              </div>
+            )}
+
+            {/* ── Full-Screen Map Portal ── */}
+            {mapFullscreen && displayCoords && createPortal(
+              <div style={{
+                position: 'fixed', inset: 0, zIndex: 99999,
+                background: '#000', display: 'flex', flexDirection: 'column',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  position: 'absolute', top: '14px', right: '14px', zIndex: 100000
+                }}>
+                  <button
+                    onClick={() => setMapFullscreen(false)}
+                    style={{
+                      background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '12px', padding: '10px 14px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      color: '#fff', fontSize: '12px', fontWeight: 700,
+                      backdropFilter: 'blur(8px)'
+                    }}
+                  >
+                    <Minimize2 size={16} /> Exit Full Screen
+                  </button>
+                </div>
+                <iframe
+                  key={`fs-${displayCoords.lat}-${displayCoords.lng}`}
+                  src={`https://maps.google.com/maps?q=${displayCoords.lat},${displayCoords.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                  title="Live Location Map (Full Screen)"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
+                />
+              </div>,
+              document.body
             )}
           </div>
         )}

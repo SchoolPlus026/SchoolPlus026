@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { fbAuth } from '../../config/firebaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Bus, MapPin, School, Clock, Loader2, RefreshCw, Navigation, WifiOff } from 'lucide-react';
+import { Bus, MapPin, School, Clock, Loader2, RefreshCw, Navigation, WifiOff, Maximize2, Minimize2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import ModuleGuard from '../../components/ModuleGuard';
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 
@@ -29,6 +30,7 @@ export default function LiveBusTracker() {
   const [fbReady,       setFbReady]       = useState(false);
   const [fbError,       setFbError]       = useState(null);
   const [isConnecting,  setIsConnecting]  = useState(false);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
 
   // Local ticker states for zero-bandwidth countdown and offline status
   const [countdown,     setCountdown]     = useState(30);
@@ -407,19 +409,72 @@ export default function LiveBusTracker() {
 
             {/* Google Maps iframe — shows when driver has pushed lat/lng */}
             {trackingData?.lat && trackingData?.lng ? (
-              <iframe
-                key={`map-${trackingData.lat}-${trackingData.lng}`}
-                src={`https://maps.google.com/maps?q=${trackingData.lat},${trackingData.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
-                style={{
-                  width: '100%', height: '350px', borderRadius: '14px',
-                  border: isLive ? '2px solid rgba(16,185,129,0.25)' : '2px solid var(--card-border)',
-                  display: 'block',
-                }}
-                title="Bus Live Location"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-              />
+              <>
+                <div style={{ position: 'relative' }}>
+                  <iframe
+                    key={`map-${trackingData.lat}-${trackingData.lng}`}
+                    src={`https://maps.google.com/maps?q=${trackingData.lat},${trackingData.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+                    style={{
+                      width: '100%', height: '350px', borderRadius: '14px',
+                      border: isLive ? '2px solid rgba(16,185,129,0.25)' : '2px solid var(--card-border)',
+                      display: 'block',
+                    }}
+                    title="Bus Live Location"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
+                  />
+                  <button
+                    onClick={() => setMapFullscreen(true)}
+                    title="Expand map"
+                    style={{
+                      position: 'absolute', top: '12px', right: '12px',
+                      background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: '10px', padding: '8px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backdropFilter: 'blur(6px)', zIndex: 10
+                    }}
+                  >
+                    <Maximize2 size={18} color="#fff" />
+                  </button>
+                </div>
+
+                {/* ── Full-Screen Map Portal ── */}
+                {mapFullscreen && createPortal(
+                  <div style={{
+                    position: 'fixed', inset: 0, zIndex: 99999,
+                    background: '#000', display: 'flex', flexDirection: 'column',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      position: 'absolute', top: '14px', right: '14px', zIndex: 100000
+                    }}>
+                      <button
+                        onClick={() => setMapFullscreen(false)}
+                        style={{
+                          background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '12px', padding: '10px 14px', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          color: '#fff', fontSize: '12px', fontWeight: 700,
+                          backdropFilter: 'blur(8px)'
+                        }}
+                      >
+                        <Minimize2 size={16} /> Exit Full Screen
+                      </button>
+                    </div>
+                    <iframe
+                      key={`fs-map-${trackingData.lat}-${trackingData.lng}`}
+                      src={`https://maps.google.com/maps?q=${trackingData.lat},${trackingData.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+                      style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                      title="Bus Live Location (Full Screen)"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      allowFullScreen
+                    />
+                  </div>,
+                  document.body
+                )}
+              </>
             ) : (
               /* Fallback: Currently at School — shown when no GPS data available */
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 18px', background: 'var(--input-bg)', borderRadius: '14px', border: '1px solid var(--card-border)' }}>

@@ -96,25 +96,26 @@ export default function NavbarAccountSwitcher() {
 
       {isOpen && (
         <div 
-          className="absolute right-0 mt-2 w-72 bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-2xl p-4 shadow-2xl z-[9999]"
+          className="absolute right-0 mt-2 w-72 rounded-2xl p-4 shadow-2xl z-[9999]"
           style={{
-            boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+            background: 'var(--card)',
+            border: '1px solid var(--card-border)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
             transformOrigin: 'top right'
           }}
         >
-          {/* Active Profile Info Header */}
-          <div className="border-b border-slate-800/80 pb-3 mb-3">
-            <div className="font-black text-slate-200 text-sm truncate">{activeAccount?.name || 'User Profile'}</div>
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+          <div className="border-b pb-3 mb-3" style={{ borderColor: 'var(--card-border)' }}>
+            <div className="font-black text-sm truncate" style={{ color: 'var(--text-main)' }}>{activeAccount?.name || 'User Profile'}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {role?.toUpperCase()} • {schoolSettings?.name || 'School Master'}
             </div>
-            <div className="text-[9px] text-slate-500 font-medium truncate mt-0.5">{user?.email}</div>
+            <div className="text-[9px] font-medium truncate mt-0.5" style={{ color: 'var(--text-faint, #94a3b8)' }}>{user?.email}</div>
           </div>
 
           {/* Switch Users Section */}
           {otherAccounts.length > 0 && (
             <>
-              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">
+              <div className="text-[9px] font-black uppercase tracking-widest mb-2 px-1" style={{ color: 'var(--text-faint, #94a3b8)' }}>
                 Switch Account
               </div>
               <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 mb-3">
@@ -122,15 +123,16 @@ export default function NavbarAccountSwitcher() {
                   <div
                     key={acc.user_id}
                     onClick={() => !switchingId && handleSwitch(acc)}
-                    className="w-full p-2 rounded-xl bg-slate-950/40 border border-slate-950 hover:bg-slate-950/80 hover:border-slate-800 cursor-pointer transition-all flex items-center justify-between text-left group"
+                    className="w-full p-2 rounded-xl cursor-pointer transition-all flex items-center justify-between text-left group"
+                    style={{ background: 'var(--glass)', border: '1px solid var(--card-border)' }}
                   >
                     <div className="min-w-0 flex-1">
-                      <span className="font-bold text-slate-200 text-xs truncate block">{acc.name}</span>
-                      <span className="text-[8px] text-slate-500 font-semibold truncate uppercase block mt-0.5">
+                      <span className="font-bold text-sm truncate block" style={{ color: 'var(--text-main)' }}>{acc.name}</span>
+                      <span className="text-[8px] font-semibold truncate uppercase block mt-0.5" style={{ color: 'var(--text-muted)' }}>
                         {acc.role} • {acc.school_name}
                       </span>
                     </div>
-                    <div className="text-slate-500 group-hover:text-white transition-colors">
+                    <div style={{ color: 'var(--text-muted)' }}>
                       {switchingId === acc.user_id ? <Loader2 size={12} className="animate-spin" /> : <ChevronDown size={12} className="-rotate-90" />}
                     </div>
                   </div>
@@ -140,10 +142,11 @@ export default function NavbarAccountSwitcher() {
           )}
 
           {/* Action Links */}
-          <div className="border-t border-slate-800/80 pt-3 flex flex-col gap-2">
+          <div className="border-t pt-3 flex flex-col gap-2" style={{ borderColor: 'var(--card-border)' }}>
             <button
               onClick={handleAddAccount}
-              className="w-full py-2 bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-slate-700/60 text-slate-300 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2"
+              className="w-full py-2 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2"
+              style={{ background: 'var(--glass)', border: '1px solid var(--card-border)', color: 'var(--text-muted)' }}
             >
               <UserPlus size={12} />
               Add User Account
@@ -151,7 +154,8 @@ export default function NavbarAccountSwitcher() {
 
             <button
               onClick={handleLogout}
-              className="w-full py-2 bg-red-950/20 hover:bg-red-950/30 border border-red-500/10 hover:border-red-500/20 text-red-400 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2"
+              className="w-full py-2 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2"
+              style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', cursor: 'pointer' }}
             >
               <LogOut size={12} />
               Logout Current

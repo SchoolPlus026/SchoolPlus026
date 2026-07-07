@@ -486,6 +486,12 @@ export default function AdminSettings() {
   };
 
   const handleConnectDrive = async () => {
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (code === '120' || code === '777' || isDemoAndDisabled) {
+      setShowDemoLockModal(true);
+      return;
+    }
     const drives = Array.isArray(schoolSettings?.gdrive_config) ? schoolSettings.gdrive_config : (schoolSettings?.gdrive_config ? [schoolSettings.gdrive_config] : []);
     if (isFree && drives.length >= 3) {
        setShowUpgradeModal(true);
@@ -544,6 +550,12 @@ export default function AdminSettings() {
   };
 
   const handleDisconnectDrive = async (index) => {
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (code === '120' || code === '777' || isDemoAndDisabled) {
+      setShowDemoLockModal(true);
+      return;
+    }
     if (!window.confirm('Are you sure you want to disconnect this Google Drive? New gallery images will fall back to Supabase Storage or external links.')) return;
     setDisconnectingDrive(true);
     try {
@@ -666,6 +678,13 @@ export default function AdminSettings() {
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (code === '120' || code === '777' || isDemoAndDisabled) {
+      setShowDemoLockModal(true);
+      if (e.target) e.target.value = '';
+      return;
+    }
     if (file.size > 2 * 1024 * 1024) { alert('File must be under 2MB.'); return; }
     setUploadingLogo(true);
     try {

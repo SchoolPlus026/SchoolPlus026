@@ -2076,6 +2076,48 @@ export default function PlatformAdminDashboard() {
       {/* ── SECTION 5: PLATFORM SETTINGS ── */}
       {activeTab === 'settings' && (
         <div className="space-y-6 fade-in">
+          {/* Standalone Demo School Protection Toggle Card */}
+          <div className="card p-5 rounded-3xl relative overflow-hidden" style={{ borderLeft: '4px solid #f59e0b', background: 'rgba(245, 158, 11, 0.05)' }}>
+            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            <div className="flex items-center justify-between gap-4 flex-wrap relative z-10">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-amber-500/20 text-amber-500 rounded-xl mt-0.5">
+                  <Shield size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-200 uppercase tracking-wider">Demo School Data Protection</h4>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Control editing permissions for School Code 100 (demo testing school).</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <span className="text-xs font-black text-amber-200 uppercase tracking-wider">{allowDemoEdit ? "Editing Enabled" : "Read-Only (Locked)"}</span>
+                <input
+                  type="checkbox"
+                  checked={allowDemoEdit}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    setAllowDemoEdit(checked);
+                    try {
+                      const { error } = await supabase
+                        .from('platform_settings')
+                        .update({ allow_demo_edit: checked })
+                        .neq('id', '00000000-0000-0000-0000-000000000000');
+                      if (error) throw error;
+                      
+                      const currentPlat = useAppStore.getState().platformSettings || {};
+                      useAppStore.getState().setPlatformSettings({ ...currentPlat, allow_demo_edit: checked });
+                      alert(`Demo school editing permissions set to: ${checked ? 'ENABLED' : 'DISABLED (Read-Only)'}`);
+                    } catch (err) {
+                      alert('Failed to save demo protection setting: ' + err.message);
+                      setAllowDemoEdit(!checked);
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                />
+              </label>
+            </div>
+          </div>
+
           <div className={`card transition-all duration-300 ${!brandingCollapsed ? 'card-expanded-highlight' : ''}`}>
             <div 
               className="settings-header cursor-pointer flex justify-between items-center"
@@ -2262,21 +2304,6 @@ export default function PlatformAdminDashboard() {
                 </div>
               </div>
             </div>
-
-             <div className="border-t border-[var(--card-border)] pt-4 mt-4">
-               <label className="flex items-center gap-3 cursor-pointer group">
-                 <input
-                   type="checkbox"
-                   checked={allowDemoEdit}
-                   onChange={e => setAllowDemoEdit(e.target.checked)}
-                   className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                 />
-                 <div>
-                   <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">Allow Editing Demo School Data (School Code 100)</span>
-                   <p className="text-[10px] text-slate-500 font-semibold mt-0.5">When enabled, users will be allowed to modify data, change passwords, change email, and disconnect Google Accounts in the demo school.</p>
-                 </div>
-               </label>
-             </div>
 
              <button onClick={handleSavePlatform} disabled={savingPlatform} className="btn accent w-full mt-4">
               <Save size={16} /> {savingPlatform ? 'Saving...' : 'Save Settings'}
