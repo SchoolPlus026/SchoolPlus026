@@ -74,7 +74,8 @@ function StudentCompose({ schoolId, senderId, userClass, queryClient }) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['complaint-box']);
+      queryClient.invalidateQueries({ queryKey: ['complaint-box'] });
+      queryClient.invalidateQueries({ queryKey: ['executive-briefing'] });
       setSubject(''); setMessage(''); setIsAnonymous(false);
       setRecipientId(''); setRecipientType('admin');
       alert('Your complaint has been submitted securely.');
@@ -230,7 +231,8 @@ function TeacherCompose({ schoolId, senderId, userClass, queryClient }) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['complaint-box']);
+      queryClient.invalidateQueries({ queryKey: ['complaint-box'] });
+      queryClient.invalidateQueries({ queryKey: ['executive-briefing'] });
       setSubject(''); setMessage(''); setRecipientId('');
       alert('Message sent to the student.');
     },
@@ -345,7 +347,8 @@ export default function ComplaintBox() {
       await supabase.from('app_notifications_queue').insert(notif);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['complaint-box']);
+      queryClient.invalidateQueries({ queryKey: ['complaint-box'] });
+      queryClient.invalidateQueries({ queryKey: ['executive-briefing'] });
       setReplyingTo(null); setReplyText('');
     },
     onError: (err) => alert(err.message),

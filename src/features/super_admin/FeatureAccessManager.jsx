@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
-import { Lock, Unlock, Save, RefreshCw, Search, AlertTriangle, CheckCircle, ShieldAlert, Layers } from 'lucide-react';
+import { Lock, Unlock, Save, RefreshCw, Search, AlertTriangle, CheckCircle, ShieldAlert, Layers, Shield } from 'lucide-react';
+import { useAppStore } from '../../store/useAppStore';
 
 const ALL_MODULES = [
   { id: 'attendance',    label: 'Attendance',      emoji: '📋', desc: 'Daily attendance tracking for students and teachers.' },
@@ -29,6 +30,7 @@ export default function FeatureAccessManager() {
   
   // Global tier states
   const [globalLockedList, setGlobalLockedList] = useState([]);
+  const [allowDemoEdit, setAllowDemoEdit] = useState(false);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
   const [savingGlobal, setSavingGlobal] = useState(false);
   const [bulkApplying, setBulkApplying] = useState(false);
@@ -60,6 +62,7 @@ export default function FeatureAccessManager() {
         // Suppress migration warnings if column is fetched (even if null/empty array)
         const locked = Array.isArray(data.free_tier_locked_modules) ? data.free_tier_locked_modules : [];
         setGlobalLockedList(locked);
+        setAllowDemoEdit(!!data.allow_demo_edit);
       }
     } catch (err) {
       console.warn('Failed to fetch platform global locks:', err.message);
@@ -123,16 +126,32 @@ export default function FeatureAccessManager() {
       if (selectErr) throw selectErr;
       if (rows && rows.length > 0) {
         const { error } = await supabase.from('platform_settings')
-          .update({ free_tier_locked_modules: globalLockedList })
+          .update({ 
+            free_tier_locked_modules: globalLockedList,
+            allow_demo_edit: allowDemoEdit
+          })
           .eq('id', rows[0].id);
         if (error) throw error;
-        alert('Global Free Tier default locks saved successfully!');
+
+        // Sync to Zustand store
+        const currentPlat = useAppStore.getState().platformSettings || {};
+        useAppStore.getState().setPlatformSettings({ ...currentPlat, allow_demo_edit: allowDemoEdit });
+
+        alert('Global Free Tier default locks and settings saved successfully!');
       } else {
         // Fallback if table has no rows
         const { error } = await supabase.from('platform_settings')
-          .insert({ free_tier_locked_modules: globalLockedList });
+          .insert({ 
+            free_tier_locked_modules: globalLockedList,
+            allow_demo_edit: allowDemoEdit
+          });
         if (error) throw error;
-        alert('Global Free Tier default locks saved successfully!');
+
+        // Sync to Zustand store
+        const currentPlat = useAppStore.getState().platformSettings || {};
+        useAppStore.getState().setPlatformSettings({ ...currentPlat, allow_demo_edit: allowDemoEdit });
+
+        alert('Global Free Tier default locks and settings saved successfully!');
       }
     } catch (err) {
       console.error('Error saving global defaults:', err);
@@ -321,6 +340,49 @@ export default function FeatureAccessManager() {
       {/* GLOBAL TAB CONTENT */}
       {subTab === 'global' && (
         <div className="space-y-6">
+          {/* Standalone Demo School Protection Toggle Card */}
+          <div className="card p-5 rounded-3xl relative overflow-hidden" style={{ borderLeft: '4px solid #f59e0b', background: 'rgba(245, 158, 11, 0.05)', padding: '20px', borderRadius: '24px', position: 'relative' }}>
+            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            <div className="flex items-center justify-between gap-4 flex-wrap relative z-10" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+              <div className="flex items-start gap-3" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className="p-2 bg-amber-500/20 text-amber-500 rounded-xl" style={{ padding: '8px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Shield size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-200 uppercase tracking-wider" style={{ fontSize: '13px', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Demo School Data Protection</h4>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5" style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Control editing permissions for School Code 100 (demo testing school).</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer select-none" style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', userSelect: 'none' }}>
+                <span className="text-xs font-black text-amber-200 uppercase tracking-wider" style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b' }}>{allowDemoEdit ? "Editing Enabled" : "Read-Only (Locked)"}</span>
+                <input
+                  type="checkbox"
+                  checked={allowDemoEdit}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    setAllowDemoEdit(checked);
+                    try {
+                      const { error } = await supabase
+                        .from('platform_settings')
+                        .update({ allow_demo_edit: checked })
+                        .neq('id', '00000000-0000-0000-0000-000000000000');
+                      if (error) throw error;
+                      
+                      const currentPlat = useAppStore.getState().platformSettings || {};
+                      useAppStore.getState().setPlatformSettings({ ...currentPlat, allow_demo_edit: checked });
+                      alert(`Demo school editing permissions set to: ${checked ? 'ENABLED' : 'DISABLED (Read-Only)'}`);
+                    } catch (err) {
+                      alert('Failed to save demo protection setting: ' + err.message);
+                      setAllowDemoEdit(!checked);
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+              </label>
+            </div>
+          </div>
+
           <div className="card" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <div>

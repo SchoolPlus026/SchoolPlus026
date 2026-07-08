@@ -17,7 +17,10 @@ export default function ExecutiveBriefingWidget({ forceShow = false }) {
     premiumRefetchInterval: 60000
   });
   
-  const today = new Date().toISOString().split('T')[0];
+  const localDate = new Date();
+  const offset = localDate.getTimezoneOffset();
+  const localToday = new Date(localDate.getTime() - (offset * 60 * 1000));
+  const today = localToday.toISOString().split('T')[0];
   const [dismissed, setDismissed] = useState(() => {
     return !!localStorage.getItem(`dismissed_briefing_${today}`);
   });

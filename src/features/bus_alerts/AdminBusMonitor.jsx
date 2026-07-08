@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X, Save, MapPin, Clock, RefreshCw } from 'lucide-react';
+import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X, Save, MapPin, Clock, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { rtdb } from '../../config/firebaseClient';
 import { ref, onValue, off } from 'firebase/database';
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
@@ -17,6 +18,7 @@ function toBusKey(n) {
 function BusLiveCard({ schoolId, busNumber, fbReady }) {
   const [live,   setLive]   = useState(null);
   const [secAgo, setSecAgo] = useState(null); // seconds since driver's last push
+  const [mapFullscreen, setMapFullscreen] = useState(false);
 
   useEffect(() => {
     if (!schoolId || !busNumber || !rtdb || !fbReady) return;
@@ -79,15 +81,68 @@ function BusLiveCard({ schoolId, busNumber, fbReady }) {
       </div>
 
       {live.lat && live.lng ? (
-        <iframe
-          key={`admin-map-${live.lat}-${live.lng}`}
-          src={`https://maps.google.com/maps?q=${live.lat},${live.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
-          style={{ width: '100%', height: '320px', borderRadius: '12px', border: `2px solid ${isLive ? 'rgba(16,185,129,0.2)' : 'var(--card-border)'}`, display: 'block' }}
-          title={`Bus ${busNumber} Live Location`}
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          allowFullScreen
-        />
+        <>
+          <div style={{ position: 'relative' }}>
+            <iframe
+              key={`admin-map-${live.lat}-${live.lng}`}
+              src={`https://maps.google.com/maps?q=${live.lat},${live.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+              style={{ width: '100%', height: '320px', borderRadius: '12px', border: `2px solid ${isLive ? 'rgba(16,185,129,0.2)' : 'var(--card-border)'}`, display: 'block' }}
+              title={`Bus ${busNumber} Live Location`}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
+            <button
+              onClick={() => setMapFullscreen(true)}
+              title="Expand map"
+              style={{
+                position: 'absolute', top: '10px', right: '10px',
+                background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '10px', padding: '8px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backdropFilter: 'blur(6px)', zIndex: 10
+              }}
+            >
+              <Maximize2 size={18} color="#fff" />
+            </button>
+          </div>
+
+          {/* ── Full-Screen Map Portal ── */}
+          {mapFullscreen && createPortal(
+            <div style={{
+              position: 'fixed', inset: 0, zIndex: 99999,
+              background: '#000', display: 'flex', flexDirection: 'column',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute', top: '14px', right: '14px', zIndex: 100000
+              }}>
+                <button
+                  onClick={() => setMapFullscreen(false)}
+                  style={{
+                    background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '12px', padding: '10px 14px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    color: '#fff', fontSize: '12px', fontWeight: 700,
+                    backdropFilter: 'blur(8px)'
+                  }}
+                >
+                  <Minimize2 size={16} /> Exit Full Screen
+                </button>
+              </div>
+              <iframe
+                key={`fs-admin-map-${live.lat}-${live.lng}`}
+                src={`https://maps.google.com/maps?q=${live.lat},${live.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                title={`Bus ${busNumber} Live Location (Full Screen)`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            </div>,
+            document.body
+          )}
+        </>
       ) : (
         <div style={{ fontSize: '11px', color: 'var(--text-faint)', padding: '4px 0' }}>Map unavailable — no GPS data in this push.</div>
       )}

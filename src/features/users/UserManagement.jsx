@@ -67,7 +67,7 @@ async function triggerDownload(blob, filename) {
       const writeResult = await Filesystem.writeFile({
         path:      filename,
         data:      base64Data,
-        directory: Directory.Documents,
+        directory: Directory.Cache,
         recursive: true
       });
 
@@ -295,9 +295,26 @@ export default function UserManagement() {
     setDownloadedCredentials(false);
     setDownloadedFailures(false);
 
+    let dbStudents = [];
+    if (activeTab === 'student') {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('name, class')
+          .eq('school_id', schoolSettings.school_id)
+          .eq('role', 'student');
+        if (error) throw error;
+        dbStudents = data || [];
+      } catch (err) {
+        console.error("Failed to load existing students for duplicate check:", err);
+      }
+    }
+
     const targetFields = getTargetFieldsForRole(activeTab);
     const processedRows = [];
     const initialFailures = [];
+    const seenInSheet = new Set();
+    const normalizeStr = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
     // Pre-validate rows and extract values client-side
     bulkRows.forEach((row, rowIndex) => {
@@ -342,6 +359,28 @@ export default function UserManagement() {
             errorReasons.push(`Class "${payload.userClass}" is invalid (does not exist in school settings)`);
           } else {
             payload.userClass = matchedClass;
+          }
+        }
+
+        // Duplicate checks
+        if (payload.name && payload.userClass) {
+          const normName = normalizeStr(payload.name);
+          const normClass = normalizeStr(payload.userClass);
+          
+          const isDbDuplicate = dbStudents.some(
+            s => normalizeStr(s.name) === normName && normalizeStr(s.class) === normClass
+          );
+          if (isDbDuplicate) {
+            hasError = true;
+            errorReasons.push(`Duplicate: Student "${payload.name}" already exists in Class "${payload.userClass}"`);
+          }
+
+          const sheetKey = `${normName}|${normClass}`;
+          if (seenInSheet.has(sheetKey)) {
+            hasError = true;
+            errorReasons.push(`Duplicate: Student "${payload.name}" is listed multiple times in this Excel file for Class "${payload.userClass}"`);
+          } else if (!hasError) {
+            seenInSheet.add(sheetKey);
           }
         }
       }
@@ -1169,10 +1208,12 @@ export default function UserManagement() {
               <thead>
               <tr className="bg-slate-50/50 border-b border-border">
                   <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">User Details</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                    {activeTab === 'student' ? 'Class' : activeTab === 'teacher' ? 'Qualification' : 'Designation'}
-                  </th>
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                  {activeTab !== 'teacher' && (
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      {activeTab === 'student' ? 'Class' : 'Designation'}
+                    </th>
+                  )}
+                  <th className={`px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ${activeTab === 'teacher' ? 'text-left' : 'text-right'}`}>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1192,14 +1233,16 @@ export default function UserManagement() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-5">
-                      <span className="font-bold text-slate-700 text-sm">
-                        {activeTab === 'student' ? user.class : activeTab === 'teacher' ? user.qualification : user.designation}
-                        {!user.class && !user.qualification && !user.designation && <span className="text-slate-300 italic text-xs">—</span>}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    {activeTab !== 'teacher' && (
+                      <td className="px-6 py-5">
+                        <span className="font-bold text-slate-700 text-sm">
+                          {activeTab === 'student' ? user.class : user.designation}
+                          {!user.class && !user.designation && <span className="text-slate-300 italic text-xs">—</span>}
+                        </span>
+                      </td>
+                    )}
+                    <td className={`px-6 py-5 ${activeTab === 'teacher' ? 'text-left' : 'text-right'}`}>
+                      <div className={`flex items-center gap-2 ${activeTab === 'teacher' ? 'justify-start' : 'justify-end'}`}>
                         {(currentRole === 'admin' || (currentRole === 'teacher' && activeTab === 'student')) && (
                           <button
                             onClick={() => {
@@ -2003,6 +2046,7 @@ export default function UserManagement() {
                     }
                     resetBulkUploadState();
                   }}
+                  disabled={(bulkResults?.failureList?.length > 0 && !downloadedFailures) || (bulkResults?.successList?.length > 0 && !downloadedCredentials)}
                   className={`w-full py-3 font-black text-sm rounded-xl transition-colors ${
                     (bulkResults?.failureList?.length > 0 && !downloadedFailures) || (bulkResults?.successList?.length > 0 && !downloadedCredentials)
                       ? 'bg-slate-300 text-slate-500 cursor-not-allowed'

@@ -17,11 +17,18 @@ function hasAttendanceForDate(attendanceData, isoDate) {
 
 import { useTieredCache } from '../../hooks/useTieredCache';
 
+function getLocalTodayDate() {
+  const localDate = new Date();
+  const offset = localDate.getTimezoneOffset();
+  const localToday = new Date(localDate.getTime() - (offset * 60 * 1000));
+  return localToday.toISOString().split('T')[0];
+}
+
 export default function PendingAttendanceWidget({ forceShow = false }) {
   const { schoolSettings } = useAppStore();
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalTodayDate();
     return !!localStorage.getItem(`dismissed_duty_${today}`);
   });
 
@@ -36,95 +43,130 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
     queryFn: async () => {
       if (!schoolSettings?.school_id) return { missing: [], totalSubmitted: 0 };
       
-      const { data: freshSettings } = await supabase
-        .from('school_settings')
-        .select('classes')
-        .eq('school_id', schoolSettings.school_id)
-        .single();
+      try {
+        const todayDate = getLocalTodayDate();
+        const monthYear = todayDate.substring(0, 7);
         
-      let activeClasses = freshSettings?.classes || schoolSettings.classes || [];
-      if (typeof activeClasses === 'string') {
-        try { activeClasses = JSON.parse(activeClasses); }
-        catch { activeClasses = activeClasses.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, '')); }
-      }
-      
-      if (!activeClasses || activeClasses.length === 0) return { missing: [], totalSubmitted: 0 };
-      
-      const todayDate = new Date().toISOString().split('T')[0];
-      const monthYear = todayDate.substring(0, 7);
-      
-      const [attRes, stuRes, teacherRes] = await Promise.all([
-        supabase
-          .from('attendance')
-          .select('user_id, attendance_data')
-          .eq('school_id', schoolSettings.school_id)
-          .eq('month_year', monthYear),
-        supabase
-          .from('users')
-          .select('id, class')
-          .eq('role', 'student')
-          .eq('school_id', schoolSettings.school_id),
+        console.log("PendingAttendanceWidget - Querying date:", todayDate, "month_year:", monthYear);
+
+        const [attRes, stuRes, teacherRes, settingsRes] = await Promise.all([
+          supabase
+            .from('attendance')
+            .select('user_id, attendance_data')
+            .eq('school_id', schoolSettings.school_id)
+            .eq('month_year', monthYear),
+          supabase
+            .from('users')
+            .select('id, class')
+            .eq('role', 'student')
+            .eq('school_id', schoolSettings.school_id),
           supabase
             .from('users')
             .select('name, class')
             .in('role', ['teacher', 'staff'])
-          .eq('school_id', schoolSettings.school_id)
-      ]);
-      
-      if (attRes.error) throw attRes.error;
-      if (stuRes.error) throw stuRes.error;
-      if (teacherRes.error) throw teacherRes.error;
-      
-      const attendanceData = attRes.data || [];
-      const students = stuRes.data || [];
-      const teachers = teacherRes.data || [];
-      
-      const submittedClasses = new Set();
-      
-      attendanceData.forEach(a => {
-         if (hasAttendanceForDate(a.attendance_data, todayDate)) {
-            const student = students.find(s => s.id === a.user_id);
-            if (student && student.class) {
-               submittedClasses.add(student.class.toString().trim().toLowerCase());
+            .eq('school_id', schoolSettings.school_id),
+          supabase
+            .from('school_settings')
+            .select('classes')
+            .eq('school_id', schoolSettings.school_id)
+            .maybeSingle()
+        ]);
+        
+        if (attRes.error) throw attRes.error;
+        if (stuRes.error) throw stuRes.error;
+        if (teacherRes.error) throw teacherRes.error;
+        
+        const attendanceData = attRes.data || [];
+        const students = stuRes.data || [];
+        const teachers = teacherRes.data || [];
+        
+        let activeClasses = settingsRes?.data?.classes || schoolSettings?.classes || [];
+        if (typeof activeClasses === 'string') {
+          try { activeClasses = JSON.parse(activeClasses); }
+          catch { activeClasses = activeClasses.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, '')); }
+        }
+        
+        // Fallback classes if still empty (check student list first, then teacher list)
+        if (!activeClasses || activeClasses.length === 0) {
+          activeClasses = Array.from(new Set(students.map(s => s.class).filter(Boolean)));
+          console.log("PendingAttendanceWidget - Falling back to classes from student list:", activeClasses);
+        }
+        if (!activeClasses || activeClasses.length === 0) {
+          const teacherClasses = [];
+          teachers.forEach(t => {
+            if (!t.class) return;
+            if (typeof t.class === 'string') {
+              try {
+                const parsed = JSON.parse(t.class);
+                if (Array.isArray(parsed)) teacherClasses.push(...parsed);
+                else teacherClasses.push(...t.class.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, '')));
+              } catch (e) {
+                teacherClasses.push(...t.class.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, '')));
+              }
+            } else if (Array.isArray(t.class)) {
+              teacherClasses.push(...t.class);
             }
-         }
-      });
-      
-      const missingClassNames = activeClasses.filter(c => !submittedClasses.has(c.toString().trim().toLowerCase()));
-      
-      const missing = missingClassNames.map(className => {
-         const teacher = teachers.find(t => {
-           if (!t.class) return false;
-           let tClasses = [];
-           if (typeof t.class === 'string') {
-             try {
-               const parsed = JSON.parse(t.class);
-               if (Array.isArray(parsed)) tClasses = parsed;
-               else tClasses = t.class.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, ''));
-             } catch (e) {
-               tClasses = t.class.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, ''));
-             }
-           } else if (Array.isArray(t.class)) {
-             tClasses = t.class;
+          });
+          activeClasses = Array.from(new Set(teacherClasses.filter(Boolean)));
+          console.log("PendingAttendanceWidget - Falling back to classes from teacher list:", activeClasses);
+        }
+        
+        if (!activeClasses || activeClasses.length === 0) {
+          console.warn("PendingAttendanceWidget - No classes found, fallback empty.");
+          return { missing: [], totalSubmitted: 0 };
+        }
+        
+        const submittedClasses = new Set();
+        
+        attendanceData.forEach(a => {
+           if (hasAttendanceForDate(a.attendance_data, todayDate)) {
+              const student = students.find(s => s.id === a.user_id);
+              if (student && student.class) {
+                 submittedClasses.add(student.class.toString().trim().toLowerCase());
+              }
            }
-           return tClasses.some(tc => tc?.toString().trim().toLowerCase() === className?.toString().trim().toLowerCase());
-         });
-         
-         return {
-            teacher_name: teacher ? teacher.name : 'Unassigned',
-            class_name: className,
-            period_label: 'Daily Attendance'
-         };
-      });
-      
-      return { missing, totalSubmitted: submittedClasses.size };
+        });
+        
+        const missingClassNames = activeClasses.filter(c => !submittedClasses.has(c.toString().trim().toLowerCase()));
+        
+        const missing = missingClassNames.map(className => {
+           const teacher = teachers.find(t => {
+             if (!t.class) return false;
+             let tClasses = [];
+             if (typeof t.class === 'string') {
+               try {
+                 const parsed = JSON.parse(t.class);
+                 if (Array.isArray(parsed)) tClasses = parsed;
+                 else tClasses = t.class.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+               } catch (e) {
+                 tClasses = t.class.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+               }
+             } else if (Array.isArray(t.class)) {
+               tClasses = t.class;
+             }
+             return tClasses.some(tc => tc?.toString().trim().toLowerCase() === className?.toString().trim().toLowerCase());
+           });
+           
+           return {
+              teacher_name: teacher ? teacher.name : 'Unassigned',
+              class_name: className,
+              period_label: 'Daily Attendance'
+           };
+        });
+        
+        console.log("PendingAttendanceWidget - Finished calculation. Missing count:", missing.length, "Total submitted classes:", submittedClasses.size);
+        return { missing, totalSubmitted: submittedClasses.size };
+      } catch (err) {
+        console.error("PendingAttendanceWidget - Error calculating pending attendance:", err);
+        return { missing: [], totalSubmitted: 0 };
+      }
     },
     enabled: !!schoolSettings?.school_id && (!dismissed || forceShow),
     ...cacheConfig
   });
 
   const handleDismiss = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalTodayDate();
     localStorage.setItem(`dismissed_duty_${today}`, 'true');
     setDismissed(true);
     if (forceShow) {

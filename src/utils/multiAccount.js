@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabaseClient';
+import { useAppStore } from '../store/useAppStore';
 
 export function getSavedAccounts() {
   try {
@@ -53,6 +54,11 @@ export function clearActiveSessionLocally() {
   const tokenKey = Object.keys(localStorage).find(key => key.startsWith('sb-') && key.endsWith('-auth-token'));
   if (tokenKey) {
     localStorage.removeItem(tokenKey);
+  }
+  try {
+    useAppStore.getState().clearSession();
+  } catch (e) {
+    console.error("Zustand clearSession failed:", e);
   }
 }
 

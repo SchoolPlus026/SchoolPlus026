@@ -119,6 +119,7 @@ export default function AdminFeeManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fees_payments'] });
+      queryClient.invalidateQueries({ queryKey: ['executive-briefing'] });
       setPaymentAmount('');
       alert('Payment recorded securely!');
     }

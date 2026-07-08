@@ -98,7 +98,7 @@ export default function NavbarAccountSwitcher() {
         <div 
           className="absolute right-0 mt-2 w-72 rounded-2xl p-4 shadow-2xl z-[9999]"
           style={{
-            background: 'var(--card)',
+            background: 'var(--card-bg)',
             border: '1px solid var(--card-border)',
             boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
             transformOrigin: 'top right'

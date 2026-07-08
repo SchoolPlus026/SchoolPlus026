@@ -86,6 +86,7 @@ export default function LeavesManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
+      queryClient.invalidateQueries({ queryKey: ['executive-briefing'] });
       setFromDate('');
       setToDate('');
       setReason('');
@@ -116,6 +117,7 @@ export default function LeavesManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
+      queryClient.invalidateQueries({ queryKey: ['executive-briefing'] });
     }
   });
 

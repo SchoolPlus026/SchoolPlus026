@@ -34,11 +34,11 @@ async function triggerDownload(blob, filename) {
     }
     const base64Data = btoa(binary);
 
-    // Step 2: Write file to Documents directory
+    // Step 2: Write file to Cache directory
     const writeResult = await Filesystem.writeFile({
       path:      filename,
       data:      base64Data,
-      directory: Directory.Documents,
+      directory: Directory.Cache,
     });
 
     // Step 3: Open native Android share sheet so user can open/save the file

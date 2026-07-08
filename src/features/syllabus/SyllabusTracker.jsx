@@ -62,14 +62,22 @@ function TeacherSyllabus({ schoolId, user }) {
         await supabase.from('syllabus_tracker').insert({ school_id: schoolId, class: selectedSubject.class, subject: selectedSubject.subject, total_chapters: total, chapters, updated_by: user.id });
       }
     },
-    onSuccess: () => queryClient.invalidateQueries(['syllabus'])
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['syllabus'] });
+      queryClient.invalidateQueries({ queryKey: ['syllabus-student'] });
+      queryClient.invalidateQueries({ queryKey: ['syllabus-admin'] });
+    }
   });
 
   const updateChapterMutation = useMutation({
     mutationFn: async ({ chapters }) => {
       await supabase.from('syllabus_tracker').update({ chapters, updated_by: user.id, updated_at: new Date().toISOString() }).eq('id', syllabus.id);
     },
-    onSuccess: () => queryClient.invalidateQueries(['syllabus'])
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['syllabus'] });
+      queryClient.invalidateQueries({ queryKey: ['syllabus-student'] });
+      queryClient.invalidateQueries({ queryKey: ['syllabus-admin'] });
+    }
   });
 
   const handleSetup = () => {
@@ -161,6 +169,7 @@ function TeacherSyllabus({ schoolId, user }) {
                     <input 
                       type="text" defaultValue={ch.title || ''} 
                       onBlur={(e) => updateTitle(ch.id, e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                       onClick={(e) => e.stopPropagation()}
                       placeholder="Add chapter name..."
                       style={{ 
@@ -284,17 +293,20 @@ function StudentSyllabus({ schoolId, userClass }) {
                       }}>
                         Chapter {ch.id}{ch.title ? `: ${ch.title}` : ''}
                       </span>
-                      <span style={{ 
-                        fontSize: '9px', 
-                        fontWeight: 900, 
-                        textTransform: 'uppercase', 
-                        padding: '2.5px 7px', 
-                        borderRadius: '6px', 
-                        backgroundColor: ch.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-main, rgba(0,0,0,0.03))',
-                        color: ch.is_completed ? '#10b981' : 'var(--text-muted)'
-                      }}>
-                        {ch.is_completed ? 'Completed' : 'Pending'}
-                      </span>
+                      {ch.is_completed && (
+                        <span style={{ 
+                          fontSize: '9px', 
+                          fontWeight: 900, 
+                          textTransform: 'uppercase', 
+                          padding: '2.5px 7px', 
+                          borderRadius: '6px', 
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          color: '#10b981',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          Completed
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -435,17 +447,20 @@ function AdminSyllabus({ schoolId }) {
                           }}>
                             Chapter {ch.id}{ch.title ? `: ${ch.title}` : ''}
                           </span>
-                          <span style={{ 
-                            fontSize: '9px', 
-                            fontWeight: 900, 
-                            textTransform: 'uppercase', 
-                            padding: '2.5px 7px', 
-                            borderRadius: '6px', 
-                            backgroundColor: ch.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-main, rgba(0,0,0,0.03))',
-                            color: ch.is_completed ? '#10b981' : 'var(--text-muted)'
-                          }}>
-                            {ch.is_completed ? 'Completed' : 'Pending'}
-                          </span>
+                          {ch.is_completed && (
+                            <span style={{ 
+                              fontSize: '9px', 
+                              fontWeight: 900, 
+                              textTransform: 'uppercase', 
+                              padding: '2.5px 7px', 
+                              borderRadius: '6px', 
+                              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                              color: '#10b981',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              Completed
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>

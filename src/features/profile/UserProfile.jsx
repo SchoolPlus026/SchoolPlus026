@@ -801,8 +801,8 @@ export default function UserProfile() {
                   )}
                   
                   {r === 'admin' && (
-                      <div className="border rounded-xl p-4 flex gap-3 text-sm mt-2 font-bold" style={{ background: 'var(--glass)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}>
-                         <Info size={20} style={{ color: 'var(--text-muted)' }} className="shrink-0" />
+                      <div className="border rounded-xl p-4 flex gap-3 text-sm mt-2 font-bold bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/30 text-indigo-900 dark:text-indigo-200">
+                         <Info size={20} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
                          <div>As an Administrator, you have full access to management modules, settings, and school database controls.</div>
                       </div>
                    )}
