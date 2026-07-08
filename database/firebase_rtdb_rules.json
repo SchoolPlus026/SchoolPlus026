@@ -19,9 +19,18 @@
 
           "location_name":    { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length < 200" },
           "status":           { ".validate": "newData.isString() && (newData.val() === 'en_route' || newData.val() === 'trip_ended' || newData.val() === 'idle')" },
-          "last_updated_ts":  { ".validate": "newData.isNumber() && newData.val() > 0" },
+          "last_updated_ts":  { ".validate": "newData.isString() || newData.isNumber()" },
           "bus_number":       { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length < 20" },
           "driver_name":      { ".validate": "newData.isString() && newData.val().length < 100" }
+        }
+      }
+    },
+
+    "schools": {
+      "$school_id": {
+        ".read": "auth != null && auth.token.school_id === $school_id",
+        "emergency_alert_update": {
+          ".write": "auth != null && auth.token.school_id === $school_id"
         }
       }
     },
@@ -33,3 +42,4 @@
     }
   }
 }
+
