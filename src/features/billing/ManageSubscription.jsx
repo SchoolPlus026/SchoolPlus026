@@ -267,8 +267,8 @@ export default function ManageSubscription() {
         notes: { school_id: schoolSettings.school_id, plan_type: plan.name },
         handler: async function (response) {
           showToast('Payment received. Activating Premium...', 'success');
-          const paymentId = response.razorpay_payment_id;
-          const orderId = response.razorpay_order_id;
+          const paymentId = response?.razorpay_payment_id || response?.payment_id || (typeof response === 'string' ? response : null);
+          const orderId = response?.razorpay_order_id || options.order_id;
           try {
             if (!orderId || !paymentId) {
               throw new Error('Razorpay did not return required payment fields. Please contact support.');
