@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { KeyRound, ShieldCheck, Loader2, Save, Lock, ChevronDown, ChevronUp } from 'lucide-react';
@@ -12,6 +13,7 @@ const QUESTIONS = [
 ];
 
 export default function RecoverySetup() {
+  const { hash } = useLocation();
   const { user } = useAppStore();
   const [profile, setProfile] = useState(null);
   const [fetching, setFetching] = useState(true);
@@ -33,17 +35,17 @@ export default function RecoverySetup() {
   const [revealing, setRevealing] = useState(false);
 
   const fetchProfile = async () => {
-    setFetching(true);
     try {
-      const { data, error: err } = await supabase
+      setFetching(true);
+      const { data, error } = await supabase
         .from('recovery_profiles')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .maybeSingle();
 
-      if (err) throw err;
+      if (error) throw error;
+      setProfile(data);
       if (data) {
-        setProfile(data);
         setPin('');
         setConfirmPin('');
         setQ1(data.security_question_1 || QUESTIONS[0]);
@@ -66,7 +68,7 @@ export default function RecoverySetup() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (window.location.hash === '#recovery') {
+    if (hash === '#recovery') {
       setIsCollapsed(false);
       setTimeout(() => {
         const el = document.getElementById('recovery-setup-container');
@@ -75,7 +77,7 @@ export default function RecoverySetup() {
         }
       }, 300);
     }
-  }, [user?.id]);
+  }, [hash]);
 
   const handleRevealAnswers = async () => {
     setError('');

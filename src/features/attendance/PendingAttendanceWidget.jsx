@@ -62,7 +62,7 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
             .eq('school_id', schoolSettings.school_id),
           supabase
             .from('users')
-            .select('name, class')
+            .select('id, name, class')
             .in('role', ['teacher', 'staff'])
             .eq('school_id', schoolSettings.school_id),
           supabase
@@ -215,7 +215,6 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       const { error } = await supabase.from('app_notifications_queue').insert({
         school_id: schoolSettings.school_id,
         recipient_id: m.teacher_id,
-        type: 'attendance_reminder',
         title: '📋 Missing Attendance Log',
         body: `Please submit the daily attendance log for Class ${m.class_name}.`,
         is_ephemeral: false,
@@ -241,7 +240,6 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       const reminders = validMissing.map(m => ({
         school_id: schoolSettings.school_id,
         recipient_id: m.teacher_id,
-        type: 'attendance_reminder',
         title: '📋 Missing Attendance Log',
         body: `Please submit the daily attendance log for Class ${m.class_name}.`,
         is_ephemeral: false,
@@ -283,25 +281,27 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Duty radar tracking active class attendance logs</p>
             </div>
           </div>
-          <div className="relative z-10 flex gap-3 flex-wrap items-center">
+          <div className="relative z-10 flex flex-col sm:items-end gap-3 w-full sm:w-auto">
+            <div className="flex gap-3 w-full sm:w-auto">
+              <div className="flex-1 sm:flex-initial px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-center min-w-[110px]">
+                <div className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Pending Classes</div>
+                <div className="text-lg font-black text-rose-200 mt-0.5">{missing.length}</div>
+              </div>
+              <div className="flex-1 sm:flex-initial px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center min-w-[110px]">
+                <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Completed Classes</div>
+                <div className="text-lg font-black text-emerald-200 mt-0.5">{totalSubmitted}</div>
+              </div>
+            </div>
             {missing.length > 0 && (
               <button 
                 onClick={handleRemindAll} 
                 disabled={sendingAll}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-850 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center gap-1.5 cursor-pointer border-0"
+                className="w-full px-4 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-850 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer border-0"
               >
                 {sendingAll ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
                 Remind All
               </button>
             )}
-            <div className="px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-center">
-              <div className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Pending Classes</div>
-              <div className="text-lg font-black text-rose-200 mt-0.5">{missing.length}</div>
-            </div>
-            <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
-              <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Completed Classes</div>
-              <div className="text-lg font-black text-emerald-200 mt-0.5">{totalSubmitted}</div>
-            </div>
           </div>
         </div>
       ) : (

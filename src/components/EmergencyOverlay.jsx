@@ -72,7 +72,7 @@ export default function EmergencyOverlay() {
         .from('emergency_alerts')
         .select('*')
         .eq('school_id', schoolSettings.school_id)
-        .eq('status', 'active')
+        .in('status', ['active', 'silent'])
         .gt('created_at', yesterday.toISOString())
         .order('created_at', { ascending: false });
 
@@ -131,17 +131,18 @@ export default function EmergencyOverlay() {
   };
 
   const visibleAlerts = activeAlerts.filter(a => !dismissedAlerts.includes(a.id));
+  const hasActiveSiren = visibleAlerts.some(a => a.status === 'active');
 
   // Handle siren audio ringtone loop
   useEffect(() => {
     let siren = null;
-    if (visibleAlerts.length > 0) {
+    if (hasActiveSiren) {
       siren = playSiren();
     }
     return () => {
       if (siren) siren.stop();
     };
-  }, [visibleAlerts.length]);
+  }, [hasActiveSiren]);
 
   if (visibleAlerts.length === 0) return null;
 

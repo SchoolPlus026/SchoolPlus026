@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff,
-  Fingerprint, Key, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X, Mail, Trash2, Globe, Sun, Moon, HelpCircle } from 'lucide-react';
+  Fingerprint, Key, ChevronRight, ChevronDown, QrCode, Smartphone, Shield, CheckCircle2, X, Mail, Trash2, Globe, Sun, Moon, HelpCircle } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Camera } from '@capacitor/camera';
 import { Browser } from '@capacitor/browser';
@@ -107,40 +107,18 @@ export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [theme, setTheme] = useState(() => localStorage.getItem('sp_theme') || 'light');
   const [lang, setLang] = useState(() => localStorage.getItem('sp_lang') || 'en');
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const t = LOGIN_TRANSLATIONS[lang] || LOGIN_TRANSLATIONS.en;
 
   useEffect(() => {
-    // Sync theme class with document element on mount
-    const currentTheme = localStorage.getItem('sp_theme') || 'light';
+    // Force dark theme on Login page
     const root = document.documentElement;
-    root.setAttribute('data-theme', currentTheme);
-    document.body.setAttribute('data-theme', currentTheme);
-    if (currentTheme === 'dark') {
-      root.classList.add('dark');
-      root.classList.remove('light');
-    } else {
-      root.classList.add('light');
-      root.classList.remove('dark');
-    }
+    root.setAttribute('data-theme', 'dark');
+    document.body.setAttribute('data-theme', 'dark');
+    root.classList.add('dark');
+    root.classList.remove('light');
   }, []);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    localStorage.setItem('sp_theme', nextTheme);
-    const root = document.documentElement;
-    root.setAttribute('data-theme', nextTheme);
-    document.body.setAttribute('data-theme', nextTheme);
-    if (nextTheme === 'dark') {
-      root.classList.add('dark');
-      root.classList.remove('light');
-    } else {
-      root.classList.add('light');
-      root.classList.remove('dark');
-    }
-  };
 
   const handleLangChange = (val) => {
     setLang(val);
@@ -1360,41 +1338,51 @@ export default function Login() {
       style={{ background: 'radial-gradient(800px 400px at 30% 20%, rgba(124, 58, 237, 0.15), transparent), linear-gradient(180deg, #0b1020 0%, #061233 100%)' }}
     >
       {/* Top Header Controls */}
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-         {/* Language Dropdown */}
-         <div className="flex items-center gap-1 bg-slate-950/60 border border-white/10 px-2.5 py-1.5 rounded-xl">
-           <Globe size={12} className="text-slate-400" />
-           <select
-              value={lang}
-              onChange={(e) => handleLangChange(e.target.value)}
-              className="bg-transparent border-none outline-none text-white text-[11px] font-bold cursor-pointer pr-1"
-              style={{ border: 'none', background: 'transparent' }}
-           >
-              <option value="en" className="bg-slate-900 text-white">English</option>
-              <option value="hi" className="bg-slate-900 text-white">हिंदी</option>
-              <option value="mr" className="bg-slate-900 text-white">मराठी</option>
-           </select>
-         </div>
-
-         {/* Theme Toggle Button */}
-         <button
+      <div className="absolute top-4 right-4 z-50">
+        {/* Language Dropdown */}
+        <div className="relative">
+          <button
             type="button"
-            onClick={toggleTheme}
-            className="p-2 bg-slate-950/60 border border-white/10 hover:bg-slate-900 text-slate-200 hover:text-white rounded-xl transition-all cursor-pointer flex items-center justify-center"
-            title="Toggle Theme"
-         >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-         </button>
-
-         {/* Help Button */}
-         <button
-            type="button"
-            onClick={() => setStep(3)}
-            className="p-2 bg-slate-950/60 border border-white/10 hover:bg-slate-900 text-slate-200 hover:text-white rounded-xl transition-all cursor-pointer flex items-center justify-center"
-            title="Login Help"
-         >
-            <HelpCircle size={14} />
-         </button>
+            onClick={() => setLangMenuOpen(!langMenuOpen)}
+            className="flex items-center gap-2 bg-slate-950/60 border border-white/10 hover:border-indigo-500/40 hover:bg-slate-900 px-3.5 py-2 rounded-xl text-white text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-lg cursor-pointer"
+          >
+            <Globe size={14} className="text-indigo-400 animate-pulse" />
+            <span>{lang === 'en' ? 'English' : lang === 'hi' ? 'हिंदी' : 'मराठी'}</span>
+            <ChevronDown size={14} className={`text-slate-400 transition-transform duration-300 ${langMenuOpen ? 'rotate-180 text-white' : ''}`} />
+          </button>
+          
+          {langMenuOpen && (
+            <>
+              <div 
+                className="fixed inset-0 z-40 bg-transparent cursor-default" 
+                onClick={() => setLangMenuOpen(false)} 
+              />
+              <div 
+                className="absolute right-0 mt-2 w-32 bg-slate-950/95 border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 backdrop-blur-xl transition-all duration-200 origin-top"
+                onMouseLeave={() => setLangMenuOpen(false)}
+              >
+                {[
+                  { code: 'en', label: 'English' },
+                  { code: 'hi', label: 'हिंदी' },
+                  { code: 'mr', label: 'मराठी' }
+                ].map(item => (
+                  <button
+                    key={item.code}
+                    type="button"
+                    onClick={() => { handleLangChange(item.code); setLangMenuOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-xs font-black transition-colors cursor-pointer border-0
+                      ${lang === item.code 
+                        ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white' 
+                        : 'bg-transparent text-slate-300 hover:text-white hover:bg-white/5'
+                      }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="mb-8 text-center relative z-10">
@@ -1430,13 +1418,11 @@ export default function Login() {
         {/* ── 1. School Code ─────────────────────────────────────── */}
         {step === 1 && (
           <div className="fade-in">
-            <h2 className="text-lg font-black text-slate-100 uppercase tracking-tight mb-5">Enter School Code</h2>
-            
-            {/* Quick account switch list */}
-            {savedAccounts.length > 0 && (
+            {/* Quick account switch list first */}
+            {savedAccounts.length > 0 ? (
               <div className="mb-6 border-b border-slate-200 dark:border-slate-800 pb-6">
                 <div className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest mb-3 text-center">Continue with Saved Account</div>
-                <div className="space-y-2 max-h-[170px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[170px] overflow-y-auto pr-1 animate-in fade-in duration-300">
                   {savedAccounts.map(acc => (
                     <div
                       key={acc.user_id}
@@ -1468,8 +1454,13 @@ export default function Login() {
                   ))}
                 </div>
                 <div className="text-[9px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest text-center mt-5">Or enter details below</div>
+                
+                <h2 className="text-sm font-black text-slate-100 uppercase tracking-widest mt-6 mb-4 text-center">Enter School Code</h2>
               </div>
+            ) : (
+              <h2 className="text-lg font-black text-slate-100 uppercase tracking-tight mb-5">Enter School Code</h2>
             )}
+
             <form onSubmit={handleIdentifySchool} className="space-y-5">
               <input type="text" required value={schoolCode}
                 onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}

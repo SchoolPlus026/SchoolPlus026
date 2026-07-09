@@ -92,7 +92,7 @@ export default function StudentFeeLedger() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Account Summary */}
           <div className="lg:col-span-2 space-y-8">
-             <div className="bg-white border-b-8 border-indigo-600 border border-border rounded-[3rem] p-8 shadow-2xl relative overflow-hidden">
+             <div className="bg-white dark:bg-slate-800 border-b-8 border-indigo-600 border border-border dark:border-slate-700 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden">
                 {/* Stylized background circle */}
                 <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-50 rounded-full opacity-50"></div>
                 
@@ -133,7 +133,7 @@ export default function StudentFeeLedger() {
              </div>
 
              {/* Payment Timeline */}
-             <div className="bg-white border border-border rounded-[2.5rem] shadow-xl shadow-slate-100/50 overflow-hidden">
+             <div className="bg-white dark:bg-slate-800 border border-border dark:border-slate-700 rounded-[2.5rem] shadow-xl shadow-slate-100/50 overflow-hidden">
                 <div className="p-8 border-b border-border flex items-center justify-between">
                    <h3 className="font-black text-slate-700 uppercase tracking-widest text-sm">Transaction Logs</h3>
                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{payments?.length || 0} Entries</span>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { AlertTriangle, Send, Loader2, Info } from 'lucide-react';
+import { AlertTriangle, Send, Loader2, Info, VolumeX, Check } from 'lucide-react';
 import { ref, set } from 'firebase/database';
 import { rtdb } from '../../config/firebaseClient';
 import { usePlan } from '../../hooks/usePlan';
@@ -47,14 +47,33 @@ export default function EmergencyManager() {
         .from('emergency_alerts')
         .select('*')
         .eq('school_id', schoolSettings.school_id)
-        .eq('status', 'active')
+        .in('status', ['active', 'silent'])
         .order('created_at', { ascending: false });
       return data || [];
     },
     enabled: !!schoolSettings?.school_id
   });
 
-  const handleStopAlert = async (alertId) => {
+  const handleSilenceAlert = async (alertId) => {
+    setLoading(true); setError(''); setSuccess('');
+    const { error: updateErr } = await supabase
+      .from('emergency_alerts')
+      .update({ status: 'silent' })
+      .eq('id', alertId);
+
+    if (updateErr) {
+      setError(updateErr.message);
+    } else {
+      if (rtdb && schoolSettings?.school_id) {
+        set(ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`), Date.now()).catch(console.error);
+      }
+      setSuccess('Alert siren silenced successfully.');
+      refetchAlerts();
+    }
+    setLoading(false);
+  };
+
+  const handleResolveAlert = async (alertId) => {
     setLoading(true); setError(''); setSuccess('');
     const { error: updateErr } = await supabase
       .from('emergency_alerts')
@@ -64,11 +83,10 @@ export default function EmergencyManager() {
     if (updateErr) {
       setError(updateErr.message);
     } else {
-      // Broadcast real-time signal via Firebase RTDB
       if (rtdb && schoolSettings?.school_id) {
         set(ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`), Date.now()).catch(console.error);
       }
-      setSuccess('Alert stopped and resolved successfully.');
+      setSuccess('Alert marked as over and resolved.');
       refetchAlerts();
     }
     setLoading(false);
@@ -232,37 +250,64 @@ export default function EmergencyManager() {
       </form>
 
       {/* Active Alerts List */}
-      <div className="sp-card space-y-4 mt-6">
-        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+      <div className="sp-card space-y-5 mt-6 border border-slate-200 dark:border-slate-800">
+        <h3 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
           <AlertTriangle size={14} className="text-red-500 animate-pulse" /> Active Emergency Alerts
         </h3>
         {activeAlerts.length === 0 ? (
           <p className="text-xs text-slate-500 font-semibold py-4 text-center">No active emergency alerts at this school.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {activeAlerts.map(alert => (
-              <div key={alert.id} className="p-4 bg-red-950/20 border border-red-900/30 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black bg-red-500/20 text-red-400 px-2 py-0.5 rounded uppercase tracking-wider">
-                      {alert.alert_type}
+              <div key={alert.id} className="p-6 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-[2rem] shadow-lg relative overflow-hidden">
+                {/* Neon Warning line at the top */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-amber-500 to-red-500" />
+                
+                {/* Big prominent control buttons at the top */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => handleSilenceAlert(alert.id)}
+                    disabled={loading || alert.status === 'silent'}
+                    className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 border-0
+                      ${alert.status === 'silent' 
+                        ? 'bg-slate-200 dark:bg-slate-900 text-slate-400 dark:text-slate-600 border border-slate-300 dark:border-slate-850 cursor-not-allowed shadow-inner' 
+                        : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-[0_0_15px_rgba(245,158,11,0.35)] hover:shadow-[0_0_25px_rgba(245,158,11,0.55)] hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                      }`}
+                  >
+                    <VolumeX size={15} /> 
+                    {alert.status === 'silent' ? 'Alarm Silenced' : 'Stop Alarm'}
+                  </button>
+                  <button
+                    onClick={() => handleResolveAlert(alert.id)}
+                    disabled={loading || alert.status === 'resolved'}
+                    className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 border-0
+                      ${alert.status === 'resolved' 
+                        ? 'bg-slate-200 dark:bg-slate-900 text-slate-400 dark:text-slate-600 border border-slate-300 dark:border-slate-850 cursor-not-allowed shadow-inner' 
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.35)] hover:shadow-[0_0_25px_rgba(16,185,129,0.55)] hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                      }`}
+                  >
+                    <Check size={15} /> Over Alert
+                  </button>
+                </div>
+
+                {/* Structured Alert Info Below */}
+                <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800/80 space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-[10px] font-black bg-red-100 dark:bg-red-550/20 text-red-600 dark:text-red-400 px-3 py-1 rounded-lg uppercase tracking-wider">
+                      Type: {alert.alert_type}
                     </span>
-                    <span className="text-[10px] font-bold text-slate-500">
-                      Target: {alert.target_audience.toUpperCase()}
+                    <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-lg uppercase tracking-wider">
+                      Audience: {alert.target_audience.toUpperCase()}
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold ml-auto">
+                      Triggered: {new Date(alert.created_at).toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-slate-200 mt-2">{alert.message}</p>
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Triggered: {new Date(alert.created_at).toLocaleString()}
-                  </p>
+                  <div className="p-4 bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-2xl">
+                    <div className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Alert Message</div>
+                    <p className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight leading-relaxed">{alert.message}</p>
+                  </div>
                 </div>
-                <button
-                  onClick={() => handleStopAlert(alert.id)}
-                  disabled={loading}
-                  className="w-full sm:w-auto px-4 py-2 bg-red-650 hover:bg-red-550 disabled:bg-red-800/50 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors cursor-pointer border-0 flex items-center justify-center gap-1.5"
-                >
-                  Stop & Over Alert
-                </button>
               </div>
             ))}
           </div>

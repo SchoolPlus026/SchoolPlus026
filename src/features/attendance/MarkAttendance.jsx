@@ -70,10 +70,10 @@ export default function MarkAttendance() {
 
   const handleSaveRollNumber = async (studentId) => {
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({ roll_number: editingRollNoValue.trim() || null })
-        .eq('id', studentId);
+      const { error } = await supabase.rpc('update_student_roll_number', {
+        p_student_id: studentId,
+        p_roll_number: editingRollNoValue.trim() || null
+      });
       if (error) throw error;
       
       showToast('Roll number updated successfully!');
@@ -475,7 +475,7 @@ export default function MarkAttendance() {
                                 )}
                              </div>
                            </div>
-                           <div style={{ display: 'flex', flexWrap: 'nowrap', flexShrink: 0, gap: '3px' }}>
+                           <div style={{ display: 'flex', flexWrap: 'wrap', flexShrink: 0, gap: '4px', justifyContent: 'flex-end' }}>
                            {['Present', 'Absent', 'Leave', 'Half_day'].map(st => {
                               const isSelected = status === st;
                               const isAnySelected = !!status;
@@ -530,10 +530,7 @@ export default function MarkAttendance() {
                                         onChange={() => handleStatusChange(target.id, st)}
                                         className="sr-only"
                                       />
-                                      <span className="hidden sm:inline">{st === 'Half_day' ? 'Half Day' : st}</span>
-                                      <span className="inline sm:hidden">
-                                        {st === 'Present' ? 'P' : st === 'Absent' ? 'A' : st === 'Leave' ? 'L' : 'H'}
-                                      </span>
+                                      <span>{st === 'Half_day' ? 'Half Day' : st}</span>
                                   </label>
                               );
                           })}

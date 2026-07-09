@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Search, Plus, MapPin, CheckCircle, Loader2, Camera, Trash2, User, Eye, X } from 'lucide-react';
@@ -6,6 +6,7 @@ import { Capacitor } from '@capacitor/core';
 
 export default function LostAndFound() {
   const { schoolSettings, user, role } = useAppStore();
+  const fileInputRef = useRef(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
@@ -201,7 +202,6 @@ export default function LostAndFound() {
           school_id: schoolSettings.school_id,
           sender_id: user.id,
           recipient_id: reportedById,
-          type: 'lost_found_claim',
           title: 'Found Item Claimed!',
           body: `Someone has claimed the item you reported.`,
           is_ephemeral: false,
@@ -232,8 +232,8 @@ export default function LostAndFound() {
     <div className="space-y-6 fade-in pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-100 uppercase tracking-widest">Lost & Found</h2>
-          <p className="text-sm text-slate-400 font-semibold">Digital notice board for misplaced items.</p>
+          <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">Lost & Found</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-semibold">Digital notice board for misplaced items.</p>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="btn-primary py-2.5">
           {showForm ? 'Cancel' : <><Plus size={18}/> Report Found Item</>}
@@ -281,29 +281,27 @@ export default function LostAndFound() {
                 </div>
               ) : (
                 <div className="relative">
-                  {Capacitor.isNativePlatform() ? (
-                    <button
-                      type="button"
-                      onClick={handleNativePhotoSelect}
-                      className="w-full py-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 rounded-xl text-indigo-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer"
-                    >
-                      <Camera size={14} /> Select / Capture Photo
-                    </button>
-                  ) : (
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      required 
-                      onChange={e => {
-                        const f = e.target.files[0];
-                        if (f) {
-                          setFile(f);
-                          setPreviewUrl(URL.createObjectURL(f));
-                        }
-                      }} 
-                      className="sp-input w-full file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30 cursor-pointer" 
-                    />
-                  )}
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    accept="image/*" 
+                    required 
+                    onChange={e => {
+                      const f = e.target.files[0];
+                      if (f) {
+                        setFile(f);
+                        setPreviewUrl(URL.createObjectURL(f));
+                      }
+                    }} 
+                    className="hidden" 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 rounded-xl text-indigo-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Camera size={14} /> Select / Capture Photo
+                  </button>
                 </div>
               )}
             </div>
@@ -333,51 +331,51 @@ export default function LostAndFound() {
           {items.map(item => (
             <div key={item.id} className="sp-card flex flex-col relative overflow-hidden" style={{ opacity: item.status === 'resolved' ? 0.6 : 1 }}>
               {item.status === 'claimed' && (
-                <div className="absolute top-0 left-0 w-full bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase text-center py-1 tracking-widest border-b border-amber-500/20">
+                <div className="absolute top-0 left-0 w-full bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase text-center py-1 tracking-widest border-b border-amber-500/20">
                   Claim Pending
                 </div>
               )}
               {item.status === 'resolved' && (
-                <div className="absolute top-0 left-0 w-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase text-center py-1 tracking-widest border-b border-emerald-500/20">
+                <div className="absolute top-0 left-0 w-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-350 text-[10px] font-black uppercase text-center py-1 tracking-widest border-b border-emerald-500/20">
                   Resolved / Returned
                 </div>
               )}
               
               <div className="mt-4 flex gap-4">
                 <div 
-                  className={`w-16 h-16 rounded-xl bg-slate-800 flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/5 ${item.photo_url ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                  className={`w-16 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-white/5 ${item.photo_url ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                   onClick={() => item.photo_url && setViewItem(item)}
                 >
-                  {item.photo_url ? <img src={getThumbnailLink(item.photo_url)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Search className="text-slate-600" />}
+                  {item.photo_url ? <img src={getThumbnailLink(item.photo_url)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Search className="text-slate-400 dark:text-slate-500" />}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold text-slate-100">{item.item_name}</h4>
-                  <p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.description || 'No description provided.'}</p>
+                  <h4 className="font-bold text-slate-800 dark:text-slate-100">{item.item_name}</h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">{item.description || 'No description provided.'}</p>
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <Eye size={14} className="text-cyan-400" />
-                  Visibility: <span className="font-bold text-slate-300">{item.target_class || 'Entire School'}</span>
+              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 space-y-2">
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <Eye size={14} className="text-cyan-500 dark:text-cyan-400" />
+                  Visibility: <span className="font-semibold text-slate-700 dark:text-slate-300">{item.target_class || 'Entire School'}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <MapPin size={14} className="text-indigo-400" />
-                  Found at: <span className="font-bold text-slate-300">{item.location_found}</span>
+                  Found at: <span className="font-semibold text-slate-700 dark:text-slate-300">{item.location_found}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <User size={14} className="text-pink-400" />
-                  Reported by: <span className="font-bold text-slate-300">{item.reported_user?.name}</span>
+                  Reported by: <span className="font-semibold text-slate-700 dark:text-slate-300">{item.reported_user?.name}</span>
                 </div>
                 {item.claimed_by_user && (
-                  <div className="flex items-center gap-2 text-xs text-amber-400/80">
-                    <CheckCircle size={14} className="text-amber-400" />
-                    Claimed by: <span className="font-bold text-amber-300">{item.claimed_by_user.name}</span>
+                  <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
+                    <CheckCircle size={14} className="text-amber-500" />
+                    Claimed by: <span className="font-semibold text-amber-800 dark:text-amber-300">{item.claimed_by_user.name}</span>
                   </div>
                 )}
               </div>
 
-              <div className="mt-6 pt-4 border-t border-white/5 flex gap-2 justify-end">
+              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5 flex gap-2 justify-end">
                 {item.status === 'active' && item.reported_user?.name !== user.name && (
                   <button onClick={() => handleClaim(item.id, item.reported_user?.id)} className="px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-bold rounded-lg transition-colors">
                     Claim This Is Mine

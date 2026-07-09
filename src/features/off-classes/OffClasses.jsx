@@ -94,6 +94,7 @@ export default function OffClasses() {
   const [todayTimetable, setTodayTimetable] = useState([]);
   const [toast, setToast] = useState('');
   const [toastType, setToastType] = useState('success');
+  const [classFilter, setClassFilter] = useState('');
   const [activeTab, setActiveTab] = useState(() => {
     const r = (role || '').toLowerCase();
     if (r === 'teacher') return 'duties';
@@ -769,9 +770,9 @@ export default function OffClasses() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm font-bold text-slate-200">{s.class} — {s.subject}</p>
+                            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{s.class} — {s.subject}</p>
                             <p className="text-xs text-slate-500 mt-1">
-                              Covering for: <span className="text-slate-300 font-semibold">{s.original?.name || 'Absent Teacher'}</span>
+                              Covering for: <span className="text-slate-700 dark:text-slate-300 font-semibold">{s.original?.name || 'Absent Teacher'}</span>
                             </p>
                           </div>
 
@@ -813,7 +814,7 @@ export default function OffClasses() {
                             )}
                             {effStatus === 'expired' && (
                               <span className="flex items-center gap-2 text-xs font-black text-red-400 bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
-                                <X size={14} /> Class Over
+                                <X size={14} /> Not Accepted
                               </span>
                             )}
                           </div>
@@ -841,9 +842,9 @@ export default function OffClasses() {
                           <span className="text-xs font-black bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded uppercase tracking-wider mb-1 inline-block">
                             Period #{s.period_order} {s.period_label ? `• ${s.period_label}` : ''}
                           </span>
-                          <p className="text-sm font-bold text-slate-200">{s.class} — {s.subject}</p>
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{s.class} — {s.subject}</p>
                           <p className="text-xs text-slate-500 mt-1">
-                            Absent Teacher: <span className="text-slate-300 font-semibold">{s.original?.name || 'Absent Teacher'}</span>
+                            Absent Teacher: <span className="text-slate-700 dark:text-slate-300 font-semibold">{s.original?.name || 'Absent Teacher'}</span>
                           </p>
                         </div>
                         <button
@@ -874,72 +875,140 @@ export default function OffClasses() {
           )}
 
           {/* Absent Periods & Coverage Tab */}
-          {activeTab === 'absent' && isAdmin && (
-            <div className="space-y-3">
-              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <UserX size={14} /> Today's Absent Periods &amp; Coverage
-              </h4>
-              {absentPeriods.length === 0 ? (
-                <div className="sp-card text-center text-slate-500 text-xs py-8 font-semibold">
-                  ✓ All teachers are present today! No substitutions required.
+          {activeTab === 'absent' && isAdmin && (() => {
+            const uniqueAbsentClasses = Array.from(new Set(absentPeriods.map(ap => ap.class).filter(Boolean))).sort();
+            const filteredPeriods = classFilter 
+              ? absentPeriods.filter(ap => ap.class?.toString().trim().toLowerCase() === classFilter.trim().toLowerCase())
+              : absentPeriods;
+
+            const groupedPeriods = filteredPeriods.reduce((acc, p) => {
+              const key = p.period_order;
+              if (!acc[key]) {
+                acc[key] = {
+                  period_order: p.period_order,
+                  period_label: p.period_label,
+                  items: []
+                };
+              }
+              acc[key].items.push(p);
+              return acc;
+            }, {});
+
+            const sortedGroupKeys = Object.keys(groupedPeriods).sort((a, b) => Number(a) - Number(b));
+
+            return (
+              <div className="space-y-4">
+                {/* Header with filter */}
+                <div className="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-slate-100 dark:border-white/5">
+                  <h4 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <UserX size={14} /> Today's Absent Periods &amp; Coverage
+                  </h4>
+                  
+                  {absentPeriods.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Filter Class:</span>
+                      <select
+                        value={classFilter}
+                        onChange={e => setClassFilter(e.target.value)}
+                        className="bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 px-3 py-1 rounded-xl text-slate-800 dark:text-slate-200 text-xs font-bold cursor-pointer outline-none"
+                      >
+                        <option value="">All Classes</option>
+                        {uniqueAbsentClasses.map(c => (
+                          <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {absentPeriods.map(p => {
-                    const originalTeacherId = p.teacher_id_resolved;
-                    const existing = substitutions.find(
-                      s => s.original_teacher_id === originalTeacherId && s.period_order === p.period_order
-                    );
 
-                    const absentIds = new Set(absentPeriods.map(ap => ap.teacher_id_resolved).filter(Boolean));
+                {absentPeriods.length === 0 ? (
+                  <div className="sp-card text-center text-slate-500 text-xs py-8 font-semibold">
+                    ✓ All teachers are present today! No substitutions required.
+                  </div>
+                ) : filteredPeriods.length === 0 ? (
+                  <div className="sp-card text-center text-slate-500 text-xs py-8 font-semibold">
+                    No absent periods found matching "{classFilter}".
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {sortedGroupKeys.map(key => {
+                      const group = groupedPeriods[key];
+                      return (
+                        <div key={key} className="space-y-3 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-850 shadow-sm">
+                          {/* Period Group Header */}
+                          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-indigo-600 text-white font-black text-[10px] px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                                Period #{group.period_order}
+                              </span>
+                              <span className="text-slate-700 dark:text-slate-400 text-xs font-black uppercase tracking-wider">{group.period_label || 'Daily Schedule'}</span>
+                            </div>
+                            <span className="text-[9px] text-slate-500 dark:text-slate-500 font-black uppercase tracking-widest">
+                              {group.items.length} {group.items.length === 1 ? 'Class Off' : 'Classes Off'}
+                            </span>
+                          </div>
 
-                    // Filter candidates for assignment
-                    const busyTeacherIds = new Set(
-                      todayTimetable
-                        .filter(tt => tt.period_order === p.period_order)
-                        .map(tt => tt.teacher_id)
-                    );
+                          {/* Row Cards */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {group.items.map(p => {
+                              const originalTeacherId = p.teacher_id_resolved;
+                              const existing = substitutions.find(
+                                s => s.original_teacher_id === originalTeacherId && s.period_order === p.period_order
+                              );
 
-                    const busySubstitutedTeacherIds = new Set(
-                      substitutions
-                        .filter(s => s.period_order === p.period_order && s.status !== 'cancelled' && getEffectiveSubStatus(s) !== 'expired')
-                        .map(s => s.substitute_teacher_id)
-                        .filter(Boolean)
-                    );
+                              const absentIds = new Set(absentPeriods.map(ap => ap.teacher_id_resolved).filter(Boolean));
 
-                    const availableFreeTeachers = freePeriods.filter(
-                      fp => fp.day === p.day && fp.period_order === p.period_order &&
-                             fp.teacher_id !== originalTeacherId && !absentIds.has(fp.teacher_id) &&
-                             !busySubstitutedTeacherIds.has(fp.teacher_id)
-                    );
+                              const busyTeacherIds = new Set(
+                                todayTimetable
+                                  .filter(tt => tt.period_order === p.period_order)
+                                  .map(tt => tt.teacher_id)
+                              );
 
-                    const availableAllTeachers = allTeachers.filter(
-                      t => t.id !== originalTeacherId &&
-                           !absentIds.has(t.id) &&
-                           !busyTeacherIds.has(t.id) &&
-                           !busySubstitutedTeacherIds.has(t.id)
-                    );
+                              const busySubstitutedTeacherIds = new Set(
+                                substitutions
+                                  .filter(s => s.period_order === p.period_order && s.status !== 'cancelled' && getEffectiveSubStatus(s) !== 'expired')
+                                  .map(s => s.substitute_teacher_id)
+                                  .filter(Boolean)
+                              );
 
-                    return (
-                      <AbsentPeriodRow
-                        key={p.id}
-                        period={p}
-                        existing={existing}
-                        availableFreeTeachers={availableFreeTeachers}
-                        availableAllTeachers={availableAllTeachers}
-                        isAdmin={isAdmin}
-                        today={today}
-                        onAssign={(subTeacherId) => assignSubstitute(p, subTeacherId, 'admin')}
-                        onBroadcast={() => broadcastForVolunteer(p)}
-                        onApproveVolunteer={(subId, volId, name) => approveVolunteer(subId, volId, name)}
-                        onRejectVolunteer={(subId, volId) => rejectVolunteer(subId, volId)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+                              const availableFreeTeachers = freePeriods.filter(
+                                fp => fp.day === p.day && fp.period_order === p.period_order &&
+                                       fp.teacher_id !== originalTeacherId && !absentIds.has(fp.teacher_id) &&
+                                       !busySubstitutedTeacherIds.has(fp.teacher_id)
+                              );
+
+                              const availableAllTeachers = allTeachers.filter(
+                                t => t.id !== originalTeacherId &&
+                                     !absentIds.has(t.id) &&
+                                     !busyTeacherIds.has(t.id) &&
+                                     !busySubstitutedTeacherIds.has(t.id)
+                              );
+
+                              return (
+                                <AbsentPeriodRow
+                                  key={p.id}
+                                  period={p}
+                                  existing={existing}
+                                  availableFreeTeachers={availableFreeTeachers}
+                                  availableAllTeachers={availableAllTeachers}
+                                  isAdmin={isAdmin}
+                                  today={today}
+                                  onAssign={(subTeacherId) => assignSubstitute(p, subTeacherId, 'admin')}
+                                  onBroadcast={() => broadcastForVolunteer(p)}
+                                  onApproveVolunteer={(subId, volId, name) => approveVolunteer(subId, volId, name)}
+                                  onRejectVolunteer={(subId, volId) => rejectVolunteer(subId, volId)}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Assigned Substitutions Tab */}
           {activeTab === 'assigned' && isAdmin && (
@@ -968,11 +1037,11 @@ export default function OffClasses() {
                         return (
                           <tr key={s.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
                             <td className="py-3 px-4">
-                              <span className="inline-block bg-slate-700 text-slate-200 text-xs font-black px-2 py-0.5 rounded-md mr-2">#{s.period_order}</span>
+                              <span className="inline-block bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-black px-2 py-0.5 rounded-md mr-2">#{s.period_order}</span>
                               <span className="text-slate-500 text-xs">{s.period_label || ''}</span>
                             </td>
-                            <td className="py-3 px-4 font-bold text-slate-200">{s.class}</td>
-                            <td className="py-3 px-4 text-slate-300">{s.subject}</td>
+                            <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">{s.class}</td>
+                            <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{s.subject}</td>
                             <td className="py-3 px-4 text-red-400 font-semibold">{s.original?.name || '—'}</td>
                             <td className="py-3 px-4 text-emerald-400 font-semibold">{s.substitute?.name || 'Open Cover / Volunteer'}</td>
                             <td className="py-3 px-4">
@@ -984,7 +1053,7 @@ export default function OffClasses() {
                                 effStatus === 'no_teacher_available' ? 'bg-red-500/20 text-red-400' :
                                 'bg-amber-500/20 text-amber-400'
                               }`}>
-                                {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus}
+                                {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus === 'expired' ? 'Not Accepted' : effStatus}
                               </span>
                             </td>
                             <td className="py-3 px-4">
@@ -1050,32 +1119,32 @@ function AbsentPeriodRow({
     <div className={`rounded-2xl border p-4 transition-all ${
       existing
         ? effStatus === 'completed'
-          ? 'border-emerald-500/20 bg-emerald-500/5'
+          ? 'border-emerald-200 dark:border-emerald-500/10 bg-emerald-50/60 dark:bg-emerald-950/20'
           : effStatus === 'accepted'
-            ? 'border-blue-500/20 bg-blue-500/5'
+            ? 'border-blue-200 dark:border-blue-500/10 bg-blue-50/60 dark:bg-blue-950/20'
             : effStatus === 'expired' || effStatus === 'no_teacher_available'
-              ? 'border-red-500/20 bg-red-500/5'
-              : 'border-amber-500/20 bg-amber-500/5'
+              ? 'border-red-200 dark:border-red-500/10 bg-red-50/60 dark:bg-red-950/20'
+              : 'border-amber-200 dark:border-amber-500/10 bg-amber-50/60 dark:bg-amber-950/20'
         : isOverdue
-          ? 'border-red-500/30 bg-red-500/5'
-          : 'border-border bg-[var(--glass)]'
+          ? 'border-red-300 dark:border-red-500/20 bg-red-50/60 dark:bg-red-950/20'
+          : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30'
     }`}>
       <div className="flex items-start gap-3 flex-wrap">
         <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider flex-shrink-0 ${
-          existing ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-700 text-slate-200'
+          existing ? 'bg-indigo-500/20 text-indigo-500 dark:text-indigo-400' : 'bg-slate-200/75 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
         }`}>
           #{period.period_order} {period.period_label ? `• ${period.period_label}` : ''}
         </span>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-slate-200 text-sm">{period.class}</span>
-            <span className="text-slate-400 text-xs">—</span>
-            <span className="text-slate-300 text-sm">{period.subject}</span>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{period.class}</span>
+            <span className="text-slate-400 dark:text-slate-500 text-xs">—</span>
+            <span className="text-slate-800 dark:text-slate-200 text-sm font-semibold">{period.subject}</span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <UserX size={11} className="text-red-400 flex-shrink-0" />
-            <span className="text-xs text-red-400 font-semibold">{period.teacher_name}</span>
+            <UserX size={11} className="text-red-500 dark:text-red-400 flex-shrink-0" />
+            <span className="text-xs text-red-600 dark:text-red-400 font-semibold">{period.teacher_name}</span>
           </div>
         </div>
 
@@ -1083,7 +1152,7 @@ function AbsentPeriodRow({
           {existing ? (
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <UserCheck size={14} className="text-emerald-400" />
-              <span className="text-xs font-bold text-slate-300">{existing.substitute?.name || 'Broadcast Cover'}</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{existing.substitute?.name || 'Broadcast Cover'}</span>
               <span className={`text-[10px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 ${
                 effStatus === 'accepted' ? 'bg-blue-500/20 text-blue-400' :
                 effStatus === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
@@ -1091,7 +1160,7 @@ function AbsentPeriodRow({
                 'bg-amber-500/20 text-amber-400'
               }`}>
                 {existing.assigned_by === 'auto' && <Zap size={9} />}
-                {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus}
+                {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus === 'expired' ? 'Not Accepted' : effStatus}
               </span>
             </div>
           ) : (
@@ -1139,8 +1208,8 @@ function AbsentPeriodRow({
 
       {/* Render volunteers if it is an open cover/broadcast substitution */}
       {existing && existing.substitute_teacher_id === null && effStatus === 'pending' && (
-        <div className="mt-3 p-3 bg-slate-950/40 rounded-xl border border-white/5 space-y-2">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cover Volunteers:</div>
+        <div className="mt-3 p-3 bg-slate-100 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-white/5 space-y-2">
+          <div className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Cover Volunteers:</div>
           {existing.volunteers && existing.volunteers.length > 0 ? (
             <div className="flex flex-col gap-2">
               {existing.volunteers.map(v => (

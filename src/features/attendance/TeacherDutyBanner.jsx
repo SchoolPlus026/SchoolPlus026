@@ -89,7 +89,7 @@ export default function TeacherDutyBanner() {
         </div>
         <div>
           <h3 className="text-sm font-bold text-amber-500 uppercase tracking-widest">Staff Pending Duty</h3>
-          <p className="text-sm text-slate-300 font-semibold mt-0.5 leading-snug">
+          <p className="text-sm text-slate-800 dark:text-slate-300 font-semibold mt-0.5 leading-snug">
             You have not submitted attendance for {missingPeriods.length} assigned period{missingPeriods.length > 1 ? 's' : ''} today.
           </p>
           <div className="flex flex-wrap gap-2 mt-2">

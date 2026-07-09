@@ -1124,10 +1124,10 @@ export default function UserManagement() {
                 <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead>
                     <tr className="bg-slate-50/50 border-b border-border">
-                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Student Details</th>
-                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Class</th>
-                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Requested By</th>
-                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Student Details</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Class</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Requested By</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1214,13 +1214,13 @@ export default function UserManagement() {
               <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
               <tr className="bg-slate-50/50 border-b border-border">
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">User Details</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">User Details</th>
                   {activeTab !== 'teacher' && (
-                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">
                       {activeTab === 'student' ? 'Class' : 'Designation'}
                     </th>
                   )}
-                  <th className={`px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ${activeTab === 'teacher' ? 'text-left' : 'text-right'}`}>Actions</th>
+                  <th className={`px-6 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ${activeTab === 'teacher' ? 'text-left' : 'text-right'}`}>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1244,7 +1244,7 @@ export default function UserManagement() {
                       <td className="px-6 py-5">
                         <span className="font-bold text-slate-700 text-sm">
                           {activeTab === 'student' ? user.class : user.designation}
-                          {!user.class && !user.designation && <span className="text-slate-300 italic text-xs">—</span>}
+                          {!user.class && !user.designation && <span className="text-slate-400 dark:text-slate-500 italic text-xs">—</span>}
                         </span>
                       </td>
                     )}
@@ -1887,7 +1887,7 @@ export default function UserManagement() {
                                 return (
                                   <td key={field.key} className="p-3 text-xs font-bold text-slate-700 whitespace-nowrap">
                                     {val === null || val === undefined || val === '' ? (
-                                      <span className="text-slate-300 italic font-semibold">
+                                      <span className="text-slate-400 dark:text-slate-500 italic font-semibold">
                                         {field.key === 'password' ? 'School@123' : field.key === 'email' ? 'Auto-generated' : 'Blank'}
                                       </span>
                                     ) : (

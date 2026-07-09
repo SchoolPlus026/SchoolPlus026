@@ -117,7 +117,7 @@ export default function TimetableManager() {
   return (
     <div className="space-y-8">
       {/* Dynamic Creation Engine Interface */}
-      <div className="bg-white border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 border border-border dark:border-slate-700 rounded-2xl p-6 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none text-slate-800">
            <CalendarDays size={180} className="transform translate-x-8 -translate-y-8" />
         </div>

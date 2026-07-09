@@ -217,7 +217,7 @@ function TeacherDashboardContent() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-widest">New Duty Assigned</h3>
-              <p className="text-sm text-slate-300 font-semibold mt-0.5 leading-snug">
+              <p className="text-sm text-slate-800 dark:text-slate-300 font-semibold mt-0.5 leading-snug">
                 You have {pendingSubs.length} pending off-class substitution{pendingSubs.length > 1 ? 's' : ''} to accept today.
               </p>
             </div>

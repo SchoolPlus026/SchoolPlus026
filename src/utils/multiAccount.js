@@ -101,31 +101,16 @@ export function clearActiveSessionLocally() {
 }
 
 export async function logoutAndRemoveAccount(userId, navigate) {
-  const list = await removeAccount(userId);
-  if (list.length > 0) {
-    const target = list[0];
-    try {
-      const { error } = await supabase.auth.setSession({
-        access_token: target.session.access_token,
-        refresh_token: target.session.refresh_token
-      });
-      if (error) throw error;
-      navigate(target.role === 'platform_admin' ? '/platform-admin' : `/${target.role}`, { replace: true });
-      window.location.reload();
-    } catch (err) {
-      await logoutAndRemoveAccount(target.user_id, navigate);
-    }
-  } else {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error(err);
-    }
-    clearActiveSessionLocally();
-    navigate('/login', { replace: true });
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
+  try {
+    await supabase.auth.signOut();
+  } catch (err) {
+    console.error(err);
   }
+  clearActiveSessionLocally();
+  await removeAccount(userId);
+  navigate('/login', { replace: true });
+  setTimeout(() => {
+    window.location.reload();
+  }, 100);
 }
 

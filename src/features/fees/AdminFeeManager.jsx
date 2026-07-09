@@ -211,8 +211,8 @@ export default function AdminFeeManager() {
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
 
       {!selectedStudent ? (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl">
-           <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-6">Manage Fees</h2>
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-xl">
+           <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-6">Manage Fees</h2>
 
             {/* ── Reminder Success Toast ── */}
             <AnimatePresence>
@@ -247,11 +247,11 @@ export default function AdminFeeManager() {
             </AnimatePresence>
 
            <div className="mb-6">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">1. Select Class</label>
+              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-2">1. Select Class</label>
               <select
                 value={filterClass}
                 onChange={e => handleClassChange(e.target.value)}
-                className="w-full sm:w-64 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-sm text-slate-600 focus:outline-none focus:border-primary transition-colors cursor-pointer"
+                className="w-full sm:w-64 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-sm text-slate-600 dark:text-slate-200 focus:outline-none focus:border-primary transition-colors cursor-pointer"
               >
                 <option value="">-- Choose Class --</option>
                 {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
@@ -295,13 +295,13 @@ export default function AdminFeeManager() {
                   </button>
                </div>
 
-               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">2. Select Student to Manage Fees</label>
-               <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
-                 <div className="divide-y divide-slate-200/60 max-h-96 overflow-y-auto custom-scrollbar">
+               <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-2">2. Select Student to Manage Fees</label>
+               <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+                 <div className="divide-y divide-slate-200/60 dark:divide-slate-800 max-h-96 overflow-y-auto custom-scrollbar">
                    {classStudentsWithDues.map(s => {
                      const isDefaulter = s.dueAmount > 0;
                      return (
-                       <div key={s.id} className="flex items-center justify-between p-4 hover:bg-slate-100 transition-colors" style={{ gap: '10px' }}>
+                       <div key={s.id} className="flex items-center justify-between p-4 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors" style={{ gap: '10px' }}>
                           {/* Checkbox — for ALL students */}
                           <div style={{ width: '20px', flexShrink: 0 }}>
                               <input
@@ -314,9 +314,9 @@ export default function AdminFeeManager() {
                           </div>
 
                           <div style={{ flex: 1 }}>
-                             <div className="font-bold text-slate-800">{s.name}</div>
+                             <div className="font-bold text-slate-800 dark:text-slate-100">{s.name}</div>
                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">@{s.username}</span>
+                               <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">@{s.username}</span>
                                {isDefaulter && (
                                  <span style={{ fontSize: '9px', fontWeight: 800, color: '#ef4444', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '1px 6px', textTransform: 'uppercase' }}>
                                    Due: ₹{s.dueAmount?.toLocaleString()}
@@ -345,27 +345,27 @@ export default function AdminFeeManager() {
       ) : activeStudentData && (
         <div className="space-y-6 animate-in slide-in-from-right-8 duration-300">
            {/* Header */}
-           <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+           <div className="flex items-center justify-between bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
               <div className="flex items-center gap-4">
-                 <button onClick={() => setSelectedStudent(null)} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors">
+                 <button onClick={() => setSelectedStudent(null)} className="p-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 rounded-lg transition-colors">
                     <ChevronLeft size={20} />
                  </button>
                  <div>
-                    <h2 className="text-xl font-black text-slate-800 leading-tight">{activeStudentData.name}'s Ledger</h2>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{activeStudentData.class} • @{activeStudentData.username}</span>
+                    <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 leading-tight">{activeStudentData.name}'s Ledger</h2>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{activeStudentData.class} • @{activeStudentData.username}</span>
                  </div>
               </div>
            </div>
 
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Set Fees Box */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl">
+              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-xl">
                  <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-5 flex items-center gap-2">
                     <IndianRupee size={16} /> Set Dues
                  </h3>
                  <div className="space-y-4">
                     <div>
-                       <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Last Year Pending Dues</label>
+                       <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 block">Last Year Pending Dues</label>
                        <input
                          type="number"
                          value={feePending}
@@ -374,7 +374,7 @@ export default function AdminFeeManager() {
                        />
                     </div>
                     <div>
-                       <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Current Year Dues</label>
+                       <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 block">Current Year Dues</label>
                        <input
                          type="number"
                          value={feeTotal}
@@ -403,37 +403,37 @@ export default function AdminFeeManager() {
               </div>
 
               {/* Add Payment Box */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl">
+              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-xl">
                  <h3 className="text-sm font-black text-emerald-500 uppercase tracking-widest mb-5 flex items-center gap-2">
                     <CreditCard size={16} /> Add Payment
                  </h3>
                  <div className="space-y-4">
                     <div>
-                       <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Received Amount</label>
+                       <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 block">Received Amount</label>
                        <input
                          type="number"
                          value={paymentAmount}
                          onChange={e => setPaymentAmount(e.target.value)}
-                         className="w-full bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 font-black text-emerald-700 text-xl focus:border-emerald-500 focus:outline-none"
+                         className="w-full bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 font-black text-emerald-700 dark:text-emerald-300 text-xl focus:border-emerald-500 focus:outline-none"
                          placeholder="0.00"
                        />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Date</label>
+                          <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 block">Date</label>
                           <input
                             type="date"
                             value={paymentDate}
                             onChange={e => setPaymentDate(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-sm text-slate-700 focus:border-primary focus:outline-none"
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-sm text-slate-700 dark:text-slate-200 focus:border-primary focus:outline-none"
                           />
                        </div>
                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Method</label>
+                          <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 block">Method</label>
                           <select
                             value={paymentMethod}
                             onChange={e => setPaymentMethod(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-sm text-slate-700 focus:border-primary focus:outline-none"
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-sm text-slate-700 dark:text-slate-200 focus:border-primary focus:outline-none"
                           >
                              <option value="Cash">Cash</option>
                              <option value="Online">Online</option>
@@ -457,29 +457,29 @@ export default function AdminFeeManager() {
            </div>
 
            {/* Payment History */}
-           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl">
-              <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-5 flex items-center gap-2">
+           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-xl">
+              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-5 flex items-center gap-2">
                  <History size={16} /> Payment History
               </h3>
 
               {activeStudentData.studentPayments.length === 0 ? (
-                 <div className="text-center py-8 text-slate-400 text-sm font-medium bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                 <div className="text-center py-8 text-slate-400 text-sm font-medium bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
                     No payments have been recorded for this ledger yet.
                  </div>
               ) : (
                  <div className="overflow-x-auto">
                     <table className="w-full text-left">
                        <thead>
-                          <tr className="border-b border-slate-200">
-                             <th className="px-4 py-3 text-[10px] uppercase font-black tracking-widest text-slate-400">Date</th>
-                             <th className="px-4 py-3 text-[10px] uppercase font-black tracking-widest text-slate-400">Method</th>
-                             <th className="px-4 py-3 text-[10px] uppercase font-black tracking-widest text-slate-400 text-right">Amount</th>
+                          <tr className="border-b border-slate-200 dark:border-slate-700">
+                             <th className="px-4 py-3 text-[10px] uppercase font-black tracking-widest text-slate-500 dark:text-slate-400">Date</th>
+                             <th className="px-4 py-3 text-[10px] uppercase font-black tracking-widest text-slate-500 dark:text-slate-400">Method</th>
+                             <th className="px-4 py-3 text-[10px] uppercase font-black tracking-widest text-slate-500 dark:text-slate-400 text-right">Amount</th>
                           </tr>
                        </thead>
-                       <tbody className="divide-y divide-slate-100">
+                       <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                           {activeStudentData.studentPayments.map(p => (
                              <tr key={p.id}>
-                                <td className="px-4 py-3 text-sm font-bold text-slate-700">
+                                <td className="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200">
                                    <div className="flex items-center gap-2">
                                       <Calendar size={14} className="text-slate-400" />
                                       {new Date(p.payment_date).toLocaleDateString()}
