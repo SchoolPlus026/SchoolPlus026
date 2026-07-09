@@ -94,6 +94,11 @@ export default function OffClasses() {
   const [todayTimetable, setTodayTimetable] = useState([]);
   const [toast, setToast] = useState('');
   const [toastType, setToastType] = useState('success');
+  const [activeTab, setActiveTab] = useState(() => {
+    const r = (role || '').toLowerCase();
+    if (r === 'teacher') return 'duties';
+    return 'absent';
+  });
 
   const userRole = (role || '').toLowerCase();
   const isAdmin = userRole === 'admin' || userRole === 'platform_admin';
@@ -664,8 +669,18 @@ export default function OffClasses() {
     return true;
   });
 
+  const tabs = [];
+  if (isTeacher) {
+    tabs.push({ id: 'duties', label: 'My Duties & Opportunities' });
+    tabs.push({ id: 'declare', label: 'Declare Free Periods' });
+  }
+  if (isAdmin) {
+    tabs.push({ id: 'absent', label: 'Absent Periods & Coverage' });
+    tabs.push({ id: 'assigned', label: 'Assigned Substitutions' });
+  }
+
   return (
-    <div className="space-y-5 fade-in pb-10">
+    <div className="space-y-6 fade-in pb-10">
 
       {/* Toast */}
       {toast && (
@@ -699,122 +714,154 @@ export default function OffClasses() {
         </p>
       </div>
 
+      {/* Tabs Selector */}
+      {tabs.length > 1 && (
+        <div className="flex bg-slate-950/40 p-1.5 rounded-xl border border-white/5 gap-1.5">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`flex-1 py-3 px-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                activeTab === t.id
+                  ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="sp-card flex items-center justify-center py-12 gap-3">
           <Loader2 size={20} className="animate-spin text-indigo-400" />
           <span className="text-slate-400 text-sm">Loading substitution data...</span>
         </div>
       ) : (
-        <>
-          {/* Section A: Teacher's Own Substitute Duty (Teacher view) */}
-          {isTeacher && mySubstitutions.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
-                <ShieldAlert size={14} /> Your Substitute Duties Today
-              </h4>
-              {mySubstitutions.map(s => {
-                const effStatus = getEffectiveSubStatus(s);
-                return (
-                  <div key={s.id} className="sp-card border-amber-500/30 bg-amber-500/5">
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded uppercase tracking-wider">
+        <div className="space-y-6">
+          {/* My Duties Tab */}
+          {activeTab === 'duties' && isTeacher && (
+            <div className="space-y-6">
+              {/* Section A: Teacher's Own Substitute Duty (Teacher view) */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                  <ShieldAlert size={14} /> Your Substitute Duties Today
+                </h4>
+                {mySubstitutions.length === 0 ? (
+                  <div className="sp-card text-center text-slate-500 text-xs py-8 font-semibold">
+                    No substitute duties assigned to you today.
+                  </div>
+                ) : (
+                  mySubstitutions.map(s => {
+                    const effStatus = getEffectiveSubStatus(s);
+                    return (
+                      <div key={s.id} className="sp-card border-amber-500/30 bg-amber-500/5">
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded uppercase tracking-wider">
+                                Period #{s.period_order} {s.period_label ? `• ${s.period_label}` : ''}
+                              </span>
+                              {s.assigned_by === 'auto' && (
+                                <span className="text-[10px] font-black bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                                  <Zap size={10} /> Auto-Assigned
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm font-bold text-slate-200">{s.class} — {s.subject}</p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Covering for: <span className="text-slate-300 font-semibold">{s.original?.name || 'Absent Teacher'}</span>
+                            </p>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                            {effStatus === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => acceptSubstitution(s.id)}
+                                  className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
+                                >
+                                  <ThumbsUp size={13} /> Accept
+                                </button>
+                                <button
+                                  onClick={() => rejectSubstitution(s.id)}
+                                  className="flex items-center gap-1.5 px-3 py-2 bg-red-600/80 hover:bg-red-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
+                                >
+                                  <ThumbsDown size={13} /> Decline
+                                </button>
+                              </>
+                            )}
+                            {effStatus === 'accepted' && (
+                              <button
+                                onClick={() => markAsTaken(s.id)}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
+                              >
+                                <CheckCircle2 size={14} /> Mark as Taken
+                              </button>
+                            )}
+                            {effStatus === 'completed' && (
+                              <span className="flex items-center gap-2 text-xs font-black text-emerald-400 bg-emerald-500/10 px-3 py-2 rounded-xl border border-emerald-500/20">
+                                <CheckCircle2 size={14} /> Completed
+                              </span>
+                            )}
+                            {effStatus === 'cancelled' && (
+                              <span className="flex items-center gap-2 text-xs font-black text-red-400 bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
+                                <X size={14} /> Declined
+                              </span>
+                            )}
+                            {effStatus === 'expired' && (
+                              <span className="flex items-center gap-2 text-xs font-black text-red-400 bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
+                                <X size={14} /> Class Over
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Section A-2: Volunteer Opportunities */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                  <Bell size={14} /> Open Substitution Cover Opportunities
+                </h4>
+                {openDutiesForVolunteering.length === 0 ? (
+                  <div className="sp-card text-center text-slate-500 text-xs py-8 font-semibold">
+                    No open substitution opportunities available for volunteering.
+                  </div>
+                ) : (
+                  openDutiesForVolunteering.map(s => (
+                    <div key={s.id} className="sp-card border-indigo-500/30 bg-indigo-500/5">
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div>
+                          <span className="text-xs font-black bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded uppercase tracking-wider mb-1 inline-block">
                             Period #{s.period_order} {s.period_label ? `• ${s.period_label}` : ''}
                           </span>
-                          {s.assigned_by === 'auto' && (
-                            <span className="text-[10px] font-black bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-                              <Zap size={10} /> Auto-Assigned
-                            </span>
-                          )}
+                          <p className="text-sm font-bold text-slate-200">{s.class} — {s.subject}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Absent Teacher: <span className="text-slate-300 font-semibold">{s.original?.name || 'Absent Teacher'}</span>
+                          </p>
                         </div>
-                        <p className="text-sm font-bold text-slate-200">{s.class} — {s.subject}</p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Covering for: <span className="text-slate-300 font-semibold">{s.original?.name || 'Absent Teacher'}</span>
-                        </p>
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                        {effStatus === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => acceptSubstitution(s.id)}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
-                            >
-                              <ThumbsUp size={13} /> Accept
-                            </button>
-                            <button
-                              onClick={() => rejectSubstitution(s.id)}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-red-600/80 hover:bg-red-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
-                            >
-                              <ThumbsDown size={13} /> Decline
-                            </button>
-                          </>
-                        )}
-                        {effStatus === 'accepted' && (
-                          <button
-                            onClick={() => markAsTaken(s.id)}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
-                          >
-                            <CheckCircle2 size={14} /> Mark as Taken
-                          </button>
-                        )}
-                        {effStatus === 'completed' && (
-                          <span className="flex items-center gap-2 text-xs font-black text-emerald-400 bg-emerald-500/10 px-3 py-2 rounded-xl border border-emerald-500/20">
-                            <CheckCircle2 size={14} /> Completed
-                          </span>
-                        )}
-                        {effStatus === 'cancelled' && (
-                          <span className="flex items-center gap-2 text-xs font-black text-red-400 bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
-                            <X size={14} /> Declined
-                          </span>
-                        )}
-                        {effStatus === 'expired' && (
-                          <span className="flex items-center gap-2 text-xs font-black text-red-400 bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
-                            <X size={14} /> Class Over
-                          </span>
-                        )}
+                        <button
+                          onClick={() => volunteerToCover(s.id)}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors shadow-md shadow-indigo-500/10"
+                        >
+                          <Plus size={14} /> Volunteer to Cover
+                        </button>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  ))
+                )}
+              </div>
             </div>
           )}
 
-          {/* Section A-2: Volunteer Opportunities (Open Duties for free teachers) */}
-          {isTeacher && openDutiesForVolunteering.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                <Bell size={14} /> Open Substitution Cover Opportunities
-              </h4>
-              {openDutiesForVolunteering.map(s => (
-                <div key={s.id} className="sp-card border-indigo-500/30 bg-indigo-500/5">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div>
-                      <span className="text-xs font-black bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded uppercase tracking-wider mb-1 inline-block">
-                        Period #{s.period_order} {s.period_label ? `• ${s.period_label}` : ''}
-                      </span>
-                      <p className="text-sm font-bold text-slate-200">{s.class} — {s.subject}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Absent Teacher: <span className="text-slate-300 font-semibold">{s.original?.name || 'Absent Teacher'}</span>
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => volunteerToCover(s.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors shadow-md shadow-indigo-500/10"
-                    >
-                      <Plus size={14} /> Volunteer to Cover
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Section B: Free Period Declaration (Teacher only) */}
-          {isTeacher && (
+          {/* Declare Free Periods Tab */}
+          {activeTab === 'declare' && isTeacher && (
             <FreePeriodDeclaration
               schoolId={schoolSettings.school_id}
               teacherId={user.id}
@@ -826,128 +873,136 @@ export default function OffClasses() {
             />
           )}
 
-          {/* Section C: Today's Absent Teachers & Coverage (Admin view) */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <UserX size={14} /> Today's Absent Periods &amp; Coverage
-            </h4>
-            {absentPeriods.length === 0 ? (
-              <div className="sp-card text-center text-slate-500 text-xs py-8 font-semibold">
-                ✓ All teachers are present today! No substitutions required.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {absentPeriods.map(p => {
-                  const originalTeacherId = p.teacher_id_resolved;
-                  const existing = substitutions.find(
-                    s => s.original_teacher_id === originalTeacherId && s.period_order === p.period_order
-                  );
+          {/* Absent Periods & Coverage Tab */}
+          {activeTab === 'absent' && isAdmin && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <UserX size={14} /> Today's Absent Periods &amp; Coverage
+              </h4>
+              {absentPeriods.length === 0 ? (
+                <div className="sp-card text-center text-slate-500 text-xs py-8 font-semibold">
+                  ✓ All teachers are present today! No substitutions required.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {absentPeriods.map(p => {
+                    const originalTeacherId = p.teacher_id_resolved;
+                    const existing = substitutions.find(
+                      s => s.original_teacher_id === originalTeacherId && s.period_order === p.period_order
+                    );
 
-                  const absentIds = new Set(absentPeriods.map(ap => ap.teacher_id_resolved).filter(Boolean));
+                    const absentIds = new Set(absentPeriods.map(ap => ap.teacher_id_resolved).filter(Boolean));
 
-                  // Filter candidates for assignment
-                  const busyTeacherIds = new Set(
-                    todayTimetable
-                      .filter(tt => tt.period_order === p.period_order)
-                      .map(tt => tt.teacher_id)
-                  );
+                    // Filter candidates for assignment
+                    const busyTeacherIds = new Set(
+                      todayTimetable
+                        .filter(tt => tt.period_order === p.period_order)
+                        .map(tt => tt.teacher_id)
+                    );
 
-                  const busySubstitutedTeacherIds = new Set(
-                    substitutions
-                      .filter(s => s.period_order === p.period_order && s.status !== 'cancelled' && getEffectiveSubStatus(s) !== 'expired')
-                      .map(s => s.substitute_teacher_id)
-                      .filter(Boolean)
-                  );
+                    const busySubstitutedTeacherIds = new Set(
+                      substitutions
+                        .filter(s => s.period_order === p.period_order && s.status !== 'cancelled' && getEffectiveSubStatus(s) !== 'expired')
+                        .map(s => s.substitute_teacher_id)
+                        .filter(Boolean)
+                    );
 
-                  const availableFreeTeachers = freePeriods.filter(
-                    fp => fp.day === p.day && fp.period_order === p.period_order &&
-                           fp.teacher_id !== originalTeacherId && !absentIds.has(fp.teacher_id) &&
-                           !busySubstitutedTeacherIds.has(fp.teacher_id)
-                  );
+                    const availableFreeTeachers = freePeriods.filter(
+                      fp => fp.day === p.day && fp.period_order === p.period_order &&
+                             fp.teacher_id !== originalTeacherId && !absentIds.has(fp.teacher_id) &&
+                             !busySubstitutedTeacherIds.has(fp.teacher_id)
+                    );
 
-                  const availableAllTeachers = allTeachers.filter(
-                    t => t.id !== originalTeacherId &&
-                         !absentIds.has(t.id) &&
-                         !busyTeacherIds.has(t.id) &&
-                         !busySubstitutedTeacherIds.has(t.id)
-                  );
+                    const availableAllTeachers = allTeachers.filter(
+                      t => t.id !== originalTeacherId &&
+                           !absentIds.has(t.id) &&
+                           !busyTeacherIds.has(t.id) &&
+                           !busySubstitutedTeacherIds.has(t.id)
+                    );
 
-                  return (
-                    <AbsentPeriodRow
-                      key={p.id}
-                      period={p}
-                      existing={existing}
-                      availableFreeTeachers={availableFreeTeachers}
-                      availableAllTeachers={availableAllTeachers}
-                      isAdmin={isAdmin}
-                      today={today}
-                      onAssign={(subTeacherId) => assignSubstitute(p, subTeacherId, 'admin')}
-                      onBroadcast={() => broadcastForVolunteer(p)}
-                      onApproveVolunteer={(subId, volId, name) => approveVolunteer(subId, volId, name)}
-                      onRejectVolunteer={(subId, volId) => rejectVolunteer(subId, volId)}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    return (
+                      <AbsentPeriodRow
+                        key={p.id}
+                        period={p}
+                        existing={existing}
+                        availableFreeTeachers={availableFreeTeachers}
+                        availableAllTeachers={availableAllTeachers}
+                        isAdmin={isAdmin}
+                        today={today}
+                        onAssign={(subTeacherId) => assignSubstitute(p, subTeacherId, 'admin')}
+                        onBroadcast={() => broadcastForVolunteer(p)}
+                        onApproveVolunteer={(subId, volId, name) => approveVolunteer(subId, volId, name)}
+                        onRejectVolunteer={(subId, volId) => rejectVolunteer(subId, volId)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Section D: Today's Substitution Summary (Admin view) */}
-          {isAdmin && substitutions.length > 0 && (
+          {/* Assigned Substitutions Tab */}
+          {activeTab === 'assigned' && isAdmin && (
             <div className="sp-card">
               <div className="flex items-center gap-2 mb-4">
                 <CheckCircle2 size={16} className="text-emerald-400" />
                 <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest">Assigned Substitutions Today</h4>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      {['Period', 'Class', 'Subject', 'Absent Teacher', 'Substitute', 'Status', 'Assigned By'].map(h => (
-                        <th key={h} className="text-left text-xs font-black text-slate-500 uppercase tracking-widest py-3 px-4 border-b border-white/5">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {substitutions.map(s => {
-                      const effStatus = getEffectiveSubStatus(s);
-                      return (
-                        <tr key={s.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
-                          <td className="py-3 px-4">
-                            <span className="inline-block bg-slate-700 text-slate-200 text-xs font-black px-2 py-0.5 rounded-md mr-2">#{s.period_order}</span>
-                            <span className="text-slate-500 text-xs">{s.period_label || ''}</span>
-                          </td>
-                          <td className="py-3 px-4 font-bold text-slate-200">{s.class}</td>
-                          <td className="py-3 px-4 text-slate-300">{s.subject}</td>
-                          <td className="py-3 px-4 text-red-400 font-semibold">{s.original?.name || '—'}</td>
-                          <td className="py-3 px-4 text-emerald-400 font-semibold">{s.substitute?.name || 'Open Cover / Volunteer'}</td>
-                          <td className="py-3 px-4">
-                            <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${
-                              effStatus === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
-                              effStatus === 'accepted' ? 'bg-blue-500/20 text-blue-400' :
-                              effStatus === 'cancelled' ? 'bg-red-500/20 text-red-400' :
-                              effStatus === 'expired' ? 'bg-red-500/20 text-red-400' :
-                              effStatus === 'no_teacher_available' ? 'bg-red-500/20 text-red-400' :
-                              'bg-amber-500/20 text-amber-400'
-                            }`}>
-                              {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="flex items-center gap-1 text-xs text-slate-500">
-                              {s.assigned_by === 'auto' ? <Zap size={11} className="text-indigo-400" /> : null}
-                              {s.assigned_by}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              {substitutions.length === 0 ? (
+                <div className="text-center text-slate-500 text-xs py-8 font-semibold">
+                  No substitutions have been assigned yet today.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        {['Period', 'Class', 'Subject', 'Absent Teacher', 'Substitute', 'Status', 'Assigned By'].map(h => (
+                          <th key={h} className="text-left text-xs font-black text-slate-500 uppercase tracking-widest py-3 px-4 border-b border-white/5">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {substitutions.map(s => {
+                        const effStatus = getEffectiveSubStatus(s);
+                        return (
+                          <tr key={s.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
+                            <td className="py-3 px-4">
+                              <span className="inline-block bg-slate-700 text-slate-200 text-xs font-black px-2 py-0.5 rounded-md mr-2">#{s.period_order}</span>
+                              <span className="text-slate-500 text-xs">{s.period_label || ''}</span>
+                            </td>
+                            <td className="py-3 px-4 font-bold text-slate-200">{s.class}</td>
+                            <td className="py-3 px-4 text-slate-300">{s.subject}</td>
+                            <td className="py-3 px-4 text-red-400 font-semibold">{s.original?.name || '—'}</td>
+                            <td className="py-3 px-4 text-emerald-400 font-semibold">{s.substitute?.name || 'Open Cover / Volunteer'}</td>
+                            <td className="py-3 px-4">
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${
+                                effStatus === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
+                                effStatus === 'accepted' ? 'bg-blue-500/20 text-blue-400' :
+                                effStatus === 'cancelled' ? 'bg-red-500/20 text-red-400' :
+                                effStatus === 'expired' ? 'bg-red-500/20 text-red-400' :
+                                effStatus === 'no_teacher_available' ? 'bg-red-500/20 text-red-400' :
+                                'bg-amber-500/20 text-amber-400'
+                              }`}>
+                                {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="flex items-center gap-1 text-xs text-slate-500">
+                                {s.assigned_by === 'auto' ? <Zap size={11} className="text-indigo-400" /> : null}
+                                {s.assigned_by}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

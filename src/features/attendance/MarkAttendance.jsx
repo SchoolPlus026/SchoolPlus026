@@ -54,6 +54,7 @@ export default function MarkAttendance() {
   const selectedDate = new Date().toISOString().split('T')[0];
   const [selectedClass, setSelectedClass] = useState('');
   const [targetRole, setTargetRole] = useState(role === 'admin' ? 'teacher' : 'student'); // 'student', 'teacher', 'staff' or 'driver'
+  const [sortBy, setSortBy] = useState('roll_number');
   
   const [attendanceEdits, setAttendanceEdits] = useState({});
   const [toast, setToast] = useState('');
@@ -63,6 +64,25 @@ export default function MarkAttendance() {
     setToast(msg);
     setTimeout(() => setToast(''), 3000);
   }
+
+  const [isEditingRollNo, setIsEditingRollNo] = useState(null);
+  const [editingRollNoValue, setEditingRollNoValue] = useState('');
+
+  const handleSaveRollNumber = async (studentId) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ roll_number: editingRollNoValue.trim() || null })
+        .eq('id', studentId);
+      if (error) throw error;
+      
+      showToast('Roll number updated successfully!');
+      queryClient.invalidateQueries({ queryKey: ['attendance-targets'] });
+      setIsEditingRollNo(null);
+    } catch (err) {
+      alert('Failed to update roll number: ' + err.message);
+    }
+  };
 
   // 1. Fetch Teacher's Assigned Class if applicable
   useEffect(() => {
@@ -85,7 +105,7 @@ export default function MarkAttendance() {
     queryFn: async () => {
       let query = supabase
         .from('users')
-        .select('id, name, username, role, avatar_url, avatar_file_id, hide_avatar_from_class')
+        .select('id, name, username, role, avatar_url, avatar_file_id, hide_avatar_from_class, roll_number')
         .eq('role', targetRole)
         .order('name');
         
@@ -99,6 +119,25 @@ export default function MarkAttendance() {
     },
     enabled: !!schoolSettings?.school_id && (targetRole === 'teacher' || targetRole === 'staff' || targetRole === 'driver' || !!selectedClass)
   });
+
+  const sortedTargets = React.useMemo(() => {
+    if (!targets) return [];
+    const list = [...targets];
+    if (targetRole === 'student') {
+      if (sortBy === 'roll_number') {
+        return list.sort((a, b) => {
+          const rA = a.roll_number || '';
+          const rB = b.roll_number || '';
+          return rA.localeCompare(rB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+      } else if (sortBy === 'name') {
+        return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      } else if (sortBy === 'username') {
+        return list.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
+      }
+    }
+    return list;
+  }, [targets, targetRole, sortBy]);
 
   // 3. Fetch Existing Attendance
   const { data: existingAttendance, isLoading: attendanceLoading } = useQuery({
@@ -263,11 +302,11 @@ export default function MarkAttendance() {
   };
 
   const handleExportCSV = () => {
-    if (!targets || targets.length === 0) return;
-    const headers = ['Name', 'Username', 'Role', 'Status', 'Date'];
-    const rows = targets.map(t => {
+    if (!sortedTargets || sortedTargets.length === 0) return;
+    const headers = ['Roll Number', 'Name', 'Username', 'Role', 'Status', 'Date'];
+    const rows = sortedTargets.map(t => {
       const status = currentStatusFor(t.id);
-      return `"${t.name}","${t.username}","${targetRole}","${status}","${selectedDate}"`;
+      return `"${t.roll_number || ''}","${t.name}","${t.username}","${targetRole}","${status}","${selectedDate}"`;
     });
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -349,14 +388,30 @@ export default function MarkAttendance() {
       )}
 
       <div className="card" id="attMarkerPanel">
-         <h4 className="mb-4">Marking for: <span className="muted">{targetRole === 'student' ? (selectedClass ? `Class ${selectedClass} on ${selectedDate}` : 'Please select class') : `${targetRole}s on ${selectedDate}`}</span></h4>
+         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <h4 style={{ margin: 0 }}>Marking for: <span className="muted">{targetRole === 'student' ? (selectedClass ? `Class ${selectedClass} on ${selectedDate}` : 'Please select class') : `${targetRole}s on ${selectedDate}`}</span></h4>
+            {targetRole === 'student' && targets && targets.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="sp-input text-xs py-1.5 px-3 w-auto bg-slate-900 border-glass text-white rounded-xl focus:ring-1 focus:ring-primary"
+                >
+                  <option value="roll_number">Roll Number</option>
+                  <option value="name">Name (A-Z)</option>
+                  <option value="username">Username</option>
+                </select>
+              </div>
+            )}
+         </div>
          <div id="attList" className="mt-[10px]">
            {targetsLoading || attendanceLoading ? (
                <div className="muted p-4 text-center">Loading roster...</div>
            ) : (!targets || targets.length === 0) ? (
                <div className="muted p-4 text-center">No subjects found for this selection.</div>
            ) : (
-                targets.map(target => {
+                sortedTargets.map(target => {
                  const status = currentStatusFor(target.id);
                  const isOnLeave = leavesList && leavesList.some(l => l.user_id === target.id);
                  const disabled = isAlreadyMarked && !isEditing;
@@ -379,13 +434,45 @@ export default function MarkAttendance() {
                            opacity: disabled ? 0.7 : 1 
                          }}
                        >
-                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 auto', minWidth: '0' }}>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', minWidth: '0' }}>
                              <UserAvatar user={target} size="xs" />
-                             <div style={{ minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                 <strong style={{ fontSize: '12px', fontWeight: 800, display: 'inline-block', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>{target.name}</strong>
-                                {isOnLeave && <span className="ml-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">On Leave</span>}
-                                <br/>
+                             <div style={{ minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                   <strong style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{target.name}</strong>
+                                   {isOnLeave && <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">On Leave</span>}
+                                </div>
                                 <span className="muted" style={{ fontSize: '8.5px', opacity: 0.65 }}>@{target.username}</span>
+                                {targetRole === 'student' && (
+                                  <div className="flex items-center gap-1 mt-0.5" style={{ fontSize: '8.5px' }}>
+                                    {isEditingRollNo === target.id ? (
+                                      <input
+                                        type="text"
+                                        placeholder="Roll No"
+                                        value={editingRollNoValue}
+                                        onChange={(e) => setEditingRollNoValue(e.target.value)}
+                                        className="px-1 py-0.5 text-[8.5px] bg-slate-900 border border-indigo-500 rounded text-white w-14 outline-none"
+                                        onBlur={() => handleSaveRollNumber(target.id)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSaveRollNumber(target.id);
+                                          if (e.key === 'Escape') setIsEditingRollNo(null);
+                                        }}
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <span 
+                                        onClick={() => {
+                                          if (role === 'teacher' || role === 'admin') {
+                                            setIsEditingRollNo(target.id);
+                                            setEditingRollNoValue(target.roll_number || '');
+                                          }
+                                        }}
+                                        className={`font-black cursor-pointer transition-colors ${target.roll_number ? 'text-indigo-400 hover:text-indigo-300' : 'text-amber-500/80 hover:text-amber-400'}`}
+                                      >
+                                        Roll No: {target.roll_number || 'Click to Set'}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                              </div>
                            </div>
                            <div style={{ display: 'flex', flexWrap: 'nowrap', flexShrink: 0, gap: '3px' }}>
@@ -443,7 +530,10 @@ export default function MarkAttendance() {
                                         onChange={() => handleStatusChange(target.id, st)}
                                         className="sr-only"
                                       />
-                                      <span>{st.replace('_', ' ')}</span>
+                                      <span className="hidden sm:inline">{st === 'Half_day' ? 'Half Day' : st}</span>
+                                      <span className="inline sm:hidden">
+                                        {st === 'Present' ? 'P' : st === 'Absent' ? 'A' : st === 'Leave' ? 'L' : 'H'}
+                                      </span>
                                   </label>
                               );
                           })}

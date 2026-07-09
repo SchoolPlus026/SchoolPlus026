@@ -5,6 +5,7 @@ import { AlertTriangle, Send, Loader2, Info } from 'lucide-react';
 import { ref, set } from 'firebase/database';
 import { rtdb } from '../../config/firebaseClient';
 import { usePlan } from '../../hooks/usePlan';
+import { useQuery } from '@tanstack/react-query';
 
 export default function EmergencyManager() {
   const { schoolSettings, user, role } = useAppStore();
@@ -37,6 +38,40 @@ export default function EmergencyManager() {
     const { data } = await q;
     if (data) setStudents(data);
     setLoadingStudents(false);
+  };
+
+  const { data: activeAlerts = [], refetch: refetchAlerts } = useQuery({
+    queryKey: ['active-emergency-alerts', schoolSettings?.school_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('emergency_alerts')
+        .select('*')
+        .eq('school_id', schoolSettings.school_id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      return data || [];
+    },
+    enabled: !!schoolSettings?.school_id
+  });
+
+  const handleStopAlert = async (alertId) => {
+    setLoading(true); setError(''); setSuccess('');
+    const { error: updateErr } = await supabase
+      .from('emergency_alerts')
+      .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+      .eq('id', alertId);
+
+    if (updateErr) {
+      setError(updateErr.message);
+    } else {
+      // Broadcast real-time signal via Firebase RTDB
+      if (rtdb && schoolSettings?.school_id) {
+        set(ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`), Date.now()).catch(console.error);
+      }
+      setSuccess('Alert stopped and resolved successfully.');
+      refetchAlerts();
+    }
+    setLoading(false);
   };
 
   const handleTrigger = async (e) => {
@@ -91,6 +126,7 @@ export default function EmergencyManager() {
       setSuccess('Alert broadcasted successfully. Targeted clients will see it immediately.');
       setMessage('');
       setSelectedStudent('');
+      refetchAlerts();
     }
     setLoading(false);
   };
@@ -194,6 +230,44 @@ export default function EmergencyManager() {
           {role === 'teacher' ? 'Send Targeted Alert' : 'Trigger Big Red Button'}
         </button>
       </form>
+
+      {/* Active Alerts List */}
+      <div className="sp-card space-y-4 mt-6">
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+          <AlertTriangle size={14} className="text-red-500 animate-pulse" /> Active Emergency Alerts
+        </h3>
+        {activeAlerts.length === 0 ? (
+          <p className="text-xs text-slate-500 font-semibold py-4 text-center">No active emergency alerts at this school.</p>
+        ) : (
+          <div className="space-y-3">
+            {activeAlerts.map(alert => (
+              <div key={alert.id} className="p-4 bg-red-950/20 border border-red-900/30 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black bg-red-500/20 text-red-400 px-2 py-0.5 rounded uppercase tracking-wider">
+                      {alert.alert_type}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-500">
+                      Target: {alert.target_audience.toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-200 mt-2">{alert.message}</p>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Triggered: {new Date(alert.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleStopAlert(alert.id)}
+                  disabled={loading}
+                  className="w-full sm:w-auto px-4 py-2 bg-red-650 hover:bg-red-550 disabled:bg-red-800/50 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors cursor-pointer border-0 flex items-center justify-center gap-1.5"
+                >
+                  Stop & Over Alert
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

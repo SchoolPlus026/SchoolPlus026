@@ -149,16 +149,40 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
            
            return {
               teacher_name: teacher ? teacher.name : 'Unassigned',
+              teacher_id: teacher ? teacher.id : null,
               class_name: className,
               period_label: 'Daily Attendance'
            };
         });
+
+        const completed = [];
+        submittedClasses.forEach(className => {
+          const teacher = teachers.find(t => {
+            if (!t.class) return false;
+            let tClasses = [];
+            if (typeof t.class === 'string') {
+              try {
+                const parsed = JSON.parse(t.class);
+                tClasses = Array.isArray(parsed) ? parsed : [parsed];
+              } catch (e) {
+                tClasses = t.class.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+              }
+            } else if (Array.isArray(t.class)) {
+              tClasses = t.class;
+            }
+            return tClasses.some(tc => tc?.toString().trim().toLowerCase() === className.trim().toLowerCase());
+          });
+          completed.push({
+            class_name: className.toUpperCase(),
+            teacher_name: teacher ? teacher.name : 'Unassigned'
+          });
+        });
         
         console.log("PendingAttendanceWidget - Finished calculation. Missing count:", missing.length, "Total submitted classes:", submittedClasses.size);
-        return { missing, totalSubmitted: submittedClasses.size };
+        return { missing, totalSubmitted: submittedClasses.size, completed };
       } catch (err) {
         console.error("PendingAttendanceWidget - Error calculating pending attendance:", err);
-        return { missing: [], totalSubmitted: 0 };
+        return { missing: [], totalSubmitted: 0, completed: [] };
       }
     },
     enabled: !!schoolSettings?.school_id && (!dismissed || forceShow),
@@ -176,7 +200,62 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
 
   if (dismissed && !forceShow) return null;
 
-  const { missing, totalSubmitted } = missingData;
+  const { missing, totalSubmitted, completed = [] } = missingData;
+
+  const [sendingReminder, setSendingReminder] = useState(null);
+  const [sendingAll, setSendingAll] = useState(false);
+
+  const handleSendReminder = async (m, idx) => {
+    if (!m.teacher_id) {
+      alert("No teacher is currently assigned to cover this class.");
+      return;
+    }
+    setSendingReminder(idx);
+    try {
+      const { error } = await supabase.from('app_notifications_queue').insert({
+        school_id: schoolSettings.school_id,
+        recipient_id: m.teacher_id,
+        type: 'attendance_reminder',
+        title: '📋 Missing Attendance Log',
+        body: `Please submit the daily attendance log for Class ${m.class_name}.`,
+        is_ephemeral: false,
+        status: 'pending'
+      });
+      if (error) throw error;
+      alert(`Reminder sent to ${m.teacher_name}.`);
+    } catch (err) {
+      alert(`Failed to send reminder: ${err.message}`);
+    } finally {
+      setSendingReminder(null);
+    }
+  };
+
+  const handleRemindAll = async () => {
+    const validMissing = missing.filter(m => m.teacher_id);
+    if (validMissing.length === 0) {
+      alert("No pending teachers to remind.");
+      return;
+    }
+    setSendingAll(true);
+    try {
+      const reminders = validMissing.map(m => ({
+        school_id: schoolSettings.school_id,
+        recipient_id: m.teacher_id,
+        type: 'attendance_reminder',
+        title: '📋 Missing Attendance Log',
+        body: `Please submit the daily attendance log for Class ${m.class_name}.`,
+        is_ephemeral: false,
+        status: 'pending'
+      }));
+      const { error } = await supabase.from('app_notifications_queue').insert(reminders);
+      if (error) throw error;
+      alert("Reminders sent successfully to all pending staff!");
+    } catch (err) {
+      alert(`Failed to send reminders: ${err.message}`);
+    } finally {
+      setSendingAll(false);
+    }
+  };
 
   if (loading && missing.length === 0) {
     return (
@@ -204,7 +283,17 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Duty radar tracking active class attendance logs</p>
             </div>
           </div>
-          <div className="relative z-10 flex gap-3 flex-wrap">
+          <div className="relative z-10 flex gap-3 flex-wrap items-center">
+            {missing.length > 0 && (
+              <button 
+                onClick={handleRemindAll} 
+                disabled={sendingAll}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-850 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center gap-1.5 cursor-pointer border-0"
+              >
+                {sendingAll ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                Remind All
+              </button>
+            )}
             <div className="px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-center">
               <div className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Pending Classes</div>
               <div className="text-lg font-black text-rose-200 mt-0.5">{missing.length}</div>
@@ -226,9 +315,21 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Missing Attendance Logs</p>
             </div>
           </div>
-          <button onClick={handleDismiss} className="text-slate-500 hover:text-slate-300 transition-colors">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {missing.length > 0 && (
+              <button 
+                onClick={handleRemindAll} 
+                disabled={sendingAll}
+                className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-850 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-1 cursor-pointer border-0"
+              >
+                {sendingAll ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                Remind All
+              </button>
+            )}
+            <button onClick={handleDismiss} className="text-slate-500 hover:text-slate-300 transition-colors bg-transparent border-0 cursor-pointer p-1">
+              <X size={18} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -261,10 +362,12 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
                     </div>
                   </div>
                   <button 
-                    className="w-full mt-6 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-950/30"
-                    onClick={() => alert(`Reminder sent to ${m.teacher_name}.`)}
+                    className="w-full mt-6 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-800/50 text-white text-[11px] font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-950/30 cursor-pointer border-0"
+                    onClick={() => handleSendReminder(m, i)}
+                    disabled={sendingReminder === i || !m.teacher_id}
                   >
-                    Send Reminder <Send size={12} />
+                    {sendingReminder === i ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                    Send Reminder
                   </button>
                 </div>
               ))}
@@ -286,15 +389,32 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
                     </div>
                   </div>
                   <button 
-                    className="w-full sm:w-auto px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                    onClick={() => alert(`Reminder sent to ${m.teacher_name}.`)}
+                    className="w-full sm:w-auto px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 disabled:bg-rose-800/50 text-rose-300 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer border-0"
+                    onClick={() => handleSendReminder(m, i)}
+                    disabled={sendingReminder === i || !m.teacher_id}
                   >
-                    Send Reminder <Send size={12} />
+                    {sendingReminder === i ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                    Send Reminder
                   </button>
                 </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Completed Classes Section */}
+      {completed.length > 0 && (
+        <div className="mt-8 pt-6 border-t border-slate-800">
+          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Completed Classes</h4>
+          <div className="flex flex-wrap gap-2.5">
+            {completed.map((c, idx) => (
+              <div key={idx} className="px-3.5 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-black flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                {c.teacher_name} ({c.class_name})
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

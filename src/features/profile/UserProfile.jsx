@@ -754,6 +754,13 @@ export default function UserProfile() {
                                <div className="font-semibold text-xl text-[var(--text-main)]">{profile.class || 'Unassigned'}</div>
                             </div>
                          </div>
+                         <div className="flex items-start gap-3">
+                             <div className="mt-1 p-2 rounded-lg bg-[var(--glass)]"><Info size={16} className="text-amber-600 dark:text-amber-400" /></div>
+                             <div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--muted)] mb-0.5">Roll Number</div>
+                                <div className="font-semibold text-xl text-[var(--text-main)]">{profile.roll_number || 'Unassigned'}</div>
+                             </div>
+                          </div>
                          {profile.id === user.id && (
                             <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between gap-4">
                                <div>

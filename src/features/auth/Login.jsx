@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, User, Loader2, AlertCircle, SchoolIcon, ArrowRight, ArrowLeft, Eye, EyeOff,
-  Fingerprint, Key, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X, Mail } from 'lucide-react';
+  Fingerprint, Key, ChevronRight, QrCode, Smartphone, Shield, CheckCircle2, X, Mail, Trash2, Globe, Sun, Moon, HelpCircle } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Camera } from '@capacitor/camera';
 import { Browser } from '@capacitor/browser';
@@ -18,6 +18,69 @@ const isMobileOrPWA = () => {
   const isMobileOS = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
   const hasTouch = navigator.maxTouchPoints > 0;
   return isMobileOS || hasTouch;
+};
+
+const LOGIN_TRANSLATIONS = {
+  en: {
+    schoolCodeTitle: 'Enter School Code',
+    schoolCodeSub: 'Please enter your school code to proceed.',
+    verifying: 'Verifying...',
+    continue: 'Continue',
+    savedAccounts: 'Saved Accounts',
+    savedAccountsSub: 'Continue with Saved Account',
+    welcomeBack: 'Welcome back to',
+    username: 'Username',
+    password: 'Password',
+    rememberMe: 'Remember Me',
+    signIn: 'Sign In',
+    orSignInWith: 'Or sign in using:',
+    passkey: 'Passkey',
+    scanQr: 'Scan QR',
+    forgotPassword: 'Forgot Password?',
+    forgotUsername: 'Forgot Username?',
+    loginHelp: 'Login Help',
+    back: 'Back',
+  },
+  hi: {
+    schoolCodeTitle: 'स्कूल कोड दर्ज करें',
+    schoolCodeSub: 'आगे बढ़ने के लिए कृपया अपना स्कूल कोड दर्ज करें।',
+    verifying: 'सत्यापित किया जा रहा है...',
+    continue: 'आगे बढ़ें',
+    savedAccounts: 'सहेजे गए खाते',
+    savedAccountsSub: 'सहेजे गए खाते से साइन इन करें',
+    welcomeBack: 'वापसी पर आपका स्वागत है',
+    username: 'यूज़रनेम',
+    password: 'पासवर्ड',
+    rememberMe: 'मुझे याद रखें',
+    signIn: 'साइन इन करें',
+    orSignInWith: 'या इस माध्यम से साइन इन करें:',
+    passkey: 'पासकी',
+    scanQr: 'क्यूआर स्कैन करें',
+    forgotPassword: 'पासवर्ड भूल गए?',
+    forgotUsername: 'यूज़रनेम भूल गए?',
+    loginHelp: 'लॉगिन सहायता',
+    back: 'पीछे',
+  },
+  mr: {
+    schoolCodeTitle: 'शाळा कोड प्रविष्ट करा',
+    schoolCodeSub: 'पुढील प्रक्रियेसाठी कृपया आपला शाळा कोड प्रविष्ट करा.',
+    verifying: 'पडताळणी करत आहे...',
+    continue: 'पुढील',
+    savedAccounts: 'जतन केलेली खाती',
+    savedAccountsSub: 'जतन केलेल्या खात्यात साइन इन करा',
+    welcomeBack: 'पुन्हा स्वागत आहे',
+    username: 'वापरकर्तानाव',
+    password: 'पासवर्ड',
+    rememberMe: 'माझी आठवण ठेवा',
+    signIn: 'साइन इन करा',
+    orSignInWith: 'किंवा याद्वारे साइन इन करा:',
+    passkey: 'पासकी',
+    scanQr: 'क्यूआर स्कॅन करा',
+    forgotPassword: 'पासवर्ड विसरलात?',
+    forgotUsername: 'वापरकर्तानाव विसरलात?',
+    loginHelp: 'लॉगिन मदत',
+    back: 'मागे',
+  }
 };
 
 export default function Login() {
@@ -43,6 +106,62 @@ export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('sp_theme') || 'light');
+  const [lang, setLang] = useState(() => localStorage.getItem('sp_lang') || 'en');
+  const t = LOGIN_TRANSLATIONS[lang] || LOGIN_TRANSLATIONS.en;
+
+  useEffect(() => {
+    // Sync theme class with document element on mount
+    const currentTheme = localStorage.getItem('sp_theme') || 'light';
+    const root = document.documentElement;
+    root.setAttribute('data-theme', currentTheme);
+    document.body.setAttribute('data-theme', currentTheme);
+    if (currentTheme === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('sp_theme', nextTheme);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', nextTheme);
+    document.body.setAttribute('data-theme', nextTheme);
+    if (nextTheme === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+  };
+
+  const handleLangChange = (val) => {
+    setLang(val);
+    localStorage.setItem('sp_lang', val);
+    document.documentElement.lang = val;
+    if (val === 'en') {
+      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.${window.location.hostname}; path=/;`;
+    } else {
+      document.cookie = `googtrans=/en/${val}; path=/`;
+      document.cookie = `googtrans=/en/${val}; domain=.${window.location.hostname}; path=/;`;
+    }
+    window.location.reload();
+  };
+
+  const handleDeleteSavedAccount = (e, userId) => {
+    e.stopPropagation();
+    if (!window.confirm('Remove this saved profile?')) return;
+    const filtered = savedAccounts.filter(a => a.user_id !== userId);
+    localStorage.setItem('sp_accounts', JSON.stringify(filtered));
+    setSavedAccounts(filtered);
+  };
   const [loading, setLoading] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [error, setError] = useState('');
@@ -1194,12 +1313,12 @@ export default function Login() {
   // ─────────────────────────────────────────────────────────────────────────
   const MethodPicker = ({ onQuestions, onPin, onEmail, showEmail, questionLabel, pinLabel, emailLabel }) => (
     <div className="space-y-3 mb-4">
-      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Choose Recovery Method:</p>
+      <p className="text-[10px] text-slate-500 dark:text-slate-300 font-bold uppercase tracking-widest">Choose Recovery Method:</p>
       {showEmail && (
         <button
           type="button"
           onClick={onEmail}
-          className="w-full py-3 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-300 transition-all"
+          className="w-full py-3 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-600 dark:text-indigo-300 transition-all"
         >
           <span>✉️ {emailLabel || 'Get Password Reset Email'}</span>
           <ChevronRight size={15} />
@@ -1208,7 +1327,7 @@ export default function Login() {
       <button
         type="button"
         onClick={onQuestions}
-        className="w-full py-3 px-4 bg-white/5 hover:bg-indigo-500/10 border border-white/10 hover:border-indigo-500/30 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200 transition-all"
+        className="w-full py-3 px-4 bg-slate-100 dark:bg-white/5 hover:bg-indigo-500/10 border border-slate-200 dark:border-white/10 hover:border-indigo-500/30 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-700 dark:text-slate-200 transition-all"
       >
         <span>📋 {questionLabel}</span>
         <ChevronRight size={15} />
@@ -1216,7 +1335,7 @@ export default function Login() {
       <button
         type="button"
         onClick={onPin}
-        className="w-full py-3 px-4 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-emerald-300 transition-all"
+        className="w-full py-3 px-4 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-emerald-600 dark:text-emerald-300 transition-all"
       >
         <span>🔢 {pinLabel}</span>
         <ChevronRight size={15} />
@@ -1229,6 +1348,44 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
       style={{ background: 'radial-gradient(800px 400px at 30% 20%, rgba(124, 58, 237, 0.15), transparent), linear-gradient(180deg, #0b1020 0%, #061233 100%)' }}
     >
+      {/* Top Header Controls */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+         {/* Language Dropdown */}
+         <div className="flex items-center gap-1 bg-slate-950/60 border border-white/10 px-2.5 py-1.5 rounded-xl">
+           <Globe size={12} className="text-slate-400" />
+           <select
+              value={lang}
+              onChange={(e) => handleLangChange(e.target.value)}
+              className="bg-transparent border-none outline-none text-white text-[11px] font-bold cursor-pointer pr-1"
+              style={{ border: 'none', background: 'transparent' }}
+           >
+              <option value="en" className="bg-slate-900 text-white">English</option>
+              <option value="hi" className="bg-slate-900 text-white">हिंदी</option>
+              <option value="mr" className="bg-slate-900 text-white">मराठी</option>
+           </select>
+         </div>
+
+         {/* Theme Toggle Button */}
+         <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-2 bg-slate-950/60 border border-white/10 hover:bg-slate-900 text-slate-200 hover:text-white rounded-xl transition-all cursor-pointer flex items-center justify-center"
+            title="Toggle Theme"
+         >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+         </button>
+
+         {/* Help Button */}
+         <button
+            type="button"
+            onClick={() => setStep(3)}
+            className="p-2 bg-slate-950/60 border border-white/10 hover:bg-slate-900 text-slate-200 hover:text-white rounded-xl transition-all cursor-pointer flex items-center justify-center"
+            title="Login Help"
+         >
+            <HelpCircle size={14} />
+         </button>
+      </div>
+
       <div className="mb-8 text-center relative z-10">
         <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden"
           style={{ background: globalApp.logo ? 'transparent' : 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
@@ -1241,7 +1398,7 @@ export default function Login() {
         <h1 className="text-2xl font-extrabold text-white tracking-tight">
           {step === 2 && schoolSettings?.name ? schoolSettings.name : globalApp.name}
         </h1>
-        <p className="text-slate-400 text-sm mt-1 font-medium">Digital School Workspace</p>
+        <p className="text-slate-200 text-sm mt-1 font-medium">Digital School Workspace</p>
       </div>
 
       <div className="w-full max-w-md relative z-10 sp-card shadow-2xl">
@@ -1266,28 +1423,40 @@ export default function Login() {
             
             {/* Quick account switch list */}
             {savedAccounts.length > 0 && (
-              <div className="mb-6 border-b border-slate-800/80 pb-6">
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 text-center">Continue with Saved Account</div>
+              <div className="mb-6 border-b border-slate-200 dark:border-slate-800 pb-6">
+                <div className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest mb-3 text-center">Continue with Saved Account</div>
                 <div className="space-y-2 max-h-[170px] overflow-y-auto pr-1">
                   {savedAccounts.map(acc => (
-                    <button
+                    <div
                       key={acc.user_id}
-                      type="button"
-                      onClick={() => handleSwitchAccount(acc)}
-                      disabled={loading}
-                      className="w-full p-3 bg-slate-950/60 hover:bg-slate-900 border border-slate-900 hover:border-slate-800 rounded-xl transition-all flex items-center justify-between text-left group disabled:opacity-50"
+                      className="w-full bg-slate-100 dark:bg-slate-950/60 hover:bg-slate-200 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-900 hover:border-slate-300 dark:hover:border-slate-800 rounded-xl transition-all flex items-center justify-between text-left group overflow-hidden pr-2"
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-slate-200 text-xs truncate">{acc.name}</div>
-                        <div className="text-[9px] text-slate-500 font-semibold truncate uppercase mt-0.5">
-                          {acc.role} • {acc.school_name}
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchAccount(acc)}
+                        disabled={loading}
+                        className="flex-1 p-3 text-left focus:outline-none disabled:opacity-50"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate">{acc.name}</div>
+                          <div className="text-[9px] text-slate-500 dark:text-slate-300 font-semibold truncate uppercase mt-0.5">
+                            {acc.role} • {acc.school_name}
+                          </div>
                         </div>
-                      </div>
-                      <ChevronRight size={13} className="text-slate-500 group-hover:text-white transition-colors" />
-                    </button>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSavedAccount(e, acc.user_id)}
+                        disabled={loading}
+                        className="p-2 text-slate-500 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                        title="Delete profile"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   ))}
                 </div>
-                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center mt-5">Or enter details below</div>
+                <div className="text-[9px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest text-center mt-5">Or enter details below</div>
               </div>
             )}
             <form onSubmit={handleIdentifySchool} className="space-y-5">
@@ -1300,7 +1469,7 @@ export default function Login() {
               </button>
             </form>
             <div className="flex flex-col gap-2.5 mt-5">
-              <button onClick={() => setStep(4)} className="text-xs font-bold text-slate-400 hover:text-indigo-400 uppercase tracking-widest transition-colors block text-center w-full">
+              <button onClick={() => setStep(4)} className="text-xs font-bold text-slate-200 hover:text-indigo-400 uppercase tracking-widest transition-colors block text-center w-full">
                 Forgot School Code?
               </button>
               <button onClick={() => navigate('/register')} className="text-xs font-black text-emerald-400 hover:text-emerald-300 uppercase tracking-widest transition-colors block text-center w-full">
@@ -1313,19 +1482,19 @@ export default function Login() {
         {/* ── 2. Login ───────────────────────────────────────────── */}
         {step === 2 && (
           <div className="fade-in">
-            <button onClick={() => { setStep(1); setSchoolSettings(null); }} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 transition-colors mb-7 uppercase tracking-widest">
+            <button onClick={() => { setStep(1); setSchoolSettings(null); }} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 transition-colors mb-7 uppercase tracking-widest">
               <ArrowLeft size={12} /> Change School
             </button>
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Username</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-2">Username</label>
                 <input id="username" type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="sp-input pl-4" placeholder="e.g. admin or teacher" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-2">Password</label>
                 <div className="relative">
                   <input id="password" type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} className="sp-input pl-4 pr-11" placeholder="••••••••" />
-                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-300">
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-300 hover:text-slate-300">
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -1342,7 +1511,7 @@ export default function Login() {
 
             <div className="relative flex py-3 items-center">
               <div className="flex-grow border-t border-white/10"></div>
-              <span className="flex-shrink mx-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">Or</span>
+              <span className="flex-shrink mx-4 text-[10px] text-slate-300 font-bold uppercase tracking-widest">Or</span>
               <div className="flex-grow border-t border-white/10"></div>
             </div>
 
@@ -1371,57 +1540,57 @@ export default function Login() {
         {/* ── 3. Account Help & Recovery Menu ───────────────────── */}
         {step === 3 && (
           <div className="fade-in space-y-4">
-            <button onClick={() => setStep(2)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 transition-colors mb-4 uppercase tracking-widest">
+            <button onClick={() => setStep(2)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back to Login
             </button>
-            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider mb-2">Login Help</h3>
+            <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-2">Login Help</h3>
             
             {/* Top level Reset Password via Email */}
-            <button onClick={() => { setError(''); setStep(64); }} className="w-full py-3.5 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-300">
+            <button onClick={() => { setError(''); setStep(64); }} className="w-full py-3.5 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-600 dark:text-indigo-300">
               <span>✉️ Reset Password via Email</span>
               <ChevronRight size={16} />
             </button>
-
+ 
             {/* Top level Reset Password via PIN */}
-            <button onClick={() => { setError(''); setStep(63); }} className="w-full py-3.5 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-emerald-300">
+            <button onClick={() => { setError(''); setStep(63); }} className="w-full py-3.5 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-emerald-600 dark:text-emerald-300">
               <span>🔢 Reset Password via Recovery PIN</span>
               <ChevronRight size={16} />
             </button>
-
+ 
             {/* Top level Reset Password via Security Questions */}
-            <button onClick={() => { setError(''); setStep(6); }} className="w-full py-3.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
+            <button onClick={() => { setError(''); setStep(6); }} className="w-full py-3.5 px-4 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-700 dark:text-slate-200">
               <span>📋 Reset Password via Security Questions</span>
               <ChevronRight size={16} />
             </button>
-
-            <button onClick={() => { setError(''); setStep(5); }} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
+ 
+            <button onClick={() => { setError(''); setStep(5); }} className="w-full py-3 px-4 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-700 dark:text-slate-200">
               <span>👤 Forgot Username?</span>
               <ChevronRight size={16} />
             </button>
-
-            <button onClick={() => { setError(''); setStep(4); }} className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-200">
+ 
+            <button onClick={() => { setError(''); setStep(4); }} className="w-full py-3 px-4 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-slate-700 dark:text-slate-200">
               <span>🏫 Forgot School Code?</span>
               <ChevronRight size={16} />
             </button>
-
+ 
             {/* Flow B: PC enters 6-digit code generated on Mobile */}
             {!Capacitor.isNativePlatform() && (
-              <button onClick={() => { setError(''); setQrSyncCode(''); setStep(7); }} className="w-full py-3 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-300">
+              <button onClick={() => { setError(''); setQrSyncCode(''); setStep(7); }} className="w-full py-3 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-indigo-600 dark:text-indigo-300">
                 <span>📷 Scan QR / Enter Code to Login (Only for Admin)</span>
                 <ChevronRight size={16} />
               </button>
             )}
-
+ 
             {/* Flow A: Mobile scans QR or enters code from PC */}
             {Capacitor.isNativePlatform() && (
-              <button onClick={() => { setError(''); setMobileQrCode(''); setStep(8); }} className="w-full py-3 px-4 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-violet-300">
+              <button onClick={() => { setError(''); setMobileQrCode(''); setStep(8); }} className="w-full py-3 px-4 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-200 dark:border-violet-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-violet-600 dark:text-violet-300">
                 <span>📷 Scan QR / Enter Code to Login (Only for Admin)</span>
                 <ChevronRight size={16} />
               </button>
             )}
-
+ 
             {/* Colleague token option */}
-            <button onClick={() => { setError(''); setColleagueToken(''); setColleagueNewPassword(''); setColleagueConfirmPassword(''); setStep(10); }} className="w-full py-3 px-4 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-teal-300">
+            <button onClick={() => { setError(''); setColleagueToken(''); setColleagueNewPassword(''); setColleagueConfirmPassword(''); setStep(10); }} className="w-full py-3 px-4 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-200 dark:border-teal-500/20 rounded-xl text-left text-sm font-semibold flex items-center justify-between text-teal-600 dark:text-teal-300">
               <span>🤝 Use Colleague Reset Token</span>
               <ChevronRight size={16} />
             </button>
@@ -1431,12 +1600,12 @@ export default function Login() {
         {/* ── 4. Recover School Code ────────────────────────────── */}
         {step === 4 && (
           <form onSubmit={handleRecoverSchoolCode} className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Find School Code</h3>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Your Role</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Your Role</label>
               <select value={recoveryRole} onChange={e => setRecoveryRole(e.target.value)} className="sp-input text-sm">
                 <option value="student">Student</option>
                 <option value="teacher">Teacher</option>
@@ -1445,20 +1614,20 @@ export default function Login() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Full Name</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Full Name</label>
               <input type="text" required value={recoveryName} onChange={e => setRecoveryName(e.target.value)} className="sp-input" placeholder="As registered in school records" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Contact Number</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Contact Number</label>
                 <input type="tel" value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Mobile Number" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Date of Birth</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Date of Birth</label>
                 <input type="date" value={recoveryDob} onChange={e => setRecoveryDob(e.target.value)} className="sp-input text-sm" />
               </div>
             </div>
-            <p className="text-[10px] text-slate-500 ml-1">Provide at least one: Registered Contact Number or Date of Birth.</p>
+            <p className="text-[10px] text-slate-300 ml-1">Provide at least one: Registered Contact Number or Date of Birth.</p>
             <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
               {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Search'}
             </button>
@@ -1483,7 +1652,7 @@ export default function Login() {
         {/* ── 5. Forgot Username — method picker ─────────── */}
         {step === 5 && (
           <div className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Recover Username</h3>
@@ -1502,34 +1671,34 @@ export default function Login() {
         {/* ── 51. Forgot Username — Q&A form ─────────── */}
         {step === 51 && (
           <div className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(5)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => setStep(5)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Recover Username (Questions)</h3>
             <form onSubmit={handleRecoverUsername} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">School Code</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">School Code</label>
                 <input type="text" required value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} className="sp-input text-center text-lg font-black tracking-widest" placeholder="DEMO01" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Password</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Password</label>
                 <input type="password" required value={recoveryPassword} onChange={e => setRecoveryPassword(e.target.value)} className="sp-input" placeholder="Enter password to cross-verify" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Full Name</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Full Name</label>
                 <input type="text" required value={recoveryName} onChange={e => setRecoveryName(e.target.value)} className="sp-input" placeholder="Registered full name" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Date of Birth</label>
+                  <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Date of Birth</label>
                   <input type="date" value={recoveryDob} onChange={e => setRecoveryDob(e.target.value)} className="sp-input text-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Mobile Number</label>
+                  <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Mobile Number</label>
                   <input type="tel" value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Registered number" />
                 </div>
               </div>
-              <p className="text-[10px] text-slate-500">Provide at least one: Date of Birth or Contact Number.</p>
+              <p className="text-[10px] text-slate-300">Provide at least one: Date of Birth or Contact Number.</p>
               <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
                 {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify Identity'}
               </button>
@@ -1540,7 +1709,7 @@ export default function Login() {
         {/* ── 53. Username PIN Recovery ─────────────────────────── */}
         {step === 53 && (
           <form onSubmit={handlePinRecoverUsername} className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(5)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => setStep(5)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Quick Username Recovery</h3>
@@ -1548,11 +1717,11 @@ export default function Login() {
               🔢 Enter your 6-digit Recovery PIN to instantly find your username.
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">School Code</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">School Code</label>
               <input type="text" required value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} className="sp-input text-center font-black tracking-widest" placeholder="DEMO01" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Your Role</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Your Role</label>
               <select value={recoveryRole} onChange={e => setRecoveryRole(e.target.value)} className="sp-input text-sm">
                 <option value="student">Student</option>
                 <option value="teacher">Teacher</option>
@@ -1561,26 +1730,26 @@ export default function Login() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Full Name</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Full Name</label>
               <input type="text" required value={recoveryName} onChange={e => setRecoveryName(e.target.value)} className="sp-input" placeholder="Registered full name" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Date of Birth</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Date of Birth</label>
                 <input type="date" value={recoveryDob} onChange={e => setRecoveryDob(e.target.value)} className="sp-input text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Mobile Number</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Mobile Number</label>
                 <input type="tel" value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Registered number" />
               </div>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">6-Digit Recovery PIN</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">6-Digit Recovery PIN</label>
               <input type="password" inputMode="numeric" maxLength={6} required value={recoveryPin}
                 onChange={e => setRecoveryPin(e.target.value.replace(/\D/g, ''))}
                 className="sp-input text-center text-xl tracking-[0.3em] font-black" placeholder="••••••" />
             </div>
-            <p className="text-[10px] text-slate-500">Provide at least one: Date of Birth or Contact Number.</p>
+            <p className="text-[10px] text-slate-300">Provide at least one: Date of Birth or Contact Number.</p>
             <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Find My Username'}
             </button>
@@ -1590,17 +1759,17 @@ export default function Login() {
         {/* ── 54. Forgot Username — Email form ─────────── */}
         {step === 54 && (
           <div className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(5)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => setStep(5)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Recover Username (Email)</h3>
             <form onSubmit={handleRecoverUsernameByEmail} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Registered Email</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Registered Email</label>
                 <input type="email" required value={recoveryEmail} onChange={e => setRecoveryEmail(e.target.value)} className="sp-input" placeholder="Enter registered email" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Contact Number</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Contact Number</label>
                 <input type="tel" required value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Registered contact number" />
               </div>
               <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
@@ -1613,7 +1782,7 @@ export default function Login() {
         {/* ── 6. Forgot Password — method picker ─────────── */}
         {step === 6 && (
           <div className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Reset Password</h3>
@@ -1632,17 +1801,17 @@ export default function Login() {
         {/* ── 61. Forgot Password — Q&A form ─────────── */}
         {step === 61 && (
           <div className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(6)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => setStep(6)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Reset Password (Questions)</h3>
             <form onSubmit={handleRecoverPassword} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Username</label>
                 <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="sp-input" placeholder="Enter username" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">School Code</label>
+                <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">School Code</label>
                 <input type="text" required value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} className="sp-input text-center text-lg font-black tracking-widest" placeholder="DEMO01" />
               </div>
               <button type="submit" disabled={forgotLoading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold">
@@ -1655,7 +1824,7 @@ export default function Login() {
         {/* ── 64. Password Reset Link (Email) ─────────────────────── */}
         {step === 64 && (
           <div className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(6)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => setStep(6)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Reset Password via Email</h3>
@@ -1668,7 +1837,7 @@ export default function Login() {
               const isBlocked = dailyRemaining <= 0 || weeklyRemaining <= 0;
               return (
                 <div className="space-y-4">
-                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-[11px] font-semibold text-slate-400 space-y-1">
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-[11px] font-semibold text-slate-200 space-y-1">
                     <div className="flex justify-between">
                       <span>Remaining resets today:</span>
                       <span className={dailyRemaining === 0 ? "text-red-400 font-bold" : "text-indigo-400 font-bold"}>
@@ -1689,7 +1858,7 @@ export default function Login() {
 
                   <form onSubmit={handleEmailPasswordReset} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username or Email</label>
+                      <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Username or Email</label>
                       <input 
                         type="text" 
                         required 
@@ -1717,7 +1886,7 @@ export default function Login() {
         {/* ── 63. Password PIN Recovery (2-Step Flow) ─────────────── */}
         {step === 63 && (
           <div className="fade-in space-y-4">
-            <button type="button" onClick={() => { setStep(6); setPinVerified(false); }} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => { setStep(6); setPinVerified(false); }} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Quick Password Reset</h3>
@@ -1729,30 +1898,30 @@ export default function Login() {
             {!pinVerified ? (
               <form onSubmit={handleVerifyPinDetails} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username</label>
+                  <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Username</label>
                   <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="sp-input" placeholder="Your username" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">School Code</label>
+                  <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">School Code</label>
                   <input type="text" required value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} className="sp-input text-center font-black tracking-widest" placeholder="DEMO01" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Date of Birth</label>
+                    <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Date of Birth</label>
                     <input type="date" value={recoveryDob} onChange={e => setRecoveryDob(e.target.value)} className="sp-input text-sm" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Mobile Number</label>
+                    <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">Mobile Number</label>
                     <input type="tel" value={recoveryContact} onChange={e => setRecoveryContact(e.target.value)} className="sp-input" placeholder="Registered number" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">6-Digit Recovery PIN</label>
+                  <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-1">6-Digit Recovery PIN</label>
                   <input type="password" inputMode="numeric" maxLength={6} required value={recoveryPin}
                     onChange={e => setRecoveryPin(e.target.value.replace(/\D/g, ''))}
                     className="sp-input text-center text-xl tracking-[0.3em] font-black" placeholder="••••••" />
                 </div>
-                <p className="text-[10px] text-slate-500">Provide at least one: Date of Birth or Contact Number.</p>
+                <p className="text-[10px] text-slate-300">Provide at least one: Date of Birth or Contact Number.</p>
                 <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold gap-2">
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Shield size={16} /> Verify My Details</>}
                 </button>
@@ -1764,7 +1933,7 @@ export default function Login() {
                   ✅ Identity Verified — now set your new password
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                  <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-2">New Password</label>
                   <input type="password" required value={pinNewPassword} onChange={e => setPinNewPassword(e.target.value)} className="sp-input mb-3" placeholder="New Password (min 6 chars)" />
                   <input type="password" required value={pinConfirmPassword} onChange={e => setPinConfirmPassword(e.target.value)} className="sp-input" placeholder="Confirm New Password" />
                 </div>
@@ -1812,16 +1981,16 @@ export default function Login() {
 
             <div className="flex justify-between items-center mt-6 pt-4 border-t border-white/5">
               <button disabled={currentQaIndex === 0} onClick={() => setCurrentQaIndex(currentQaIndex - 1)}
-                className="text-xs text-slate-500 hover:text-slate-300 font-semibold disabled:opacity-30">Previous</button>
+                className="text-xs text-slate-300 hover:text-slate-300 font-semibold disabled:opacity-30">Previous</button>
               <button disabled={currentQaIndex === 4} onClick={() => setCurrentQaIndex(currentQaIndex + 1)}
-                className="text-xs text-slate-500 hover:text-slate-300 font-semibold disabled:opacity-30">Next</button>
+                className="text-xs text-slate-300 hover:text-slate-300 font-semibold disabled:opacity-30">Next</button>
             </div>
 
             {Object.keys(qaAnswers).length === 5 && (
               <form onSubmit={handleEvaluateQARecovery} className="space-y-4 pt-4 border-t border-white/10">
                 {step === 62 && (
                   <>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Create New Password</h4>
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest">Create New Password</h4>
                     <input type="password" required value={newRecoveryPassword} onChange={e => setNewRecoveryPassword(e.target.value)} className="sp-input text-sm" placeholder="New Password (min 6 chars)" />
                     <input type="password" required value={confirmRecoveryPassword} onChange={e => setConfirmRecoveryPassword(e.target.value)} className="sp-input text-sm" placeholder="Confirm New Password" />
                   </>
@@ -1838,7 +2007,7 @@ export default function Login() {
         {step === 7 && (
           <div className="fade-in space-y-4">
             <button onClick={() => { setStep(3); setQrSyncCode(''); }}
-              className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Cancel
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Sync Login with Mobile</h3>
@@ -1863,7 +2032,7 @@ export default function Login() {
           <div className="fade-in space-y-4">
             <button type="button"
               onClick={() => { setStep(3); setMobileQrCode(''); setScannerActive(false); setScannerPermError(false); }}
-              className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+              className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Scan QR Code from PC</h3>
@@ -1886,7 +2055,7 @@ export default function Login() {
                     </div>
                   </div>
                   <span className="text-base font-bold text-violet-300">📷 Tap to Start Scanner</span>
-                  <span className="text-[11px] text-slate-400 text-center px-6">Live camera — point at QR on PC screen. Auto-detects instantly.</span>
+                  <span className="text-[11px] text-slate-200 text-center px-6">Live camera — point at QR on PC screen. Auto-detects instantly.</span>
                 </button>
 
                 {/* Permission error helper */}
@@ -1964,7 +2133,7 @@ export default function Login() {
                 </div>
 
                 {/* Loading indicator while setting up stream */}
-                <p className="text-center text-[10px] text-slate-500 font-semibold mt-2">
+                <p className="text-center text-[10px] text-slate-300 font-semibold mt-2">
                   Hold phone steady — auto-detects when QR is in frame
                 </p>
               </div>
@@ -1975,18 +2144,18 @@ export default function Login() {
               <>
                 <div className="relative flex items-center gap-3">
                   <div className="flex-1 h-px bg-white/10" />
-                  <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Or enter code manually</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Or enter code manually</span>
                   <div className="flex-1 h-px bg-white/10" />
                 </div>
 
                 {/* Manual 6-digit code entry */}
                 <form onSubmit={handleMobileCodeLogin} className="space-y-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">6-Digit Code from PC Screen</label>
+                    <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-2">6-Digit Code from PC Screen</label>
                     <input type="text" inputMode="numeric" maxLength={6} value={mobileQrCode}
                       onChange={e => setMobileQrCode(e.target.value.replace(/\D/g, ''))}
                       className="sp-input text-center text-2xl font-black tracking-[0.4em]" placeholder="000000" />
-                    <p className="text-[10px] text-slate-500 mt-2">Open SchoolOS+ on PC → Account Help → Sync Login → enter the 6-digit code shown.</p>
+                    <p className="text-[10px] text-slate-300 mt-2">Open SchoolOS+ on PC → Account Help → Sync Login → enter the 6-digit code shown.</p>
                   </div>
                   <button type="submit" disabled={loading || mobileQrCode.length < 6} className="btn-primary w-full py-3.5 flex items-center justify-center font-bold gap-2">
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Smartphone size={16} /> Login with Code</>}
@@ -2005,18 +2174,18 @@ export default function Login() {
                 <Shield size={24} className="text-amber-400" />
               </div>
               <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Update Your Password</h3>
-              <p className="text-xs text-slate-400 mt-1">For your security, please set a new password before continuing.</p>
+              <p className="text-xs text-slate-200 mt-1">For your security, please set a new password before continuing.</p>
             </div>
             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 font-semibold">
               🔐 You logged in using a QR/Sync code. This is a one-time login — please create a proper password now.
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-2">New Password</label>
               <input type="password" required value={qrForceNewPassword} onChange={e => setQrForceNewPassword(e.target.value)}
                 className="sp-input" placeholder="Create a strong password" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Confirm Password</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-2">Confirm Password</label>
               <input type="password" required value={qrForceConfirmPassword} onChange={e => setQrForceConfirmPassword(e.target.value)}
                 className="sp-input" placeholder="Confirm new password" />
             </div>
@@ -2029,7 +2198,7 @@ export default function Login() {
         {/* ── 10. Colleague Token Login ─────────────────────── */}
         {step === 10 && (
           <form onSubmit={handleColleagueTokenLogin} className="fade-in space-y-4">
-            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-400 mb-4 uppercase tracking-widest">
+            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 hover:text-indigo-400 mb-4 uppercase tracking-widest">
               <ArrowLeft size={12} /> Back
             </button>
             <div className="text-center mb-2">
@@ -2037,19 +2206,19 @@ export default function Login() {
                 <span className="text-2xl">🤝</span>
               </div>
               <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">Colleague Reset Token</h3>
-              <p className="text-xs text-slate-400 mt-1">A colleague generated a one-time 6-digit code for you.</p>
+              <p className="text-xs text-slate-200 mt-1">A colleague generated a one-time 6-digit code for you.</p>
             </div>
             <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-xl text-xs text-teal-300 font-semibold">
               🤝 Ask your teacher/staff colleague to go to <em>Settings → Assist a Colleague</em> and generate a token for your username.
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">6-Digit Token from Colleague</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest mb-2">6-Digit Token from Colleague</label>
               <input type="text" inputMode="numeric" maxLength={6} required value={colleagueToken}
                 onChange={e => setColleagueToken(e.target.value.replace(/\D/g, ''))}
                 className="sp-input text-center text-2xl font-black tracking-[0.4em]" placeholder="000000" />
             </div>
             <div className="border-t border-white/5 pt-4 space-y-3">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">Set New Password</label>
+              <label className="block text-xs font-bold text-slate-200 uppercase tracking-widest">Set New Password</label>
               <input type="password" required value={colleagueNewPassword} onChange={e => setColleagueNewPassword(e.target.value)}
                 className="sp-input" placeholder="New Password (min 6 chars)" />
               <input type="password" required value={colleagueConfirmPassword} onChange={e => setColleagueConfirmPassword(e.target.value)}
@@ -2063,7 +2232,7 @@ export default function Login() {
       </div>
 
       <div className="relative z-10 text-center mt-8 space-y-3">
-        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">SchoolOS+ Multi-Tenant Platform</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SchoolOS+ Multi-Tenant Platform</p>
       </div>
     </div>
   );

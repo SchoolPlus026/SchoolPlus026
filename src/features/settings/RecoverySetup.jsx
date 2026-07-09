@@ -65,6 +65,18 @@ export default function RecoverySetup() {
     }
   }, [user?.id]);
 
+  useEffect(() => {
+    if (window.location.hash === '#recovery') {
+      setIsCollapsed(false);
+      setTimeout(() => {
+        const el = document.getElementById('recovery-setup-container');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    }
+  }, [user?.id]);
+
   const handleRevealAnswers = async () => {
     setError('');
     setSuccess('');
@@ -178,7 +190,7 @@ export default function RecoverySetup() {
   }
 
   return (
-    <div className={`card transition-all duration-300 ${!isCollapsed ? 'card-expanded-highlight' : ''}`}>
+    <div id="recovery-setup-container" className={`card transition-all duration-300 ${!isCollapsed ? 'card-expanded-highlight' : ''}`}>
       <div 
         className="settings-header cursor-pointer flex justify-between items-center" 
         onClick={() => setIsCollapsed(!isCollapsed)}

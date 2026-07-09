@@ -4,13 +4,15 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { usePending } from '../../hooks/usePending';
 import { Image as ImageIcon, Plus, Loader2, X, ExternalLink, Folder, CloudOff, HardDrive } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 
 function readFileAsBase64(file) {
+  const fileBlob = file instanceof File ? file : file.blob;
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload  = () => resolve(reader.result.split(',')[1]);
     reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(fileBlob);
   });
 }
 
@@ -116,6 +118,31 @@ export default function GalleryManager() {
   function handleFileChange(e) {
     setCoverFiles(Array.from(e.target.files));
   }
+
+  const handleNativePhotoSelect = async () => {
+    try {
+      const { Camera: CapCamera } = await import('@capacitor/camera');
+      const result = await CapCamera.pickImages({
+        quality: 90
+      });
+      if (result && result.photos) {
+        const enriched = [];
+        for (let idx = 0; idx < result.photos.length; idx++) {
+          const photo = result.photos[idx];
+          const response = await fetch(photo.webPath);
+          const blob = await response.blob();
+          enriched.push({
+            name: `gallery_${Date.now()}_${idx}.${photo.format}`,
+            type: `image/${photo.format}`,
+            blob: blob
+          });
+        }
+        setCoverFiles(enriched);
+      }
+    } catch (err) {
+      console.error('[GalleryManager] Native image picking error:', err);
+    }
+  };
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -270,8 +297,8 @@ export default function GalleryManager() {
                   {photoCount > 1 && (
                     <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 text-white text-[10px] font-bold rounded-full backdrop-blur-sm flex items-center gap-1"><ImageIcon size={10} /> {photoCount} photos</div>
                   )}
-                  {(role === 'admin' || role === 'platform_admin') && (
-                    <button onClick={(ev) => { ev.stopPropagation(); if (window.confirm('Delete this event? It will also be removed from Google Drive.')) deleteMutation.mutate(item); }} className="absolute top-3 right-3 p-2 bg-red-100 text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white">
+                  {(role === 'admin' || role === 'platform_admin' || role === 'teacher') && (
+                    <button onClick={(ev) => { ev.stopPropagation(); if (window.confirm('Delete this event? It will also be removed from Google Drive.')) deleteMutation.mutate(item); }} className="absolute top-3 right-3 p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-500 hover:text-white z-10">
                       <X size={16} />
                     </button>
                   )}
@@ -365,8 +392,17 @@ export default function GalleryManager() {
                        </select>
                     )}
                   </div>
-                  <label className="block text-sm font-semibold text-text mb-1.5">Photos / Videos <span className="text-muted font-normal">(select multiple, unlimited size)</span></label>
-                  <input required type="file" accept="image/*,video/*" multiple onChange={handleFileChange} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />
+                  {Capacitor.isNativePlatform() ? (
+                    <button
+                      type="button"
+                      onClick={handleNativePhotoSelect}
+                      className="w-full py-3 bg-primary/10 hover:bg-primary/20 border border-primary/20 hover:border-primary/40 rounded-xl text-primary font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <ImageIcon size={14} /> Select Photos / Videos
+                    </button>
+                  ) : (
+                    <input required type="file" accept="image/*,video/*" multiple onChange={handleFileChange} className="w-full bg-slate-50 border border-border rounded-xl px-4 py-2.5 text-text focus:outline-none focus:border-primary shadow-sm text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />
+                  )}
                   {coverFiles.length > 0 && <p className="text-xs text-primary font-semibold mt-1.5">✓ {coverFiles.length} file{coverFiles.length > 1 ? 's' : ''} selected.</p>}
                 </div>
               ) : (

@@ -18,11 +18,7 @@ import BiometricSetup from './BiometricSetup';
 import RecoverySetup from './RecoverySetup';
 import WebSyncPanel from './WebSyncPanel';
 import ColleagueAssistPanel from './ColleagueAssistPanel';
-/* ─── helpers ─── */
-function toast(msg, setT) {
-  setT(msg);
-  setTimeout(() => setT(''), 3000);
-}
+import { useToast } from '../../components/ToastProvider';
 
 const TABLES_EXPORT = ['users', 'notices', 'attendance', 'fees', 'fees_payments', 'leaves', 'gallery', 'timetable', 'calendar_events', 'notifications'];
 const TABLES_RESET  = ['notifications', 'fees_payments', 'leaves', 'attendance', 'fees', 'timetable', 'calendar_events', 'gallery', 'notices', 'users'];
@@ -80,7 +76,7 @@ const T = {
 
 export default function SharedSettings() {
   const { user, role, schoolSettings, clearSession } = useAppStore();
-  const [toastMsg, setToastMsg] = useState('');
+  const { addToast } = useToast();
   const [loading, setLoading]   = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
   const userRole = (role || '').toLowerCase();
@@ -352,7 +348,7 @@ export default function SharedSettings() {
       window.location.reload();
     } catch (err) {
       console.error('Failed to withdraw consent:', err);
-      toast('Failed to withdraw consent. Please try again.', setToastMsg);
+      addToast({ type: 'error', message: 'Failed to withdraw consent. Please try again.' });
     } finally {
       setIsWithdrawing(false);
       setShowWithdrawConfirm(false);
@@ -373,7 +369,8 @@ export default function SharedSettings() {
 
   const checkForUpdates = async () => {
     if (!Capacitor.isNativePlatform()) {
-      return toast('Updates are handled automatically on the web.', setToastMsg);
+      addToast({ type: 'info', message: 'Updates are handled automatically on the web.' });
+      return;
     }
     setCheckingUpdate(true);
     try {
@@ -388,19 +385,19 @@ export default function SharedSettings() {
         .single();
 
       if (error || !data) {
-        toast('Failed to check for updates. Try again.', setToastMsg);
+        addToast({ type: 'error', message: 'Failed to check for updates. Try again.' });
         setCheckingUpdate(false);
         return;
       }
 
       if (Number(data.version_code) <= Number(localVersionCode)) {
-        toast('✅ You are on the latest version.', setToastMsg);
+        addToast({ type: 'success', message: 'You are on the latest version.' });
         setCheckingUpdate(false);
         return;
       }
 
       // Update available — download in-app (no browser redirect)
-      toast(`⬇️ Downloading v${data.version_name}…`, setToastMsg);
+      addToast({ type: 'info', message: `Downloading v${data.version_name}… Please wait.`, duration: 3000 });
 
       const fileName = `SchoolOS_Update_v${data.version_name}.apk`;
       
@@ -410,7 +407,7 @@ export default function SharedSettings() {
         directory: Directory.Cache
       });
 
-      toast('✅ Download complete! Opening installer…', setToastMsg);
+      addToast({ type: 'success', message: 'Download complete! Opening installer…' });
       
       await FileOpener.open({
         filePath: downloadResult.path,
@@ -420,7 +417,7 @@ export default function SharedSettings() {
 
     } catch (err) {
       console.error('[SharedSettings] Update download failed:', err);
-      toast('❌ Download failed: ' + (err?.message || 'Unknown error'), setToastMsg);
+      addToast({ type: 'error', message: 'Download failed: ' + (err?.message || 'Unknown error') });
     }
     setCheckingUpdate(false);
   };
@@ -461,10 +458,10 @@ export default function SharedSettings() {
     setLoading(true);
     const { error } = await supabase.from('app_config').update({ value_content: newAbout }).eq('key_name', 'about_text');
     setLoading(false);
-    if (error) return toast('Error: ' + error.message, setToastMsg);
+    if (error) return addToast({ type: 'error', message: 'Error: ' + error.message });
     setAboutText(newAbout);
     setIsEditingAbout(false);
-    toast('About text updated!', setToastMsg);
+    addToast({ type: 'success', message: 'About text updated!' });
   };
 
   /* ── Theme ── */
@@ -519,15 +516,15 @@ export default function SharedSettings() {
       return;
     }
 
-    if (!oldPwd || !newPwd) return toast('Please enter both old and new passwords.', setToastMsg);
-    if (newPwd.length < 6) return toast('New password must be at least 6 characters.', setToastMsg);
+    if (!oldPwd || !newPwd) return addToast({ type: 'warning', message: 'Please enter both old and new passwords.' });
+    if (newPwd.length < 6) return addToast({ type: 'warning', message: 'New password must be at least 6 characters.' });
     setPwdLoading(true);
     const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: oldPwd });
-    if (signInErr) { toast('Old password is incorrect.', setToastMsg); setPwdLoading(false); return; }
+    if (signInErr) { addToast({ type: 'error', message: 'Old password is incorrect.' }); setPwdLoading(false); return; }
     const { error } = await supabase.auth.updateUser({ password: newPwd });
     setPwdLoading(false);
-    if (error) return toast('Error: ' + error.message, setToastMsg);
-    toast('Password updated successfully!', setToastMsg);
+    if (error) return addToast({ type: 'error', message: 'Error: ' + error.message });
+    addToast({ type: 'success', message: 'Password updated successfully!' });
     setOldPwd(''); setNewPwd('');
   };
 
@@ -557,12 +554,12 @@ export default function SharedSettings() {
       });
       if (error) throw error;
       
-      toast('Support ticket submitted successfully.', setToastMsg);
+      addToast({ type: 'success', message: 'Support ticket submitted successfully.' });
       setShowSupportModal(false);
       setSupportSubject('');
       setSupportMessage('');
     } catch (error) {
-      toast('Error: ' + error.message, setToastMsg);
+      addToast({ type: 'error', message: 'Error: ' + error.message });
     } finally {
       setSubmittingTicket(false);
     }
@@ -592,21 +589,21 @@ export default function SharedSettings() {
     const a    = document.createElement('a');
     a.href = url; a.download = 'school-export.json'; a.click();
     URL.revokeObjectURL(url);
-    toast('Data exported!', setToastMsg);
+    addToast({ type: 'success', message: 'Data exported!' });
     setLoading(false);
   };
 
   /* ── Danger Zone Reset ── */
   const resetAll = async () => {
-    if (!dangerPwd) return toast('Enter your current password first.', setToastMsg);
+    if (!dangerPwd) return addToast({ type: 'warning', message: 'Enter your current password first.' });
     const { error: authErr } = await supabase.auth.signInWithPassword({ email: user.email, password: dangerPwd });
-    if (authErr) { toast('Incorrect password. Reset cancelled.', setToastMsg); return; }
+    if (authErr) { addToast({ type: 'error', message: 'Incorrect password. Reset cancelled.' }); return; }
     const typed = window.prompt('Type  DELETE ALL DATA  to confirm permanent deletion:');
-    if (typed !== 'DELETE ALL DATA') { toast('Reset cancelled.', setToastMsg); return; }
+    if (typed !== 'DELETE ALL DATA') { addToast({ type: 'warning', message: 'Reset cancelled.' }); return; }
     for (const t of TABLES_RESET) {
       await supabase.from(t).delete().neq('id', '00000000-0000-0000-0000-000000000000');
     }
-    toast('All data reset. Signing out…', setToastMsg);
+    addToast({ type: 'success', message: 'All data reset. Signing out…' });
     setDangerPwd('');
     await supabase.auth.signOut();
   };
@@ -615,12 +612,7 @@ export default function SharedSettings() {
   return (
     <div className="space-y-4 fade-in pb-12 max-w-2xl mx-auto">
 
-      {/* Toast notification */}
-      {toastMsg && (
-        <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '10px 20px', borderRadius: '30px', fontWeight: 600, fontSize: '14px', zIndex: 1000, boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
-          {toastMsg}
-        </div>
-      )}
+
 
       {/* Page Header */}
       <div className="section-title" style={{ padding: '0 8px', marginTop: '16px' }}>

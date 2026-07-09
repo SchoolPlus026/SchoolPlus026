@@ -76,11 +76,11 @@ export default function RecoveryNudgeBanner() {
 
   const handleRedirect = () => {
     const cleanRole = (role || '').toLowerCase();
-    if (cleanRole === 'admin') navigate('/admin/settings');
-    else if (cleanRole === 'teacher') navigate('/teacher/settings');
-    else if (cleanRole === 'student') navigate('/student/settings');
-    else if (cleanRole === 'staff') navigate('/staff/settings');
-    else if (cleanRole === 'driver') navigate('/driver/settings');
+    if (cleanRole === 'admin') navigate('/admin/settings#recovery');
+    else if (cleanRole === 'teacher') navigate('/teacher/settings#recovery');
+    else if (cleanRole === 'student') navigate('/student/settings#recovery');
+    else if (cleanRole === 'staff') navigate('/staff/settings#recovery');
+    else if (cleanRole === 'driver') navigate('/driver/settings#recovery');
   };
 
   if (!showBanner) return null;

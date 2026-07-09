@@ -167,7 +167,7 @@ export default function UserManagement() {
   const [addForm, setAddForm] = useState({
     email: '', username: '', name: '', password: '', contact: '',
     userClass: '', dob: '', bloodGroup: '', address: '',
-    designation: '', qualification: '',
+    designation: '', qualification: '', rollNumber: '',
   });
   // Bus allocation for new driver (only visible when activeTab === 'driver')
   const [busAlloc, setBusAlloc] = useState({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
@@ -189,6 +189,7 @@ export default function UserManagement() {
       return [
         ...common.slice(0, 1),
         { key: 'userClass', label: 'Class *', required: true },
+        { key: 'rollNumber', label: 'Roll Number', required: false },
         ...common.slice(1)
       ];
     } else if (role === 'teacher' || role === 'staff') {
@@ -206,7 +207,8 @@ export default function UserManagement() {
       name: ['name', 'full name', 'student name', 'name of student', 'teacher name', 'driver name', 'staff name', 'full_name', 'student_name'],
       userClass: ['class', 'grade', 'standard', 'class/section', 'class *', 'class/section *'],
       email: ['email', 'email id', 'email address', 'email_id', 'mail'],
-      username: ['username', 'user name', 'roll number', 'roll no', 'admission number', 'admission no', 'national id', 'student national id', 'pen'],
+      username: ['username', 'user name', 'admission number', 'admission no', 'national id', 'student national id', 'pen'],
+      rollNumber: ['roll number', 'roll no', 'roll_number', 'roll_no'],
       password: ['password', 'pwd'],
       contact: ['contact', 'phone', 'mobile', 'contact number', 'phone number', 'mobile number', 'mobile no', 'mobile no.'],
       dob: ['dob', 'date of birth', 'birth date', 'date of birth (dob)'],
@@ -224,7 +226,7 @@ export default function UserManagement() {
   const handleDownloadTemplate = async () => {
     let headers = [];
     if (activeTab === 'student') {
-      headers = ['Full Name *', 'Class *', 'Email', 'Username', 'Password', 'Contact', 'DOB (YYYY-MM-DD)', 'Blood Group', 'Address'];
+      headers = ['Full Name *', 'Class *', 'Roll Number', 'Email', 'Username', 'Password', 'Contact', 'DOB (YYYY-MM-DD)', 'Blood Group', 'Address'];
     } else if (activeTab === 'teacher' || activeTab === 'staff') {
       headers = ['Full Name *', 'Email', 'Username', 'Password', 'Contact', 'DOB (YYYY-MM-DD)', 'Blood Group', 'Address', 'Designation', 'Qualification'];
     } else if (activeTab === 'driver') {
@@ -497,7 +499,8 @@ export default function UserManagement() {
             p_address: row.payload.address || null,
             p_blood_group: row.payload.bloodGroup || null,
             p_designation: row.payload.designation || null,
-            p_qualification: row.payload.qualification || null
+            p_qualification: row.payload.qualification || null,
+            p_roll_number: row.payload.rollNumber || null
           });
 
           if (rpcError) throw rpcError;
@@ -738,7 +741,8 @@ export default function UserManagement() {
         p_address: details.address || null,
         p_blood_group: details.bloodGroup || null,
         p_designation: null,
-        p_qualification: null
+        p_qualification: null,
+        p_roll_number: details.rollNumber || null
       });
 
       if (createError) throw createError;
@@ -797,7 +801,8 @@ export default function UserManagement() {
             contact: f.contact || '',
             dob: f.dob || null,
             bloodGroup: f.bloodGroup || '',
-            address: f.address || ''
+            address: f.address || '',
+            rollNumber: f.rollNumber || '',
           },
           status: 'pending'
         }).select('id').single();
@@ -815,6 +820,7 @@ export default function UserManagement() {
           p_blood_group: f.bloodGroup || null,
           p_designation: f.designation || null,
           p_qualification: f.qualification || null,
+          p_roll_number: f.rollNumber || null,
         });
         if (error) throw error;
 
@@ -883,7 +889,7 @@ export default function UserManagement() {
         alert('User created successfully!');
       }
 
-      setAddForm({ email: '', username: '', name: '', password: '', contact: '', userClass: '', dob: '', bloodGroup: '', address: '', designation: '', qualification: '' });
+      setAddForm({ email: '', username: '', name: '', password: '', contact: '', userClass: '', dob: '', bloodGroup: '', address: '', designation: '', qualification: '', rollNumber: '' });
       setBusAlloc({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
     },
     onError: (err) => alert('Error: ' + err.message),
@@ -904,6 +910,7 @@ export default function UserManagement() {
         p_blood_group: editForm.blood_group || null,
         p_qualification: editForm.qualification || null,
         p_designation: editForm.designation || null,
+        p_roll_number: editForm.roll_number || null,
       });
       if (error) throw error;
     },
@@ -1332,6 +1339,9 @@ export default function UserManagement() {
               {(activeTab === 'student' || activeTab === 'teacher') && (
                 <EField label="Class / Standard" field="class" options={classes} allowCustom={true} editForm={editForm} setEditForm={setEditForm} />
               )}
+              {activeTab === 'student' && (
+                <EField label="Roll Number" field="roll_number" editForm={editForm} setEditForm={setEditForm} />
+              )}
               {(activeTab === 'teacher' || activeTab === 'staff') && (
                 <EField label="Qualification" field="qualification" editForm={editForm} setEditForm={setEditForm} />
               )}
@@ -1470,6 +1480,18 @@ export default function UserManagement() {
                       <datalist id="addClassList">
                         {classes.map(c => <option key={c} value={c} />)}
                       </datalist>
+                    </div>
+                  )}
+                  {(activeTab === 'student' || currentRole === 'teacher') && (
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Roll Number</label>
+                      <input
+                        type="text"
+                        value={addForm.rollNumber}
+                        onChange={e => setAddForm(f => ({ ...f, rollNumber: e.target.value }))}
+                        placeholder="e.g. 01, 10"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
                     </div>
                   )}
                 </div>

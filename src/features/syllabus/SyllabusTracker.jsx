@@ -105,107 +105,113 @@ function TeacherSyllabus({ schoolId, user }) {
       <h3 style={{ margin: '0 0 16px', fontWeight: 800 }}>Manage Syllabus Tracker</h3>
       <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>Select an assigned subject to update progression.</p>
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {allocations.map((alloc, idx) => {
           const isSelected = selectedSubject?.subject === alloc.subject && selectedSubject?.class === alloc.class;
           return (
-            <button key={idx} onClick={() => { setSelectedSubject(alloc); setTotalChaptersInput(''); }}
-              style={{
-                padding: '12px', borderRadius: '12px', textAlign: 'left',
-                background: isSelected ? 'rgba(56,189,248,0.1)' : 'var(--bg-main)',
-                border: `2px solid ${isSelected ? '#38bdf8' : 'var(--card-border)'}`,
-                transition: 'all 0.2s ease', cursor: 'pointer'
+            <div 
+              key={idx} 
+              className="card" 
+              style={{ 
+                padding: '16px', 
+                background: 'var(--bg-main)', 
+                border: `1px solid ${isSelected ? '#38bdf8' : 'var(--card-border)'}`,
+                borderRadius: '16px',
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                if (isSelected) {
+                  setSelectedSubject(null);
+                } else {
+                  setSelectedSubject(alloc);
+                  setTotalChaptersInput('');
+                }
               }}
             >
-              <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{alloc.subject}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Class {alloc.class}</div>
-            </button>
+              {/* Accordion Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{alloc.subject}</h4>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Class {alloc.class}</span>
+                </div>
+                {isSelected ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+              </div>
+
+              {/* Accordion Expanded Content */}
+              {isSelected && (
+                <div 
+                  className="fade-in mt-4 pt-4 border-t border-[var(--card-border)]" 
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {loadingSyllabus ? (
+                    <div className="text-center py-4"><Loader2 className="animate-spin mx-auto text-slate-400" /></div>
+                  ) : (!syllabus?.total_chapters || syllabus.total_chapters === 0) ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '300px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Chapters/Topics</label>
+                      <input type="number" value={totalChaptersInput} onChange={e => setTotalChaptersInput(e.target.value)} placeholder="e.g. 12" className="sp-input" />
+                      <button onClick={handleSetup} disabled={setupMutation.isPending} className="btn accent" style={{ background: '#38bdf8' }}>
+                        {setupMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <PlayCircle size={16} />} Generate Checklist
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Checklist ({syllabus.chapters.filter(c => c.is_completed).length} / {syllabus.total_chapters} Completed)</span>
+                      </div>
+                      {syllabus.chapters.map((ch) => (
+                        <div 
+                          key={ch.id} 
+                          onClick={() => toggleChapter(ch.id)}
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '16px', 
+                            padding: '14px 20px', 
+                            background: ch.is_completed ? 'rgba(16, 185, 129, 0.06)' : 'var(--card, #ffffff)', 
+                            borderRadius: '16px', 
+                            border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
+                            borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint, #94a3b8)',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 4px 12px -2px rgba(0,0,0,0.03)',
+                            cursor: 'pointer'
+                          }}
+                          className="hover:translate-x-1 hover:shadow-md transition-all"
+                        >
+                          <div style={{ flexShrink: 0 }}>
+                            {ch.is_completed ? <CheckCircle2 size={22} className="text-emerald-500" style={{ fill: 'rgba(16, 185, 129, 0.1)' }} /> : <Circle size={22} color="var(--text-faint)" />}
+                          </div>
+                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-muted)', minWidth: '90px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Chapter {ch.id}</span>
+                            <input 
+                              type="text" defaultValue={ch.title || ''} 
+                              onBlur={(e) => updateTitle(ch.id, e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                              onClick={(e) => e.stopPropagation()}
+                              placeholder="Add chapter name..."
+                              style={{ 
+                                flex: 1, 
+                                background: 'transparent', 
+                                border: 'none', 
+                                outline: 'none', 
+                                fontSize: '14px', 
+                                fontWeight: 600, 
+                                color: 'var(--text-main)', 
+                                textDecoration: ch.is_completed ? 'line-through' : 'none',
+                                opacity: ch.is_completed ? 0.65 : 1,
+                                cursor: 'text'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
-
-      {selectedSubject && (
-        <div className="fade-in" style={{ padding: '20px', background: 'var(--bg-main)', borderRadius: '16px', border: '1px solid var(--card-border)' }}>
-          <h4 style={{ margin: '0 0 16px', fontWeight: 800, fontSize: '16px' }}>{selectedSubject.subject} (Class {selectedSubject.class})</h4>
-          
-          {loadingSyllabus ? <Loader2 className="animate-spin mx-auto text-slate-400" /> : 
-           (!syllabus?.total_chapters || syllabus.total_chapters === 0) ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '300px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Chapters/Topics</label>
-              <input type="number" value={totalChaptersInput} onChange={e => setTotalChaptersInput(e.target.value)} placeholder="e.g. 12" className="sp-input" />
-              <button onClick={handleSetup} disabled={setupMutation.isPending} className="btn accent" style={{ background: '#38bdf8' }}>
-                {setupMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <PlayCircle size={16} />} Generate Checklist
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Checklist ({syllabus.chapters.filter(c => c.is_completed).length} / {syllabus.total_chapters} Completed)</span>
-              </div>
-              {syllabus.chapters.map((ch) => (
-                <div 
-                  key={ch.id} 
-                  onClick={() => toggleChapter(ch.id)}
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '16px', 
-                    padding: '14px 20px', 
-                    background: ch.is_completed ? 'rgba(16, 185, 129, 0.06)' : 'var(--card, #ffffff)', 
-                    borderRadius: '16px', 
-                    border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
-                    borderLeft: ch.is_completed ? '4px solid #10b981' : '4px solid var(--text-faint, #94a3b8)',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 4px 12px -2px rgba(0,0,0,0.03)',
-                    cursor: 'pointer'
-                  }}
-                  className="hover:translate-x-1 hover:shadow-md transition-all"
-                >
-                  <div style={{ flexShrink: 0 }}>
-                    {ch.is_completed ? <CheckCircle2 size={22} className="text-emerald-500" style={{ fill: 'rgba(16, 185, 129, 0.1)' }} /> : <Circle size={22} color="var(--text-faint)" />}
-                  </div>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-muted)', minWidth: '90px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Chapter {ch.id}</span>
-                    <input 
-                      type="text" defaultValue={ch.title || ''} 
-                      onBlur={(e) => updateTitle(ch.id, e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                      onClick={(e) => e.stopPropagation()}
-                      placeholder="Add chapter name..."
-                      style={{ 
-                        flex: 1, 
-                        background: 'transparent', 
-                        border: 'none', 
-                        outline: 'none', 
-                        fontSize: '14px', 
-                        fontWeight: 600, 
-                        color: 'var(--text-main)', 
-                        textDecoration: ch.is_completed ? 'line-through' : 'none',
-                        opacity: ch.is_completed ? 0.65 : 1,
-                        cursor: 'text'
-                      }}
-                    />
-                  </div>
-                  {ch.is_completed && (
-                    <span style={{ 
-                      fontSize: '9px', 
-                      fontWeight: 900, 
-                      textTransform: 'uppercase', 
-                      padding: '2.5px 8px', 
-                      borderRadius: '6px', 
-                      backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                      color: '#10b981',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      ✓ Done
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -293,20 +299,6 @@ function StudentSyllabus({ schoolId, userClass }) {
                       }}>
                         Chapter {ch.id}{ch.title ? `: ${ch.title}` : ''}
                       </span>
-                      {ch.is_completed && (
-                        <span style={{ 
-                          fontSize: '9px', 
-                          fontWeight: 900, 
-                          textTransform: 'uppercase', 
-                          padding: '2.5px 7px', 
-                          borderRadius: '6px', 
-                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                          color: '#10b981',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          Completed
-                        </span>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -447,20 +439,6 @@ function AdminSyllabus({ schoolId }) {
                           }}>
                             Chapter {ch.id}{ch.title ? `: ${ch.title}` : ''}
                           </span>
-                          {ch.is_completed && (
-                            <span style={{ 
-                              fontSize: '9px', 
-                              fontWeight: 900, 
-                              textTransform: 'uppercase', 
-                              padding: '2.5px 7px', 
-                              borderRadius: '6px', 
-                              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                              color: '#10b981',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              Completed
-                            </span>
-                          )}
                         </div>
                       ))}
                     </div>

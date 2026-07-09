@@ -90,8 +90,20 @@ export default function EmergencyOverlay() {
     };
     window.addEventListener('sp-push-received', handlePushReceived);
 
+    // Subscribe to Firebase RTDB for real-time changes
+    let unsubscribeRTDB = null;
+    if (rtdb) {
+      const alertRef = ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`);
+      unsubscribeRTDB = onValue(alertRef, () => {
+        fetchActiveAlerts();
+      });
+    }
+
     return () => {
       window.removeEventListener('sp-push-received', handlePushReceived);
+      if (unsubscribeRTDB) {
+        unsubscribeRTDB();
+      }
     };
   }, [schoolSettings?.school_id, user, role, isFree]);
 

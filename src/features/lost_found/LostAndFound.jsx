@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Search, Plus, MapPin, CheckCircle, Loader2, Camera, Trash2, User, Eye, X } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 
 export default function LostAndFound() {
   const { schoolSettings, user, role } = useAppStore();
@@ -16,8 +17,18 @@ export default function LostAndFound() {
   const [locationFound, setLocationFound] = useState('');
   const [targetClass, setTargetClass] = useState('');
   const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [viewItem, setViewItem] = useState(null);
+
+  // Cleanup object URLs to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const getThumbnailLink = (url) => {
     if (!url) return '';
@@ -54,6 +65,30 @@ export default function LostAndFound() {
     setLoading(false);
   };
 
+  const handleNativePhotoSelect = async () => {
+    try {
+      const { Camera: CapCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      const photo = await CapCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Prompt
+      });
+      if (photo && photo.webPath) {
+        const response = await fetch(photo.webPath);
+        const blob = await response.blob();
+        setFile({
+          name: `lost_found_${Date.now()}.${photo.format}`,
+          type: `image/${photo.format}`,
+          blob: blob
+        });
+        setPreviewUrl(photo.webPath);
+      }
+    } catch (err) {
+      console.error('[LostAndFound] Native camera error:', err);
+    }
+  };
+
   const handleReport = async (e) => {
     e.preventDefault();
     if (!file) {
@@ -64,6 +99,7 @@ export default function LostAndFound() {
 
     try {
       // 1. Convert file to base64
+      const fileBlob = file instanceof File ? file : file.blob;
       const fileBase64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -78,7 +114,7 @@ export default function LostAndFound() {
           const errorMsg = reader.error ? reader.error.message : "Unknown file read error";
           reject(new Error(`Failed to read image file: ${errorMsg}`));
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(fileBlob);
       });
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -139,7 +175,7 @@ export default function LostAndFound() {
       if (dbError) throw dbError;
 
       setShowForm(false);
-      setItemName(''); setDescription(''); setLocationFound(''); setFile(null); setTargetClass('');
+      setItemName(''); setDescription(''); setLocationFound(''); setFile(null); setPreviewUrl(''); setTargetClass('');
       fetchItems();
     } catch (err) {
       console.error("Submission Error:", err);
@@ -231,13 +267,13 @@ export default function LostAndFound() {
                 <div className="space-y-3 p-4 bg-indigo-950/20 border border-indigo-500/20 rounded-2xl">
                   <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/5">
                     <span className="text-xs text-indigo-300 font-semibold truncate flex-1">{file.name}</span>
-                    <button type="button" onClick={() => setFile(null)} className="p-1 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors">
+                    <button type="button" onClick={() => { setFile(null); setPreviewUrl(''); }} className="p-1 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors">
                       <X size={16} />
                     </button>
                   </div>
                   <div className="relative w-40 h-28 rounded-xl overflow-hidden border border-white/10 bg-slate-900 shadow-md">
                     <img 
-                      src={URL.createObjectURL(file)} 
+                      src={previewUrl} 
                       alt="Local preview" 
                       className="w-full h-full object-cover" 
                     />
@@ -245,13 +281,29 @@ export default function LostAndFound() {
                 </div>
               ) : (
                 <div className="relative">
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    required 
-                    onChange={e => setFile(e.target.files[0])} 
-                    className="sp-input w-full file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30 cursor-pointer" 
-                  />
+                  {Capacitor.isNativePlatform() ? (
+                    <button
+                      type="button"
+                      onClick={handleNativePhotoSelect}
+                      className="w-full py-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 rounded-xl text-indigo-300 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Camera size={14} /> Select / Capture Photo
+                    </button>
+                  ) : (
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      required 
+                      onChange={e => {
+                        const f = e.target.files[0];
+                        if (f) {
+                          setFile(f);
+                          setPreviewUrl(URL.createObjectURL(f));
+                        }
+                      }} 
+                      className="sp-input w-full file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30 cursor-pointer" 
+                    />
+                  )}
                 </div>
               )}
             </div>
