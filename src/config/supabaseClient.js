@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { secureSupabaseStorage } from '../utils/secureStorage';
 
 // IMPORTANT: Remember to set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY 
 // in your GitHub Actions Secrets later for the headless compilation to work!
@@ -37,7 +38,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'implicit',
-    storage: localStorage
+    storage: secureSupabaseStorage
   }
 });
 

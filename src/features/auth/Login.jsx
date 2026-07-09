@@ -11,6 +11,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
 import { getSavedAccounts } from '../../utils/multiAccount';
+import { encryptData } from '../../utils/secureStorage';
 
 const isMobileOrPWA = () => {
   if (Capacitor.isNativePlatform()) return true;
@@ -155,11 +156,16 @@ export default function Login() {
     window.location.reload();
   };
 
-  const handleDeleteSavedAccount = (e, userId) => {
+  const handleDeleteSavedAccount = async (e, userId) => {
     e.stopPropagation();
     if (!window.confirm('Remove this saved profile?')) return;
     const filtered = savedAccounts.filter(a => a.user_id !== userId);
-    localStorage.setItem('sp_accounts', JSON.stringify(filtered));
+    try {
+      const encrypted = await encryptData(JSON.stringify(filtered));
+      localStorage.setItem('sp_accounts', encrypted);
+    } catch (err) {
+      console.error('[Login] Failed to remove saved account:', err.message);
+    }
     setSavedAccounts(filtered);
   };
   const [loading, setLoading] = useState(false);
@@ -169,7 +175,7 @@ export default function Login() {
 
   const [savedAccounts, setSavedAccounts] = useState([]);
   useEffect(() => {
-    setSavedAccounts(getSavedAccounts());
+    getSavedAccounts().then(setSavedAccounts);
 
     // Check for any pending same-tab OAuth status on mount
     const status = localStorage.getItem('oauth_status');
@@ -208,7 +214,12 @@ export default function Login() {
       setError('Saved session has expired. Please log in again using school code.');
       // Remove expired account from saved list
       const filtered = savedAccounts.filter(a => a.user_id !== account.user_id);
-      localStorage.setItem('sp_accounts', JSON.stringify(filtered));
+      try {
+        const encrypted = await encryptData(JSON.stringify(filtered));
+        localStorage.setItem('sp_accounts', encrypted);
+      } catch (err2) {
+        console.error('[Login] Failed to save accounts after removal:', err2.message);
+      }
       setSavedAccounts(filtered);
     } finally {
       setLoading(false);

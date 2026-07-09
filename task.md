@@ -43,3 +43,17 @@
   - [x] Create GitHub Actions keepalive cron `keepalive.yml`
   - [x] Implement client-side `data_version` stamp check on app startup
   - [x] Audit on-demand lazy module loading
+
+- [x] **Security Audit: Phase 1 (Firebase Rules Hardening)**
+  - [x] Whitelist `tracking`, `schools`, and `global/announcements_update` paths in RTDB rules
+  - [x] Apply default deny `$other` to all other paths
+  - [x] Deploy and publish rules to Firebase RTDB console
+
+- [x] **Security Audit: Phase 2 (Token Storage Security)**
+  - [x] Create `secureStorage.js` utility implementing AES-GCM and non-extractable IndexedDB master key
+  - [x] Update `supabaseClient.js` to use the custom async secure storage provider
+  - [x] Remove Firebase custom token caching from `localStorage` and keep strictly in-memory in `firebaseAuth.js`
+  - [x] Convert `multiAccount.js` and UI consumers to use async encrypted storage for `sp_accounts`
+  - [x] Compile and verify zero-breakage across login and account switcher
+
+

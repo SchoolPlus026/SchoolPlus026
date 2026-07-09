@@ -9,6 +9,10 @@ import { fbAuth } from '../config/firebaseClient';
 import { signInWithCustomToken } from 'firebase/auth';
 import { safeInvokeEdgeFn } from '../config/supabaseClient';
 
+// Module-scoped in-memory cache for the Firebase custom token (XSS secure)
+let inMemoryCustomToken = null;
+let inMemoryCustomTokenTimestamp = null;
+
 /**
  * Ensures the user is logged into Firebase using a token with custom claims.
  * If already logged in, it will reuse the existing session.
@@ -26,29 +30,29 @@ export async function ensureFirebaseAuthenticated() {
     return fbAuth.currentUser;
   }
 
-  const tokenKey = 'sp_firebase_custom_token';
-  const stampKey = 'sp_firebase_custom_token_timestamp';
+  // One-time self-healing cleanup: remove legacy plain-text tokens from localStorage
+  try {
+    localStorage.removeItem('sp_firebase_custom_token');
+    localStorage.removeItem('sp_firebase_custom_token_timestamp');
+  } catch (_) {}
 
-  // Check if we have a valid cached token
-  const cachedToken = localStorage.getItem(tokenKey);
-  const cachedStamp = localStorage.getItem(stampKey);
-
-  if (cachedToken && cachedStamp) {
-    const elapsed = Date.now() - parseInt(cachedStamp, 10);
+  // Check if we have a valid cached token in memory
+  if (inMemoryCustomToken && inMemoryCustomTokenTimestamp) {
+    const elapsed = Date.now() - inMemoryCustomTokenTimestamp;
     // Custom token is valid for 1 hour. We reuse it if it is less than 50 minutes old (grace buffer)
     if (elapsed < 50 * 60 * 1000) {
       try {
-        console.log('[FirebaseAuth] Reusing cached custom token...');
-        const userCredential = await signInWithCustomToken(fbAuth, cachedToken);
+        console.log('[FirebaseAuth] Reusing cached in-memory custom token...');
+        const userCredential = await signInWithCustomToken(fbAuth, inMemoryCustomToken);
         console.log('[FirebaseAuth] Firebase sign-in successful using cached token, UID:', userCredential.user.uid);
         return userCredential.user;
       } catch (cacheAuthErr) {
-        console.warn('[FirebaseAuth] Cached token sign-in failed, removing from cache:', cacheAuthErr.message);
-        localStorage.removeItem(tokenKey);
-        localStorage.removeItem(stampKey);
+        console.warn('[FirebaseAuth] Cached token sign-in failed, removing from memory:', cacheAuthErr.message);
+        inMemoryCustomToken = null;
+        inMemoryCustomTokenTimestamp = null;
       }
     } else {
-      console.log('[FirebaseAuth] Cached token expired (older than 50 mins).');
+      console.log('[FirebaseAuth] Cached in-memory token expired (older than 50 mins).');
     }
   }
 
@@ -63,13 +67,9 @@ export async function ensureFirebaseAuthenticated() {
     console.log('[FirebaseAuth] Signing in to Firebase with custom token...');
     const userCredential = await signInWithCustomToken(fbAuth, data.firebase_token);
     
-    // Store in cache
-    try {
-      localStorage.setItem(tokenKey, data.firebase_token);
-      localStorage.setItem(stampKey, Date.now().toString());
-    } catch (cacheErr) {
-      console.warn('[FirebaseAuth] Failed to write token to cache:', cacheErr.message);
-    }
+    // Store in-memory cache
+    inMemoryCustomToken = data.firebase_token;
+    inMemoryCustomTokenTimestamp = Date.now();
 
     console.log('[FirebaseAuth] Firebase sign-in successful for UID:', userCredential.user.uid);
     return userCredential.user;

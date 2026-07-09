@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { Users, UserPlus, Trash2, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getSavedAccounts, removeAccount } from '../utils/multiAccount';
+import { encryptData } from '../utils/secureStorage';
 
 export default function AccountSwitcher() {
   const { user, role, schoolSettings } = useAppStore();
@@ -12,21 +13,26 @@ export default function AccountSwitcher() {
   const [switchingId, setSwitchingId] = useState(null);
 
   useEffect(() => {
-    setAccounts(getSavedAccounts());
+    getSavedAccounts().then(setAccounts);
   }, [user]);
 
   const handleAddAccount = async () => {
     // Save current active account session tokens just in case
     const { data: { session } } = await supabase.auth.getSession();
     if (session && user) {
-      const list = getSavedAccounts();
+      const list = await getSavedAccounts();
       const index = list.findIndex(a => a.user_id === user.id);
       if (index > -1) {
         list[index].session = {
           access_token: session.access_token,
           refresh_token: session.refresh_token
         };
-        localStorage.setItem('sp_accounts', JSON.stringify(list));
+        try {
+          const encrypted = await encryptData(JSON.stringify(list));
+          localStorage.setItem('sp_accounts', encrypted);
+        } catch (err) {
+          console.error('[AccountSwitcher] Failed to save accounts:', err.message);
+        }
       }
     }
     // Set adding account flag
@@ -59,13 +65,13 @@ export default function AccountSwitcher() {
     }
   };
 
-  const handleRemove = (targetId) => {
+  const handleRemove = async (targetId) => {
     const confirmMsg = targetId === user?.id 
       ? "Are you sure you want to log out and remove your current active account? You will be switched to another account or returned to the login screen."
       : "Are you sure you want to remove this saved account? You will need to log in again to add it back.";
       
     if (window.confirm(confirmMsg)) {
-      const filtered = removeAccount(targetId);
+      const filtered = await removeAccount(targetId);
       setAccounts(filtered);
       
       if (targetId === user?.id) {

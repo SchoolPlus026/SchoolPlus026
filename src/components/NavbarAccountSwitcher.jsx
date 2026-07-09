@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { Users, UserPlus, LogOut, ChevronDown, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getSavedAccounts, clearActiveSessionLocally, logoutAndRemoveAccount } from '../utils/multiAccount';
+import { encryptData } from '../utils/secureStorage';
 
 export default function NavbarAccountSwitcher() {
   const { user, role, schoolSettings } = useAppStore();
@@ -14,7 +15,7 @@ export default function NavbarAccountSwitcher() {
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    setAccounts(getSavedAccounts());
+    getSavedAccounts().then(setAccounts);
   }, [user, isOpen]);
 
   useEffect(() => {
@@ -31,14 +32,19 @@ export default function NavbarAccountSwitcher() {
     // Save current active account session tokens
     const { data: { session } } = await supabase.auth.getSession();
     if (session && user) {
-      const list = getSavedAccounts();
+      const list = await getSavedAccounts();
       const index = list.findIndex(a => a.user_id === user.id);
       if (index > -1) {
         list[index].session = {
           access_token: session.access_token,
           refresh_token: session.refresh_token
         };
-        localStorage.setItem('sp_accounts', JSON.stringify(list));
+        try {
+          const encrypted = await encryptData(JSON.stringify(list));
+          localStorage.setItem('sp_accounts', encrypted);
+        } catch (err) {
+          console.error('[NavbarAccountSwitcher] Failed to save accounts:', err.message);
+        }
       }
     }
     // Set adding account flag
@@ -69,9 +75,9 @@ export default function NavbarAccountSwitcher() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm("Are you sure you want to log out and remove this account from your saved list?")) {
-      logoutAndRemoveAccount(user?.id, navigate);
+      await logoutAndRemoveAccount(user?.id, navigate);
     }
   };
 
