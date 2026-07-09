@@ -35,6 +35,13 @@
       }
     },
 
+    "global": {
+      "announcements_update": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.token.role === 'platform_admin'"
+      }
+    },
+
     // Explicitly deny all other paths
     "$other": {
       ".read": false,
@@ -42,4 +49,5 @@
     }
   }
 }
+
 
