@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { usePlan } from '../../hooks/usePlan';
 import { useTieredCache, isNightTime } from '../../hooks/useTieredCache';
+import UserAvatar from '../../components/UserAvatar';
 
 // ─── Attendance JSONB Decode Codec (v82_attendance_jsonb_compression) ───
 const STATUS_DECODE = { P: 'Present', A: 'Absent', L: 'Late', H: 'Half_day', V: 'Leave' };
@@ -126,7 +127,7 @@ export default function OffClasses() {
     try {
       const { data: teachersList } = await supabase
         .from('users')
-        .select('id, name')
+        .select('id, name, avatar_url, avatar_file_id, hide_avatar_from_class')
         .eq('school_id', schoolSettings.school_id)
         .eq('role', 'teacher')
         .order('name');
@@ -205,7 +206,7 @@ export default function OffClasses() {
 
       const { data: subsData } = await supabase
         .from('substitutions')
-        .select('*, substitute:users!substitutions_substitute_teacher_id_fkey(name), original:users!substitutions_original_teacher_id_fkey(name)')
+        .select('*, substitute:users!substitutions_substitute_teacher_id_fkey(name, avatar_url, avatar_file_id, hide_avatar_from_class), original:users!substitutions_original_teacher_id_fkey(name, avatar_url, avatar_file_id, hide_avatar_from_class)')
         .eq('school_id', schoolSettings.school_id)
         .eq('date', today);
 
@@ -700,11 +701,11 @@ export default function OffClasses() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <AlertTriangle size={18} className="text-amber-400" />
-            <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Off Classes — Substitute Management</h3>
+            <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Off Classes — Substitute Management</h3>
           </div>
           <button
             onClick={loadData}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
             title="Refresh"
           >
             <RefreshCw size={15} />
@@ -717,7 +718,7 @@ export default function OffClasses() {
 
       {/* Tabs Selector */}
       {tabs.length > 1 && (
-        <div className="flex bg-slate-950/40 p-1.5 rounded-xl border border-white/5 gap-1.5">
+        <div className="flex bg-slate-100 dark:bg-slate-950/40 p-1.5 rounded-xl border border-slate-200 dark:border-white/5 gap-1.5">
           {tabs.map(t => (
             <button
               key={t.id}
@@ -725,7 +726,7 @@ export default function OffClasses() {
               className={`flex-1 py-3 px-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
                 activeTab === t.id
                   ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-205 dark:hover:bg-white/5'
               }`}
             >
               {t.label}
@@ -936,14 +937,14 @@ export default function OffClasses() {
                       return (
                         <div key={key} className="space-y-3 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-850 shadow-sm">
                           {/* Period Group Header */}
-                          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="bg-indigo-600 text-white font-black text-[10px] px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3 mb-2">
+                            <div className="flex items-center gap-3">
+                              <span className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 font-bold text-xs px-2.5 py-1 rounded-lg uppercase tracking-wider">
                                 Period #{group.period_order}
                               </span>
-                              <span className="text-slate-700 dark:text-slate-400 text-xs font-black uppercase tracking-wider">{group.period_label || 'Daily Schedule'}</span>
+                              <span className="text-slate-805 dark:text-slate-200 text-sm font-extrabold tracking-wide">{group.period_label || 'Daily Schedule'}</span>
                             </div>
-                            <span className="text-[9px] text-slate-500 dark:text-slate-500 font-black uppercase tracking-widest">
+                            <span className="text-xs text-slate-400 dark:text-slate-500 font-extrabold uppercase tracking-wider">
                               {group.items.length} {group.items.length === 1 ? 'Class Off' : 'Classes Off'}
                             </span>
                           </div>
@@ -991,6 +992,7 @@ export default function OffClasses() {
                                   existing={existing}
                                   availableFreeTeachers={availableFreeTeachers}
                                   availableAllTeachers={availableAllTeachers}
+                                  allTeachers={allTeachers}
                                   isAdmin={isAdmin}
                                   today={today}
                                   onAssign={(subTeacherId) => assignSubstitute(p, subTeacherId, 'admin')}
@@ -1015,7 +1017,7 @@ export default function OffClasses() {
             <div className="sp-card">
               <div className="flex items-center gap-2 mb-4">
                 <CheckCircle2 size={16} className="text-emerald-400" />
-                <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest">Assigned Substitutions Today</h4>
+                <h4 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Assigned Substitutions Today</h4>
               </div>
               {substitutions.length === 0 ? (
                 <div className="text-center text-slate-500 text-xs py-8 font-semibold">
@@ -1027,7 +1029,7 @@ export default function OffClasses() {
                     <thead>
                       <tr>
                         {['Period', 'Class', 'Subject', 'Absent Teacher', 'Substitute', 'Status', 'Assigned By'].map(h => (
-                          <th key={h} className="text-left text-xs font-black text-slate-500 uppercase tracking-widest py-3 px-4 border-b border-white/5">{h}</th>
+                          <th key={h} className="text-left text-xs font-black text-slate-500 uppercase tracking-widest py-3 px-4 border-b border-slate-200 dark:border-slate-805">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -1035,23 +1037,23 @@ export default function OffClasses() {
                       {substitutions.map(s => {
                         const effStatus = getEffectiveSubStatus(s);
                         return (
-                          <tr key={s.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
+                          <tr key={s.id} className="border-b border-slate-150 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-white/3 transition-colors">
                             <td className="py-3 px-4">
                               <span className="inline-block bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-black px-2 py-0.5 rounded-md mr-2">#{s.period_order}</span>
                               <span className="text-slate-500 text-xs">{s.period_label || ''}</span>
                             </td>
                             <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">{s.class}</td>
                             <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{s.subject}</td>
-                            <td className="py-3 px-4 text-red-400 font-semibold">{s.original?.name || '—'}</td>
-                            <td className="py-3 px-4 text-emerald-400 font-semibold">{s.substitute?.name || 'Open Cover / Volunteer'}</td>
+                            <td className="py-3 px-4 text-red-600 dark:text-red-400 font-semibold">{s.original?.name || '—'}</td>
+                            <td className="py-3 px-4 text-emerald-700 dark:text-emerald-400 font-semibold">{s.substitute?.name || 'Open Cover / Volunteer'}</td>
                             <td className="py-3 px-4">
-                              <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${
-                                effStatus === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
-                                effStatus === 'accepted' ? 'bg-blue-500/20 text-blue-400' :
-                                effStatus === 'cancelled' ? 'bg-red-500/20 text-red-400' :
-                                effStatus === 'expired' ? 'bg-red-500/20 text-red-400' :
-                                effStatus === 'no_teacher_available' ? 'bg-red-500/20 text-red-400' :
-                                'bg-amber-500/20 text-amber-400'
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider border ${
+                                effStatus === 'completed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-150 dark:border-emerald-500/20' :
+                                effStatus === 'accepted' ? 'bg-blue-50 text-blue-750 dark:bg-blue-500/20 dark:text-blue-400 border-blue-150 dark:border-blue-500/20' :
+                                effStatus === 'cancelled' ? 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-150 dark:border-red-500/20' :
+                                effStatus === 'expired' ? 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-150 dark:border-red-500/20' :
+                                effStatus === 'no_teacher_available' ? 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-150 dark:border-red-500/20' :
+                                'bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 border-amber-150 dark:border-amber-500/20'
                               }`}>
                                 {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus === 'expired' ? 'Not Accepted' : effStatus}
                               </span>
@@ -1082,7 +1084,8 @@ export default function OffClasses() {
 // ─────────────────────────────────────────────────────────────────────────────
 function AbsentPeriodRow({
   period, existing, availableFreeTeachers, availableAllTeachers,
-  isAdmin, today, onAssign, onBroadcast, onApproveVolunteer, onRejectVolunteer
+  isAdmin, today, onAssign, onBroadcast, onApproveVolunteer, onRejectVolunteer,
+  allTeachers
 }) {
   const [selectedSub, setSelectedSub] = useState('');
   const [assigning, setAssigning] = useState(false);
@@ -1115,116 +1118,140 @@ function AbsentPeriodRow({
     setSelectedSub('');
   };
 
+  // Find main and substitute teacher objects from allTeachers array
+  const mainTeacherProfile = allTeachers?.find(t => t.id === period.teacher_id_resolved);
+  const subTeacherProfile = existing?.substitute_teacher_id
+    ? allTeachers?.find(t => t.id === existing.substitute_teacher_id)
+    : null;
+
+  const renderStatusBadge = (statusValue) => {
+    let badgeClass = "";
+    let labelText = statusValue;
+
+    if (statusValue === 'accepted') {
+      badgeClass = "bg-blue-50 dark:bg-blue-950/40 text-blue-750 dark:text-blue-400 border border-blue-150 dark:border-blue-900/30";
+      labelText = "✓ Accepted";
+    } else if (statusValue === 'completed') {
+      badgeClass = "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-150 dark:border-emerald-900/30";
+      labelText = "✓ Completed";
+    } else if (statusValue === 'expired') {
+      badgeClass = "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-150 dark:border-red-900/30";
+      labelText = "🛑 Not Accepted";
+    } else if (statusValue === 'no_teacher_available') {
+      badgeClass = "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-150 dark:border-red-900/30";
+      labelText = "🛑 No Teacher Available";
+    } else if (statusValue === 'class_over') {
+      badgeClass = "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-450 border border-slate-200 dark:border-slate-700/50";
+      labelText = "⌛ Class Over";
+    } else if (statusValue === 'overdue') {
+      badgeClass = "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-150 dark:border-amber-900/30";
+      labelText = `⌛ Overdue by ${Math.floor(minutesPassed)}m`;
+    } else if (statusValue === 'no_substitute_available') {
+      badgeClass = "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-150 dark:border-red-900/30";
+      labelText = "🛑 No Substitute";
+    } else {
+      badgeClass = "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-150 dark:border-amber-900/30";
+      labelText = "⌛ Pending";
+    }
+
+    return (
+      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg uppercase tracking-wider flex items-center gap-1 ${badgeClass}`}>
+        {labelText}
+      </span>
+    );
+  };
+
   return (
-    <div className={`rounded-2xl border p-4 transition-all ${
-      existing
-        ? effStatus === 'completed'
-          ? 'border-emerald-200 dark:border-emerald-500/10 bg-emerald-50/60 dark:bg-emerald-950/20'
-          : effStatus === 'accepted'
-            ? 'border-blue-200 dark:border-blue-500/10 bg-blue-50/60 dark:bg-blue-950/20'
-            : effStatus === 'expired' || effStatus === 'no_teacher_available'
-              ? 'border-red-200 dark:border-red-500/10 bg-red-50/60 dark:bg-red-950/20'
-              : 'border-amber-200 dark:border-amber-500/10 bg-amber-50/60 dark:bg-amber-950/20'
-        : isOverdue
-          ? 'border-red-300 dark:border-red-500/20 bg-red-50/60 dark:bg-red-950/20'
-          : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30'
-    }`}>
-      <div className="flex items-start gap-3 flex-wrap">
-        <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider flex-shrink-0 ${
-          existing ? 'bg-indigo-500/20 text-indigo-500 dark:text-indigo-400' : 'bg-slate-200/75 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
-        }`}>
-          #{period.period_order} {period.period_label ? `• ${period.period_label}` : ''}
-        </span>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{period.class}</span>
-            <span className="text-slate-400 dark:text-slate-500 text-xs">—</span>
-            <span className="text-slate-800 dark:text-slate-200 text-sm font-semibold">{period.subject}</span>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <UserX size={11} className="text-red-500 dark:text-red-400 flex-shrink-0" />
-            <span className="text-xs text-red-600 dark:text-red-400 font-semibold">{period.teacher_name}</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          {existing ? (
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <UserCheck size={14} className="text-emerald-400" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{existing.substitute?.name || 'Broadcast Cover'}</span>
-              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 ${
-                effStatus === 'accepted' ? 'bg-blue-500/20 text-blue-400' :
-                effStatus === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
-                effStatus === 'cancelled' || effStatus === 'expired' || effStatus === 'no_teacher_available' ? 'bg-red-500/20 text-red-400' :
-                'bg-amber-500/20 text-amber-400'
-              }`}>
-                {existing.assigned_by === 'auto' && <Zap size={9} />}
-                {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus === 'expired' ? 'Not Accepted' : effStatus}
-              </span>
+    <div className="rounded-[2rem] border p-5 transition-all bg-white dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {existing ? (
+          <>
+            {/* Column 1: Main Teacher */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Main Teacher:</span>
+              <div className="flex items-center gap-3">
+                <UserAvatar user={mainTeacherProfile || { name: period.teacher_name }} size="md" />
+                <span className="font-extrabold text-slate-800 dark:text-slate-100 text-sm tracking-tight">{period.teacher_name}</span>
+              </div>
             </div>
-          ) : (
-            <>
-              {isExpired ? (
-                <span className="text-[10px] font-black text-red-400 flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded uppercase tracking-wider">
-                  Class Over
-                </span>
-              ) : (
-                <>
-                  {isOverdue && !hasAnyCandidates && (
-                    <span className="text-[10px] font-black text-red-400 flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded">
-                      <AlertTriangle size={10} /> No substitute available
-                    </span>
-                  )}
-                  {isOverdue && hasAnyCandidates && (
-                    <span className="text-[10px] font-black text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded">
-                      <Clock size={10} /> Overdue by {Math.floor(minutesPassed)} min
-                    </span>
-                  )}
 
-                  {availableFreeTeachers.length > 0 && (
-                    <div className="flex flex-wrap gap-1 justify-end">
-                      {availableFreeTeachers.slice(0, 3).map(fp => (
-                        <button
-                          key={fp.id}
-                          onClick={() => setSelectedSub(fp.teacher_id)}
-                          className={`text-[10px] font-black px-2 py-0.5 rounded border transition-colors ${
-                            selectedSub === fp.teacher_id
-                              ? 'bg-indigo-600 text-white border-indigo-500'
-                              : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20'
-                          }`}
-                        >
-                          ✓ {fp.teacher?.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </>
+            {/* Column 2: Substituting */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Substituting:</span>
+                {renderStatusBadge(effStatus)}
+              </div>
+              <div className="flex items-center gap-3">
+                <UserAvatar user={subTeacherProfile || { name: existing.substitute?.name || 'Broadcast Cover' }} size="md" />
+                <span className="font-extrabold text-slate-800 dark:text-slate-100 text-sm tracking-tight">
+                  {existing.substitute_teacher_id ? (existing.substitute?.name || 'Assigned Teacher') : 'Broadcast Cover'}
+                </span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Column 1: Teacher */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Teacher:</span>
+              <div className="flex items-center gap-3">
+                <UserAvatar user={mainTeacherProfile || { name: period.teacher_name }} size="md" />
+                <span className="font-extrabold text-slate-800 dark:text-slate-100 text-sm tracking-tight">{period.teacher_name}</span>
+              </div>
+            </div>
+
+            {/* Column 2: Details / Info */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Details:</span>
+                {isExpired ? renderStatusBadge('class_over') :
+                 (isOverdue && !hasAnyCandidates) ? renderStatusBadge('no_substitute_available') :
+                 (isOverdue && hasAnyCandidates) ? renderStatusBadge('overdue') :
+                 renderStatusBadge('pending')}
+              </div>
+              <div className="font-extrabold text-slate-700 dark:text-slate-200 text-sm tracking-tight pt-1">
+                Class {period.class}, {period.subject}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Details bottom bar (only if existing is true) */}
+      {existing && (
+        <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Details:</span>
+            <span className="text-xs font-extrabold text-slate-800 dark:text-slate-250">Class {period.class}, {period.subject}</span>
+          </div>
+          {/* Quick candidates indicator for admin */}
+          {isAdmin && !existing.substitute_teacher_id && availableFreeTeachers.length > 0 && (
+            <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/20 px-2 py-0.5 rounded">
+              {availableFreeTeachers.length} free volunteers
+            </span>
           )}
         </div>
-      </div>
+      )}
 
       {/* Render volunteers if it is an open cover/broadcast substitution */}
       {existing && existing.substitute_teacher_id === null && effStatus === 'pending' && (
-        <div className="mt-3 p-3 bg-slate-100 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-white/5 space-y-2">
+        <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-white/5 space-y-2">
           <div className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Cover Volunteers:</div>
           {existing.volunteers && existing.volunteers.length > 0 ? (
             <div className="flex flex-col gap-2">
               {existing.volunteers.map(v => (
-                <div key={v.teacher_id} className="flex items-center justify-between bg-white/2 p-2 rounded-lg border border-white/5">
-                  <span className="text-xs font-bold text-slate-300">{v.teacher_name}</span>
+                <div key={v.teacher_id} className="flex items-center justify-between bg-white dark:bg-white/5 p-2 rounded-lg border border-slate-200 dark:border-white/5">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{v.teacher_name}</span>
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => onApproveVolunteer(existing.id, v.teacher_id, v.teacher_name)}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase rounded-md transition-colors"
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-50 text-white font-black text-[10px] uppercase rounded-md transition-colors border-0 cursor-pointer"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => onRejectVolunteer(existing.id, v.teacher_id)}
-                      className="px-2.5 py-1 bg-red-600/80 hover:bg-red-500 text-white font-black text-[10px] uppercase rounded-md transition-colors"
+                      className="px-2.5 py-1 bg-red-600/80 hover:bg-red-500 text-white font-black text-[10px] uppercase rounded-md transition-colors border-0 cursor-pointer"
                     >
                       Reject
                     </button>
@@ -1240,7 +1267,7 @@ function AbsentPeriodRow({
 
       {/* Admin assignment controls */}
       {isAdmin && !existing && !isExpired && (
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5 flex-wrap">
+        <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-150 dark:border-slate-800/80 flex-wrap">
           <select
             value={selectedSub}
             onChange={e => setSelectedSub(e.target.value)}
@@ -1261,14 +1288,14 @@ function AbsentPeriodRow({
           <button
             onClick={handleAssign}
             disabled={!selectedSub || assigning}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors disabled:opacity-50 border-0 cursor-pointer"
           >
             {assigning ? <Loader2 size={12} className="animate-spin" /> : <Bell size={12} />}
             Assign
           </button>
           <button
             onClick={onBroadcast}
-            className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-250 text-xs font-black uppercase tracking-widest rounded-xl transition-colors border border-slate-200 dark:border-slate-750 cursor-pointer"
           >
             <Clock size={12} />
             Broadcast
@@ -1277,10 +1304,7 @@ function AbsentPeriodRow({
       )}
     </div>
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-component: FreePeriodDeclaration (Teacher only)
+}// Sub-component: FreePeriodDeclaration (Teacher only)
 // ─────────────────────────────────────────────────────────────────────────────
 function FreePeriodDeclaration({ schoolId, teacherId, todayDay, today, freePeriods, onRefresh, showToast }) {
   const [timetableSlots, setTimetableSlots] = useState([]);
@@ -1345,7 +1369,7 @@ function FreePeriodDeclaration({ schoolId, teacherId, todayDay, today, freePerio
     <div className="sp-card">
       <div className="flex items-center gap-2 mb-3">
         <CheckCircle2 size={15} className="text-indigo-400" />
-        <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest">Declare Free Periods (Today)</h4>
+        <h4 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Declare Free Periods (Today)</h4>
       </div>
       <p className="text-xs text-slate-500 mb-4">
         Toggle any of your scheduled periods as "free" to signal that you can cover absent teachers' classes.
@@ -1360,8 +1384,8 @@ function FreePeriodDeclaration({ schoolId, teacherId, todayDay, today, freePerio
               disabled={toggling === slot.period_order}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
                 free
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
-                  : 'bg-slate-700/50 border-white/8 text-slate-400 hover:text-white hover:bg-slate-700'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/20 border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-500/30'
+                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
               {toggling === slot.period_order

@@ -122,14 +122,14 @@ export default function TimetableManager() {
            <CalendarDays size={180} className="transform translate-x-8 -translate-y-8" />
         </div>
         
-        <h2 className="text-2xl font-bold text-text tracking-tight mb-1 flex items-center gap-2">
+        <h2 className="text-2xl font-bold text-slate-805 dark:text-slate-100 tracking-tight mb-1 flex items-center gap-2">
            <Clock className="text-primary"/> Timetable Manager
         </h2>
-        <p className="text-sm text-muted mb-8 border-b border-border pb-4">Allocate classes to teachers and plan your school's weekly schedule.</p>
+        <p className="text-sm text-slate-505 dark:text-slate-400 mb-8 border-b border-border pb-4">Allocate classes to teachers and plan your school's weekly schedule.</p>
 
         <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
            <div>
-              <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Select Class</label>
+              <label className="block text-xs font-bold tracking-widest text-slate-505 dark:text-slate-400 mb-2 uppercase">Select Class</label>
               <select required value={targetClass} onChange={e => setTargetClass(e.target.value)} className="sp-input appearance-none cursor-pointer">
                 <option value="">-- Choose a Class --</option>
                 {classes?.map(c => <option key={c} value={c}>{c}</option>)}
@@ -137,14 +137,14 @@ export default function TimetableManager() {
            </div>
            
            <div>
-              <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Day</label>
+              <label className="block text-xs font-bold tracking-widest text-slate-505 dark:text-slate-400 mb-2 uppercase">Day</label>
               <select required value={day} onChange={e => setDay(e.target.value)} className="sp-input appearance-none cursor-pointer">
                 {daysOfWeek.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
            </div>
            
            <div>
-              <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Teacher</label>
+              <label className="block text-xs font-bold tracking-widest text-slate-505 dark:text-slate-400 mb-2 uppercase">Teacher</label>
               <select required value={selectedTeacher} onChange={e => setSelectedTeacher(e.target.value)} className="sp-input appearance-none cursor-pointer">
                 <option value="">-- Assign Teacher --</option>
                 {teachers?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -152,22 +152,22 @@ export default function TimetableManager() {
            </div>
            
            <div>
-              <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Subject</label>
+              <label className="block text-xs font-bold tracking-widest text-slate-505 dark:text-slate-400 mb-2 uppercase">Subject</label>
               <input required type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Science" className="sp-input" />
            </div>
 
            <div className="flex gap-4">
               <div className="w-24">
-                <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Period #</label>
+                <label className="block text-xs font-bold tracking-widest text-slate-505 dark:text-slate-400 mb-2 uppercase">Period #</label>
                 <input required type="number" min="1" value={periodOrder} onChange={e => setPeriodOrder(e.target.value)} className="sp-input text-center font-bold" />
               </div>
               <div className="flex-1 grid grid-cols-2 gap-2">
                 <div>
-                   <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">Start Time</label>
+                   <label className="block text-xs font-bold tracking-widest text-slate-505 dark:text-slate-400 mb-2 uppercase">Start Time</label>
                    <input required type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="sp-input" style={{ colorScheme: 'dark light' }} />
                 </div>
                 <div>
-                   <label className="block text-xs font-bold tracking-widest text-muted mb-2 uppercase">End Time</label>
+                   <label className="block text-xs font-bold tracking-widest text-slate-505 dark:text-slate-400 mb-2 uppercase">End Time</label>
                    <input required type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="sp-input" style={{ colorScheme: 'dark light' }} />
                 </div>
               </div>
@@ -184,8 +184,8 @@ export default function TimetableManager() {
 
       <div className="pt-2">
          <div className="flex items-center justify-between mb-4 px-2">
-            <h3 className="text-xl font-bold text-text">Class Schedule Viewer</h3>
-            <span className="bg-slate-100 border border-border px-3 py-1 rounded text-xs font-semibold text-muted uppercase tracking-wider">{targetClass ? `Viewing: ${targetClass}` : 'Select a class to view'}</span>
+            <h3 className="text-xl font-bold text-slate-805 dark:text-slate-100">Class Schedule Viewer</h3>
+            <span className="bg-slate-100 border border-border px-3 py-1 rounded text-xs font-semibold text-slate-505 dark:text-slate-400 uppercase tracking-wider">{targetClass ? `Viewing: ${targetClass}` : 'Select a class to view'}</span>
          </div>
          <TimetableViewer adminPreviewClass={targetClass} />
       </div>

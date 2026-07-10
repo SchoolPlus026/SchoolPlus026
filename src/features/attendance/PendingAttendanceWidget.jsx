@@ -270,33 +270,33 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       
       {/* Widget Header (Compact or Full Page) */}
       {forceShow ? (
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-6 rounded-3xl border border-glass shadow-xl relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl relative overflow-hidden">
           <div className="absolute left-0 bottom-0 w-32 h-32 bg-rose-500/10 blur-3xl rounded-full -ml-16 -mb-16 pointer-events-none" />
           <div className="relative z-10 flex items-center gap-3">
-            <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl">
+            <div className="p-3 bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-450 rounded-2xl">
               <Radar size={24} className={missing.length > 0 ? "animate-pulse" : ""} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight mb-1">Staff Pending Duty</h2>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Duty radar tracking active class attendance logs</p>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight mb-1">Staff Pending Duty</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Duty radar tracking active class attendance logs</p>
             </div>
           </div>
           <div className="relative z-10 flex flex-col sm:items-end gap-3 w-full sm:w-auto">
             <div className="flex gap-3 w-full sm:w-auto">
-              <div className="flex-1 sm:flex-initial px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-center min-w-[110px]">
-                <div className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Pending Classes</div>
-                <div className="text-lg font-black text-rose-200 mt-0.5">{missing.length}</div>
+              <div className="flex-1 sm:flex-initial px-4 py-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-150 dark:border-rose-500/20 rounded-xl text-center min-w-[110px]">
+                <div className="text-[9px] font-black text-rose-600 dark:text-rose-450 uppercase tracking-widest">Pending Classes</div>
+                <div className="text-lg font-black text-rose-700 dark:text-rose-205 mt-0.5">{missing.length}</div>
               </div>
-              <div className="flex-1 sm:flex-initial px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center min-w-[110px]">
-                <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Completed Classes</div>
-                <div className="text-lg font-black text-emerald-200 mt-0.5">{totalSubmitted}</div>
+              <div className="flex-1 sm:flex-initial px-4 py-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-150 dark:border-emerald-500/20 rounded-xl text-center min-w-[110px]">
+                <div className="text-[9px] font-black text-emerald-600 dark:text-emerald-450 uppercase tracking-widest">Completed Classes</div>
+                <div className="text-lg font-black text-emerald-700 dark:text-emerald-205 mt-0.5">{totalSubmitted}</div>
               </div>
             </div>
             {missing.length > 0 && (
               <button 
                 onClick={handleRemindAll} 
                 disabled={sendingAll}
-                className="w-full px-4 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-850 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer border-0"
+                className="w-full px-4 py-2.5 bg-rose-700 hover:bg-rose-600 disabled:bg-rose-800/50 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer border-0"
               >
                 {sendingAll ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
                 Remind All
@@ -307,12 +307,12 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
       ) : (
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl">
+            <div className="p-2 bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl">
               <Radar size={20} className={missing.length > 0 ? "animate-pulse" : ""} />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Staff Pending Duty</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Missing Attendance Logs</p>
+              <h3 className="text-sm font-black text-slate-805 dark:text-slate-200 uppercase tracking-widest">Staff Pending Duty</h3>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-0.5">Missing Attendance Logs</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -320,13 +320,13 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
               <button 
                 onClick={handleRemindAll} 
                 disabled={sendingAll}
-                className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-850 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-1 cursor-pointer border-0"
+                className="px-2.5 py-1.5 bg-rose-700 hover:bg-rose-600 disabled:bg-rose-850 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-1 cursor-pointer border-0"
               >
                 {sendingAll ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
                 Remind All
               </button>
             )}
-            <button onClick={handleDismiss} className="text-slate-500 hover:text-slate-300 transition-colors bg-transparent border-0 cursor-pointer p-1">
+            <button onClick={handleDismiss} className="text-slate-400 hover:text-slate-650 dark:text-slate-550 dark:hover:text-slate-300 transition-colors bg-transparent border-0 cursor-pointer p-1">
               <X size={18} />
             </button>
           </div>
@@ -335,10 +335,10 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
 
       {/* Widget Body */}
       {missing.length === 0 ? (
-        <div className="text-center py-12 bg-emerald-500/5 rounded-3xl border border-emerald-500/10 shadow-inner">
-          <Radar size={40} className="mx-auto text-emerald-500 mb-3 opacity-60" />
-          <p className="text-emerald-400 text-base font-black uppercase tracking-wider">All duties cleared!</p>
-          <p className="text-xs text-slate-400 font-bold mt-1">Every active class has successfully submitted attendance logs today.</p>
+        <div className="text-center py-12 bg-emerald-50 dark:bg-emerald-500/5 rounded-3xl border border-emerald-150 dark:border-emerald-500/10 shadow-inner">
+          <Radar size={40} className="mx-auto text-emerald-600 dark:text-emerald-500 mb-3 opacity-60" />
+          <p className="text-emerald-700 dark:text-emerald-400 text-base font-black uppercase tracking-wider">All duties cleared!</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-1">Every active class has successfully submitted attendance logs today.</p>
         </div>
       ) : (
         <div className={forceShow ? "" : "max-h-[300px] overflow-y-auto pr-2 custom-scrollbar"}>
@@ -346,23 +346,23 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
             /* Premium Grid Layout for Full Page View */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
               {missing.map((m, i) => (
-                <div key={i} className="flex flex-col justify-between p-6 bg-slate-900 border border-slate-800 rounded-3xl hover:border-rose-500/40 transition-all hover:scale-[1.01] hover:shadow-lg relative overflow-hidden group">
+                <div key={i} className="flex flex-col justify-between p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 rounded-3xl hover:border-rose-500/40 transition-all hover:scale-[1.01] hover:shadow-md relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-xl group-hover:bg-rose-500/10 transition-colors pointer-events-none" />
                   <div>
-                    <h4 className="text-base font-black text-slate-200 tracking-tight">{m.teacher_name}</h4>
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Assigned Class Teacher</p>
+                    <h4 className="text-base font-extrabold text-slate-800 dark:text-slate-200 tracking-tight">{m.teacher_name}</h4>
+                    <p className="text-[10px] text-slate-450 dark:text-slate-500 font-black uppercase tracking-widest mt-0.5">Assigned Class Teacher</p>
                     
                     <div className="flex items-center gap-2 mt-4">
-                      <span className="text-[10px] font-black bg-rose-500/20 text-rose-300 px-2.5 py-0.5 rounded-lg uppercase tracking-wider">
+                      <span className="text-[10px] font-black bg-rose-50 dark:bg-rose-500/20 text-rose-750 dark:text-rose-300 px-2.5 py-0.5 rounded-lg uppercase tracking-wider">
                         Class {m.class_name}
                       </span>
-                      <span className="text-[10px] font-black bg-slate-800 text-slate-400 px-2.5 py-0.5 rounded-lg uppercase tracking-wider">
+                      <span className="text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2.5 py-0.5 rounded-lg uppercase tracking-wider">
                         {m.period_label || `Period ${m.period_order}`}
                       </span>
                     </div>
                   </div>
                   <button 
-                    className="w-full mt-6 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-800/50 text-white text-[11px] font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-950/30 cursor-pointer border-0"
+                    className="w-full mt-6 px-4 py-2.5 bg-rose-700 hover:bg-rose-600 disabled:bg-rose-800/50 text-white text-[11px] font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-950/30 cursor-pointer border-0"
                     onClick={() => handleSendReminder(m, i)}
                     disabled={sendingReminder === i || !m.teacher_id}
                   >
@@ -376,20 +376,20 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
             /* Compact List Layout for Dashboard Widget */
             <div className="space-y-3">
               {missing.map((m, i) => (
-                <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl transition-colors">
+                <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-rose-50/50 dark:bg-rose-500/5 hover:bg-rose-100/40 dark:hover:bg-rose-500/10 border border-rose-100 dark:border-rose-500/10 rounded-xl transition-colors">
                   <div>
-                    <p className="text-sm font-bold text-slate-200">{m.teacher_name}</p>
+                    <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200">{m.teacher_name}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-black bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded uppercase tracking-wider">
+                      <span className="text-[10px] font-black bg-rose-50 dark:bg-rose-500/20 text-rose-750 dark:text-rose-300 px-2 py-0.5 rounded uppercase tracking-wider">
                         {m.class_name}
                       </span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">
+                      <span className="text-[10px] font-bold text-slate-505 dark:text-slate-400 uppercase">
                         {m.period_label || `Period ${m.period_order}`}
                       </span>
                     </div>
                   </div>
                   <button 
-                    className="w-full sm:w-auto px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 disabled:bg-rose-800/50 text-rose-300 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer border-0"
+                    className="w-full sm:w-auto px-3 py-1.5 bg-rose-700 hover:bg-rose-600 disabled:bg-rose-800/50 text-white text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer border-0"
                     onClick={() => handleSendReminder(m, i)}
                     disabled={sendingReminder === i || !m.teacher_id}
                   >
@@ -405,11 +405,11 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
 
       {/* Completed Classes Section */}
       {completed.length > 0 && (
-        <div className="mt-8 pt-6 border-t border-slate-800">
-          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Completed Classes</h4>
+        <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
+          <h4 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Completed Classes</h4>
           <div className="flex flex-wrap gap-2.5">
             {completed.map((c, idx) => (
-              <div key={idx} className="px-3.5 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-black flex items-center gap-1.5">
+              <div key={idx} className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-150 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-450 rounded-xl text-xs font-black flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 {c.teacher_name} ({c.class_name})
               </div>

@@ -71,7 +71,7 @@ export default function StudentFeeLedger() {
            <Wallet size={28} />
         </div>
         <div className="flex-1">
-           <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Financial Profile</h2>
+           <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Financial Profile</h2>
            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Institutional Ledger Transcript</p>
         </div>
         {!feeLoading && feeEntry && (
@@ -92,9 +92,9 @@ export default function StudentFeeLedger() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Account Summary */}
           <div className="lg:col-span-2 space-y-8">
-             <div className="bg-white dark:bg-slate-800 border-b-8 border-indigo-600 border border-border dark:border-slate-700 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden">
+             <div className="bg-white dark:bg-slate-900 border-b-8 border-indigo-650 border border-slate-205 dark:border-slate-800 rounded-[3rem] p-8 shadow-sm dark:shadow-2xl relative overflow-hidden">
                 {/* Stylized background circle */}
-                <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-50 rounded-full opacity-50"></div>
+                <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-50 dark:bg-indigo-950/20 rounded-full opacity-50 pointer-events-none"></div>
                 
                 <div className="relative z-10">
                    <div className="flex justify-between items-center mb-10">
@@ -113,7 +113,7 @@ export default function StudentFeeLedger() {
                    <div className="grid grid-cols-2 md:grid-cols-2 gap-y-12 gap-x-8">
                        <div>
                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Institutional Fees</span>
-                         <span className="text-3xl font-black text-slate-800">₹{currentYearTotal.toLocaleString()}</span>
+                         <span className="text-3xl font-black text-slate-800 dark:text-slate-200">₹{currentYearTotal.toLocaleString()}</span>
                       </div>
                       <div>
                          <span className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 block">Previous Arrears</span>
@@ -123,19 +123,19 @@ export default function StudentFeeLedger() {
                          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 block">Credits Applied</span>
                          <span className="text-3xl font-black text-emerald-600">₹{totalPaid.toLocaleString()}</span>
                       </div>
-                      <div className="bg-slate-900 rounded-[2rem] p-6 -m-2 shadow-2xl relative">
-                         <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-1 block">Net Balance Due</span>
+                      <div className="bg-indigo-600 dark:bg-indigo-950/40 border border-indigo-500/20 rounded-[2rem] p-6 -m-2 shadow-2xl relative text-white">
+                         <span className="text-[10px] font-black text-indigo-200 dark:text-indigo-300 uppercase tracking-widest mb-1 block">Net Balance Due</span>
                          <span className="text-4xl font-black text-white">₹{netDue.toLocaleString()}</span>
-                         <div className="absolute right-6 bottom-6 text-indigo-500/20"><CreditCard size={40} /></div>
+                         <div className="absolute right-6 bottom-6 text-white/10 dark:text-indigo-500/20"><CreditCard size={40} /></div>
                       </div>
                    </div>
                 </div>
              </div>
 
              {/* Payment Timeline */}
-             <div className="bg-white dark:bg-slate-800 border border-border dark:border-slate-700 rounded-[2.5rem] shadow-xl shadow-slate-100/50 overflow-hidden">
-                <div className="p-8 border-b border-border flex items-center justify-between">
-                   <h3 className="font-black text-slate-700 uppercase tracking-widest text-sm">Transaction Logs</h3>
+             <div className="bg-white dark:bg-slate-900 border border-slate-205 dark:border-slate-800 rounded-[2.5rem] shadow-sm dark:shadow-xl overflow-hidden">
+                <div className="p-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                   <h3 className="font-black text-slate-705 dark:text-slate-250 uppercase tracking-widest text-sm">Transaction Logs</h3>
                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{payments?.length || 0} Entries</span>
                 </div>
                 {payments?.length === 0 ? (
@@ -143,21 +143,21 @@ export default function StudentFeeLedger() {
                     <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest italic leading-relaxed">No financial transactions detected in the current cycle archive.</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {payments.map((p, idx) => (
-                      <div key={p.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                      <div key={p.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
                         <div className="flex items-center gap-5">
-                          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 font-black text-xs">
+                          <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-700 dark:text-slate-300 font-black text-xs">
                              #{payments.length - idx}
                           </div>
                           <div>
-                            <div className="text-sm font-black text-slate-800 uppercase tracking-tight">₹{Number(p.amount).toLocaleString()}</div>
+                            <div className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">₹{Number(p.amount).toLocaleString()}</div>
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{new Date(p.payment_date).toLocaleDateString(undefined, { dateStyle: 'long' })} • {p.method}</div>
                           </div>
                         </div>
                         <div className="text-[10px] items-end flex flex-col gap-1">
                            <span className="font-bold text-slate-400 uppercase">TX TYPE</span>
-                           <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-widest">Credit</span>
+                           <span className="font-black text-emerald-705 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-100 dark:border-emerald-900/30 uppercase tracking-widest">Credit</span>
                         </div>
                       </div>
                     ))}
@@ -168,19 +168,19 @@ export default function StudentFeeLedger() {
 
           {/* Policy / Support */}
           <div className="space-y-6">
-             <div className="bg-indigo-900 border border-indigo-800 rounded-[2rem] p-8 text-white shadow-2xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><CheckCircle2 size={100} /></div>
-                <h3 className="text-sm font-black uppercase tracking-[0.2em] mb-4">Payment Policy</h3>
-                <p className="text-xs text-indigo-200 leading-loose italic">
-                  Institutional fees are non-refundable. Please ensure all outstanding balances are cleared before examination cycles to avoid automated portal lockdown.
-                </p>
+              <div className="bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-150 dark:border-indigo-900 rounded-[2rem] p-8 text-slate-800 dark:text-white shadow-sm dark:shadow-2xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform text-indigo-500"><CheckCircle2 size={100} /></div>
+                 <h3 className="text-sm font-black uppercase tracking-[0.2em] mb-4 text-indigo-800 dark:text-indigo-200">Payment Policy</h3>
+                 <p className="text-xs text-indigo-950/80 dark:text-indigo-200 leading-loose italic">
+                   Institutional fees are non-refundable. Please ensure all outstanding balances are cleared before examination cycles to avoid automated portal lockdown.
+                 </p>
               </div>
 
-             <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-6 flex items-start gap-4">
-                <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400"><User size={20} /></div>
+             <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 flex items-start gap-4">
+                <div className="w-10 h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center text-slate-400"><User size={20} /></div>
                 <div>
                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Billing Support</h4>
-                   <p className="text-xs font-bold text-slate-600">billing@school.infra</p>
+                   <p className="text-xs font-bold text-slate-650 dark:text-slate-300">billing@school.infra</p>
                 </div>
              </div>
           </div>

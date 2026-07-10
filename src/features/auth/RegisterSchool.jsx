@@ -464,5 +464,5 @@ export default function RegisterSchool() {
   );
 }
 
-const pageStyle = { minHeight: '100vh', background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px' };
+const pageStyle = { height: '100vh', width: '100vw', overflowY: 'auto', background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px', boxSizing: 'border-box' };
 const cardStyle = { background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 24, padding: '36px 32px', width: '100%', maxWidth: 540, boxShadow: '0 25px 60px rgba(0,0,0,0.4)' };

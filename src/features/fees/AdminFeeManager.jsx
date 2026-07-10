@@ -370,7 +370,7 @@ export default function AdminFeeManager() {
                          type="number"
                          value={feePending}
                          onChange={e => setFeePending(e.target.value)}
-                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-sm text-slate-700 focus:border-primary focus:outline-none"
+                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 font-bold text-sm text-slate-700 dark:text-slate-205 focus:border-primary focus:outline-none"
                        />
                     </div>
                     <div>
@@ -379,7 +379,7 @@ export default function AdminFeeManager() {
                          type="number"
                          value={feeTotal}
                          onChange={e => setFeeTotal(e.target.value)}
-                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-sm text-slate-700 focus:border-primary focus:outline-none"
+                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 font-bold text-sm text-slate-700 dark:text-slate-205 focus:border-primary focus:outline-none"
                        />
                     </div>
                     <button
@@ -414,7 +414,7 @@ export default function AdminFeeManager() {
                          type="number"
                          value={paymentAmount}
                          onChange={e => setPaymentAmount(e.target.value)}
-                         className="w-full bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 font-black text-emerald-700 dark:text-emerald-300 text-xl focus:border-emerald-500 focus:outline-none"
+                         className="w-full bg-emerald-50 dark:bg-slate-900 border border-emerald-200 dark:border-slate-700 rounded-xl px-4 py-3 font-black text-emerald-700 dark:text-emerald-300 text-xl focus:border-emerald-500 focus:outline-none"
                          placeholder="0.00"
                        />
                     </div>
