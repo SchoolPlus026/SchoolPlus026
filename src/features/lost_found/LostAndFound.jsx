@@ -313,7 +313,7 @@ export default function LostAndFound() {
           
           <div className="flex justify-end pt-2">
             <button type="submit" disabled={submitting || !file} className="btn-primary py-2.5 px-6">
-              {submitting ? <Loader2 size={18} className="animate-spin"/> : 'Upload to Drive & Post'}
+              {submitting ? <Loader2 size={18} className="animate-spin"/> : 'Post'}
             </button>
           </div>
         </form>

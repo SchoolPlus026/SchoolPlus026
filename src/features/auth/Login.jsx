@@ -1517,6 +1517,10 @@ export default function Login() {
               <div className="flex-grow border-t border-white/10"></div>
             </div>
 
+            <p className="text-[10px] text-slate-400 text-center mb-3 font-semibold">
+              Note: Only if you have already set up your account
+            </p>
+
             <button 
               type="button" 
               onClick={handleGoogleLogin} 

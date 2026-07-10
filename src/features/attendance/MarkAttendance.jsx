@@ -437,10 +437,9 @@ export default function MarkAttendance() {
                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', minWidth: '0' }}>
                              <UserAvatar user={target} size="xs" />
                              <div style={{ minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                   <strong style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{target.name}</strong>
-                                   {isOnLeave && <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">On Leave</span>}
-                                </div>
+                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <strong style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{target.name}</strong>
+                                 </div>
                                 <span className="muted" style={{ fontSize: '8.5px', opacity: 0.65 }}>@{target.username}</span>
                                 {targetRole === 'student' && (
                                   <div className="flex items-center gap-1 mt-0.5" style={{ fontSize: '8.5px' }}>
