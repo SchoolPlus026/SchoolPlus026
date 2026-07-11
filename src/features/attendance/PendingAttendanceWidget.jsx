@@ -198,12 +198,12 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
     }
   };
 
+  const [sendingReminder, setSendingReminder] = useState(null);
+  const [sendingAll, setSendingAll] = useState(false);
+
   if (dismissed && !forceShow) return null;
 
   const { missing = [], totalSubmitted = 0, completed = [] } = missingData || {};
-
-  const [sendingReminder, setSendingReminder] = useState(null);
-  const [sendingAll, setSendingAll] = useState(false);
 
   const handleSendReminder = async (m, idx) => {
     if (!m.teacher_id) {
