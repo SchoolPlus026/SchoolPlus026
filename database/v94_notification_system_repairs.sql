@@ -89,7 +89,7 @@ WHERE EXISTS (
 
 SELECT cron.schedule(
   'notification-batch-processor-free-tier',
-  '*/15 * * * *', -- 24/7, every 15 minutes
+  '*/10 * * * *', -- 24/7, every 10 minutes
   $$
   SELECT net.http_post(
     url     := 'https://nnaqayemfogpfehiaifw.supabase.co/functions/v1/process-notification-queue',

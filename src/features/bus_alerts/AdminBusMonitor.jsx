@@ -7,6 +7,7 @@ import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X
 import { rtdb } from '../../config/firebaseClient';
 import { ref, onValue, off } from 'firebase/database';
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
+import { decodeBusCSV } from '../../utils/csvCodec';
 
 // ── Bus key helper (must match BusAlerts.jsx + LiveBusTracker.jsx) ─────────────
 function toBusKey(n) {
@@ -25,7 +26,7 @@ function BusLiveCard({ schoolId, busNumber, fbReady }) {
     const path = `tracking/${schoolId}/${toBusKey(busNumber)}`;
     const trackRef = ref(rtdb, path);
     const unsub = onValue(trackRef, (snap) => {
-      setLive(snap.exists() ? snap.val() : null);
+      setLive(snap.exists() ? decodeBusCSV(snap.val()) : null);
     }, () => setLive(null));
     return () => { unsub(); off(trackRef); };
   }, [schoolId, busNumber, fbReady]);

@@ -129,12 +129,12 @@ export function useTieredCache(defaults = {}) {
   return {
     staleTime: isFree 
       ? (defaults.freeStaleTime ?? 10 * 60 * 1000)   // 10 min default for free
-      : (defaults.premiumStaleTime ?? 30 * 1000),      // 30s default for premium
+      : (defaults.premiumStaleTime ?? 5 * 60 * 1000),  // 5 min default for premium (was 30s)
     refetchInterval: isFree 
       ? false                                           // NO polling for free
       : (defaults.premiumRefetchInterval ?? 60000),     // 60s default for premium
-    refetchOnWindowFocus: !isFree,                      // Only premium refetches on focus
-    refetchOnReconnect: !isFree,
+    refetchOnWindowFocus: false,                        // Disabled globally to avoid window focus refetch storms
+    refetchOnReconnect: false,                          // Disabled globally to prevent reconnection DDoS storm
     refetchOnMount: true,
   };
 }

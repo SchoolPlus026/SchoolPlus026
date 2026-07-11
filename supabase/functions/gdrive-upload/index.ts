@@ -108,6 +108,13 @@ serve(async (req) => {
     const accessToken = await getAccessToken(targetDrive.refresh_token)
 
     // --- Route actions ---
+    if (action === 'get_upload_token') {
+      return new Response(JSON.stringify({
+        access_token: accessToken,
+        folder_id: targetDrive.folder_id
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    }
+
     if (action === 'get_quota') {
       const quotaRes = await fetch('https://www.googleapis.com/drive/v3/about?fields=storageQuota', {
         headers: { Authorization: `Bearer ${accessToken}` }

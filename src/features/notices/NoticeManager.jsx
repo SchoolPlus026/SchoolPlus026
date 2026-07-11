@@ -7,6 +7,7 @@ import { triggerFCMNotification } from '../../utils/notifications';
 import { Loader2, Send, PenTool, Image as ImageIcon, CloudOff, X, Folder } from 'lucide-react';
 import NoticeBoard from './NoticeBoard';
 import { usePlan } from '../../hooks/usePlan';
+import { uploadFileToGDriveDirect } from '../../utils/gdriveDirectUpload';
 
 function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
@@ -54,22 +55,11 @@ export default function NoticeManager() {
     }
     const folderId = folderData.id;
 
-    // 2. Upload the image file
-    const fileBase64 = await readFileAsBase64(file);
-    const { data: uploadData, error: uploadErr } = await supabase.functions.invoke('gdrive-upload', {
-      body: {
-        action:         'upload_file',
-        parentFolderId: folderId,
-        fileName:       `notice_${Date.now()}_${file.name}`,
-        mimeType:       file.type || 'image/jpeg',
-        fileBase64,
-        driveIndex:     0,
-      },
-      headers,
+    // 2. Upload the image file directly
+    const uploadData = await uploadFileToGDriveDirect(file, folderId, {
+      driveIndex: 0,
+      fileName: `notice_${Date.now()}_${file.name}`
     });
-    if (uploadErr || uploadData?.error) {
-      throw new Error(uploadData?.error || uploadErr?.message || 'Image upload failed');
-    }
 
     // Return the direct thumbnail for display and the webViewLink for storage
     return {
@@ -94,11 +84,9 @@ export default function NoticeManager() {
         });
 
       if (error) throw error;
-      try {
-        await triggerFCMNotification(payload.title, payload.scope, schoolSettings.school_id);
-      } catch (fcmErr) {
-        console.warn('FCM Notification trigger failed:', fcmErr.message);
-      }
+      // Trigger FCM asynchronously (fire-and-forget) to keep the UI snappy
+      triggerFCMNotification(payload.title, payload.scope, schoolSettings.school_id)
+        .catch(fcmErr => console.warn('FCM Notification trigger failed (async):', fcmErr.message));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notices'] });

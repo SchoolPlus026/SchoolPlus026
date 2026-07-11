@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { BookOpen, Plus, Trash2, Edit2, X, Play, Save, ChevronDown, ChevronUp, Youtube, HardDrive, Loader2 } from 'lucide-react';
+import { uploadFileToGDriveDirect } from '../../utils/gdriveDirectUpload';
 
 function extractYouTubeThumbnail(url) {
   const m = url?.match(/(?:youtu\.be\/|v=|embed\/)([^?&]+)/);
@@ -80,21 +81,13 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
         const file = fileArray[i];
         setUploadProgress({ current: i + 1, total: fileArray.length });
         
-        const reader = new FileReader();
-        const fileBase64 = await new Promise((res, rej) => {
-          reader.onload = () => res(reader.result.split(',')[1]);
-          reader.onerror = rej;
-          reader.readAsDataURL(file);
+        // Upload the file directly to Google Drive
+        const cleanFileName = `kb_${Date.now()}_${file.name}`;
+        const uploadData = await uploadFileToGDriveDirect(file, folderData.id, {
+          driveIndex: 0,
+          fileName: cleanFileName
         });
 
-        const { data: uploadData, error: uploadErr } = await supabase.functions.invoke('gdrive-upload', {
-          body: {
-            action: 'upload_file', parentFolderId: folderData.id,
-            fileName: `kb_${Date.now()}_${file.name}`,
-            mimeType: file.type || 'video/mp4', fileBase64,
-          }, headers,
-        });
-        if (uploadErr || uploadData?.error) throw new Error(uploadData?.error || 'Upload failed');
         uploadedUrls.push({ 
           url: `https://drive.google.com/file/d/${uploadData.id}/preview`,
           name: file.name.replace(/\.[^/.]+$/, "") 

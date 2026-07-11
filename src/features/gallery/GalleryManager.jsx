@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { usePending } from '../../hooks/usePending';
 import { Image as ImageIcon, Plus, Loader2, X, ExternalLink, Folder, CloudOff, HardDrive, Trash2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { uploadFileToGDriveDirect } from '../../utils/gdriveDirectUpload';
 
 function readFileAsBase64(file) {
   const fileBlob = file instanceof File ? file : file.blob;
@@ -195,31 +196,24 @@ export default function GalleryManager() {
             const gdriveMeta = [];
             let failedCount = 0;
 
-            for (let i = 0; i < filesToUpload.length; i++) {
-               const file = filesToUpload[i];
-               const fileBase64 = await readFileAsBase64(file);
-               
-               updateBackgroundUpload(uploadId, { current: i + 1, status: `Uploading ${file.name}...` });
+             for (let i = 0; i < filesToUpload.length; i++) {
+                const fileObj = filesToUpload[i];
+                const rawFile = fileObj instanceof File ? fileObj : fileObj.blob;
+                
+                updateBackgroundUpload(uploadId, { current: i + 1, status: `Uploading ${fileObj.name}...` });
 
-               const { data: uploadData, error: uploadError } = await supabase.functions.invoke('gdrive-upload', {
-                 body: {
-                   action: 'upload_file',
-                   parentFolderId: folderId,
-                   fileName: file.name,
-                   mimeType: file.type || 'application/octet-stream',
-                   fileBase64: fileBase64,
-                   driveIndex: targetDriveIndex,
-                   school_id: schoolSettings.school_id
-                 },
-                 headers
-               });
-               
-               if (!uploadError && !uploadData?.error) {
+                try {
+                  const uploadData = await uploadFileToGDriveDirect(rawFile, folderId, {
+                    driveIndex: targetDriveIndex,
+                    school_id: schoolSettings.school_id,
+                    fileName: fileObj.name
+                  });
                   gdriveMeta.push({ thumbnailLink: uploadData.thumbnailLink, webViewLink: uploadData.webViewLink });
-               } else {
+                } catch (uploadError) {
+                  console.error('[GDrive Direct] upload failed:', uploadError);
                   failedCount++;
-               }
-            }
+                }
+             }
 
             const firstMeta = gdriveMeta[0];
             const coverLink = firstMeta?.thumbnailLink || firstMeta?.webViewLink;

@@ -11,6 +11,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false, // Prevent excessive read queries to Supabase
+      refetchOnReconnect: false,   // Disable automatic sync storm DDoS on reconnection
       staleTime: 5 * 60 * 1000, // Cache results for 5 minutes by default
     },
   },

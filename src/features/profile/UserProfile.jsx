@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { User, Loader2, Mail, Phone, MapPin, Briefcase, Calendar, Info, GraduationCap, FileText, Users, BookOpen, Award, Star, Camera, Trash2, Lock, Smartphone, Download, ChevronDown, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
+import { uploadFileToGDriveDirect } from '../../utils/gdriveDirectUpload';
 
 const isMobileOrPWA = () => {
   if (Capacitor.isNativePlatform()) return true;
@@ -46,9 +47,10 @@ const compressImage = (file) => {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        const base64 = dataUrl.split(',')[1];
-        resolve(base64);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Canvas compression to blob failed'));
+        }, 'image/jpeg', 0.7);
       };
       img.onerror = (err) => reject(err);
     };
@@ -480,26 +482,16 @@ export default function UserProfile() {
         }).catch(err => console.warn('Failed to delete old profile photo:', err));
       }
 
-      // 4. Upload compressed photo
+      // 4. Upload compressed photo directly
       const cleanFileName = `Profile_${role.toUpperCase()}_${profile.id}_${Date.now()}.jpg`;
-      const uploadRes = await supabase.functions.invoke('gdrive-upload', {
-        body: {
-          action: 'upload_file',
-          parentFolderId: folderId,
-          fileName: cleanFileName,
-          mimeType: 'image/jpeg',
-          fileBase64: compressedBase64,
-          driveIndex: 0,
-          school_id: schoolSettings?.school_id
-        },
-        headers
+      const uploadData = await uploadFileToGDriveDirect(compressedBase64, folderId, {
+        driveIndex: 0,
+        school_id: schoolSettings?.school_id,
+        fileName: cleanFileName
       });
 
-      if (uploadRes.error) throw new Error(uploadRes.error.message);
-      if (!uploadRes.data?.webViewLink) throw new Error('Upload succeeded but no web link was returned');
-
-      const uploadedUrl = uploadRes.data.thumbnailLink || uploadRes.data.webViewLink;
-      const fileIdUploaded = uploadRes.data.id;
+      const uploadedUrl = uploadData.thumbnailLink || uploadData.webViewLink;
+      const fileIdUploaded = uploadData.id;
 
       // 5. Update user profile row
       const { error: dbError } = await supabase

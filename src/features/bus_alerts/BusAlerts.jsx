@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import ModuleGuard from '../../components/ModuleGuard';
 import { Geolocation } from '@capacitor/geolocation';
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
+import { encodeBusCSV } from '../../utils/csvCodec';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const GEOCODE_INTERVAL_MS = 30000; // 30s push to Firebase (Nominatim safe rate)
@@ -260,14 +261,26 @@ export default function BusAlerts() {
       return;
     }
     const path = `tracking/${schoolId}/${busKey}`;
-    console.log('[Firebase] pushing to:', path, payload);
+    
+    // Enrich payload with last known coordinates and metadata if not present to avoid wiping them on trip end
+    const enrichedPayload = {
+      lat: coordsRef.current?.lat || null,
+      lng: coordsRef.current?.lng || null,
+      location_name: cachedLocationNameRef.current || '',
+      bus_number: assignment?.bus_number || '',
+      driver_name: assignment?.driver_name || user?.email || '',
+      ...payload
+    };
+
+    const csvString = encodeBusCSV(enrichedPayload);
+    console.log('[Firebase] pushing CSV to:', path, csvString);
     try {
-      await set(ref(rtdb, path), payload);
+      await set(ref(rtdb, path), csvString);
       console.log('[Firebase] push OK');
     } catch (e) {
       console.error('[Firebase] push FAILED:', e.message);
     }
-  }, [schoolId, busKey]);
+  }, [schoolId, busKey, assignment, user]);
 
   // ─── Reverse geocode ────────────────────────────────────────────────────
   const reverseGeocode = useCallback(async (lat, lng) => {
@@ -315,11 +328,11 @@ export default function BusAlerts() {
       }
     }
 
-    // 2. Distance-based geocoding (skip Nominatim request if moved <100m)
+    // 2. Distance-based geocoding (skip Nominatim request if moved <200m - increased threshold)
     let locationLabel = '';
     if (lastGeocodedCoordsRef.current) {
       const geocodeDistance = getHaversineDistance(lastGeocodedCoordsRef.current, { lat, lng });
-      if (geocodeDistance < 100 && cachedLocationNameRef.current) {
+      if (geocodeDistance < 200 && cachedLocationNameRef.current) {
         console.log(`[Geocode] Reusing cached address — distance moved since last geocode is ${geocodeDistance.toFixed(1)}m`);
         locationLabel = cachedLocationNameRef.current;
       }
@@ -327,9 +340,14 @@ export default function BusAlerts() {
 
     if (!locationLabel) {
       const name = await reverseGeocode(lat, lng);
-      locationLabel = name || `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-      lastGeocodedCoordsRef.current = { lat, lng };
-      cachedLocationNameRef.current = locationLabel;
+      if (name) {
+        locationLabel = name;
+        lastGeocodedCoordsRef.current = { lat, lng };
+        cachedLocationNameRef.current = locationLabel;
+      } else {
+        // Fallback organically to cached location name or GPS coordinates to prevent UI freeze
+        locationLabel = cachedLocationNameRef.current || `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      }
     }
 
     setLocationName(locationLabel);

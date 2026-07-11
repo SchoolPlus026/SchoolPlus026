@@ -3,6 +3,7 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Search, Plus, MapPin, CheckCircle, Loader2, Camera, Trash2, User, Eye, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { uploadFileToGDriveDirect } from '../../utils/gdriveDirectUpload';
 
 export default function LostAndFound() {
   const { schoolSettings, user, role } = useAppStore();
@@ -140,26 +141,13 @@ export default function LostAndFound() {
       }
       if (!folderData?.id) throw new Error(folderData?.error || "Failed to create Google Drive folder. No ID returned.");
 
-      // 3. Upload file
-      const { data: uploadData, error: uploadError } = await supabase.functions.invoke('gdrive-upload', {
-        body: {
-          action: 'upload_file',
-          parentFolderId: folderData.id,
-          fileName: file.name.replace(/[^a-zA-Z0-9.]/g, '_'),
-          mimeType: file.type || 'application/octet-stream',
-          fileBase64: fileBase64,
-          driveIndex: 0,
-          school_id: schoolSettings.school_id
-        },
-        headers
+      // 3. Upload file directly
+      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+      const uploadData = await uploadFileToGDriveDirect(file, folderData.id, {
+        driveIndex: 0,
+        school_id: schoolSettings.school_id,
+        fileName: cleanFileName
       });
-
-      if (uploadError) {
-        let msg = uploadError.message;
-        try { if (uploadError.context && uploadError.context.json) { const j = await uploadError.context.json(); if(j.error) msg = j.error; } } catch(e){}
-        throw new Error(msg || "Failed to upload image to Google Drive.");
-      }
-      if (!uploadData?.webViewLink) throw new Error(uploadData?.error || "Failed to upload image to Google Drive.");
 
       // 4. Save to DB
       const { error: dbError } = await supabase.from('lost_and_found').insert({

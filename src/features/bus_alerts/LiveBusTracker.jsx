@@ -7,6 +7,7 @@ import { Bus, MapPin, School, Clock, Loader2, RefreshCw, Navigation, WifiOff, Ma
 import { createPortal } from 'react-dom';
 import ModuleGuard from '../../components/ModuleGuard';
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
+import { decodeBusCSV } from '../../utils/csvCodec';
 
 // Anonymous auth token never expires on the client — no refresh timer needed.
 
@@ -118,8 +119,9 @@ export default function LiveBusTracker() {
         throw new Error(`HTTP Error ${response.status}`);
       }
 
-      const val = await response.json();
-      console.log('[LiveBusTracker] REST data received:', val);
+      const rawVal = await response.json();
+      const val = decodeBusCSV(rawVal);
+      console.log('[LiveBusTracker] REST data received and decoded:', val);
 
       // Update the anti-spam cache
       lastFetchCache = {
@@ -129,7 +131,7 @@ export default function LiveBusTracker() {
         timestamp: Date.now()
       };
 
-      setTrackingData(val); // null means route not started
+      setTrackingData(val); // null/undefined means route not started
       setFbError(null);
     } catch (err) {
       console.error('[LiveBusTracker] REST fetch error:', err.message);

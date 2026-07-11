@@ -6,6 +6,7 @@ import { ToastProvider } from './components/ToastProvider';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './config/supabaseClient';
 import { saveAccount, updateAccountTokens } from './utils/multiAccount';
+import { clearFirebaseSession } from './utils/firebaseAuth';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
@@ -716,6 +717,7 @@ export default function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         useAppStore.getState().clearSession();
+        clearFirebaseSession().catch(console.error);
       } else if (event === 'PASSWORD_RECOVERY') {
         localStorage.setItem('show_sync_password_reset', 'true');
         window.dispatchEvent(new Event('sync_login_success'));

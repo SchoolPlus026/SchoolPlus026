@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../config/supabaseClient';
 import { useAppStore } from '../store/useAppStore';
 import { AlertTriangle, Info, CheckCircle2, X } from 'lucide-react';
-import { ref, onValue, set } from 'firebase/database';
-import { rtdb } from '../config/firebaseClient';
 import { usePlan } from '../hooks/usePlan';
 
 const playSiren = () => {
@@ -68,7 +66,7 @@ export default function EmergencyOverlay() {
       const yesterday = new Date();
       yesterday.setHours(yesterday.getHours() - 24);
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('emergency_alerts')
         .select('*')
         .eq('school_id', schoolSettings.school_id)
@@ -82,30 +80,28 @@ export default function EmergencyOverlay() {
       }
     };
 
+    // 1. Initial read on app mount
     fetchActiveAlerts();
 
-    // Subscribe to foreground Capacitor Push event (Free & Premium)
+    // 2. Capture foreground push events natively
     const handlePushReceived = () => {
       fetchActiveAlerts();
     };
     window.addEventListener('sp-push-received', handlePushReceived);
 
-    // Subscribe to Firebase RTDB for real-time changes
-    let unsubscribeRTDB = null;
-    if (rtdb) {
-      const alertRef = ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`);
-      unsubscribeRTDB = onValue(alertRef, () => {
+    // 3. Visibility change listener to capture app state restoration
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
         fetchActiveAlerts();
-      });
-    }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('sp-push-received', handlePushReceived);
-      if (unsubscribeRTDB) {
-        unsubscribeRTDB();
-      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [schoolSettings?.school_id, user, role, isFree]);
+  }, [schoolSettings?.school_id, user, role]);
 
   const isTargeted = (alert) => {
     if (!role) return false;
@@ -180,9 +176,6 @@ export default function EmergencyOverlay() {
             <button 
               onClick={async () => {
                 await supabase.from('emergency_alerts').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', fullScreenAlert.id);
-                if (rtdb && schoolSettings?.school_id) {
-                  set(ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`), Date.now()).catch(console.error);
-                }
                 setActiveAlerts(prev => prev.filter(a => a.id !== fullScreenAlert.id));
               }}
               className="w-full py-4 bg-white text-red-600 rounded-xl font-black text-lg shadow-xl hover:bg-slate-100 transition-colors flex items-center justify-center gap-2 cursor-pointer border-0"
@@ -223,9 +216,6 @@ export default function EmergencyOverlay() {
               <button 
                 onClick={async () => {
                   await supabase.from('emergency_alerts').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', alert.id);
-                  if (rtdb && schoolSettings?.school_id) {
-                    set(ref(rtdb, `schools/${schoolSettings.school_id}/emergency_alert_update`), Date.now()).catch(console.error);
-                  }
                   setActiveAlerts(prev => prev.filter(a => a.id !== alert.id));
                 }}
                 className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-none"

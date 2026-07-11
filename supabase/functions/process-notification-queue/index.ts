@@ -109,6 +109,9 @@ async function sendFCMMulticast(
   );
 }
 
+let cachedFCMToken: string | null = null;
+let cachedFCMTokenExpiry: number = 0; // Epoch timestamp in seconds
+
 serve(async (req) => {
   const startTime = Date.now();
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -125,11 +128,22 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const serviceAccountKey = JSON.parse(serviceAccountRaw);
-    let accessToken;
-    try {
-      accessToken = await getFCMAccessToken(serviceAccountKey);
-    } catch (tokenErr) {
-      throw new Error("Could not authenticate with FCM: " + tokenErr.message);
+    
+    let accessToken: string;
+    const nowSec = Math.floor(Date.now() / 1000);
+    // Reuse token if warm and has at least 5 minutes of validity remaining
+    if (cachedFCMToken && cachedFCMTokenExpiry > nowSec + 300) {
+      console.log("[FCM] Reusing cached Google Access Token from memory");
+      accessToken = cachedFCMToken;
+    } else {
+      console.log("[FCM] Cache cold or expired. Fetching fresh Google Access Token...");
+      try {
+        accessToken = await getFCMAccessToken(serviceAccountKey);
+        cachedFCMToken = accessToken;
+        cachedFCMTokenExpiry = nowSec + 3600; // valid for 1 hour
+      } catch (tokenErr) {
+        throw new Error("Could not authenticate with FCM: " + tokenErr.message);
+      }
     }
 
     // Fetch and claim up to 100 pending notifications atomically using the claim_pending_notifications RPC
