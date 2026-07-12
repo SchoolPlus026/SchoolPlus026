@@ -29,7 +29,8 @@ export async function uploadFileToGDriveDirect(file, parentFolderId, { driveInde
 
   // 3. Perform Google Drive Multipart Upload directly from browser
   const boundary = '-------MultipartBoundary' + Math.random().toString(36).substring(2);
-  const delimiter = `\r\n--${boundary}\r\n`;
+  const firstDelimiter = `--${boundary}\r\n`;
+  const nextDelimiter = `\r\n--${boundary}\r\n`;
   const closeDelim = `\r\n--${boundary}--`;
 
   const metadata = {
@@ -39,10 +40,10 @@ export async function uploadFileToGDriveDirect(file, parentFolderId, { driveInde
 
   const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
   const multipartBlob = new Blob([
-    delimiter,
+    firstDelimiter,
     'Content-Type: application/json\r\n\r\n',
     metadataBlob,
-    delimiter,
+    nextDelimiter,
     `Content-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`,
     file,
     closeDelim
