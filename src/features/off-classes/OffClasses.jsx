@@ -194,6 +194,24 @@ export default function OffClasses() {
     premiumRefetchInterval: 60000
   });
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  const userRole = (role || '').toLowerCase();
+  const isAdmin = userRole === 'admin' || userRole === 'platform_admin';
+
+  useEffect(() => {
+    if (isAdmin) {
+      const hasCompleted = localStorage.getItem('onboarding_completed_off_classes');
+      if (!hasCompleted) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [isAdmin]);
+
+  const handleCompleteOnboarding = () => {
+    localStorage.setItem('onboarding_completed_off_classes', 'true');
+    setShowOnboarding(false);
+  };
   const [absentPeriods, setAbsentPeriods] = useState([]);
   const [freePeriods, setFreePeriods] = useState([]);
   const [substitutions, setSubstitutions] = useState([]);
@@ -208,8 +226,6 @@ export default function OffClasses() {
     return 'absent';
   });
 
-  const userRole = (role || '').toLowerCase();
-  const isAdmin = userRole === 'admin' || userRole === 'platform_admin';
   const isTeacher = userRole === 'teacher';
 
   const istNow = getISTNow();
@@ -789,6 +805,51 @@ export default function OffClasses() {
 
   return (
     <div className="space-y-6 fade-in pb-10">
+
+      {/* Onboarding Guide Card */}
+      {showOnboarding && (
+        <div 
+          className="fixed bottom-6 right-6 z-[150] w-full max-w-sm bg-slate-900 border border-slate-700/50 rounded-2xl p-5 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-500 text-left"
+          style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)' }}
+        >
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              </span>
+              <h4 className="text-xs font-black text-white uppercase tracking-widest">Off-Classes Onboarding Guide</h4>
+            </div>
+            <button 
+              onClick={handleCompleteOnboarding}
+              className="text-slate-400 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed mb-4">
+            Welcome to the Substitute Management portal! Here you can easily assign free substitute teachers to periods where regular teachers are absent. 
+          </p>
+          <div className="bg-slate-950/40 border border-white/5 rounded-xl p-3 mb-4 space-y-2">
+            <div className="flex gap-2">
+              <span className="text-[10px] bg-indigo-900/50 text-indigo-300 font-bold px-1.5 py-0.5 rounded h-fit">Tip 1</span>
+              <p className="text-[11px] text-slate-400">Click the <HelpCircle size={10} className="inline mx-0.5" /> help icons next to status badges to understand their meaning.</p>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-[10px] bg-indigo-900/50 text-indigo-300 font-bold px-1.5 py-0.5 rounded h-fit">Tip 2</span>
+              <p className="text-[11px] text-slate-400">Mark teachers absent to auto-generate period coverage cards below.</p>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button 
+              onClick={handleCompleteOnboarding}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
