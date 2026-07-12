@@ -1615,7 +1615,6 @@ export default function Login() {
               <select value={recoveryRole} onChange={e => setRecoveryRole(e.target.value)} className="sp-input text-sm">
                 <option value="student">Student</option>
                 <option value="teacher">Teacher</option>
-                <option value="staff">Staff Member</option>
                 <option value="driver">Bus Driver</option>
               </select>
             </div>
@@ -1731,7 +1730,6 @@ export default function Login() {
               <select value={recoveryRole} onChange={e => setRecoveryRole(e.target.value)} className="sp-input text-sm">
                 <option value="student">Student</option>
                 <option value="teacher">Teacher</option>
-                <option value="staff">Staff Member</option>
                 <option value="driver">Bus Driver</option>
               </select>
             </div>

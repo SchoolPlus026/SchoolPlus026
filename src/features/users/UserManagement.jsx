@@ -1010,7 +1010,6 @@ export default function UserManagement() {
           {[
             ['teacher', 'Teachers', BookOpen],
             ['student', 'Students', Users],
-            ['staff', 'Staff', Users],
             ['driver', 'Drivers', Bus],
             ['requests', 'New Student Requests', Users]
           ].map(([tab, label, Icon]) => {

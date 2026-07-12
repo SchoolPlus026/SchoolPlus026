@@ -337,7 +337,6 @@ export default function MarkAttendance() {
       <div className="card">
         <div className="tabs">
             <div className={`tab ${targetRole === 'teacher' ? 'active' : ''}`} onClick={() => { setTargetRole('teacher'); setSelectedClass(''); }}>Teacher Attendance</div>
-            <div className={`tab ${targetRole === 'staff' ? 'active' : ''}`} onClick={() => { setTargetRole('staff'); setSelectedClass(''); }}>Staff Attendance</div>
             <div className={`tab ${targetRole === 'driver' ? 'active' : ''}`} onClick={() => { setTargetRole('driver'); setSelectedClass(''); }}>Driver Attendance</div>
             <div className={`tab ${targetRole === 'student' ? 'active' : ''}`} onClick={() => { setTargetRole('student'); setSelectedClass(''); }}>Student Attendance</div>
         </div>
