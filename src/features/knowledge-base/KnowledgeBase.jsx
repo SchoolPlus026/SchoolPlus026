@@ -217,7 +217,8 @@ export default function KnowledgeBase() {
   // Auto-play the targeted module video if present in URL
   React.useEffect(() => {
     if (targetModuleAnchor && articles.length > 0 && !playingArticle) {
-      const match = articles.find(a => a.target_module === targetModuleAnchor);
+      const normalizedAnchor = targetModuleAnchor.replace(/-/g, '_');
+      const match = articles.find(a => a.target_module && a.target_module.replace(/-/g, '_') === normalizedAnchor);
       if (match) {
         setPlayingArticle(match);
         setSelectedCategory(match.category_id);
@@ -227,7 +228,7 @@ export default function KnowledgeBase() {
 
   const filtered = articles.filter(a =>
     (!search || a.title.toLowerCase().includes(search.toLowerCase()) || a.description?.toLowerCase().includes(search.toLowerCase())) &&
-    (!targetModuleAnchor || playingArticle || a.target_module === targetModuleAnchor || !selectedCategory)
+    (!targetModuleAnchor || playingArticle || (a.target_module && a.target_module.replace(/-/g, '_') === targetModuleAnchor.replace(/-/g, '_')) || !selectedCategory)
   );
 
   return (

@@ -12,6 +12,17 @@ import UserAvatar from '../../components/UserAvatar';
 function StatusHelpIcon({ status }) {
   const [show, setShow] = useState(false);
 
+  useEffect(() => {
+    if (!show) return;
+    const handleClose = () => setShow(false);
+    document.addEventListener('click', handleClose);
+    document.addEventListener('touchstart', handleClose);
+    return () => {
+      document.removeEventListener('click', handleClose);
+      document.removeEventListener('touchstart', handleClose);
+    };
+  }, [show]);
+
   const explanations = {
     pending: "Substitution is assigned but the teacher has not accepted or rejected it yet.",
     accepted: "Substitute teacher has accepted the substitution duty.",
