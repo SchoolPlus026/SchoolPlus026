@@ -253,5 +253,221 @@ export const moduleWalkthroughs = {
         ]
       }
     }
+  },
+  syllabus: {
+    title: "Syllabus Progress Guide",
+    subtitle: "Track subject topics, configure chapters, and monitor academic progress.",
+    roles: {
+      admin: {
+        description: "Welcome! As an Admin, this guide helps you manage subject topics, assign them to classes, and monitor teaching progress across all teachers.",
+        steps: [
+          {
+            title: "1. Configure Classes & Subjects",
+            text: "Navigate to settings to pair subjects with standard classes and divisions."
+          },
+          {
+            title: "2. Track Teacher Progress",
+            text: "Monitor the progress dashboard to see which chapters are completed, delayed, or in progress for each subject."
+          }
+        ],
+        tips: [
+          "Review progress reports regularly to plan revisions before final exams.",
+          "Coordinate with teachers if subject timelines are slipping."
+        ]
+      },
+      teacher: {
+        description: "Welcome! As a Teacher, this guide helps you log syllabus progress, update topic completion statuses, and plan classes.",
+        steps: [
+          {
+            title: "1. Update Subject Topics",
+            text: "Select your assigned class and subject. View the list of chapters and topics."
+          },
+          {
+            title: "2. Mark Completed",
+            text: "Toggle topics as 'Completed' or 'In Progress' and enter completion dates to update the admin dashboard."
+          }
+        ],
+        tips: [
+          "Keep topic logs updated weekly to provide accurate metrics to the administration.",
+          "Add remarks if extra classes are needed to cover specific complex topics."
+        ]
+      }
+    }
+  },
+  bus_alerts: {
+    title: "Bus Tracker & Alerts Guide",
+    subtitle: "Track school bus coordinates, manage driver pairings, and send delay notices.",
+    roles: {
+      admin: {
+        description: "Welcome! As an Admin, this guide helps you configure bus routes, pair drivers with vehicle numbers, and broadcast route delays to parents.",
+        steps: [
+          {
+            title: "1. Route Configuration",
+            text: "Set up starting points, destinations, and schedules for each bus route."
+          },
+          {
+            title: "2. Assign Drivers & Vehicles",
+            text: "Link drivers with vehicles and assign student passenger logs."
+          },
+          {
+            title: "3. Broadcast Delay Alerts",
+            text: "Click 'Send Delay Alert' to broadcast weather delays or route deviations instantly to all affected parents."
+          }
+        ],
+        tips: [
+          "Check driver GPS connectivity logs regularly to ensure tracking data accuracy.",
+          "Notify parents immediately if a route change is enforced."
+        ]
+      },
+      teacher: {
+        description: "Welcome! This guide helps you view driver coordinates and access schedules for school transit routes.",
+        steps: [
+          {
+            title: "1. Check Active Routes",
+            text: "View arrival timings and passenger registers for school transport buses."
+          }
+        ],
+        tips: [
+          "Reach out to transport coordinators in case of student missing status logs."
+        ]
+      },
+      student: {
+        description: "Welcome! This guide helps you track your school bus live, view driver details, and estimate arrival times.",
+        steps: [
+          {
+            title: "1. Track Live Bus",
+            text: "View the live map to track the real-time coordinates of your assigned bus route."
+          },
+          {
+            title: "2. Driver Info",
+            text: "Check driver name, phone number, and vehicle registration details."
+          }
+        ],
+        tips: [
+          "Be at your designated bus stop at least 5 minutes before scheduled arrival."
+        ]
+      }
+    }
+  },
+  lost_found: {
+    title: "Lost & Found Guide",
+    subtitle: "Report misplaced belongings, claim found items, and manage returns.",
+    roles: {
+      admin: {
+        description: "Welcome! As an Admin, this guide helps you manage reported lost/found items and verify ownership to resolve claims.",
+        steps: [
+          {
+            title: "1. Claim Approval",
+            text: "Review claim requests submitted by students. Verify details (photos, purchase proof) before approving."
+          },
+          {
+            title: "2. Close Resolved Items",
+            text: "Once items are returned, mark them as 'Returned' to archive them."
+          }
+        ],
+        tips: [
+          "Verify ownership carefully for high-value items (smartwatches, cash, keys).",
+          "Ensure found items are kept in the physical school repository room."
+        ]
+      },
+      teacher: {
+        description: "Welcome! This guide helps you list items you found or report your lost belongings.",
+        steps: [
+          {
+            title: "1. Report Found Item",
+            text: "Found an item? Post it to help find its owner. Choose a collection location."
+          },
+          {
+            title: "2. Report Lost Item",
+            text: "Post details of a lost item including photo, description, and location where it was lost."
+          }
+        ],
+        tips: [
+          "Hand over found items to the administrative desk for safe storage."
+        ]
+      },
+      student: {
+        description: "Welcome! This guide helps you report lost items, list found items, and submit claims to recover your lost belongings.",
+        steps: [
+          {
+            title: "1. Report Lost Item",
+            text: "Click 'Report Lost'. Upload item details, photos, estimated value, and location where it was misplaced."
+          },
+          {
+            title: "2. Report Found Item",
+            text: "Found an item? Post it to help find its owner."
+          },
+          {
+            title: "3. Claim Item",
+            text: "Browse found items listed by others. If you see yours, click 'Claim' and write verification details for the Admin."
+          }
+        ],
+        tips: [
+          "Check the active found items feed regularly before reporting a new lost item.",
+          "Provide detailed identifying descriptions to speed up owner verification."
+        ]
+      }
+    }
+  },
+  // Mapping duplicate key to protect against hyphen-to-underscore differences
+  lost_and_found: {
+    title: "Lost & Found Guide",
+    subtitle: "Report misplaced belongings, claim found items, and manage returns.",
+    roles: {
+      admin: {
+        description: "Welcome! As an Admin, this guide helps you manage reported lost/found items and verify ownership to resolve claims.",
+        steps: [
+          {
+            title: "1. Claim Approval",
+            text: "Review claim requests submitted by students. Verify details (photos, purchase proof) before approving."
+          },
+          {
+            title: "2. Close Resolved Items",
+            text: "Once items are returned, mark them as 'Returned' to archive them."
+          }
+        ],
+        tips: [
+          "Verify ownership carefully for high-value items (smartwatches, cash, keys).",
+          "Ensure found items are kept in the school repository room."
+        ]
+      },
+      teacher: {
+        description: "Welcome! This guide helps you list items you found or report your lost belongings.",
+        steps: [
+          {
+            title: "1. Report Found Item",
+            text: "Found an item? Post it to help find its owner. Choose a collection location."
+          },
+          {
+            title: "2. Report Lost Item",
+            text: "Post details of a lost item including photo, description, and location where it was lost."
+          }
+        ],
+        tips: [
+          "Hand over found items to the administrative desk for safe storage."
+        ]
+      },
+      student: {
+        description: "Welcome! This guide helps you report lost items, list found items, and submit claims to recover your lost belongings.",
+        steps: [
+          {
+            title: "1. Report Lost Item",
+            text: "Click 'Report Lost'. Upload item details, photos, estimated value, and location where it was misplaced."
+          },
+          {
+            title: "2. Report Found Item",
+            text: "Found an item? Post it to help find its owner."
+          },
+          {
+            title: "3. Claim Item",
+            text: "Browse found items listed by others. If you see yours, click 'Claim' and write verification details for the Admin."
+          }
+        ],
+        tips: [
+          "Check the active found items feed regularly before reporting a new lost item.",
+          "Provide detailed identifying descriptions to speed up owner verification."
+        ]
+      }
+    }
   }
 };
