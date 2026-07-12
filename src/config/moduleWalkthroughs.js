@@ -54,5 +54,204 @@ export const moduleWalkthroughs = {
         ]
       }
     }
+  },
+  leaves: {
+    title: "Leaves Management Guide",
+    subtitle: "Submit leave applications and coordinate staff attendance.",
+    roles: {
+      admin: {
+        description: "Welcome! As an Admin, this guide helps you review, approve, or reject staff leave applications and manage their annual leave balances.",
+        steps: [
+          {
+            title: "1. Review Pending Requests",
+            text: "View the list of leave applications from teachers and staff. Check the dates, type, and reason."
+          },
+          {
+            title: "2. Check Class Coverage",
+            text: "Ensure substitute arrangements (Off Classes) are in place for the absent periods before approving."
+          },
+          {
+            title: "3. Approve or Reject",
+            text: "Click 'Approve' to authorize the leave (sends notice to staff) or 'Reject' with feedback if coverage is unavailable."
+          },
+          {
+            title: "4. Manage Balances",
+            text: "Click 'Leave Balances' to view or manually credit/deduct annual quotas for specific staff members."
+          }
+        ],
+        tips: [
+          "Approving a leave automatically marks affected periods on the substitution board.",
+          "Ensure that critical subject teachers do not take leave on same days."
+        ]
+      },
+      teacher: {
+        description: "Welcome! This guide helps you submit new leave requests and track your remaining leave balances.",
+        steps: [
+          {
+            title: "1. Request Leave",
+            text: "Click 'Apply for Leave'. Select the dates, leave type (Casual, Sick, etc.), and provide a reason."
+          },
+          {
+            title: "2. Check Balances",
+            text: "View your personalized balances table to see remaining days left for each category."
+          },
+          {
+            title: "3. Track Status",
+            text: "Monitor the history log to see if your request is 'Pending', 'Approved', or 'Rejected' by the Admin."
+          }
+        ],
+        tips: [
+          "Submit applications at least 3 days in advance to allow time for substitution planning.",
+          "Emergency leaves can be marked as 'Sick Leave' for immediate approval."
+        ]
+      }
+    }
+  },
+  complaint_box: {
+    title: "Complaint Box & Feedback Guide",
+    subtitle: "File concerns, submit anonymous suggestions, and track ticket resolutions.",
+    roles: {
+      admin: {
+        description: "Welcome! As an Admin, this guide helps you monitor complaints filed by students or teachers, assign them to staff, and track resolutions.",
+        steps: [
+          {
+            title: "1. View Complaints Inbox",
+            text: "Browse complaints filed under different categories. Read description details and check anonymous statuses."
+          },
+          {
+            title: "2. Assign Owner",
+            text: "Delegate the complaint to a specific coordinator or staff member for resolution."
+          },
+          {
+            title: "3. Mark Resolved",
+            text: "Once resolved, update the status and write a summary. Students will receive an anonymous status update notification."
+          }
+        ],
+        tips: [
+          "Handle complaints with high sensitivity. Pinned anonymous complaints cannot be traced back.",
+          "Assign coordinators promptly to keep response times low."
+        ]
+      },
+      teacher: {
+        description: "Welcome! This guide helps you raise concerns or submit suggestions directly to the school administration.",
+        steps: [
+          {
+            title: "1. Submit Complaint",
+            text: "Click 'File Complaint'. Choose a category, write details, and toggle 'Submit Anonymously' if you wish to hide your identity."
+          },
+          {
+            title: "2. Track My Tickets",
+            text: "View the status of your non-anonymous complaints to see if they are 'Assigned', 'In Progress', or 'Resolved'."
+          }
+        ],
+        tips: [
+          "Anonymous complaints will not display in your 'My Tickets' log to protect your identity.",
+          "Provide details clearly to help admins resolve concerns faster."
+        ]
+      },
+      student: {
+        description: "Welcome! This guide helps you raise concerns or submit suggestions directly to the school administration.",
+        steps: [
+          {
+            title: "1. Submit Complaint",
+            text: "Click 'File Complaint'. Choose a category, write details, and toggle 'Submit Anonymously' if you wish to hide your identity."
+          },
+          {
+            title: "2. Track My Tickets",
+            text: "View the status of your non-anonymous complaints to see if they are 'Assigned', 'In Progress', or 'Resolved'."
+          }
+        ],
+        tips: [
+          "Anonymous complaints will not display in your 'My Tickets' log to protect your identity.",
+          "Provide details clearly to help admins resolve concerns faster."
+        ]
+      }
+    }
+  },
+  emergency: {
+    title: "Emergency Alerts Guide",
+    subtitle: "Broadcast school-wide emergency warnings and access direct safety protocols.",
+    roles: {
+      admin: {
+        description: "Welcome! As an Admin, this guide helps you broadcast critical emergency alerts (closures, safety drills) to all students, parents, and staff.",
+        steps: [
+          {
+            title: "1. Draft Emergency Alert",
+            text: "Select 'Broadcast Alert'. Choose the emergency severity level (Info, Warning, Critical)."
+          },
+          {
+            title: "2. Send SMS & Push",
+            text: "Write clear safety instructions, select target recipients (All, Staff Only, etc.), and send. This delivers instant push notifications and SMS."
+          },
+          {
+            title: "3. View History",
+            text: "Review past alerts and check delivery success rates."
+          }
+        ],
+        tips: [
+          "Use 'Critical' level sparingly for actual situations like weather closures or safety drills.",
+          "Double-check contact numbers before sending SMS broadcasts."
+        ]
+      },
+      teacher: {
+        description: "Welcome! This guide helps you view active school-wide emergency warnings and access direct safety protocols.",
+        steps: [
+          {
+            title: "1. View Active Warnings",
+            text: "Check the dashboard or emergency banner for active high-priority announcements."
+          },
+          {
+            title: "2. Safety Protocols",
+            text: "Read safety instructions attached to the alert and check coordinator details."
+          }
+        ],
+        tips: [
+          "Keep push notifications enabled on your device to receive instant critical warnings."
+        ]
+      },
+      student: {
+        description: "Welcome! This guide helps you view active school-wide emergency warnings and access direct safety protocols.",
+        steps: [
+          {
+            title: "1. View Active Warnings",
+            text: "Check the dashboard or emergency banner for active high-priority announcements."
+          },
+          {
+            title: "2. Safety Protocols",
+            text: "Read safety instructions attached to the alert."
+          }
+        ],
+        tips: [
+          "Keep push notifications enabled on your device to receive instant critical warnings."
+        ]
+      }
+    }
+  },
+  billing: {
+    title: "Billing & Subscription Guide",
+    subtitle: "Manage school plans, renew subscriptions, upgrade limits, and download invoices.",
+    roles: {
+      admin: {
+        description: "Welcome! This guide helps you manage your SchoolOS+ plan, renew subscriptions, upgrade limits, and download invoices.",
+        steps: [
+          {
+            title: "1. Plan Summary",
+            text: "View your current active tier, renewal date, and usage counters (student/staff limits)."
+          },
+          {
+            title: "2. Upgrade or Renew",
+            text: "Click 'Manage Subscription' to upgrade your plan or renew using secure Razorpay integration."
+          },
+          {
+            title: "3. Billing History",
+            text: "Access and download past invoices and receipts for school accounting."
+          }
+        ],
+        tips: [
+          "Renew early to avoid account locking or service disruption.",
+          "Contact support directly if payment is deducted but does not show in the dashboard."
+        ]
+      }
+    }
   }
 };
