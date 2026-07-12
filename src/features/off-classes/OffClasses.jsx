@@ -3,11 +3,106 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import {
   AlertTriangle, Loader2, UserX, UserCheck, Clock, Bell,
-  CheckCircle2, RefreshCw, Zap, ShieldAlert, X, ThumbsUp, ThumbsDown, Plus, Check
+  CheckCircle2, RefreshCw, Zap, ShieldAlert, X, ThumbsUp, ThumbsDown, Plus, Check, HelpCircle
 } from 'lucide-react';
 import { usePlan } from '../../hooks/usePlan';
 import { useTieredCache, isNightTime } from '../../hooks/useTieredCache';
 import UserAvatar from '../../components/UserAvatar';
+
+function StatusHelpIcon({ status }) {
+  const [show, setShow] = useState(false);
+
+  const explanations = {
+    pending: "Substitution is assigned but the teacher has not accepted or rejected it yet.",
+    accepted: "Substitute teacher has accepted the substitution duty.",
+    completed: "Substitute teacher has successfully taken and completed this class.",
+    cancelled: "This substitution request was cancelled by the Admin.",
+    expired: "No teacher accepted this pending request before the class time started, so it expired.",
+    no_teacher_available: "No teacher was free or accepted the broadcast request, so it was marked uncovered.",
+    class_over: "The class timing for this period has completed.",
+    overdue: "The class start time has passed but no teacher has marked it as started yet.",
+    no_substitute_available: "No substitute teacher was found or assigned to this off period."
+  };
+
+  const text = explanations[status] || "Status explanation not available.";
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+      <button
+        type="button"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShow(!show); }}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: '2px',
+          margin: 0,
+          color: 'currentColor',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          opacity: 0.8,
+        }}
+        title="Click for explanation"
+      >
+        <HelpCircle size={12} />
+      </button>
+      {show && (
+        <div style={{
+          position: 'absolute',
+          bottom: '100%',
+          left: '50%',
+          transform: 'translateX(-50%) translateY(-8px)',
+          background: 'var(--card-bg, #ffffff)',
+          border: '1px solid var(--card-border, #e2e8f0)',
+          borderRadius: '10px',
+          padding: '8px 12px',
+          width: '180px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          zIndex: 9999,
+          pointerEvents: 'none',
+          textAlign: 'left',
+        }}>
+          <p style={{
+            margin: 0,
+            fontSize: '11px',
+            lineHeight: '1.4',
+            color: 'var(--text-main, #1e293b)',
+            fontWeight: 500,
+            textTransform: 'none',
+            letterSpacing: 'normal'
+          }}>
+            {text}
+          </p>
+          {/* Tooltip arrow */}
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 0,
+            height: 0,
+            borderLeft: '6px solid transparent',
+            borderRight: '6px solid transparent',
+            borderTop: '6px solid var(--card-border, #e2e8f0)',
+          }} />
+          <div style={{
+            position: 'absolute',
+            top: '99%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 0,
+            height: 0,
+            borderLeft: '5px solid transparent',
+            borderRight: '5px solid transparent',
+            borderTop: '5px solid var(--card-bg, #ffffff)',
+          }} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Attendance JSONB Decode Codec (v82_attendance_jsonb_compression) ───
 const STATUS_DECODE = { P: 'Present', A: 'Absent', L: 'Late', H: 'Half_day', V: 'Leave' };
@@ -1047,16 +1142,19 @@ export default function OffClasses() {
                             <td className="py-3 px-4 text-red-600 dark:text-red-400 font-semibold">{s.original?.name || '—'}</td>
                             <td className="py-3 px-4 text-emerald-700 dark:text-emerald-400 font-semibold">{s.substitute?.name || 'Open Cover / Volunteer'}</td>
                             <td className="py-3 px-4">
-                              <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider border ${
-                                effStatus === 'completed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-150 dark:border-emerald-500/20' :
-                                effStatus === 'accepted' ? 'bg-blue-50 text-blue-750 dark:bg-blue-500/20 dark:text-blue-400 border-blue-150 dark:border-blue-500/20' :
-                                effStatus === 'cancelled' ? 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-150 dark:border-red-500/20' :
-                                effStatus === 'expired' ? 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-150 dark:border-red-500/20' :
-                                effStatus === 'no_teacher_available' ? 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-150 dark:border-red-500/20' :
-                                'bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 border-amber-150 dark:border-amber-500/20'
-                              }`}>
-                                {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus === 'expired' ? 'Not Accepted' : effStatus}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider border ${
+                                  effStatus === 'completed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-150 dark:border-emerald-500/20' :
+                                  effStatus === 'accepted' ? 'bg-blue-50 text-blue-750 dark:bg-blue-500/20 dark:text-blue-400 border-blue-150 dark:border-blue-500/20' :
+                                  effStatus === 'cancelled' ? 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-150 dark:border-red-500/20' :
+                                  effStatus === 'expired' ? 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-150 dark:border-red-500/20' :
+                                  effStatus === 'no_teacher_available' ? 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-150 dark:border-red-500/20' :
+                                  'bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 border-amber-150 dark:border-amber-500/20'
+                                }`}>
+                                  {effStatus === 'no_teacher_available' ? 'No Teacher Available' : effStatus === 'expired' ? 'Not Accepted' : effStatus}
+                                </span>
+                                <StatusHelpIcon status={effStatus} />
+                              </div>
                             </td>
                             <td className="py-3 px-4">
                               <span className="flex items-center gap-1 text-xs text-slate-500">
@@ -1155,8 +1253,9 @@ function AbsentPeriodRow({
     }
 
     return (
-      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg uppercase tracking-wider flex items-center gap-1 ${badgeClass}`}>
+      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg uppercase tracking-wider flex items-center gap-1.5 ${badgeClass}`}>
         {labelText}
+        <StatusHelpIcon status={statusValue} />
       </span>
     );
   };
