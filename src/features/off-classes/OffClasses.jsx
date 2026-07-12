@@ -8,6 +8,7 @@ import {
 import { usePlan } from '../../hooks/usePlan';
 import { useTieredCache, isNightTime } from '../../hooks/useTieredCache';
 import UserAvatar from '../../components/UserAvatar';
+import { moduleWalkthroughs } from '../../config/moduleWalkthroughs';
 
 function StatusHelpIcon({ status }) {
   const [show, setShow] = useState(false);
@@ -807,45 +808,69 @@ export default function OffClasses() {
     <div className="space-y-6 fade-in pb-10">
 
       {/* Onboarding Guide Card */}
-      {showOnboarding && (
+      {showOnboarding && moduleWalkthroughs?.off_classes && (
         <div 
-          className="fixed bottom-6 right-6 z-[150] w-full max-w-sm bg-slate-900 border border-slate-700/50 rounded-2xl p-5 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-500 text-left"
-          style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)' }}
+          className="fixed bottom-6 right-6 z-[150] w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-500 text-left flex flex-col"
+          style={{ 
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)', 
+            maxHeight: '80vh',
+            overflowY: 'auto'
+          }}
         >
-          <div className="flex items-start justify-between mb-3">
+          {/* Header */}
+          <div className="flex items-start justify-between pb-3 border-b border-white/5 mb-3">
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
               </span>
-              <h4 className="text-xs font-black text-white uppercase tracking-widest">Off-Classes Onboarding Guide</h4>
+              <div>
+                <h4 className="text-xs font-black text-white uppercase tracking-widest">{moduleWalkthroughs.off_classes.title}</h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">{moduleWalkthroughs.off_classes.subtitle}</p>
+              </div>
             </div>
             <button 
               onClick={handleCompleteOnboarding}
-              className="text-slate-400 hover:text-white transition-colors"
+              className="text-slate-400 hover:text-white transition-colors p-1"
             >
               <X size={16} />
             </button>
           </div>
+
+          {/* Description */}
           <p className="text-xs text-slate-300 leading-relaxed mb-4">
-            Welcome to the Substitute Management portal! Here you can easily assign free substitute teachers to periods where regular teachers are absent. 
+            {moduleWalkthroughs.off_classes.description}
           </p>
-          <div className="bg-slate-950/40 border border-white/5 rounded-xl p-3 mb-4 space-y-2">
-            <div className="flex gap-2">
-              <span className="text-[10px] bg-indigo-900/50 text-indigo-300 font-bold px-1.5 py-0.5 rounded h-fit">Tip 1</span>
-              <p className="text-[11px] text-slate-400">Click the <HelpCircle size={10} className="inline mx-0.5" /> help icons next to status badges to understand their meaning.</p>
-            </div>
-            <div className="flex gap-2">
-              <span className="text-[10px] bg-indigo-900/50 text-indigo-300 font-bold px-1.5 py-0.5 rounded h-fit">Tip 2</span>
-              <p className="text-[11px] text-slate-400">Mark teachers absent to auto-generate period coverage cards below.</p>
-            </div>
+
+          {/* Steps */}
+          <div className="space-y-3 mb-4">
+            <h5 className="text-[10px] font-black uppercase tracking-wider text-indigo-400">Setup Guidelines:</h5>
+            {moduleWalkthroughs.off_classes.steps.map((step, idx) => (
+              <div key={idx} className="bg-slate-950/40 border border-white/5 rounded-xl p-3">
+                <div className="text-[11px] font-bold text-white mb-1">{step.title}</div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">{step.text}</p>
+              </div>
+            ))}
           </div>
-          <div className="flex justify-end">
+
+          {/* Tips */}
+          <div className="bg-indigo-950/20 border border-indigo-500/10 rounded-xl p-3 mb-4 space-y-2">
+            <h5 className="text-[10px] font-black uppercase tracking-wider text-indigo-300">Pro Tips:</h5>
+            {moduleWalkthroughs.off_classes.tips.map((tip, idx) => (
+              <div key={idx} className="flex gap-2 text-[11px] text-slate-400 leading-relaxed">
+                <span>•</span>
+                <p>{tip}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Action Footer */}
+          <div className="flex justify-end pt-2 border-t border-white/5">
             <button 
               onClick={handleCompleteOnboarding}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
             >
-              Got it!
+              Got it, Close
             </button>
           </div>
         </div>
@@ -870,13 +895,25 @@ export default function OffClasses() {
             <AlertTriangle size={18} className="text-amber-400" />
             <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Off Classes — Substitute Management</h3>
           </div>
-          <button
-            onClick={loadData}
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw size={15} />
-          </button>
+          <div className="flex items-center gap-1">
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setShowOnboarding(true)}
+                className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                title="View Guide"
+              >
+                <HelpCircle size={16} />
+              </button>
+            )}
+            <button
+              onClick={loadData}
+              className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw size={15} />
+            </button>
+          </div>
         </div>
         <p className="text-xs text-slate-500 font-semibold mt-1">
           Today: {today} ({todayDay}) • IST {getISTNow().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}

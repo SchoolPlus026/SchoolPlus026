@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../config/supabaseClient';
 import { BookOpen, Play, ExternalLink, ChevronRight, Loader2, Search, HelpCircle, Image, Volume2, FileText, X } from 'lucide-react';
-
+import { moduleWalkthroughs } from '../../config/moduleWalkthroughs';
 // ─── YouTube helpers ────────────────────────────────────────────────────────
 function extractYouTubeId(url) {
   const patterns = [
@@ -214,19 +214,47 @@ export default function KnowledgeBase() {
     enabled: true,
   });
 
+  const localArticles = React.useMemo(() => {
+    return Object.entries(moduleWalkthroughs).map(([key, value]) => {
+      const stepsText = value.steps.map(s => `${s.title}\n${s.text}`).join('\n\n');
+      const tipsText = value.tips ? `\n\nPRO TIPS:\n` + value.tips.map(t => `• ${t}`).join('\n') : '';
+      const fullText = `${value.description}\n\n${stepsText}${tipsText}`;
+
+      return {
+        id: `local_${key}`,
+        category_id: null,
+        title: value.title,
+        description: fullText,
+        video_type: 'text',
+        video_url: null,
+        thumbnail_url: null,
+        target_module: key,
+        is_published: true,
+        kb_categories: { name: 'Local Guide' },
+        sort_order: -100
+      };
+    });
+  }, []);
+
+  const combinedArticles = React.useMemo(() => {
+    return [...localArticles, ...articles];
+  }, [localArticles, articles]);
+
   // Auto-play the targeted module video if present in URL
   React.useEffect(() => {
-    if (targetModuleAnchor && articles.length > 0 && !playingArticle) {
+    if (targetModuleAnchor && combinedArticles.length > 0 && !playingArticle) {
       const normalizedAnchor = targetModuleAnchor.replace(/-/g, '_');
-      const match = articles.find(a => a.target_module && a.target_module.replace(/-/g, '_') === normalizedAnchor);
+      const match = combinedArticles.find(a => a.target_module && a.target_module.replace(/-/g, '_') === normalizedAnchor);
       if (match) {
         setPlayingArticle(match);
-        setSelectedCategory(match.category_id);
+        if (match.category_id) {
+          setSelectedCategory(match.category_id);
+        }
       }
     }
-  }, [targetModuleAnchor, articles]);
+  }, [targetModuleAnchor, combinedArticles, playingArticle]);
 
-  const filtered = articles.filter(a =>
+  const filtered = combinedArticles.filter(a =>
     (!search || a.title.toLowerCase().includes(search.toLowerCase()) || a.description?.toLowerCase().includes(search.toLowerCase())) &&
     (!targetModuleAnchor || playingArticle || (a.target_module && a.target_module.replace(/-/g, '_') === targetModuleAnchor.replace(/-/g, '_')) || !selectedCategory)
   );
