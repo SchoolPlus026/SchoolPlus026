@@ -38,25 +38,47 @@ function MediaModal({ article, onClose }) {
     return idMatch ? `https://drive.google.com/uc?export=download&id=${idMatch[1]}` : url;
   };
 
-  // Dynamically initialize localized google translate element only for this modal container
+  const [modalLang, setModalLang] = useState('en');
+
+  const handleLanguageChange = (e) => {
+    const val = e.target.value;
+    setModalLang(val);
+    
+    // Update cookies
+    if (val === 'en') {
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.${window.location.hostname}; path=/;`;
+    } else {
+      document.cookie = `googtrans=/en/${val}; path=/`;
+      document.cookie = `googtrans=/en/${val}; domain=.${window.location.hostname}; path=/`;
+    }
+
+    // Trigger changes in global translate element
+    const selectEl = document.querySelector('.goog-te-combo');
+    if (selectEl) {
+      selectEl.value = val;
+      selectEl.dispatchEvent(new Event('change'));
+    }
+  };
+
   useEffect(() => {
-    const initTranslate = () => {
-      if (window.google && window.google.translate) {
-        try {
-          new window.google.translate.TranslateElement({
-            pageLanguage: 'en',
-            includedLanguages: 'hi,mr,gu,ta,te,kn,ml,pa,bn',
-            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE
-          }, 'modal-translate-trigger');
-        } catch (err) {
-          console.warn('Google Translate initialization failed:', err);
-        }
+    // Sync initial state from current cookie if active
+    const cookieMatch = document.cookie.match(/googtrans=\/en\/([a-z]+)/);
+    if (cookieMatch) {
+      setModalLang(cookieMatch[1]);
+    }
+
+    return () => {
+      // Revert language back to English when modal is closed
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.${window.location.hostname}; path=/;`;
+      
+      const selectEl = document.querySelector('.goog-te-combo');
+      if (selectEl) {
+        selectEl.value = 'en';
+        selectEl.dispatchEvent(new Event('change'));
       }
     };
-
-    // Run after a short delay to ensure target DOM node is mounted
-    const timer = setTimeout(initTranslate, 150);
-    return () => clearTimeout(timer);
   }, []);
 
   const isVideo = article.video_type === 'youtube' || article.video_type === 'gdrive';
@@ -87,12 +109,26 @@ function MediaModal({ article, onClose }) {
         <div className="flex items-center justify-between p-5 border-b border-slate-800/80 bg-slate-950/40 gap-4">
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-white text-base leading-snug truncate">{article.title}</h3>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-3 mt-2">
               <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                 {article.video_type === 'text' ? 'Setup Guide' : (article.video_type || 'TEXT').toUpperCase()}
               </span>
-              {/* Google Translate element trigger spot */}
-              <div id="modal-translate-trigger" className="google-translate-modal-widget"></div>
+              
+              {/* Isolated custom select that triggers hidden Google Translate */}
+              <select
+                value={modalLang}
+                onChange={handleLanguageChange}
+                className="bg-slate-850 text-white border border-white/10 rounded-lg px-2 py-0.5 text-[10px] font-bold outline-none cursor-pointer hover:bg-slate-800 transition-colors"
+              >
+                <option value="en">English</option>
+                <option value="hi">हिन्दी (Hindi)</option>
+                <option value="mr">मराठी (Marathi)</option>
+                <option value="gu">ગુજરાતી (Gujarati)</option>
+                <option value="bn">বাংলা (Bengali)</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+                <option value="te">తెలుగు (Telugu)</option>
+                <option value="kn">ಕನ್ನಡ (Kannada)</option>
+              </select>
             </div>
           </div>
           <button 
@@ -170,7 +206,7 @@ function MediaModal({ article, onClose }) {
 
         {/* Description / Instructions */}
         {article.description && (
-          <div className="p-5 border-t border-slate-800/80 bg-slate-950/20 max-h-[250px] overflow-y-auto">
+          <div className="p-5 border-t border-slate-800/80 bg-slate-950/20 max-h-[60vh] overflow-y-auto">
             <h5 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Step-by-step Instructions:</h5>
             <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
               {article.description}
