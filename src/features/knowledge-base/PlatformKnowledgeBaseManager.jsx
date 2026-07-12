@@ -129,10 +129,14 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
           </select>
         </div>
         <div>
-          <label className="muted small block mb-1 font-semibold">Video Type *</label>
+          <label className="muted small block mb-1 font-semibold">Media Type *</label>
           <select required className="sp-input block w-full" value={videoType} onChange={e => { setVideoType(e.target.value); setVideoUrl(''); }}>
-            <option value="youtube">YouTube</option>
-            <option value="gdrive">Google Drive</option>
+            <option value="youtube">YouTube Video</option>
+            <option value="gdrive">Google Drive Video</option>
+            <option value="image">Image / Infographic</option>
+            <option value="audio">Audio Guide</option>
+            <option value="document">PDF / Document</option>
+            <option value="text">Text Only</option>
           </select>
         </div>
       </div>
@@ -168,66 +172,83 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
           <option value="contact">Contact</option>
           <option value="settings">Settings</option>
         </select>
-        <p className="text-[10px] text-slate-500 mt-1">If a user clicks "Help" in this module, they will be auto-routed to this video.</p>
+        <p className="text-[10px] text-slate-500 mt-1">If a user clicks "Help" in this module, they will be auto-routed to this article.</p>
       </div>
 
-      <div>
-        <label className="muted small block mb-1 font-semibold">
-          {videoType === 'youtube' ? 'YouTube URL *' : 'Google Drive Video'}
-        </label>
-        {videoType === 'youtube' ? (
-          <div className="flex gap-2 items-center">
-            <Youtube size={18} className="text-red-400 flex-shrink-0" />
-            <input required className="sp-input block w-full" placeholder="https://youtu.be/..." value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
-          </div>
-        ) : (
-          <div>
-            <input 
-              type="file" 
-              ref={fileRef} 
-              style={{ display: 'none' }} 
-              accept="video/*,image/*" 
-              multiple 
-              onChange={e => handleDriveUpload(e.target.files)} 
-            />
-            {videoUrl ? (
-              <div className="flex items-center gap-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-xl">
-                <HardDrive size={18} className="text-blue-400 flex-shrink-0" />
-                <span className="text-sm text-blue-300 flex-1 truncate">{videoUrl}</span>
-                <button type="button" onClick={() => setVideoUrl('')} className="text-red-400 hover:text-red-300"><X size={14} /></button>
-              </div>
-            ) : (
-              <div
-                onClick={() => { 
-                  if (uploading) return;
-                  fileRef.current?.click();
-                }}
-                style={{ border: '2px dashed rgba(59,130,246,0.4)', borderRadius: 12, padding: '24px 16px', textAlign: 'center', cursor: uploading ? 'wait' : 'pointer', background: 'rgba(59,130,246,0.05)' }}>
-                {uploading ? (
-                  <>
-                    <Loader2 size={24} className="animate-spin text-blue-400 mx-auto mb-2" />
-                    <div className="text-sm text-blue-300 font-bold">Uploading ({uploadProgress.current}/{uploadProgress.total})</div>
-                    <div className="w-full bg-blue-900/20 h-1.5 rounded-full mt-3 max-w-[200px] mx-auto overflow-hidden">
-                      <div className="bg-blue-500 h-full transition-all duration-300" style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }} />
-                    </div>
-                  </>
-                ) : (
-                  <><HardDrive size={24} className="text-blue-400 mx-auto mb-2" /><div className="text-sm text-slate-300 font-semibold">Click to upload video to Google Drive</div><div className="text-xs text-slate-500 mt-1">Multi-select supported (MP4, MOV, Image)</div></>
-                )}
-              </div>
-            )}
-            {uploadError && <div className="text-red-400 text-xs mt-2">{uploadError}</div>}
-            <div className="text-xs text-slate-500 mt-2">Or paste a Drive URL directly:</div>
-            <input className="sp-input block w-full mt-1" placeholder="https://drive.google.com/file/d/..." value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
-          </div>
-        )}
-        {ytThumb && (
-          <div className="mt-2 rounded-xl overflow-hidden border border-slate-700/50" style={{ maxWidth: 240 }}>
-            <img src={ytThumb} alt="Thumbnail preview" className="w-full" />
-            <div className="text-[10px] text-center py-1 bg-slate-800 text-slate-400 font-semibold">Thumbnail auto-fetched ✓</div>
-          </div>
-        )}
-      </div>
+      {videoType !== 'text' && (
+        <div>
+          <label className="muted small block mb-1 font-semibold">
+            {videoType === 'youtube' ? 'YouTube URL *' : 
+             videoType === 'image' ? 'Google Drive Image' :
+             videoType === 'audio' ? 'Google Drive Audio' :
+             videoType === 'document' ? 'Google Drive PDF / Document' :
+             'Google Drive Video'}
+          </label>
+          {videoType === 'youtube' ? (
+            <div className="flex gap-2 items-center">
+              <Youtube size={18} className="text-red-400 flex-shrink-0" />
+              <input required className="sp-input block w-full" placeholder="https://youtu.be/..." value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
+            </div>
+          ) : (
+            <div>
+              <input 
+                type="file" 
+                ref={fileRef} 
+                style={{ display: 'none' }} 
+                accept={
+                  videoType === 'image' ? 'image/*' :
+                  videoType === 'audio' ? 'audio/*' :
+                  videoType === 'document' ? 'application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx' :
+                  'video/*'
+                }
+                multiple 
+                onChange={e => handleDriveUpload(e.target.files)} 
+              />
+              {videoUrl ? (
+                <div className="flex items-center gap-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-xl">
+                  <HardDrive size={18} className="text-blue-400 flex-shrink-0" />
+                  <span className="text-sm text-blue-300 flex-1 truncate">{videoUrl}</span>
+                  <button type="button" onClick={() => setVideoUrl('')} className="text-red-400 hover:text-red-300"><X size={14} /></button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => { 
+                    if (uploading) return;
+                    fileRef.current?.click();
+                  }}
+                  style={{ border: '2px dashed rgba(59,130,246,0.4)', borderRadius: 12, padding: '24px 16px', textAlign: 'center', cursor: uploading ? 'wait' : 'pointer', background: 'rgba(59,130,246,0.05)' }}>
+                  {uploading ? (
+                    <>
+                      <Loader2 size={24} className="animate-spin text-blue-400 mx-auto mb-2" />
+                      <div className="text-sm text-blue-300 font-bold">Uploading ({uploadProgress.current}/{uploadProgress.total})</div>
+                      <div className="w-full bg-blue-900/20 h-1.5 rounded-full mt-3 max-w-[200px] mx-auto overflow-hidden">
+                        <div className="bg-blue-500 h-full transition-all duration-300" style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }} />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <HardDrive size={24} className="text-blue-400 mx-auto mb-2" />
+                      <div className="text-sm text-slate-300 font-semibold">
+                        Click to upload {videoType} to Google Drive
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">Multi-select supported</div>
+                    </>
+                  )}
+                </div>
+              )}
+              {uploadError && <div className="text-red-400 text-xs mt-2">{uploadError}</div>}
+              <div className="text-xs text-slate-500 mt-2">Or paste a GDrive / external URL directly:</div>
+              <input className="sp-input block w-full mt-1" placeholder="https://drive.google.com/..." value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
+            </div>
+          )}
+          {ytThumb && (
+            <div className="mt-2 rounded-xl overflow-hidden border border-slate-700/50" style={{ maxWidth: 240 }}>
+              <img src={ytThumb} alt="Thumbnail preview" className="w-full" />
+              <div className="text-[10px] text-center py-1 bg-slate-800 text-slate-400 font-semibold">Thumbnail auto-fetched ✓</div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-4 items-center">
         <div className="flex-1">

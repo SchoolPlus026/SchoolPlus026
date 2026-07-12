@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../config/supabaseClient';
-import { BookOpen, Play, ExternalLink, ChevronRight, Loader2, Search, HelpCircle } from 'lucide-react';
+import { BookOpen, Play, ExternalLink, ChevronRight, Loader2, Search, HelpCircle, Image, Volume2, FileText, X } from 'lucide-react';
 
 // ─── YouTube helpers ────────────────────────────────────────────────────────
 function extractYouTubeId(url) {
@@ -40,49 +40,138 @@ function getGDriveEmbed(url) {
   return `https://drive.google.com/file/d/${idMatch[1]}/preview`;
 }
 
-// ─── Video Player Modal ─────────────────────────────────────────────────────
-function VideoModal({ article, onClose }) {
-  const embedUrl = article.video_type === 'youtube'
-    ? getYouTubeEmbed(article.video_url)
-    : getGDriveEmbed(article.video_url);
+// ─── Media Player Modal ─────────────────────────────────────────────────────
+function MediaModal({ article, onClose }) {
+  const getGDriveDirectUrl = (url) => {
+    if (!url) return '';
+    const idMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || 
+                    url.match(/id=([a-zA-Z0-9_-]+)/) ||
+                    url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!idMatch) return url;
+    return `https://drive.google.com/uc?export=download&id=${idMatch[1]}`;
+  };
+
+  const isVideo = article.video_type === 'youtube' || article.video_type === 'gdrive';
+  const isImage = article.video_type === 'image';
+  const isAudio = article.video_type === 'audio';
+  const isDocument = article.video_type === 'document';
+  const isTextOnly = article.video_type === 'text' || !article.video_url;
+
+  let embedUrl = null;
+  if (isVideo) {
+    embedUrl = article.video_type === 'youtube'
+      ? getYouTubeEmbed(article.video_url)
+      : getGDriveEmbed(article.video_url);
+  } else if (isDocument) {
+    embedUrl = getGDriveEmbed(article.video_url);
+  }
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-slate-900 border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl w-full max-w-3xl"
+        className="bg-slate-900 border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl w-full max-w-3xl my-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-4 border-b border-slate-700/50">
+        <div className="flex items-start justify-between p-5 border-b border-slate-800/80 bg-slate-950/40">
           <div>
             <h3 className="font-bold text-white text-base leading-snug">{article.title}</h3>
-            {article.description && (
-              <p className="text-xs text-slate-400 mt-1">{article.description}</p>
-            )}
+            <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              {article.video_type ? article.video_type.toUpperCase() : 'TEXT'} Tutorial
+            </span>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors ml-4 flex-shrink-0">✕</button>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors ml-4 flex-shrink-0 text-lg">✕</button>
         </div>
 
-        {/* Video Area */}
-        <div className="relative" style={{ paddingTop: '56.25%' }}>
-          {embedUrl ? (
-            <iframe
-              src={embedUrl}
-              title={article.title}
-              className="absolute inset-0 w-full h-full"
-              frameBorder="0"
-              allow="autoplay; fullscreen; picture-in-picture"
-              allowFullScreen
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-              <span className="text-slate-500">Invalid Video URL</span>
+        {/* Media/Content Area */}
+        <div className="bg-slate-950/20">
+          {isVideo && (
+            <div className="relative" style={{ paddingTop: '56.25%' }}>
+              {embedUrl ? (
+                <iframe
+                  src={embedUrl}
+                  title={article.title}
+                  className="absolute inset-0 w-full h-full"
+                  frameBorder="0"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+                  <span className="text-slate-500">Invalid Video URL</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {isImage && (
+            <div className="p-4 flex items-center justify-center bg-slate-900" style={{ maxHeight: '450px', overflowY: 'auto' }}>
+              <img
+                src={getGDriveDirectUrl(article.video_url)}
+                alt={article.title}
+                className="max-w-full max-h-[400px] object-contain rounded-lg border border-slate-700/40"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  const iframe = document.getElementById('image-fallback-iframe');
+                  if (iframe) iframe.style.display = 'block';
+                }}
+              />
+              <iframe
+                id="image-fallback-iframe"
+                src={getGDriveEmbed(article.video_url)}
+                title={article.title}
+                className="w-full h-[400px] rounded-lg border border-slate-700/40"
+                style={{ display: 'none' }}
+                frameBorder="0"
+              />
+            </div>
+          )}
+
+          {isAudio && (
+            <div className="p-10 flex flex-col items-center justify-center bg-slate-950/50 gap-4">
+              <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                <Volume2 size={32} />
+              </div>
+              <audio
+                controls
+                src={getGDriveDirectUrl(article.video_url)}
+                className="w-full max-w-md"
+              >
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          )}
+
+          {isDocument && (
+            <div className="w-full h-[450px]">
+              {embedUrl ? (
+                <iframe
+                  src={embedUrl}
+                  title={article.title}
+                  className="w-full h-full"
+                  frameBorder="0"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-slate-800">
+                  <span className="text-slate-500">Invalid Document URL</span>
+                </div>
+              )}
             </div>
           )}
         </div>
+
+        {/* Description / Instructions */}
+        {article.description && (
+          <div className="p-5 border-t border-slate-800/80 bg-slate-950/20">
+            <h5 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Step-by-step Instructions:</h5>
+            <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
+              {article.description}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -210,8 +299,27 @@ export default function KnowledgeBase() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map(article => {
+            const getGDriveDirectUrl = (url) => {
+              if (!url) return '';
+              const idMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || 
+                              url.match(/id=([a-zA-Z0-9_-]+)/) ||
+                              url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+              if (!idMatch) return url;
+              return `https://drive.google.com/uc?export=download&id=${idMatch[1]}`;
+            };
+
             const thumb = article.thumbnail_url
+              || (article.video_type === 'image' ? getGDriveDirectUrl(article.video_url) : null)
               || (article.video_type === 'youtube' ? getYouTubeThumbnail(article.video_url) : null);
+
+            const isImage = article.video_type === 'image';
+            const isAudio = article.video_type === 'audio';
+            const isDocument = article.video_type === 'document';
+            const isText = article.video_type === 'text' || !article.video_url;
+
+            const IconComponent = isImage ? Image : isAudio ? Volume2 : isDocument ? FileText : isText ? BookOpen : Play;
+            const buttonText = isImage ? 'View Infographic' : isAudio ? 'Listen to Guide' : isDocument ? 'Read Document' : isText ? 'Read Article' : 'Watch Tutorial';
+
             return (
               <div
                 key={article.id}
@@ -224,18 +332,22 @@ export default function KnowledgeBase() {
                     <img src={thumb} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => e.target.style.display='none'} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-900/40 to-slate-800">
-                      <Play size={40} className="text-indigo-400 opacity-50" />
+                      <IconComponent size={40} className="text-indigo-400 opacity-50" />
                     </div>
                   )}
                   {/* Play overlay */}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-xl">
-                      <Play size={24} className="text-indigo-600 ml-1" fill="currentColor" />
+                      <IconComponent size={24} className="text-indigo-600 ml-0.5" fill={isText || isDocument ? undefined : "currentColor"} />
                     </div>
                   </div>
                   {/* Badge */}
-                  <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${article.video_type === 'youtube' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`}>
-                    {article.video_type === 'youtube' ? 'YouTube' : 'Drive'}
+                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-900/80 backdrop-blur-md text-white border border-slate-700/50">
+                    {article.video_type === 'youtube' ? 'YouTube' :
+                     article.video_type === 'gdrive' ? 'Video' :
+                     article.video_type === 'image' ? 'Image' :
+                     article.video_type === 'audio' ? 'Audio' :
+                     article.video_type === 'document' ? 'Document' : 'Text'}
                   </div>
                 </div>
 
@@ -258,7 +370,7 @@ export default function KnowledgeBase() {
                     <p className="text-xs text-slate-500 mt-1 line-clamp-2">{article.description}</p>
                   )}
                   <div className="flex items-center gap-1 text-indigo-400 text-xs font-semibold mt-3 group-hover:gap-2 transition-all">
-                    <Play size={12} fill="currentColor" /> Watch Tutorial <ChevronRight size={12} className="group-hover:translate-x-1 transition-transform" />
+                    <IconComponent size={12} fill={isText || isDocument ? undefined : "currentColor"} /> {buttonText} <ChevronRight size={12} className="group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
               </div>
@@ -267,8 +379,8 @@ export default function KnowledgeBase() {
         </div>
       )}
 
-      {/* Video Modal */}
-      {playingArticle && <VideoModal article={playingArticle} onClose={() => setPlayingArticle(null)} />}
+      {/* Media Modal */}
+      {playingArticle && <MediaModal article={playingArticle} onClose={() => setPlayingArticle(null)} />}
     </div>
   );
 }
