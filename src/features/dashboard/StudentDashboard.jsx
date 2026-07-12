@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -14,6 +14,7 @@ import ModuleGuard from '../../components/ModuleGuard';
 import { X } from 'lucide-react';
 import { useAllModuleActivities, useMarkModuleViewed } from '../../hooks/useAllModuleActivities';
 import FeeReminderBanner from '../../components/FeeReminderBanner';
+import { sortModules } from '../../utils/dashboardSorter';
 
 // Exact legacy module list for Student role:
 // My Profile, Attendance, Fees, Timetable, Notices, Leaves, Gallery, Contact, Settings
@@ -144,6 +145,13 @@ function ActivityModuleCard({ mod, hasActivity }) {
 
 function StudentDashboardContent({ user, schoolSettings }) {
   const { data: activities = {} } = useAllModuleActivities();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+
+  const sortedModules = sortModules(MODULES);
+  const filteredModules = sortedModules.filter(mod =>
+    mod.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
@@ -152,19 +160,62 @@ function StudentDashboardContent({ user, schoolSettings }) {
       <MorningCheckInBanner user={user} schoolId={schoolSettings.school_id} />
       <div>
         {/* Legacy exact title: "Student Panel" */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-          <div style={{
-            width: '3px', height: '22px', borderRadius: '999px',
-            background: 'linear-gradient(180deg, #4f46e5, #7c3aed)',
-            flexShrink: 0,
-          }} />
-          <h3 style={{
-            margin: 0, fontSize: '11px', fontWeight: 800,
-            color: 'var(--text-muted)', textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-          }}>
-            Student Panel
-          </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '3px', height: '22px', borderRadius: '999px',
+              background: 'linear-gradient(180deg, #4f46e5, #7c3aed)',
+              flexShrink: 0,
+            }} />
+            <h3 style={{
+              margin: 0, fontSize: '11px', fontWeight: 800,
+              color: 'var(--text-muted)', textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+            }}>
+              Student Panel
+            </h3>
+          </div>
+
+          {/* Search Module Widget */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            {showSearch && (
+              <input
+                type="text"
+                placeholder="Search module..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  background: 'var(--card-bg)',
+                  border: '1px solid var(--card-border)',
+                  borderRadius: '10px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  width: '150px',
+                  transition: 'all 0.3s ease'
+                }}
+                autoFocus
+              />
+            )}
+            <button
+              onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchTerm(''); }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px',
+                borderRadius: '8px'
+              }}
+              title="Search Modules"
+            >
+              {showSearch ? <X size={16} /> : <Search size={16} />}
+            </button>
+          </div>
         </div>
 
         <div style={{
@@ -172,14 +223,19 @@ function StudentDashboardContent({ user, schoolSettings }) {
           gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
           gap: '14px',
         }}>
-          {MODULES.map((mod) => {
-            const hasActivity = activities[mod.moduleId]?.hasActivity || false;
-            return (
-              <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
-                <ActivityModuleCard mod={mod} hasActivity={hasActivity} />
-              </ModuleGuard>
-            );
-          })}
+          {filteredModules.length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-faint)', fontSize: '13px' }}>
+              No modules found.
+            </div>
+          ) : (
+            filteredModules.map((mod) => {
+              const hasActivity = activities[mod.moduleId]?.hasActivity || false;
+              return (
+                <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
+                  <ActivityModuleCard mod={mod} hasActivity={hasActivity} />
+                </ModuleGuard>
+              );
+            }))}
         </div>
       </div>
     </div>

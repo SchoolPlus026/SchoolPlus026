@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   User, Bell, CalendarHeart, Image, Calendar,
-  BookOpen, MessageSquare, Settings, AlertTriangle
+  BookOpen, MessageSquare, Settings, AlertTriangle, Search, X
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
 import ModuleGuard from '../../components/ModuleGuard';
+import { sortModules } from '../../utils/dashboardSorter';
 
 // Staff members are generic employees (clerks, accountants, etc.)
 // They have a restricted view — only the modules the Admin has enabled
@@ -28,6 +29,8 @@ const MODULES = [
 
 export default function StaffDashboard() {
   const { user, schoolSettings } = useAppStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   if (!user || !schoolSettings) {
     return (
@@ -44,22 +47,70 @@ export default function StaffDashboard() {
     );
   }
 
+  const sortedModules = sortModules(MODULES);
+  const filteredModules = sortedModules.filter(mod =>
+    mod.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
       <DashboardHero />
 
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-          <div style={{
-            width: '3px', height: '22px', borderRadius: '999px',
-            background: 'linear-gradient(180deg, #4f46e5, #7c3aed)', flexShrink: 0,
-          }} />
-          <h3 style={{
-            margin: 0, fontSize: '11px', fontWeight: 800,
-            color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em',
-          }}>
-            Staff Portal
-          </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '3px', height: '22px', borderRadius: '999px',
+              background: 'linear-gradient(180deg, #4f46e5, #7c3aed)', flexShrink: 0,
+            }} />
+            <h3 style={{
+              margin: 0, fontSize: '11px', fontWeight: 800,
+              color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em',
+            }}>
+              Staff Portal
+            </h3>
+          </div>
+
+          {/* Search Module Widget */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            {showSearch && (
+              <input
+                type="text"
+                placeholder="Search module..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  background: 'var(--card-bg)',
+                  border: '1px solid var(--card-border)',
+                  borderRadius: '10px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  width: '150px',
+                  transition: 'all 0.3s ease'
+                }}
+                autoFocus
+              />
+            )}
+            <button
+              onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchTerm(''); }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px',
+                borderRadius: '8px'
+              }}
+              title="Search Modules"
+            >
+              {showSearch ? <X size={16} /> : <Search size={16} />}
+            </button>
+          </div>
         </div>
 
         <div style={{
@@ -67,40 +118,46 @@ export default function StaffDashboard() {
           gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
           gap: '14px',
         }}>
-          {MODULES.map((mod) => (
-            <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
-              <motion.div
-                whileHover={{ scale: 1.04, boxShadow: `0 10px 30px -6px rgba(${mod.bgRgb},0.3)` }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: 'spring', stiffness: 350, damping: 20 }}
-              >
-                <Link
-                  to={mod.path}
-                  className="module-card"
-                  style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', display: 'block' }}
+          {filteredModules.length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-faint)', fontSize: '13px' }}>
+              No modules found.
+            </div>
+          ) : (
+            filteredModules.map((mod) => (
+              <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
+                <motion.div
+                  whileHover={{ scale: 1.04, boxShadow: `0 10px 30px -6px rgba(${mod.bgRgb},0.3)` }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 350, damping: 20 }}
                 >
-                  <div style={{
-                    width: '56px', height: '56px', borderRadius: '16px',
-                    background: `rgba(${mod.bgRgb}, 0.12)`,
-                    border: `1px solid rgba(${mod.bgRgb}, 0.2)`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: mod.colorHex, margin: '0 auto',
-                  }}
+                  <Link
+                    to={mod.path}
+                    className="module-card"
+                    style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', display: 'block' }}
                   >
-                    {mod.icon}
-                  </div>
-                  <span style={{
-                    fontSize: '11px', fontWeight: 800,
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    color: 'var(--text-main)', textAlign: 'center', lineHeight: 1.3,
-                    display: 'block', marginTop: '12px',
-                  }}>
-                    {mod.name}
-                  </span>
-                </Link>
-              </motion.div>
-            </ModuleGuard>
-          ))}
+                    <div style={{
+                      width: '56px', height: '56px', borderRadius: '16px',
+                      background: `rgba(${mod.bgRgb}, 0.12)`,
+                      border: `1px solid rgba(${mod.bgRgb}, 0.2)`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: mod.colorHex, margin: '0 auto',
+                    }}
+                    >
+                      {mod.icon}
+                    </div>
+                    <span style={{
+                      fontSize: '11px', fontWeight: 800,
+                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                      color: 'var(--text-main)', textAlign: 'center', lineHeight: 1.3,
+                      display: 'block', marginTop: '12px',
+                    }}>
+                      {mod.name}
+                    </span>
+                  </Link>
+                </motion.div>
+              </ModuleGuard>
+            ))
+          )}
         </div>
       </div>
     </div>

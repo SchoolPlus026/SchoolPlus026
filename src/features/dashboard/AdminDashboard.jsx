@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Users, User, ClipboardList, DollarSign, Clock, CalendarHeart,
   Image, Bell, Calendar, LineChart, Settings, CalendarX,
-  Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus, Book, AlertTriangle, Search, Target, Radar, Trophy
+  Lock, CreditCard, BookOpen, LayoutGrid, MessageSquare, Bus, Book, AlertTriangle, Search, Target, Radar, Trophy, X
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import PlanStatusBanner from '../../components/PlanStatusBanner';
@@ -16,9 +16,11 @@ import PendingAttendanceWidget from '../attendance/PendingAttendanceWidget';
 import { usePlan } from '../../hooks/usePlan';
 import { usePending } from '../../hooks/usePending';
 import { useAllModuleActivities, useMarkModuleViewed } from '../../hooks/useAllModuleActivities';
+import { sortModules } from '../../utils/dashboardSorter';
 
 // All toggleable school modules. Each MUST have a matching moduleId for the guard.
 const MODULES = [
+  { name: 'Manage Modules', path: '/admin/manage-modules', icon: <LayoutGrid size={26} />,     colorHex: '#6366f1', bgRgb: '99,102,241',   moduleId: 'default'       },
   { name: 'My Profile',     path: '/admin/profile',        icon: <User size={26} />,           colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
   { name: 'Users',          path: '/admin/users',          icon: <Users size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
   { name: 'Attendance',     path: '/admin/attendance',     icon: <ClipboardList size={26} />,  colorHex: '#818cf8', bgRgb: '129,140,248',  moduleId: 'attendance'    },
@@ -108,6 +110,8 @@ export default function AdminDashboard() {
   const { isPending } = usePending();
   const navigate = useNavigate();
   const { data: activities = {} } = useAllModuleActivities();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   const handleModuleClick = (e, mod) => {
     if (isFree && PREMIUM_MODULES.includes(mod.name)) {
@@ -115,6 +119,11 @@ export default function AdminDashboard() {
       navigate('/admin/billing');
     }
   };
+
+  const sortedModules = sortModules(MODULES);
+  const filteredModules = sortedModules.filter(mod =>
+    mod.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
@@ -132,60 +141,79 @@ export default function AdminDashboard() {
 
       <div>
         {/* Section header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-          <div style={{ width: '3px', height: '22px', borderRadius: '999px', background: 'linear-gradient(180deg,#4f46e5,#7c3aed)', flexShrink: 0 }} />
-          <h3 style={{ margin: 0, fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Admin — Master Control
-          </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '3px', height: '22px', borderRadius: '999px', background: 'linear-gradient(180deg,#4f46e5,#7c3aed)', flexShrink: 0 }} />
+            <h3 style={{ margin: 0, fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Admin — Master Control
+            </h3>
+          </div>
+
+          {/* Search Module Widget */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            {showSearch && (
+              <input
+                type="text"
+                placeholder="Search module..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  background: 'var(--card-bg)',
+                  border: '1px solid var(--card-border)',
+                  borderRadius: '10px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  width: '150px',
+                  transition: 'all 0.3s ease'
+                }}
+                autoFocus
+              />
+            )}
+            <button
+              onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchTerm(''); }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px',
+                borderRadius: '8px'
+              }}
+              title="Search Modules"
+            >
+              {showSearch ? <X size={16} /> : <Search size={16} />}
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '14px' }}>
 
-          {/* ── MANAGE MODULES ─ Always visible, never hidden ─────────────── */}
-          <motion.div
-            whileHover={{ scale: 1.04, boxShadow: '0 10px 30px -6px rgba(99,102,241,0.3)' }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 350, damping: 20 }}
-          >
-            <Link
-              to="/admin/manage-modules"
-              className="module-card"
-              style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', position: 'relative', display: 'block' }}
-            >
-              <div style={{
-                width: '54px', height: '54px', borderRadius: '16px',
-                background: 'rgba(99,102,241,0.12)',
-                border: '1px solid rgba(99,102,241,0.25)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#6366f1', margin: '0 auto',
-              }}>
-                <LayoutGrid size={26} />
-              </div>
-              <span style={{
-                fontSize: '11px', fontWeight: 800, textTransform: 'uppercase',
-                letterSpacing: '0.06em', color: 'var(--text-main)', textAlign: 'center', lineHeight: 1.3,
-                display: 'block', marginTop: '12px',
-              }}>
-                Manage Modules
-              </span>
-            </Link>
-          </motion.div>
-
-          {/* ── ALL OTHER MODULES ─ Respect the toggle (hide admin too) ───── */}
-          {MODULES.map((mod) => {
-            const isLocked = isFree && PREMIUM_MODULES.includes(mod.name);
-            const hasActivity = activities[mod.moduleId]?.hasActivity || false;
-            return (
-              <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
-                <ActivityModuleCard
-                  mod={mod}
-                  isLocked={isLocked}
-                  hasActivity={hasActivity}
-                  onClick={(e) => handleModuleClick(e, mod)}
-                />
-              </ModuleGuard>
-            );
-          })}
+          {/* ── MODULES ─ Sorted, filtered, and guarded ───── */}
+          {filteredModules.length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-faint)', fontSize: '13px' }}>
+              No modules found.
+            </div>
+          ) : (
+            filteredModules.map((mod) => {
+              const isLocked = isFree && PREMIUM_MODULES.includes(mod.name);
+              const hasActivity = activities[mod.moduleId]?.hasActivity || false;
+              return (
+                <ModuleGuard key={mod.name} moduleName={mod.moduleId} inline={true}>
+                  <ActivityModuleCard
+                    mod={mod}
+                    isLocked={isLocked}
+                    hasActivity={hasActivity}
+                    onClick={(e) => handleModuleClick(e, mod)}
+                  />
+                </ModuleGuard>
+              );
+            })
+          )}
 
         </div>
       </div>

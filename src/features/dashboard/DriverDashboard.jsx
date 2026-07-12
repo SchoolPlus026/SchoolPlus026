@@ -1,12 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bus, Search, AlertTriangle, Calendar, Image, HelpCircle } from 'lucide-react';
+import { Bus, Search, AlertTriangle, Calendar, Image, HelpCircle, X } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { supabase } from '../../config/supabaseClient';
 import { rtdb } from '../../config/firebaseClient';
 import { ref, set } from 'firebase/database';
 import { useAppStore } from '../../store/useAppStore';
+import { sortModules } from '../../utils/dashboardSorter';
 
 function toBusKey(busNumber) {
   return `bus_${String(busNumber).trim().toLowerCase().replace(/\s+/g, '_')}`;
@@ -23,6 +24,8 @@ const MODULES = [
 
 export default function DriverDashboard() {
   const { user, schoolSettings } = useAppStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
     const checkActiveRouteTimeout = async () => {
@@ -96,22 +99,70 @@ export default function DriverDashboard() {
     return () => clearInterval(interval);
   }, [user, schoolSettings]);
 
+  const sortedModules = sortModules(MODULES);
+  const filteredModules = sortedModules.filter(mod =>
+    mod.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="fade-in p-4 sm:p-6" style={{ display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '40px' }}>
       <DashboardHero />
 
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-          <div style={{
-            width: '3px', height: '22px', borderRadius: '999px',
-            background: 'linear-gradient(180deg, #4f46e5, #7c3aed)', flexShrink: 0,
-          }} />
-          <h3 style={{
-            margin: 0, fontSize: '11px', fontWeight: 800,
-            color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em',
-          }}>
-            Driver Modules
-          </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '3px', height: '22px', borderRadius: '999px',
+              background: 'linear-gradient(180deg, #4f46e5, #7c3aed)', flexShrink: 0,
+            }} />
+            <h3 style={{
+              margin: 0, fontSize: '11px', fontWeight: 800,
+              color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em',
+            }}>
+              Driver Modules
+            </h3>
+          </div>
+
+          {/* Search Module Widget */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            {showSearch && (
+              <input
+                type="text"
+                placeholder="Search module..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  background: 'var(--card-bg)',
+                  border: '1px solid var(--card-border)',
+                  borderRadius: '10px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  width: '150px',
+                  transition: 'all 0.3s ease'
+                }}
+                autoFocus
+              />
+            )}
+            <button
+              onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchTerm(''); }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px',
+                borderRadius: '8px'
+              }}
+              title="Search Modules"
+            >
+              {showSearch ? <X size={16} /> : <Search size={16} />}
+            </button>
+          </div>
         </div>
 
         <div style={{
@@ -119,38 +170,44 @@ export default function DriverDashboard() {
           gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
           gap: '14px',
         }}>
-          {MODULES.map((mod) => (
-            <motion.div
-              key={mod.name}
-              whileHover={{ scale: 1.04, boxShadow: `0 10px 30px -6px rgba(${mod.bgRgb},0.3)` }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 20 }}
-            >
-              <Link
-                to={mod.path}
-                className="module-card"
-                style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', borderRadius: '24px' }}
+          {filteredModules.length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-faint)', fontSize: '13px' }}>
+              No modules found.
+            </div>
+          ) : (
+            filteredModules.map((mod) => (
+              <motion.div
+                key={mod.name}
+                whileHover={{ scale: 1.04, boxShadow: `0 10px 30px -6px rgba(${mod.bgRgb},0.3)` }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 20 }}
               >
-                <div style={{
-                  width: '56px', height: '56px', borderRadius: '16px',
-                  background: `rgba(${mod.bgRgb}, 0.12)`,
-                  border: `1px solid rgba(${mod.bgRgb}, 0.2)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: mod.colorHex,
-                }}
+                <Link
+                  to={mod.path}
+                  className="module-card"
+                  style={{ textDecoration: 'none', paddingTop: '24px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', borderRadius: '24px' }}
                 >
-                  {mod.icon}
-                </div>
-                <span style={{
-                  fontSize: '11px', fontWeight: 800,
-                  textTransform: 'uppercase', letterSpacing: '0.06em',
-                  color: 'var(--text-main)', textAlign: 'center', lineHeight: 1.3,
-                }}>
-                  {mod.name}
-                </span>
-              </Link>
-            </motion.div>
-          ))}
+                  <div style={{
+                    width: '56px', height: '56px', borderRadius: '16px',
+                    background: `rgba(${mod.bgRgb}, 0.12)`,
+                    border: `1px solid rgba(${mod.bgRgb}, 0.2)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: mod.colorHex,
+                  }}
+                  >
+                    {mod.icon}
+                  </div>
+                  <span style={{
+                    fontSize: '11px', fontWeight: 800,
+                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    color: 'var(--text-main)', textAlign: 'center', lineHeight: 1.3,
+                  }}>
+                    {mod.name}
+                  </span>
+                </Link>
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
     </div>
