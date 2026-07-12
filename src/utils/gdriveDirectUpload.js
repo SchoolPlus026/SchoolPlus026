@@ -10,6 +10,11 @@ import { supabase } from '../config/supabaseClient';
  * @returns {Promise<Object>} The uploaded file metadata (id, name, webViewLink, thumbnailLink).
  */
 export async function uploadFileToGDriveDirect(file, parentFolderId, { driveIndex = 0, school_id = null, fileName = null } = {}) {
+  // Extract real Blob if the passed file is a custom object { name, type, blob }
+  const realFile = (file && typeof file === 'object' && 'blob' in file && file.blob instanceof Blob)
+    ? file.blob
+    : file;
+
   // 1. Get current session token
   const { data: { session } } = await supabase.auth.getSession();
   const headers = { Authorization: `Bearer ${session?.access_token}` };
@@ -25,7 +30,7 @@ export async function uploadFileToGDriveDirect(file, parentFolderId, { driveInde
   }
 
   const accessToken = tokenData.access_token;
-  const targetFileName = fileName || file.name || `file_${Date.now()}`;
+  const targetFileName = fileName || realFile.name || file.name || `file_${Date.now()}`;
 
   // 3. Perform Google Drive Multipart Upload directly from browser
   const boundary = 'SchoolOSUploadBoundary' + Math.random().toString(36).substring(2);
@@ -44,8 +49,8 @@ export async function uploadFileToGDriveDirect(file, parentFolderId, { driveInde
     'Content-Type: application/json; charset=UTF-8\r\n\r\n',
     metadataBlob,
     nextDelimiter,
-    `Content-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`,
-    file,
+    `Content-Type: ${realFile.type || file.type || 'application/octet-stream'}\r\n\r\n`,
+    realFile,
     closeDelim
   ]);
 

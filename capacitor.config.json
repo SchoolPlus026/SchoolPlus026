@@ -7,7 +7,7 @@
       "presentationOptions": ["badge", "sound", "alert"]
     },
     "CapacitorHttp": {
-      "enabled": true
+      "enabled": false
     },
     "CapacitorPasskey": {
       "origin": "https://www.schoolosplus.in"
