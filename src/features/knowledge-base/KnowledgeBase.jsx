@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../config/supabaseClient';
 import { BookOpen, Play, ExternalLink, ChevronRight, Loader2, Search, HelpCircle, Image, Volume2, FileText, X } from 'lucide-react';
 import { moduleWalkthroughs } from '../../config/moduleWalkthroughs';
+import { useAppStore } from '../../store/useAppStore';
 // ─── YouTube helpers ────────────────────────────────────────────────────────
 function extractYouTubeId(url) {
   const patterns = [
@@ -42,6 +43,15 @@ function getGDriveEmbed(url) {
 
 // ─── Media Player Modal ─────────────────────────────────────────────────────
 function MediaModal({ article, onClose }) {
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, 300);
+  };
+
   const getGDriveDirectUrl = (url) => {
     if (!url) return '';
     const idMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || 
@@ -68,22 +78,29 @@ function MediaModal({ article, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 overflow-y-auto"
-      onClick={onClose}
+      className={`fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 overflow-y-auto transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+      onClick={handleClose}
     >
       <div
-        className="bg-slate-900 border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl w-full max-w-3xl my-auto"
+        className={`bg-slate-900 border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl w-full max-w-3xl my-auto ${isClosing ? 'animate-shrink' : 'animate-emerge'}`}
         onClick={e => e.stopPropagation()}
+        style={{ transformOrigin: 'bottom right' }}
       >
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-slate-800/80 bg-slate-950/40">
           <div>
             <h3 className="font-bold text-white text-base leading-snug">{article.title}</h3>
             <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              {article.video_type ? article.video_type.toUpperCase() : 'TEXT'} Tutorial
+              {article.video_type === 'text' ? 'Setup Guide' : (article.video_type || 'TEXT').toUpperCase()}
             </span>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors ml-4 flex-shrink-0 text-lg">✕</button>
+          <button 
+            onClick={handleClose} 
+            className="text-slate-400 hover:text-white transition-colors p-2 -mr-2 flex-shrink-0 text-xl font-bold flex items-center justify-center min-w-[44px] min-h-[44px]"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Media/Content Area */}
@@ -179,12 +196,16 @@ function MediaModal({ article, onClose }) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function KnowledgeBase() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const targetModuleAnchor = searchParams.get('module');
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [playingArticle, setPlayingArticle]     = useState(null);
+  const [helpOptions, setHelpOptions]           = useState([]);
   const [search, setSearch]                     = useState('');
+
+  const { role } = useAppStore();
+  const userRole = (role || 'admin').toLowerCase();
 
   const { data: categories = [], isLoading: loadingCats } = useQuery({
     queryKey: ['kb_categories'],
@@ -216,9 +237,10 @@ export default function KnowledgeBase() {
 
   const localArticles = React.useMemo(() => {
     return Object.entries(moduleWalkthroughs).map(([key, value]) => {
-      const stepsText = value.steps.map(s => `${s.title}\n${s.text}`).join('\n\n');
-      const tipsText = value.tips ? `\n\nPRO TIPS:\n` + value.tips.map(t => `• ${t}`).join('\n') : '';
-      const fullText = `${value.description}\n\n${stepsText}${tipsText}`;
+      const roleData = value.roles[userRole] || value.roles.admin || {};
+      const stepsText = (roleData.steps || []).map(s => `${s.title}\n${s.text}`).join('\n\n');
+      const tipsText = roleData.tips ? `\n\nPRO TIPS:\n` + roleData.tips.map(t => `• ${t}`).join('\n') : '';
+      const fullText = `${roleData.description || ''}\n\n${stepsText}${tipsText}`;
 
       return {
         id: `local_${key}`,
@@ -230,29 +252,48 @@ export default function KnowledgeBase() {
         thumbnail_url: null,
         target_module: key,
         is_published: true,
-        kb_categories: { name: 'Local Guide' },
+        kb_categories: { name: 'Setup Guide' },
         sort_order: -100
       };
     });
-  }, []);
+  }, [userRole]);
 
   const combinedArticles = React.useMemo(() => {
     return [...localArticles, ...articles];
   }, [localArticles, articles]);
 
-  // Auto-play the targeted module video if present in URL
+  // Auto-play or show options menu when target module anchor changes
   React.useEffect(() => {
-    if (targetModuleAnchor && combinedArticles.length > 0 && !playingArticle) {
+    if (targetModuleAnchor && combinedArticles.length > 0 && !playingArticle && helpOptions.length === 0) {
       const normalizedAnchor = targetModuleAnchor.replace(/-/g, '_');
-      const match = combinedArticles.find(a => a.target_module && a.target_module.replace(/-/g, '_') === normalizedAnchor);
-      if (match) {
-        setPlayingArticle(match);
-        if (match.category_id) {
-          setSelectedCategory(match.category_id);
-        }
+      const matches = combinedArticles.filter(a => a.target_module && a.target_module.replace(/-/g, '_') === normalizedAnchor);
+      
+      if (matches.length === 1) {
+        setPlayingArticle(matches[0]);
+      } else if (matches.length > 1) {
+        setHelpOptions(matches);
       }
     }
-  }, [targetModuleAnchor, combinedArticles, playingArticle]);
+  }, [targetModuleAnchor, combinedArticles, playingArticle, helpOptions]);
+
+  const handleSelectHelpOption = (article) => {
+    setPlayingArticle(article);
+    setHelpOptions([]);
+  };
+
+  const handleCloseHelpOptions = () => {
+    setHelpOptions([]);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('module');
+    setSearchParams(newParams);
+  };
+
+  const handleClosePlayingArticle = () => {
+    setPlayingArticle(null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('module');
+    setSearchParams(newParams);
+  };
 
   const filtered = combinedArticles.filter(a =>
     (!search || a.title.toLowerCase().includes(search.toLowerCase()) || a.description?.toLowerCase().includes(search.toLowerCase())) &&
@@ -408,8 +449,121 @@ export default function KnowledgeBase() {
         </div>
       )}
 
+      {/* Style Sheet for Emerging & Shrinking Animations */}
+      <style>{`
+        @keyframes emergeFromHelpButton {
+          0% {
+            transform: scale(0.1) translate3d(calc(50vw - 24px), calc(50vh - 24px), 0);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1) translate3d(0, 0, 0);
+            opacity: 1;
+          }
+        }
+        @keyframes shrinkToHelpButton {
+          0% {
+            transform: scale(1) translate3d(0, 0, 0);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(0.1) translate3d(calc(50vw - 24px), calc(50vh - 24px), 0);
+            opacity: 0;
+          }
+        }
+        .animate-emerge {
+          animation: emergeFromHelpButton 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .animate-shrink {
+          animation: shrinkToHelpButton 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+        }
+      `}</style>
+
+      {/* Help Selection Menu Modal */}
+      {helpOptions.length > 0 && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-300"
+          onClick={handleCloseHelpOptions}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl w-full max-w-md my-auto p-6 animate-emerge"
+            onClick={e => e.stopPropagation()}
+            style={{ transformOrigin: 'bottom right' }}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-4">
+              <div className="flex items-center gap-2">
+                <HelpCircle size={18} className="text-indigo-400" />
+                <h4 className="text-xs font-black text-white uppercase tracking-widest">Select Guide Format</h4>
+              </div>
+              <button 
+                onClick={handleCloseHelpOptions} 
+                className="text-slate-400 hover:text-white transition-colors p-2 -mr-2 flex items-center justify-center min-w-[44px] min-h-[44px]"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <p className="text-xs text-slate-400 mb-4">Multiple learning options are available for this module. Please select your preferred format:</p>
+            
+            <div className="space-y-3">
+              {helpOptions.map(option => {
+                const isText = option.video_type === 'text' || !option.video_url;
+                const isVideo = option.video_type === 'youtube' || option.video_type === 'gdrive';
+                const isImage = option.video_type === 'image';
+                const isAudio = option.video_type === 'audio';
+                const isDoc = option.video_type === 'document';
+                
+                let titleText = option.title;
+                let subtitleText = "";
+                let Icon = Play;
+                
+                if (isText) {
+                  titleText = option.title;
+                  subtitleText = "Step-by-step written handbook instructions";
+                  Icon = BookOpen;
+                } else if (isVideo) {
+                  titleText = `Video: ${option.title}`;
+                  subtitleText = `Watch visual tutorial (${option.video_type})`;
+                  Icon = Play;
+                } else if (isImage) {
+                  titleText = `Infographic: ${option.title}`;
+                  subtitleText = "View diagram & illustrations";
+                  Icon = Image;
+                } else if (isAudio) {
+                  titleText = `Audio Guide: ${option.title}`;
+                  subtitleText = "Listen to step-by-step voice guidance";
+                  Icon = Volume2;
+                } else if (isDoc) {
+                  titleText = `Document: ${option.title}`;
+                  subtitleText = "Download/Read PDF file";
+                  Icon = FileText;
+                }
+
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => handleSelectHelpOption(option)}
+                    className="w-full text-left p-4 bg-slate-950/40 hover:bg-indigo-600/10 border border-white/5 hover:border-indigo-500/30 rounded-2xl flex items-center gap-4 transition-all group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-shrink-0">
+                      <Icon size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors truncate">{titleText}</div>
+                      <div className="text-[10px] text-slate-500 group-hover:text-slate-400 transition-colors truncate mt-0.5">{subtitleText}</div>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-600 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Media Modal */}
-      {playingArticle && <MediaModal article={playingArticle} onClose={() => setPlayingArticle(null)} />}
+      {playingArticle && <MediaModal article={playingArticle} onClose={handleClosePlayingArticle} />}
     </div>
   );
 }

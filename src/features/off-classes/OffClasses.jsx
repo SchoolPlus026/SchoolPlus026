@@ -194,25 +194,10 @@ export default function OffClasses() {
     premiumStaleTime: 30 * 1000,
     premiumRefetchInterval: 60000
   });
-  const [loading, setLoading] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-
   const userRole = (role || '').toLowerCase();
   const isAdmin = userRole === 'admin' || userRole === 'platform_admin';
 
-  useEffect(() => {
-    if (isAdmin) {
-      const hasCompleted = localStorage.getItem('onboarding_completed_off_classes');
-      if (!hasCompleted) {
-        setShowOnboarding(true);
-      }
-    }
-  }, [isAdmin]);
-
-  const handleCompleteOnboarding = () => {
-    localStorage.setItem('onboarding_completed_off_classes', 'true');
-    setShowOnboarding(false);
-  };
+  const [loading, setLoading] = useState(true);
   const [absentPeriods, setAbsentPeriods] = useState([]);
   const [freePeriods, setFreePeriods] = useState([]);
   const [substitutions, setSubstitutions] = useState([]);
@@ -807,75 +792,6 @@ export default function OffClasses() {
   return (
     <div className="space-y-6 fade-in pb-10">
 
-      {/* Onboarding Guide Card */}
-      {showOnboarding && moduleWalkthroughs?.off_classes && (
-        <div 
-          className="fixed bottom-6 right-6 z-[150] w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-500 text-left flex flex-col"
-          style={{ 
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)', 
-            maxHeight: '80vh',
-            overflowY: 'auto'
-          }}
-        >
-          {/* Header */}
-          <div className="flex items-start justify-between pb-3 border-b border-white/5 mb-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-              </span>
-              <div>
-                <h4 className="text-xs font-black text-white uppercase tracking-widest">{moduleWalkthroughs.off_classes.title}</h4>
-                <p className="text-[10px] text-slate-400 mt-0.5">{moduleWalkthroughs.off_classes.subtitle}</p>
-              </div>
-            </div>
-            <button 
-              onClick={handleCompleteOnboarding}
-              className="text-slate-400 hover:text-white transition-colors p-1"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          {/* Description */}
-          <p className="text-xs text-slate-300 leading-relaxed mb-4">
-            {moduleWalkthroughs.off_classes.description}
-          </p>
-
-          {/* Steps */}
-          <div className="space-y-3 mb-4">
-            <h5 className="text-[10px] font-black uppercase tracking-wider text-indigo-400">Setup Guidelines:</h5>
-            {moduleWalkthroughs.off_classes.steps.map((step, idx) => (
-              <div key={idx} className="bg-slate-950/40 border border-white/5 rounded-xl p-3">
-                <div className="text-[11px] font-bold text-white mb-1">{step.title}</div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">{step.text}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Tips */}
-          <div className="bg-indigo-950/20 border border-indigo-500/10 rounded-xl p-3 mb-4 space-y-2">
-            <h5 className="text-[10px] font-black uppercase tracking-wider text-indigo-300">Pro Tips:</h5>
-            {moduleWalkthroughs.off_classes.tips.map((tip, idx) => (
-              <div key={idx} className="flex gap-2 text-[11px] text-slate-400 leading-relaxed">
-                <span>•</span>
-                <p>{tip}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Action Footer */}
-          <div className="flex justify-end pt-2 border-t border-white/5">
-            <button 
-              onClick={handleCompleteOnboarding}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
-            >
-              Got it, Close
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Toast */}
       {toast && (
         <div className={`fixed left-1/2 -translate-x-1/2 bottom-6 z-50 border text-sm font-semibold px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 transition-all ${
@@ -895,25 +811,13 @@ export default function OffClasses() {
             <AlertTriangle size={18} className="text-amber-400" />
             <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Off Classes — Substitute Management</h3>
           </div>
-          <div className="flex items-center gap-1">
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => setShowOnboarding(true)}
-                className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-                title="View Guide"
-              >
-                <HelpCircle size={16} />
-              </button>
-            )}
-            <button
-              onClick={loadData}
-              className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-              title="Refresh"
-            >
-              <RefreshCw size={15} />
-            </button>
-          </div>
+          <button
+            onClick={loadData}
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={15} />
+          </button>
         </div>
         <p className="text-xs text-slate-500 font-semibold mt-1">
           Today: {today} ({todayDay}) • IST {getISTNow().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
