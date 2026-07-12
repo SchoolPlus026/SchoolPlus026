@@ -28,20 +28,20 @@ export async function uploadFileToGDriveDirect(file, parentFolderId, { driveInde
   const targetFileName = fileName || file.name || `file_${Date.now()}`;
 
   // 3. Perform Google Drive Multipart Upload directly from browser
-  const boundary = '-------MultipartBoundary' + Math.random().toString(36).substring(2);
+  const boundary = 'SchoolOSUploadBoundary' + Math.random().toString(36).substring(2);
   const firstDelimiter = `--${boundary}\r\n`;
   const nextDelimiter = `\r\n--${boundary}\r\n`;
-  const closeDelim = `\r\n--${boundary}--`;
+  const closeDelim = `\r\n--${boundary}--\r\n`;
 
   const metadata = {
     name: targetFileName,
     parents: [parentFolderId]
   };
 
-  const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
+  const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' });
   const multipartBlob = new Blob([
     firstDelimiter,
-    'Content-Type: application/json\r\n\r\n',
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n',
     metadataBlob,
     nextDelimiter,
     `Content-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`,
@@ -60,8 +60,14 @@ export async function uploadFileToGDriveDirect(file, parentFolderId, { driveInde
   });
 
   if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData?.error?.message || `Google Drive API error (HTTP ${res.status})`);
+    const errText = await res.text().catch(() => '');
+    console.error('[GDrive Direct] Error response:', errText);
+    let errMsg = '';
+    try {
+      const errJSON = JSON.parse(errText);
+      errMsg = errJSON?.error?.message;
+    } catch (_) {}
+    throw new Error(errMsg || errText || `Google Drive API error (HTTP ${res.status})`);
   }
 
   const data = await res.json();
