@@ -305,6 +305,10 @@ export default function HelpButton() {
     }, 300);
   };
 
+  const handleClosePlayingArticle = () => {
+    setPlayingArticle(null);
+  };
+
   return (
     <>
       {/* Styles for emerge and shrink animations */}
