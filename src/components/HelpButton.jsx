@@ -40,27 +40,23 @@ function MediaModal({ article, onClose }) {
 
   // Dynamically initialize localized google translate element only for this modal container
   useEffect(() => {
-    if (!document.getElementById('google-translate-script')) {
-      const script = document.createElement('script');
-      script.id = 'google-translate-script';
-      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-      document.body.appendChild(script);
-    }
-
-    window.googleTranslateElementInit = () => {
+    const initTranslate = () => {
       if (window.google && window.google.translate) {
-        new window.google.translate.TranslateElement({
-          pageLanguage: 'en',
-          includedLanguages: 'hi,mr,gu,ta,te,kn,ml,pa,bn',
-          layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE
-        }, 'modal-translate-trigger');
+        try {
+          new window.google.translate.TranslateElement({
+            pageLanguage: 'en',
+            includedLanguages: 'hi,mr,gu,ta,te,kn,ml,pa,bn',
+            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE
+          }, 'modal-translate-trigger');
+        } catch (err) {
+          console.warn('Google Translate initialization failed:', err);
+        }
       }
     };
 
-    // If script is already loaded, initialize directly
-    if (window.google && window.google.translate) {
-      window.googleTranslateElementInit();
-    }
+    // Run after a short delay to ensure target DOM node is mounted
+    const timer = setTimeout(initTranslate, 150);
+    return () => clearTimeout(timer);
   }, []);
 
   const isVideo = article.video_type === 'youtube' || article.video_type === 'gdrive';
