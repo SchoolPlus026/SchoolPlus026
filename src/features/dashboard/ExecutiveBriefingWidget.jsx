@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Target, DollarSign, CalendarX, Loader2, X } from 'lucide-react';
+import { Target, DollarSign, CalendarX, Loader2, X, RotateCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
@@ -25,7 +25,7 @@ export default function ExecutiveBriefingWidget({ forceShow = false }) {
     return !!localStorage.getItem(`dismissed_briefing_${today}`);
   });
 
-  const { data: briefing, isLoading: loading } = useQuery({
+  const { data: briefing, isLoading: loading, refetch, isFetching } = useQuery({
     queryKey: ['executive-briefing', schoolSettings?.school_id, today],
     queryFn: async () => {
       if (!schoolSettings?.school_id) return { staff_on_leave: "0", fees_collected: "₹0", pending_complaints: "0" };
@@ -92,6 +92,15 @@ export default function ExecutiveBriefingWidget({ forceShow = false }) {
           <span className="ml-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-800/50 px-2 py-1 rounded-full hidden sm:inline-block">
             Today's Summary
           </span>
+          <button 
+            type="button"
+            onClick={() => refetch()} 
+            disabled={isFetching}
+            className={`text-indigo-400 hover:text-indigo-300 transition-all p-1.5 rounded-lg hover:bg-indigo-500/15 flex items-center justify-center ${isFetching ? 'animate-spin' : ''}`}
+            title="Refresh Briefing Data"
+          >
+            <RotateCw size={14} />
+          </button>
         </div>
         {!forceShow && (
           <button onClick={handleDismiss} className="text-indigo-400 hover:text-indigo-300 transition-colors">
