@@ -22,7 +22,7 @@ function getGDriveEmbed(url) {
 }
 
 // ─── Media Player Modal ─────────────────────────────────────────────────────
-function MediaModal({ article, onClose }) {
+function MediaModal({ article, onClose, role, navigate }) {
   const [isClosing, setIsClosing] = useState(false);
 
   const handleClose = () => {
@@ -114,30 +114,45 @@ function MediaModal({ article, onClose }) {
                 {article.video_type === 'text' ? 'Setup Guide' : (article.video_type || 'TEXT').toUpperCase()}
               </span>
               
-              {/* Isolated custom select that triggers hidden Google Translate */}
-              <select
-                value={modalLang}
-                onChange={handleLanguageChange}
-                className="bg-slate-850 text-white border border-white/10 rounded-lg px-2 py-0.5 text-[10px] font-bold outline-none cursor-pointer hover:bg-slate-800 transition-colors"
-              >
-                <option value="en">English</option>
-                <option value="hi">हिन्दी (Hindi)</option>
-                <option value="mr">मराठी (Marathi)</option>
-                <option value="gu">ગુજરાતી (Gujarati)</option>
-                <option value="bn">বাংলা (Bengali)</option>
-                <option value="ta">தமிழ் (Tamil)</option>
-                <option value="te">తెలుగు (Telugu)</option>
-                <option value="kn">ಕನ್ನಡ (Kannada)</option>
-              </select>
+              {/* Isolated custom select that triggers hidden Google Translate only for text setup guides */}
+              {isTextOnly && (
+                <select
+                  value={modalLang}
+                  onChange={handleLanguageChange}
+                  className="bg-slate-850 text-white border border-white/10 rounded-lg px-2 py-0.5 text-[10px] font-bold outline-none cursor-pointer hover:bg-slate-800 transition-colors"
+                >
+                  <option value="en">English</option>
+                  <option value="hi">हिन्दी (Hindi)</option>
+                  <option value="mr">मराठी (Marathi)</option>
+                  <option value="gu">ગુજરાતી (Gujarati)</option>
+                  <option value="bn">বাংলা (Bengali)</option>
+                  <option value="ta">தமிழ் (Tamil)</option>
+                  <option value="te">తెలుగు (Telugu)</option>
+                  <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                </select>
+              )}
             </div>
           </div>
-          <button 
-            onClick={handleClose} 
-            className="text-slate-400 hover:text-white transition-colors p-2 -mr-2 flex-shrink-0 text-xl font-bold flex items-center justify-center min-w-[44px] min-h-[44px]"
-            aria-label="Close"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => {
+                handleClose();
+                navigate(`/${role}/knowledge-base`);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 hover:text-indigo-300 border border-indigo-500/20 rounded-xl text-[10px] font-bold transition-all active:scale-95"
+              title="Open Full Help Center"
+            >
+              <BookOpen size={12} />
+              <span>All Tutorials</span>
+            </button>
+            <button 
+              onClick={handleClose} 
+              className="text-slate-400 hover:text-white transition-colors p-2 -mr-2 flex-shrink-0 text-xl font-bold flex items-center justify-center min-w-[44px] min-h-[44px]"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Media/Content Area */}
@@ -498,7 +513,7 @@ export default function HelpButton() {
       )}
 
       {/* Media Modal */}
-      {playingArticle && <MediaModal article={playingArticle} onClose={handleClosePlayingArticle} />}
+      {playingArticle && <MediaModal article={playingArticle} onClose={handleClosePlayingArticle} role={role} navigate={navigate} />}
     </>
   );
 }

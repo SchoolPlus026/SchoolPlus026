@@ -44,6 +44,48 @@ function getGDriveEmbed(url) {
 // ─── Media Player Modal ─────────────────────────────────────────────────────
 function MediaModal({ article, onClose }) {
   const [isClosing, setIsClosing] = useState(false);
+  const [modalLang, setModalLang] = useState('en');
+
+  const handleLanguageChange = (e) => {
+    const val = e.target.value;
+    setModalLang(val);
+    
+    // Update cookies
+    if (val === 'en') {
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.${window.location.hostname}; path=/;`;
+    } else {
+      document.cookie = `googtrans=/en/${val}; path=/`;
+      document.cookie = `googtrans=/en/${val}; domain=.${window.location.hostname}; path=/`;
+    }
+
+    // Trigger changes in global translate element
+    const selectEl = document.querySelector('.goog-te-combo');
+    if (selectEl) {
+      selectEl.value = val;
+      selectEl.dispatchEvent(new Event('change'));
+    }
+  };
+
+  useEffect(() => {
+    // Sync initial state from current cookie if active
+    const cookieMatch = document.cookie.match(/googtrans=\/en\/([a-z]+)/);
+    if (cookieMatch) {
+      setModalLang(cookieMatch[1]);
+    }
+
+    return () => {
+      // Revert language back to English when modal is closed
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.${window.location.hostname}; path=/;`;
+      
+      const selectEl = document.querySelector('.goog-te-combo');
+      if (selectEl) {
+        selectEl.value = 'en';
+        selectEl.dispatchEvent(new Event('change'));
+      }
+    };
+  }, []);
 
   const handleClose = () => {
     setIsClosing(true);
@@ -87,12 +129,32 @@ function MediaModal({ article, onClose }) {
         style={{ transformOrigin: 'bottom right' }}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-slate-800/80 bg-slate-950/40">
-          <div>
-            <h3 className="font-bold text-white text-base leading-snug">{article.title}</h3>
-            <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              {article.video_type === 'text' ? 'Setup Guide' : (article.video_type || 'TEXT').toUpperCase()}
-            </span>
+        <div className="flex items-start justify-between p-5 border-b border-slate-800/80 bg-slate-950/40 gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-white text-base leading-snug truncate">{article.title}</h3>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                {article.video_type === 'text' ? 'Setup Guide' : (article.video_type || 'TEXT').toUpperCase()}
+              </span>
+              
+              {/* Isolated custom select that triggers hidden Google Translate only for text setup guides */}
+              {isTextOnly && (
+                <select
+                  value={modalLang}
+                  onChange={handleLanguageChange}
+                  className="bg-slate-850 text-white border border-white/10 rounded-lg px-2 py-0.5 text-[10px] font-bold outline-none cursor-pointer hover:bg-slate-800 transition-colors"
+                >
+                  <option value="en">English</option>
+                  <option value="hi">हिन्दी (Hindi)</option>
+                  <option value="mr">मराठी (Marathi)</option>
+                  <option value="gu">ગુજરાતી (Gujarati)</option>
+                  <option value="bn">বাংলা (Bengali)</option>
+                  <option value="ta">தமிழ் (Tamil)</option>
+                  <option value="te">తెలుగు (Telugu)</option>
+                  <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                </select>
+              )}
+            </div>
           </div>
           <button 
             onClick={handleClose} 
@@ -203,6 +265,8 @@ export default function KnowledgeBase() {
   const [playingArticle, setPlayingArticle]     = useState(null);
   const [helpOptions, setHelpOptions]           = useState([]);
   const [search, setSearch]                     = useState('');
+  const [selectedModule, setSelectedModule]     = useState('all');
+  const [selectedFormat, setSelectedFormat]     = useState('all');
 
   const { role } = useAppStore();
   const userRole = (role || 'admin').toLowerCase();
@@ -259,7 +323,18 @@ export default function KnowledgeBase() {
   }, [userRole]);
 
   const combinedArticles = React.useMemo(() => {
-    return [...localArticles, ...articles];
+    const list = [...localArticles, ...articles];
+    return list.sort((a, b) => {
+      const aIsVideo = a.video_type === 'youtube' || a.video_type === 'gdrive';
+      const bIsVideo = b.video_type === 'youtube' || b.video_type === 'gdrive';
+      
+      // Videos first, written guides second
+      if (aIsVideo && !bIsVideo) return -1;
+      if (!aIsVideo && bIsVideo) return 1;
+      
+      // Sort by sort_order
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
   }, [localArticles, articles]);
 
   // Auto-play or show options menu when target module anchor changes
@@ -295,10 +370,33 @@ export default function KnowledgeBase() {
     setSearchParams(newParams);
   };
 
-  const filtered = combinedArticles.filter(a =>
-    (!search || a.title.toLowerCase().includes(search.toLowerCase()) || a.description?.toLowerCase().includes(search.toLowerCase())) &&
-    (!targetModuleAnchor || playingArticle || (a.target_module && a.target_module.replace(/-/g, '_') === targetModuleAnchor.replace(/-/g, '_')) || !selectedCategory)
-  );
+  const filtered = combinedArticles.filter(a => {
+    const matchesSearch = !search || 
+      a.title.toLowerCase().includes(search.toLowerCase()) || 
+      (a.description && a.description.toLowerCase().includes(search.toLowerCase()));
+
+    const matchesCategory = !selectedCategory || a.category_id === selectedCategory;
+
+    let matchesModule = true;
+    if (targetModuleAnchor && !playingArticle) {
+      matchesModule = a.target_module && a.target_module.replace(/-/g, '_') === targetModuleAnchor.replace(/-/g, '_');
+    } else if (selectedModule !== 'all') {
+      matchesModule = a.target_module && a.target_module.replace(/-/g, '_') === selectedModule;
+    }
+
+    let matchesFormat = true;
+    if (selectedFormat !== 'all') {
+      if (selectedFormat === 'video') {
+        matchesFormat = a.video_type === 'youtube' || a.video_type === 'gdrive';
+      } else if (selectedFormat === 'text') {
+        matchesFormat = a.video_type === 'text' || !a.video_url;
+      } else {
+        matchesFormat = a.video_type === selectedFormat;
+      }
+    }
+
+    return matchesSearch && matchesCategory && matchesModule && matchesFormat;
+  });
 
   return (
     <div className="space-y-6">
@@ -310,16 +408,55 @@ export default function KnowledgeBase() {
           </h2>
           <p className="text-sm text-slate-400 mt-1">Step-by-step video tutorials for using the app.</p>
         </div>
+      </div>
+
+      {/* Search & Filters Controls */}
+      <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4">
         {/* Search */}
-        <div className="relative">
+        <div className="relative flex-1 w-full">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             placeholder="Search tutorials..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700/50 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors w-64"
+            className="pl-9 pr-4 py-2.5 bg-slate-950/40 border border-white/5 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors w-full"
           />
+        </div>
+        
+        {/* Module Filter */}
+        <div className="w-full md:w-48">
+          <select
+            value={selectedModule}
+            onChange={e => setSelectedModule(e.target.value)}
+            className="w-full bg-slate-950/40 border border-slate-700/50 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 outline-none cursor-pointer focus:border-indigo-500 transition-colors"
+          >
+            <option value="all">All Modules</option>
+            <option value="off_classes">Off-Classes</option>
+            <option value="leaves">Leaves</option>
+            <option value="complaint_box">Complaint Box</option>
+            <option value="emergency">Emergency Alerts</option>
+            <option value="billing">Billing & Plan</option>
+            <option value="syllabus">Syllabus Tracker</option>
+            <option value="bus_alerts">Bus Tracker</option>
+            <option value="lost_found">Lost & Found</option>
+          </select>
+        </div>
+
+        {/* Format Filter */}
+        <div className="w-full md:w-48">
+          <select
+            value={selectedFormat}
+            onChange={e => setSelectedFormat(e.target.value)}
+            className="w-full bg-slate-950/40 border border-slate-700/50 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 outline-none cursor-pointer focus:border-indigo-500 transition-colors"
+          >
+            <option value="all">All Formats</option>
+            <option value="video">🎥 Video Tutorials</option>
+            <option value="text">📖 Setup Handbooks</option>
+            <option value="image">🖼️ Infographics / Images</option>
+            <option value="audio">🎙️ Audio Guides</option>
+            <option value="document">📄 Documents / PDFs</option>
+          </select>
         </div>
       </div>
 
