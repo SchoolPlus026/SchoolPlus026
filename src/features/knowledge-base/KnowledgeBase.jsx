@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../config/supabaseClient';
@@ -351,6 +351,14 @@ export default function KnowledgeBase() {
     }
   }, [targetModuleAnchor, combinedArticles, playingArticle, helpOptions]);
 
+  const clearModuleParam = () => {
+    if (searchParams.has('module')) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('module');
+      setSearchParams(newParams);
+    }
+  };
+
   const handleSelectHelpOption = (article) => {
     setPlayingArticle(article);
     setHelpOptions([]);
@@ -428,7 +436,10 @@ export default function KnowledgeBase() {
         <div className="w-full md:w-48">
           <select
             value={selectedModule}
-            onChange={e => setSelectedModule(e.target.value)}
+            onChange={e => {
+              setSelectedModule(e.target.value);
+              clearModuleParam();
+            }}
             className="w-full bg-slate-950/40 border border-slate-700/50 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 outline-none cursor-pointer focus:border-indigo-500 transition-colors"
           >
             <option value="all">All Modules</option>
@@ -447,7 +458,10 @@ export default function KnowledgeBase() {
         <div className="w-full md:w-48">
           <select
             value={selectedFormat}
-            onChange={e => setSelectedFormat(e.target.value)}
+            onChange={e => {
+              setSelectedFormat(e.target.value);
+              clearModuleParam();
+            }}
             className="w-full bg-slate-950/40 border border-slate-700/50 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 outline-none cursor-pointer focus:border-indigo-500 transition-colors"
           >
             <option value="all">All Formats</option>
@@ -468,7 +482,10 @@ export default function KnowledgeBase() {
       ) : (
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setSelectedCategory(null)}
+            onClick={() => {
+              setSelectedCategory(null);
+              clearModuleParam();
+            }}
             className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${!selectedCategory ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'}`}
           >
             All Topics
@@ -476,7 +493,10 @@ export default function KnowledgeBase() {
           {categories.map(cat => (
             <button
               key={cat.id}
-              onClick={() => setSelectedCategory(cat.id === selectedCategory ? null : cat.id)}
+              onClick={() => {
+                setSelectedCategory(cat.id === selectedCategory ? null : cat.id);
+                clearModuleParam();
+              }}
               className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${selectedCategory === cat.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'}`}
             >
               {cat.name}
