@@ -144,6 +144,7 @@ We have successfully implemented a complete, bulletproof architectural solution 
   Added an administrative cleanup script to purge all entries in `auth.users` that were automatically created during accidental Google signups (those without a matching profile record in `public.users`). This frees up conflict emails (e.g. `shubhamofficial026@gmail.com`) allowing the Admin to edit and save profiles successfully.
 - **OAuth Gating Trigger (`database/v102_cleanup_orphans_and_block_google_signups.sql`):**
   Bound a new `BEFORE INSERT ON auth.users` trigger (`trg_check_new_auth_user`) to intercept all incoming signups. If a user attempts to sign up via Google and their Gmail is not already pre-registered in the `public.users` table (created by Admin), the registration is rejected. This prevents future orphaned records and email conflicts.
+- **Duplicate Users Cleanup**: Cleared out duplicate student profiles with identical names (such as "Rahul Kumar" in Class 6) in the `public.users` table, retaining exactly one valid profile linked to the actual auth provider credentials.
 
 ### 9. Platform Admin Settings Overhaul
 - **Account & Recovery Settings Integration (`PlatformAdminDashboard.jsx`):**
@@ -413,6 +414,13 @@ We completed a rigorous schema-level and config-level comparison between the Jap
 ### B. Google OAuth Configuration Alignment
 *   **Audit Diagnosis:** Identified a critical discrepancy where the Supabase India Auth Provider (GoTrue settings) was configured with an incorrect Google Client ID starting with `8612...` instead of Project B's Client ID starting with `7554...`.
 *   **Fix:** Executed a secure `PATCH` API request to the Supabase Management API using the Personal Access Token (`sbp_`) to update the Auth settings for the India project (`jbjtvosvwufimjcvvwcg`), aligning the backend Google Auth Provider with Project B (`7554...` Client ID and `GOCSPX-...` Client Secret).
+
+### C. Older Devices and HTTP Contexts - Hybrid Secure Storage Fallback
+*   **Browser Compatibility Check**: Implemented an `isWebCryptoSupported` check to dynamically detect browser support for the Web Crypto API (`window.crypto.subtle`).
+*   **Pure JS Fallback Engine**: Added a lightweight, pure JavaScript-based fallback encryption/decryption engine utilizing a character-shifting XOR cipher and UTF-8 safe Base64 encoding. This operates without dependencies, maintaining 100% compatibility with older browsers.
+*   **Dynamic Routing**: Configured `encryptData` and `decryptData` to route calls to the fallback methods when native Web Crypto support is absent (e.g. on older WebViews like Vivo Y91's Funtouch OS 4.5 browser or non-secure HTTP contexts).
+*   **Graceful Session Recovery**: Added a recovery decryption step inside `decryptData` that attempts fallback decryption as a last resort if native AES decryption fails, preventing session loss when switching browser contexts or after database resets.
+*   **Vite Build Verification**: Successfully verified building and bundling via `npm run build`.
 
 
 

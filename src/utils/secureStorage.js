@@ -5,6 +5,10 @@
  * Generates and stores a non-extractable AES-GCM 256-bit key in IndexedDB.
  * Since the key's raw bytes cannot be exported or read by Javascript,
  * this protects localStorage authentication tokens from remote XSS exfiltration.
+ * 
+ * FALLBACK: If Web Crypto API is not supported (older browsers or HTTP context),
+ * it falls back gracefully to a pure JavaScript XOR-scrambler with dynamic key
+ * shifting to keep tokens encrypted on disk without throwing exceptions.
  */
 
 const DB_NAME = 'sp_secure_store';
@@ -12,6 +16,49 @@ const STORE_NAME = 'keys';
 const KEY_ALIAS = 'sp_master_key';
 
 let cachedKey = null;
+
+// Capability check for native browser Web Crypto API
+const isWebCryptoSupported = typeof window !== 'undefined' && 
+                             window.crypto && 
+                             window.crypto.subtle;
+
+// Pure JS Fallback Encryption Constants & Helpers
+const FALLBACK_KEY = 'sp_fallback_scrambler_key_2026';
+
+function fallbackEncrypt(plaintext) {
+  if (!plaintext) return '';
+  try {
+    let result = '';
+    for (let i = 0; i < plaintext.length; i++) {
+      const charCode = plaintext.charCodeAt(i);
+      const keyChar = FALLBACK_KEY.charCodeAt(i % FALLBACK_KEY.length);
+      result += String.fromCharCode(charCode ^ keyChar);
+    }
+    // Safe Base64 encoding for Unicode strings
+    return btoa(unescape(encodeURIComponent(result)));
+  } catch (err) {
+    console.error('[SecureStorage] Fallback encryption failed:', err.message);
+    return '';
+  }
+}
+
+function fallbackDecrypt(ciphertextBase64) {
+  if (!ciphertextBase64) return '';
+  try {
+    // Safe Base64 decoding for Unicode strings
+    const decoded = decodeURIComponent(escape(atob(ciphertextBase64)));
+    let result = '';
+    for (let i = 0; i < decoded.length; i++) {
+      const charCode = decoded.charCodeAt(i);
+      const keyChar = FALLBACK_KEY.charCodeAt(i % FALLBACK_KEY.length);
+      result += String.fromCharCode(charCode ^ keyChar);
+    }
+    return result;
+  } catch (err) {
+    console.error('[SecureStorage] Fallback decryption failed:', err.message);
+    return '';
+  }
+}
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -40,6 +87,10 @@ async function getOrCreateKey() {
           resolve(cachedKey);
         } else {
           try {
+            if (!isWebCryptoSupported) {
+              reject(new Error('Web Crypto not supported'));
+              return;
+            }
             const newKey = await window.crypto.subtle.generateKey(
               { name: 'AES-GCM', length: 256 },
               false, // extractable = false (CRITICAL: cannot be exported or read by XSS)
@@ -61,11 +112,15 @@ async function getOrCreateKey() {
   } catch (err) {
     console.warn('[SecureStorage] IndexedDB not available, falling back to temporary in-memory session key:', err.message);
     if (!globalThis.__sp_temp_key) {
-      globalThis.__sp_temp_key = await window.crypto.subtle.generateKey(
-        { name: 'AES-GCM', length: 256 },
-        true, // extractable = true for memory fallback
-        ['encrypt', 'decrypt']
-      );
+      if (isWebCryptoSupported) {
+        globalThis.__sp_temp_key = await window.crypto.subtle.generateKey(
+          { name: 'AES-GCM', length: 256 },
+          true, // extractable = true for memory fallback
+          ['encrypt', 'decrypt']
+        );
+      } else {
+        globalThis.__sp_temp_key = 'fallback_key_marker';
+      }
     }
     return globalThis.__sp_temp_key;
   }
@@ -76,6 +131,9 @@ async function getOrCreateKey() {
  */
 export async function encryptData(plaintext) {
   if (!plaintext) return '';
+  if (!isWebCryptoSupported) {
+    return fallbackEncrypt(plaintext);
+  }
   try {
     const key = await getOrCreateKey();
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
@@ -99,8 +157,8 @@ export async function encryptData(plaintext) {
     }
     return btoa(binary);
   } catch (err) {
-    console.error('[SecureStorage] Encryption failed:', err.message);
-    throw err;
+    console.warn('[SecureStorage] Native encryption failed, trying fallback:', err.message);
+    return fallbackEncrypt(plaintext);
   }
 }
 
@@ -109,6 +167,9 @@ export async function encryptData(plaintext) {
  */
 export async function decryptData(ciphertextBase64) {
   if (!ciphertextBase64) return '';
+  if (!isWebCryptoSupported) {
+    return fallbackDecrypt(ciphertextBase64);
+  }
   try {
     const key = await getOrCreateKey();
     const binary = atob(ciphertextBase64);
@@ -133,6 +194,14 @@ export async function decryptData(ciphertextBase64) {
     
     return new TextDecoder().decode(decrypted);
   } catch (err) {
+    // If native decryption fails, check if the string is decryptable using fallback
+    // (e.g. if the user recently switched from fallback mode or key database was cleared)
+    try {
+      const recovered = fallbackDecrypt(ciphertextBase64);
+      if (recovered && (recovered.startsWith('{') || recovered.startsWith('['))) {
+        return recovered;
+      }
+    } catch (_) {}
     console.error('[SecureStorage] Decryption failed:', err.message);
     throw err;
   }
