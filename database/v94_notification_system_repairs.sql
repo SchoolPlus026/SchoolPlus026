@@ -92,7 +92,7 @@ SELECT cron.schedule(
   '*/10 * * * *', -- 24/7, every 10 minutes
   $$
   SELECT net.http_post(
-    url     := 'https://nnaqayemfogpfehiaifw.supabase.co/functions/v1/process-notification-queue',
+    url     := 'https://jbjtvosvwufimjcvvwcg.supabase.co/functions/v1/process-notification-queue',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
       'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uYXFheWVtZm9ncGZlaGlhaWZ3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE4NTc5NCwiZXhwIjoyMDkxNzYxNzk0fQ.oCnaDPw0iuPykcvTwEL4EPZLHbB1_JeAJyjPGfmYEW8'

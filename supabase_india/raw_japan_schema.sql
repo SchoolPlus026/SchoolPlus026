@@ -3718,7 +3718,7 @@ BEGIN
     v_cron_expr,
     $cron$
     SELECT net.http_post(
-      url     => 'https://nnaqayemfogpfehiaifw.supabase.co/functions/v1/process-notification-queue',
+      url     => 'https://jbjtvosvwufimjcvvwcg.supabase.co/functions/v1/process-notification-queue',
       headers => jsonb_build_object(
         'Content-Type',  'application/json',
         'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uYXFheWVtZm9ncGZlaGlhaWZ3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE4NTc5NCwiZXhwIjoyMDkxNzYxNzk0fQ.oCnaDPw0iuPykcvTwEL4EPZLHbB1_JeAJyjPGfmYEW8'
@@ -3843,7 +3843,7 @@ BEGIN
 
   IF v_has_premium_pending THEN
     PERFORM net.http_post(
-      url     := 'https://nnaqayemfogpfehiaifw.supabase.co/functions/v1/process-notification-queue',
+      url     := 'https://jbjtvosvwufimjcvvwcg.supabase.co/functions/v1/process-notification-queue',
       headers := jsonb_build_object(
         'Content-Type',  'application/json',
         'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uYXFheWVtZm9ncGZlaGlhaWZ3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE4NTc5NCwiZXhwIjoyMDkxNzYxNzk0fQ.oCnaDPw0iuPykcvTwEL4EPZLHbB1_JeAJyjPGfmYEW8'
@@ -4561,9 +4561,9 @@ $function$;
 -- SECTION 5: TRIGGERS
 -- ==========================================
 
-CREATE TRIGGER trigger_notification_on_notice AFTER INSERT OR UPDATE ON public.notices FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://nnaqayemfogpfehiaifw.supabase.co/functions/v1/send-notice-notification', 'POST', '{"Content-type":"application/json"}', '{}', '5000');
+CREATE TRIGGER trigger_notification_on_notice AFTER INSERT OR UPDATE ON public.notices FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://jbjtvosvwufimjcvvwcg.supabase.co/functions/v1/send-notice-notification', 'POST', '{"Content-type":"application/json"}', '{}', '5000');
 
-CREATE TRIGGER trigger_notification_queue AFTER INSERT ON public.app_notifications_queue FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://nnaqayemfogpfehiaifw.supabase.co/functions/v1/process-notification-queue', 'POST', '{"Content-type":"application/json"}', '{}', '5000');
+CREATE TRIGGER trigger_notification_queue AFTER INSERT ON public.app_notifications_queue FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://jbjtvosvwufimjcvvwcg.supabase.co/functions/v1/process-notification-queue', 'POST', '{"Content-type":"application/json"}', '{}', '5000');
 
 CREATE TRIGGER on_fees_payment_notify AFTER INSERT ON public.fees_payments FOR EACH ROW EXECUTE FUNCTION trg_notify_fees_payment();
 
@@ -4801,7 +4801,7 @@ SELECT cron.schedule(
   '*/15 * * * *',
   $$
   SELECT net.http_post(
-    url     := 'https://nnaqayemfogpfehiaifw.supabase.co/functions/v1/process-notification-queue',
+    url     := 'https://jbjtvosvwufimjcvvwcg.supabase.co/functions/v1/process-notification-queue',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
       'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uYXFheWVtZm9ncGZlaGlhaWZ3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE4NTc5NCwiZXhwIjoyMDkxNzYxNzk0fQ.oCnaDPw0iuPykcvTwEL4EPZLHbB1_JeAJyjPGfmYEW8'
