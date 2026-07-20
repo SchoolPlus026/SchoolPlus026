@@ -119,28 +119,37 @@ export default function TimetableManager() {
   };
 
   const handleDownloadTimetableTemplate = () => {
-    const sampleData = [
+    const templateData = [
       {
         "Day": "Monday",
         "Period Number": 1,
-        "Start Time": "09:00 AM",
-        "End Time": "09:40 AM",
-        "Class": classes[0] || "5TH - A",
-        "Subject": "Mathematics",
-        "Teacher": teachers?.[0]?.name || "Amit Kumar"
+        "Start Time": "08:00 AM",
+        "End Time": "08:45 AM",
+        "Class": "1ST - A",
+        "Subject": "English",
+        "Teacher": "Amit Kumar"
       },
       {
         "Day": "Monday",
         "Period Number": 2,
-        "Start Time": "09:40 AM",
-        "End Time": "10:20 AM",
-        "Class": classes[0] || "5TH - A",
-        "Subject": "Science",
-        "Teacher": teachers?.[1]?.name || teachers?.[0]?.name || "Shubham Hajare"
+        "Start Time": "08:45 AM",
+        "End Time": "09:30 AM",
+        "Class": "1ST - A",
+        "Subject": "Mathematics",
+        "Teacher": "Shubham Hajare"
+      },
+      {
+        "Day": "Monday",
+        "Period Number": 3,
+        "Start Time": "09:30 AM",
+        "End Time": "10:15 AM",
+        "Class": "1ST - A",
+        "Subject": "EVS",
+        "Teacher": "Amit Kumar"
       }
     ];
 
-    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Timetable Template");
     XLSX.writeFile(workbook, "school_timetable_template.xlsx");
@@ -176,6 +185,7 @@ export default function TimetableManager() {
       let skippedCount = 0;
       const errors = [];
       const validPayloads = [];
+      const insertedDetails = [];
 
       // Create teacher lookup map (by name and username lowercase)
       const teacherMap = {};
@@ -214,8 +224,8 @@ export default function TimetableManager() {
         // Resolve teacher UUID or keep name string
         const teacherId = teacherMap[rTeacherStr.toLowerCase()] || rTeacherStr;
 
-        // Collision check against existing DB slots
-        const hasDbConflict = (existingSlots || []).some(s => 
+        // Collision check against existing DB slots (only if not overwriting)
+        const hasDbConflict = !overwriteClassSchedule && (existingSlots || []).some(s => 
           s.day.toLowerCase() === rDay.toLowerCase() &&
           s.period_order === rPeriod &&
           s.teacher === teacherId
@@ -245,16 +255,25 @@ export default function TimetableManager() {
           class: rClass,
           teacher: teacherId
         });
+
+        insertedDetails.push(`${rClass} | ${rDay} Period ${rPeriod}: ${rSubject} (${rTeacherStr})`);
       }
 
       if (validPayloads.length > 0) {
+        if (overwriteClassSchedule) {
+          const targetClasses = Array.from(new Set(validPayloads.map(p => p.class)));
+          if (targetClasses.length > 0) {
+            await supabase.from('timetable').delete().eq('school_id', schoolSettings.school_id).in('class', targetClasses);
+          }
+        }
+
         const { error: insertErr } = await supabase.from('timetable').insert(validPayloads);
         if (insertErr) throw insertErr;
         insertedCount = validPayloads.length;
         queryClient.invalidateQueries({ queryKey: ['timetable'] });
       }
 
-      setBulkSummary({ insertedCount, skippedCount, errors });
+      setBulkSummary({ insertedCount, skippedCount, errors, insertedDetails });
     } catch (err) {
       alert("Bulk upload failed: " + err.message);
     } finally {
@@ -395,6 +414,17 @@ export default function TimetableManager() {
                 />
               </div>
 
+              {/* Overwrite Option */}
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer p-1">
+                <input
+                  type="checkbox"
+                  checked={overwriteClassSchedule}
+                  onChange={e => setOverwriteClassSchedule(e.target.checked)}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <span>Overwrite/Replace existing timetable for uploaded classes</span>
+              </label>
+
               {/* Process Button */}
               <button
                 onClick={handleProcessBulkTimetable}
@@ -405,17 +435,38 @@ export default function TimetableManager() {
                 {isProcessing ? "Processing & Validating..." : "Import Timetable Slots"}
               </button>
 
-              {/* Summary Results */}
+              {/* Summary Results Overview */}
               {bulkSummary && (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
-                  <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold">
-                    <CheckCircle2 size={16} className="text-emerald-600" />
-                    <span>Successfully imported {bulkSummary.insertedCount} timetable period(s)!</span>
-                  </div>
+                <div className="space-y-3">
+                  {bulkSummary.insertedCount > 0 ? (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
+                      <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold">
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                        <span>Successfully imported {bulkSummary.insertedCount} timetable period(s)!</span>
+                      </div>
+                      <div className="max-h-28 overflow-y-auto bg-white/70 p-2.5 rounded-xl border border-emerald-200/60 text-[10px] font-medium text-slate-700 space-y-1">
+                        {bulkSummary.insertedDetails?.map((det, i) => (
+                          <div key={i} className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span>{det}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs font-bold flex items-center gap-2">
+                      <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                      <span>No periods imported. All rows collided with existing slots or contained invalid data.</span>
+                    </div>
+                  )}
+
                   {bulkSummary.skippedCount > 0 && (
-                    <div className="text-rose-700 text-[11px] font-bold space-y-1 border-t border-emerald-200/60 pt-2">
-                      <div className="flex items-center gap-1"><AlertTriangle size={14} /> Skipped {bulkSummary.skippedCount} conflicting / invalid row(s):</div>
-                      <div className="max-h-24 overflow-y-auto pl-4 space-y-0.5 font-normal text-[10px]">
+                    <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-1 text-rose-800 text-[11px] font-bold">
+                      <div className="flex items-center gap-1.5 text-rose-700">
+                        <AlertTriangle size={14} className="shrink-0" />
+                        <span>Skipped {bulkSummary.skippedCount} conflicting / invalid row(s):</span>
+                      </div>
+                      <div className="max-h-24 overflow-y-auto pl-4 space-y-0.5 font-normal text-[10px] text-rose-900">
                         {bulkSummary.errors.map((err, i) => <div key={i}>• {err}</div>)}
                       </div>
                     </div>
