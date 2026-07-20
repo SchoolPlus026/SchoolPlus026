@@ -11,6 +11,8 @@ function extractYouTubeId(url) {
     /youtu\.be\/([^?&]+)/,
     /[?&]v=([^?&]+)/,
     /youtube\.com\/embed\/([^?&]+)/,
+    /youtube\.com\/shorts\/([^?&]+)/,
+    /youtube\.com\/live\/([^?&]+)/,
   ];
   for (const p of patterns) {
     const m = url.match(p);
@@ -269,7 +271,8 @@ export default function KnowledgeBase() {
   const [selectedFormat, setSelectedFormat]     = useState('all');
 
   const { role } = useAppStore();
-  const userRole = (role || 'admin').toLowerCase();
+  const rawRole = (role || 'admin').toLowerCase();
+  const userRole = rawRole === 'hm' ? 'admin' : rawRole;
 
   const { data: categories = [], isLoading: loadingCats } = useQuery({
     queryKey: ['kb_categories'],
@@ -324,7 +327,15 @@ export default function KnowledgeBase() {
 
   const combinedArticles = React.useMemo(() => {
     const list = [...localArticles, ...articles];
-    return list.sort((a, b) => {
+    const filteredList = list.filter(a => {
+      if (a.id && a.id.toString().startsWith('local_')) return true;
+      if (userRole === 'platform_admin') return true;
+      const roles = (Array.isArray(a.target_roles) && a.target_roles.length > 0)
+        ? a.target_roles
+        : ['admin', 'teacher', 'student', 'staff', 'driver'];
+      return roles.includes(userRole);
+    });
+    return filteredList.sort((a, b) => {
       const aIsVideo = a.video_type === 'youtube' || a.video_type === 'gdrive';
       const bIsVideo = b.video_type === 'youtube' || b.video_type === 'gdrive';
       
@@ -335,7 +346,7 @@ export default function KnowledgeBase() {
       // Sort by sort_order
       return (a.sort_order || 0) - (b.sort_order || 0);
     });
-  }, [localArticles, articles]);
+  }, [localArticles, articles, userRole]);
 
   // Auto-play or show options menu when target module anchor changes
   React.useEffect(() => {
@@ -414,7 +425,13 @@ export default function KnowledgeBase() {
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             <HelpCircle size={26} className="text-indigo-400" /> Help & Tutorials
           </h2>
-          <p className="text-sm text-slate-400 mt-1">Step-by-step video tutorials for using the app.</p>
+          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+            <p className="text-sm text-slate-400">Step-by-step video tutorials for using the app.</p>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Targeted for: {userRole}
+            </span>
+          </div>
         </div>
       </div>
 

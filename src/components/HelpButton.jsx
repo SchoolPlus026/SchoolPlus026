@@ -11,7 +11,11 @@ import { moduleWalkthroughs } from '../config/moduleWalkthroughs';
 // ─── GDrive / YouTube helpers ───────────────────────────────────────────────
 function getYouTubeEmbed(url) {
   if (!url) return null;
-  const idMatch = url.match(/youtu\.be\/([^?&]+)/) || url.match(/[?&]v=([^?&]+)/) || url.match(/youtube\.com\/embed\/([^?&]+)/);
+  const idMatch = url.match(/youtu\.be\/([^?&]+)/) || 
+                  url.match(/[?&]v=([^?&]+)/) || 
+                  url.match(/youtube\.com\/embed\/([^?&]+)/) ||
+                  url.match(/youtube\.com\/shorts\/([^?&]+)/) ||
+                  url.match(/youtube\.com\/live\/([^?&]+)/);
   return idMatch ? `https://www.youtube.com/embed/${idMatch[1]}?autoplay=1` : null;
 }
 
@@ -269,7 +273,8 @@ export default function HelpButton() {
 
   // Load and segment local walkthrough guides based on role
   const localArticles = useMemo(() => {
-    const userRole = (role || 'admin').toLowerCase();
+    const rawRole = (role || 'admin').toLowerCase();
+    const userRole = rawRole === 'hm' ? 'admin' : rawRole;
     return Object.entries(moduleWalkthroughs).map(([key, value]) => {
       const roleData = value.roles[userRole] || value.roles.admin || {};
       const stepsText = (roleData.steps || []).map(s => `${s.title}\n${s.text}`).join('\n\n');
@@ -292,8 +297,22 @@ export default function HelpButton() {
   }, [role]);
 
   const combinedArticles = useMemo(() => {
-    return [...localArticles, ...articles];
-  }, [localArticles, articles]);
+    const list = [...localArticles, ...articles];
+    const rawRole = (role || 'admin').toLowerCase();
+    const userRole = rawRole === 'hm' ? 'admin' : rawRole;
+
+    return list.filter(a => {
+      // Local setup guides are already filtered by the active userRole
+      if (a.id && a.id.toString().startsWith('local_')) return true;
+      // Platform admin can preview all articles
+      if (userRole === 'platform_admin') return true;
+      // Database articles fallback for null/empty target_roles
+      const roles = (Array.isArray(a.target_roles) && a.target_roles.length > 0)
+        ? a.target_roles
+        : ['admin', 'teacher', 'student', 'staff', 'driver'];
+      return roles.includes(userRole);
+    });
+  }, [localArticles, articles, role]);
 
   // Extract active module name from URL path
   const segments = location.pathname.split('/').filter(Boolean);

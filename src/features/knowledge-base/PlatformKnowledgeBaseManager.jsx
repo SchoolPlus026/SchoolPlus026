@@ -5,7 +5,12 @@ import { BookOpen, Plus, Trash2, Edit2, X, Play, Save, ChevronDown, ChevronUp, Y
 import { uploadFileToGDriveDirect } from '../../utils/gdriveDirectUpload';
 
 function extractYouTubeThumbnail(url) {
-  const m = url?.match(/(?:youtu\.be\/|v=|embed\/)([^?&]+)/);
+  if (!url) return null;
+  const m = url.match(/youtu\.be\/([^?&/#]+)/) ||
+            url.match(/[?&]v=([^?&/#]+)/) ||
+            url.match(/youtube\.com\/embed\/([^?&/#]+)/) ||
+            url.match(/youtube\.com\/shorts\/([^?&/#]+)/) ||
+            url.match(/youtube\.com\/live\/([^?&/#]+)/);
   return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
 }
 
@@ -52,6 +57,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
   const [videoType, setVideoType]     = useState(initial.video_type || 'youtube');
   const [videoUrl, setVideoUrl]       = useState(initial.video_url || '');
   const [targetModule, setTargetModule] = useState(initial.target_module || 'none');
+  const [targetRoles, setTargetRoles]   = useState((Array.isArray(initial.target_roles) && initial.target_roles.length > 0) ? initial.target_roles : ['admin', 'teacher', 'student', 'staff', 'driver']);
   const [sortOrder, setSortOrder]     = useState(initial.sort_order ?? 0);
   const [isPublished, setIsPublished] = useState(initial.is_published !== false);
   const [uploading, setUploading]     = useState(false);
@@ -107,7 +113,8 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
           video_url: item.url,
           target_module: targetModule === 'none' ? null : targetModule,
           is_published: false,
-          sort_order: 0
+          sort_order: 0,
+          target_roles: targetRoles
         })), true); // Pass true for isBulk
       }
     } catch (err) { setUploadError(err.message); }
@@ -116,7 +123,18 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ category_id: categoryId, title: title.trim(), description: description.trim(), video_type: videoType, video_url: videoUrl.trim(), thumbnail_url: ytThumb || null, target_module: targetModule === 'none' ? null : targetModule, sort_order: Number(sortOrder), is_published: isPublished });
+    onSave({ 
+      category_id: categoryId, 
+      title: title.trim(), 
+      description: description.trim(), 
+      video_type: videoType, 
+      video_url: videoUrl.trim(), 
+      thumbnail_url: ytThumb || null, 
+      target_module: targetModule === 'none' ? null : targetModule, 
+      sort_order: Number(sortOrder), 
+      is_published: isPublished,
+      target_roles: targetRoles
+    });
   };
 
   return (
@@ -173,6 +191,33 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
           <option value="settings">Settings</option>
         </select>
         <p className="text-[10px] text-slate-500 mt-1">If a user clicks "Help" in this module, they will be auto-routed to this article.</p>
+      </div>
+
+      <div>
+        <label className="muted small block mb-1 font-semibold">Target Audience Roles *</label>
+        <div className="flex flex-wrap gap-4 mt-1.5 p-3 bg-slate-950/20 border border-slate-800/80 rounded-xl">
+          {['admin', 'teacher', 'student', 'staff', 'driver'].map(role => {
+            const isChecked = targetRoles.includes(role);
+            return (
+              <label key={role} className="flex items-center gap-2 text-xs font-bold text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => {
+                    if (isChecked) {
+                      setTargetRoles(targetRoles.filter(r => r !== role));
+                    } else {
+                      setTargetRoles([...targetRoles, role]);
+                    }
+                  }}
+                  style={{ width: 15, height: 15, accentColor: 'var(--accent)' }}
+                />
+                <span className="capitalize">{role}</span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-slate-500 mt-1">Select the user roles authorized to view this tutorial.</p>
       </div>
 
       {videoType !== 'text' && (
@@ -465,44 +510,82 @@ export default function PlatformKnowledgeBaseManager() {
 
                 {/* Articles List (expanded) */}
                 {isExpanded && (
-                  <div className="bg-slate-900/30">
+                  <div className="bg-slate-950/20 p-4 border-t border-slate-800/60">
                     {catArticles.length === 0 ? (
-                      <div className="text-center py-4 text-xs text-slate-600">No articles in this category yet.</div>
+                      <div className="text-center py-6 text-xs text-slate-500 font-semibold">No articles in this category yet.</div>
                     ) : (
-                      catArticles.map(art => {
-                        const thumb = art.thumbnail_url || (art.video_type === 'youtube' ? extractYouTubeThumbnail(art.video_url) : null);
-                        return (
-                          <div key={art.id} className="flex items-center gap-3 px-4 py-3 border-t border-slate-800/60">
-                            {/* Thumbnail */}
-                            <div className="w-16 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800">
-                              {thumb
-                                ? <img src={thumb} alt="" className="w-full h-full object-cover" />
-                                : <div className="w-full h-full flex items-center justify-center"><Play size={16} className="text-slate-600" /></div>}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-semibold text-white truncate">{art.title}</div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${art.video_type === 'youtube' ? 'bg-red-900/50 text-red-400' : 'bg-blue-900/50 text-blue-400'}`}>
-                                  {art.video_type === 'youtube' ? 'YouTube' : 'Drive'}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {catArticles.map(art => {
+                          const thumb = art.thumbnail_url || (art.video_type === 'youtube' ? extractYouTubeThumbnail(art.video_url) : null);
+                          return (
+                            <div key={art.id} className="bg-slate-900/80 border border-slate-800/60 rounded-xl overflow-hidden shadow-lg flex flex-col justify-between group hover:border-indigo-500/50 transition-all duration-300">
+                              {/* Preview Thumbnail */}
+                              <div className="relative aspect-video w-full bg-slate-950 flex items-center justify-center overflow-hidden border-b border-slate-800/60">
+                                {thumb ? (
+                                  <img src={thumb} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                ) : (
+                                  <Play size={28} className="text-slate-700 group-hover:text-indigo-400 transition-colors" />
+                                )}
+                                <span className={`absolute top-2 left-2 text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-md ${
+                                  art.video_type === 'youtube' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                }`}>
+                                  {art.video_type || 'Text'}
                                 </span>
-                                <button onClick={() => togglePublish(art)} className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${art.is_published ? 'bg-emerald-900/50 text-emerald-400 hover:bg-red-900/50 hover:text-red-400' : 'bg-slate-700 text-slate-500 hover:bg-emerald-900/50 hover:text-emerald-400'}`}>
-                                  {art.is_published ? 'Published' : 'Draft'}
-                                </button>
+                                {art.target_module && (
+                                  <span className="absolute top-2 right-2 text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                                    {art.target_module.replace(/_/g, ' ')}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Card Content */}
+                              <div className="p-3 flex-1 flex flex-col justify-between gap-3">
+                                <div>
+                                  <h5 className="text-xs font-black text-white leading-snug line-clamp-1 group-hover:text-indigo-300 transition-colors">{art.title}</h5>
+                                  {art.description && (
+                                    <p className="text-[10px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">{art.description}</p>
+                                  )}
+                                </div>
+
+                                {/* Target Roles Badge Row */}
+                                <div className="space-y-2 mt-auto">
+                                  <div className="flex flex-wrap gap-1">
+                                    {(art.target_roles || []).map(r => (
+                                      <span key={r} className="text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded bg-slate-850 text-slate-400 border border-white/5">
+                                        {r}
+                                      </span>
+                                    ))}
+                                  </div>
+
+                                  {/* Action row */}
+                                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/60">
+                                    <button 
+                                      onClick={() => togglePublish(art)} 
+                                      className={`text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-md transition-all ${
+                                        art.is_published 
+                                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20' 
+                                          : 'bg-slate-800 text-slate-500 border border-slate-700 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/20'
+                                      }`}
+                                    >
+                                      {art.is_published ? 'Published' : 'Draft'}
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      <button className="text-indigo-400 hover:text-indigo-300 p-1 rounded hover:bg-indigo-500/10 transition-colors"
+                                        onClick={() => setEditingArticle(art)}>
+                                        <Edit2 size={13} />
+                                      </button>
+                                      <button className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-500/10 transition-colors"
+                                        onClick={() => handleDeleteArticle(art)}>
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <button className="text-indigo-400 hover:text-indigo-300"
-                                onClick={() => setEditingArticle(art)}>
-                                <Edit2 size={14} />
-                              </button>
-                              <button className="text-red-400 hover:text-red-300"
-                                onClick={() => handleDeleteArticle(art)}>
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })
+                          );
+                        })}
+                      </div>
                     )}
                     {/* Add article button inside category */}
                     <div className="px-4 py-3 border-t border-slate-800/60">

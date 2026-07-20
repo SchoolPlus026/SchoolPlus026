@@ -422,5 +422,37 @@ We completed a rigorous schema-level and config-level comparison between the Jap
 *   **Graceful Session Recovery**: Added a recovery decryption step inside `decryptData` that attempts fallback decryption as a last resort if native AES decryption fails, preventing session loss when switching browser contexts or after database resets.
 *   **Vite Build Verification**: Successfully verified building and bundling via `npm run build`.
 
+---
+
+## 9. Help & Tutorials Module Overhaul (Multi-Role Targeting & UI/UX Upgrades)
+
+### A. Database Schema & Migration
+*   **Created [v106_kb_multi_role_support.sql](file:///C:/Users/Icon/Downloads/new%20school%20app/database/v106_kb_multi_role_support.sql):**
+    *   Added `target_roles` text array column (`text[]`) to `public.kb_articles` with a default array of all active user roles.
+    *   Created `idx_kb_articles_target_roles` GIN index to optimize array element matching.
+    *   Executed the DDL queries on the remote India Supabase database (`jbjtvosvwufimjcvvwcg`).
+
+### B. YouTube URL Parsing Upgrades
+*   **Support for Mobile Formats:** Upgraded `getYouTubeEmbed` and `extractYouTubeId` in [HelpButton.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/components/HelpButton.jsx) and [KnowledgeBase.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/knowledge-base/KnowledgeBase.jsx) to successfully parse and load **YouTube Shorts** (`youtube.com/shorts/VIDEO_ID`) and **YouTube Live** (`youtube.com/live/VIDEO_ID`) URLs. This prevents the "Invalid Video URL" player crash when links are uploaded from mobile devices.
+
+### C. Platform Admin Help Manager Upgrades
+*   **Multi-Role target check**: Added a checkbox group in [PlatformKnowledgeBaseManager.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/knowledge-base/PlatformKnowledgeBaseManager.jsx) showing the user roles authorized to view each tutorial. The selected roles are saved directly to the `target_roles` array in the database, eliminating the need to upload the same video multiple times for different roles.
+*   **Dashboard Refactoring:** Overhauled the admin article view from a basic collapse/expand list into a modern, grid-based dashboard of clean cards containing preview thumbnails and role badges.
+
+### D. Client-Side UI & UX Polish
+*   **Role-Based Filters:** Implemented automatic role-filtering in [HelpButton.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/components/HelpButton.jsx) and [KnowledgeBase.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/knowledge-base/KnowledgeBase.jsx) to only show tutorials targeted to the active user's role.
+*   **Targeted Role Pill:** Added a glowing active role pill to the header of the Knowledge Base view showing "Targeted for: [userRole]" with a custom pulsing indicator.
+*   **Frosted Glass Player Overlay:** Customized the media playback overlay to have a frosted-glass background for a cinema-style user experience.
+
+### E. Deep-Scan Fixes & Edge Case Hardening
+*   **Platform Admin YouTube Shorts Parser Fix:** Updated `extractYouTubeThumbnail` in [PlatformKnowledgeBaseManager.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/knowledge-base/PlatformKnowledgeBaseManager.jsx) to match Shorts and Live streams. Previously, YouTube Shorts links created by the Admin showed broken thumbnails in the admin form and grid cards.
+*   **`hm` (Headmaster) Role Normalization:** Normalized `role === 'hm'` to `'admin'` when evaluating `target_roles` in both [HelpButton.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/components/HelpButton.jsx) and [KnowledgeBase.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/knowledge-base/KnowledgeBase.jsx). Previously, Headmaster accounts were accidentally excluded from seeing admin-targeted tutorials.
+*   **`platform_admin` Preview Override:** Added full preview privileges (`userRole === 'platform_admin'`) so Super/Platform Admins can preview all uploaded tutorials regardless of role filters.
+*   **Legacy Data Fallback:** Added a safe array fallback `(Array.isArray(a.target_roles) && a.target_roles.length > 0) ? a.target_roles : ['admin', 'teacher', 'student', 'staff', 'driver']` so existing database rows with `null` or empty `target_roles` are never hidden from users.
+
+### F. Local Testing & Verification
+*   **Local Build Check:** Ran `npm run build` locally in the workspace. Vite compiled all chunks successfully with **zero errors**.
+
+
 
 
