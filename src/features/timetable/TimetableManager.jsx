@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { usePending } from '../../hooks/usePending';
-import { Loader2, PlusCircle, Clock, CalendarDays } from 'lucide-react';
+import { Loader2, PlusCircle, Clock, CalendarDays, Upload, Download, FileSpreadsheet, X, CheckCircle2, AlertTriangle } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import TimetableViewer from './TimetableViewer';
 
 export default function TimetableManager() {
@@ -18,6 +19,12 @@ export default function TimetableManager() {
   const [subject, setSubject] = useState('');
   const [targetClass, setTargetClass] = useState('');
   const [selectedTeacher, setSelectedTeacher] = useState('');
+
+  // Bulk Upload State
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [bulkSummary, setBulkSummary] = useState(null);
 
   // Classes now come from schoolSettings
   const classes = schoolSettings?.classes || [];
@@ -111,6 +118,150 @@ export default function TimetableManager() {
     }
   };
 
+  const handleDownloadTimetableTemplate = () => {
+    const sampleData = [
+      {
+        "Day": "Monday",
+        "Period Number": 1,
+        "Start Time": "09:00 AM",
+        "End Time": "09:40 AM",
+        "Class": classes[0] || "5TH - A",
+        "Subject": "Mathematics",
+        "Teacher": teachers?.[0]?.name || "Amit Kumar"
+      },
+      {
+        "Day": "Monday",
+        "Period Number": 2,
+        "Start Time": "09:40 AM",
+        "End Time": "10:20 AM",
+        "Class": classes[0] || "5TH - A",
+        "Subject": "Science",
+        "Teacher": teachers?.[1]?.name || teachers?.[0]?.name || "Shubham Hajare"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Timetable Template");
+    XLSX.writeFile(workbook, "school_timetable_template.xlsx");
+  };
+
+  const handleProcessBulkTimetable = async () => {
+    if (!bulkFile) {
+      alert("Please select an Excel or CSV file first.");
+      return;
+    }
+    setIsProcessing(true);
+    setBulkSummary(null);
+
+    try {
+      const arrayBuffer = await bulkFile.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+      if (!rows || rows.length === 0) {
+        throw new Error("Uploaded file contains no data rows.");
+      }
+
+      // Fetch existing timetable slots for double-booking collision check
+      const { data: existingSlots, error: fetchErr } = await supabase
+        .from('timetable')
+        .select('day, period_order, teacher, class')
+        .eq('school_id', schoolSettings.school_id);
+      if (fetchErr) throw fetchErr;
+
+      let insertedCount = 0;
+      let skippedCount = 0;
+      const errors = [];
+      const validPayloads = [];
+
+      // Create teacher lookup map (by name and username lowercase)
+      const teacherMap = {};
+      teachers?.forEach(t => {
+        if (t.name) teacherMap[t.name.trim().toLowerCase()] = t.id;
+        if (t.username) teacherMap[t.username.trim().toLowerCase()] = t.id;
+      });
+
+      const getVal = (r, keys) => {
+        for (let k of keys) {
+          for (let rk in r) {
+            if (rk.trim().toLowerCase() === k.toLowerCase()) {
+              return String(r[rk]).trim();
+            }
+          }
+        }
+        return "";
+      };
+
+      for (let idx = 0; idx < rows.length; idx++) {
+        const row = rows[idx];
+        const rDay = getVal(row, ["Day", "Day Name", "DayOfWeek"]);
+        const rPeriod = parseInt(getVal(row, ["Period Number", "Period", "PeriodNo", "Period Number #", "Period_Number"]), 10);
+        const rStart = getVal(row, ["Start Time", "Start", "StartTime", "Start_Time"]);
+        const rEnd = getVal(row, ["End Time", "End", "EndTime", "End_Time"]);
+        const rClass = getVal(row, ["Class", "Class Name", "Grade", "Standard", "UserClass"]);
+        const rSubject = getVal(row, ["Subject", "Subject Name"]);
+        const rTeacherStr = getVal(row, ["Teacher", "Teacher Name", "Staff", "Teacher Username"]);
+
+        if (!rDay || isNaN(rPeriod) || !rClass || !rSubject || !rTeacherStr) {
+          skippedCount++;
+          errors.push(`Row ${idx + 2}: Missing required fields (Day, Period, Class, Subject, or Teacher).`);
+          continue;
+        }
+
+        // Resolve teacher UUID or keep name string
+        const teacherId = teacherMap[rTeacherStr.toLowerCase()] || rTeacherStr;
+
+        // Collision check against existing DB slots
+        const hasDbConflict = (existingSlots || []).some(s => 
+          s.day.toLowerCase() === rDay.toLowerCase() &&
+          s.period_order === rPeriod &&
+          s.teacher === teacherId
+        );
+
+        // Collision check against newly payload batch
+        const hasBatchConflict = validPayloads.some(p =>
+          p.day.toLowerCase() === rDay.toLowerCase() &&
+          p.period_order === rPeriod &&
+          p.teacher === teacherId
+        );
+
+        if (hasDbConflict || hasBatchConflict) {
+          skippedCount++;
+          errors.push(`Row ${idx + 2}: Double Booking Collision! Teacher "${rTeacherStr}" is already assigned at Period #${rPeriod} on ${rDay}.`);
+          continue;
+        }
+
+        const timeLabel = (rStart && rEnd) ? `${rStart} - ${rEnd}` : `Period ${rPeriod}`;
+
+        validPayloads.push({
+          school_id: schoolSettings.school_id,
+          day: rDay,
+          period_order: rPeriod,
+          period_label: timeLabel,
+          subject: rSubject,
+          class: rClass,
+          teacher: teacherId
+        });
+      }
+
+      if (validPayloads.length > 0) {
+        const { error: insertErr } = await supabase.from('timetable').insert(validPayloads);
+        if (insertErr) throw insertErr;
+        insertedCount = validPayloads.length;
+        queryClient.invalidateQueries({ queryKey: ['timetable'] });
+      }
+
+      setBulkSummary({ insertedCount, skippedCount, errors });
+    } catch (err) {
+      alert("Bulk upload failed: " + err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
 
   const daysOfWeek = ['All Days', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -174,10 +325,19 @@ export default function TimetableManager() {
            </div>
            
            <div className="flex items-end">
-              <button disabled={saveMutation.isPending} className="w-full h-[46px] flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all shadow-md disabled:opacity-50">
-                 {saveMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <PlusCircle size={18} />}
-                 {saveMutation.isPending ? 'Saving...' : 'Add Period'}
-              </button>
+              <div className="w-full flex gap-2">
+                <button disabled={saveMutation.isPending} type="submit" className="flex-1 h-[46px] flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer border-0">
+                   {saveMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <PlusCircle size={18} />}
+                   {saveMutation.isPending ? 'Saving...' : 'Add Period'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(true)}
+                  className="h-[46px] px-4 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 cursor-pointer border-0 whitespace-nowrap"
+                >
+                  <Upload size={18} /> Bulk Add Timetable
+                </button>
+              </div>
            </div>
         </form>
       </div>
@@ -189,6 +349,83 @@ export default function TimetableManager() {
          </div>
          <TimetableViewer adminPreviewClass={targetClass} />
       </div>
+
+      {/* ── BULK UPLOAD TIMETABLE MODAL ── */}
+      {isBulkModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-in zoom-in duration-200 relative">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 shrink-0">
+                  <FileSpreadsheet size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800 tracking-tight text-base">Bulk Upload Timetable</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Import schedule via Excel or CSV</p>
+                </div>
+              </div>
+              <button onClick={() => { setIsBulkModalOpen(false); setBulkFile(null); setBulkSummary(null); }} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={18}/></button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Template Download Option */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Download Sample Template</h4>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Pre-formatted columns (Day, Period, Start, End, Class, Subject, Teacher)</p>
+                </div>
+                <button
+                  onClick={handleDownloadTimetableTemplate}
+                  className="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer"
+                >
+                  <Download size={14} /> Template
+                </button>
+              </div>
+
+              {/* Upload Input */}
+              <div className="p-4 border-2 border-dashed border-slate-300 rounded-2xl bg-white hover:bg-slate-50 transition-all text-center relative">
+                <Upload size={28} className="text-slate-400 mx-auto mb-2" />
+                <span className="text-xs font-bold text-slate-700 block">{bulkFile ? bulkFile.name : "Click or drag Excel/CSV file to upload"}</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Supports .xlsx, .xls, .csv</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={e => setBulkFile(e.target.files[0] || null)}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </div>
+
+              {/* Process Button */}
+              <button
+                onClick={handleProcessBulkTimetable}
+                disabled={!bulkFile || isProcessing}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer border-0"
+              >
+                {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                {isProcessing ? "Processing & Validating..." : "Import Timetable Slots"}
+              </button>
+
+              {/* Summary Results */}
+              {bulkSummary && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold">
+                    <CheckCircle2 size={16} className="text-emerald-600" />
+                    <span>Successfully imported {bulkSummary.insertedCount} timetable period(s)!</span>
+                  </div>
+                  {bulkSummary.skippedCount > 0 && (
+                    <div className="text-rose-700 text-[11px] font-bold space-y-1 border-t border-emerald-200/60 pt-2">
+                      <div className="flex items-center gap-1"><AlertTriangle size={14} /> Skipped {bulkSummary.skippedCount} conflicting / invalid row(s):</div>
+                      <div className="max-h-24 overflow-y-auto pl-4 space-y-0.5 font-normal text-[10px]">
+                        {bulkSummary.errors.map((err, i) => <div key={i}>• {err}</div>)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

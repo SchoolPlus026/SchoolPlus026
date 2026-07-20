@@ -484,8 +484,30 @@ We completed a rigorous schema-level and config-level comparison between the Jap
     *   Updated `handleSendReminder` and `handleRemindAll` to insert `user_id: m.teacher_id` (fixing the column mismatch that caused notifications to be skipped).
     *   Set `route: '/attendance'` and synced queue insertions with Supabase `trg_replicate_queue_to_bell` and Edge Function `process-notification-queue`.
 
-### C. Local Verification
-*   **Build Verification:** Ran `npm run build` locally in the workspace terminal. Verified 100% clean compilation with **0 errors**. No git push executed (local testing mode).
+---
+
+## 12. Sub-Class Architecture, Bulk Timetable CSV Upload & Full School Master Matrix Overhaul
+
+### A. Sub-Class / Section System Architecture
+*   **[UserManagement.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/users/UserManagement.jsx):**
+    *   Integrated **"Manage Sections"** modal alongside `"Create Class"`.
+    *   Allows selecting a base class (e.g. `5TH`) and adding section tags (`A`, `B`, `C` or `Rose`), generating clean sub-classes (e.g., `5TH - A`, `5TH - B`) saved to `school_settings.classes`.
+    *   Updated **Bulk Student Upload (CSV)** to accept separate `Section` columns and automatically map `Class: 5, Section: A` to `5TH - A`.
+
+### B. Bulk Timetable CSV Upload System
+*   **[TimetableManager.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/timetable/TimetableManager.jsx):**
+    *   Added **"Bulk Add Timetable"** button and upload modal.
+    *   Added downloadable sample template generator (`school_timetable_template.xlsx`).
+    *   Integrated client-side teacher collision checks (preventing double booking for the same period order and day) and batch insertion into `timetable` table.
+
+### C. Full School Timetable Master Matrix Overhaul
+*   **[TimetableViewer.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/timetable/TimetableViewer.jsx):**
+    *   Redesigned Full School view into a **Master Matrix View** with Day Navigation Tabs (`Monday` through `Saturday`).
+    *   **Class-Wise Matrix**: Rows = All Classes (`5TH - A`, `5TH - B`), Columns = Periods (1 to 8). Displays `Subject` + `Teacher Name` in styled cells.
+    *   **Teacher-Wise Matrix**: Rows = All Staff Members, Columns = Periods (1 to 8). Displays `Subject` + `Class Name` in styled cells.
+
+### D. Verification
+*   **Local Build Execution:** Executed `npm run build` locally in the workspace. Verified 100% clean transpilation with **0 errors**. No git push executed (local testing mode).
 
 
 

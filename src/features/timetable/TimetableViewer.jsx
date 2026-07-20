@@ -13,6 +13,8 @@ export default function TimetableViewer({ adminPreviewClass }) {
 
   // Teachers default to 'self' (their own schedule); admins/others default to 'school'
   const [viewMode, setViewMode] = React.useState(isTeacher ? 'self' : 'school');
+  const [activeDayTab, setActiveDayTab] = useState('Monday');
+  const [matrixMode, setMatrixMode] = useState('class'); // 'class' | 'teacher'
 
   // For Class / Teacher filtered view
   const [targetClass, setTargetClass] = useState(adminPreviewClass || '');
@@ -280,54 +282,222 @@ export default function TimetableViewer({ adminPreviewClass }) {
             )}
         </div>
 
-        {activeDaysWithData.length === 0 ? (
-           <div className="muted" style={{ padding: '40px 20px', textAlign: 'center' }}>
-              Please select a filter to view the timetable.
-           </div>
-        ) : (
-           <div className="table-responsive">
-              <table className="legacy-table">
-                 <thead>
-                    <tr>
-                       <th>Day</th>
-                       {Array.from({ length: Math.max(...(scheduleRaw?.map(s => s.period_order) || [8]), 8) }).map((_, i) => (
-                          <th key={i}>Period {i + 1}</th>
-                       ))}
-                    </tr>
-                 </thead>
-                 <tbody>
-                    {activeDaysWithData.map(day => {
-                       const daySlots = timeline[day];
-                       const maxP = Math.max(...(scheduleRaw?.map(s => s.period_order) || [8]), 8);
-                       return (
-                          <tr key={day}>
-                             <td><strong>{day}</strong></td>
-                             {Array.from({ length: maxP }).map((_, i) => {
-                                const order = i + 1;
-                                const slot = daySlots.find(s => s.period_order === order);
+        {viewMode === 'school' ? (
+          /* ── FULL SCHOOL MASTER MATRIX OVERHAUL ── */
+          <div className="space-y-6">
+            {/* Day Navigation Tabs */}
+            <div className="flex bg-slate-900/80 p-1.5 rounded-2xl border border-glass overflow-x-auto gap-1">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setActiveDayTab(d)}
+                  className={`flex-1 min-w-[100px] py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer border-0 ${
+                    activeDayTab === d
+                      ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+
+            {/* Matrix View Toggle Header */}
+            <div className="flex items-center justify-between flex-wrap gap-3 bg-slate-900/40 p-4 rounded-2xl border border-glass">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Matrix Mode:</span>
+                <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                  <button
+                    onClick={() => setMatrixMode('class')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer border-0 ${
+                      matrixMode === 'class' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Class-Wise Matrix
+                  </button>
+                  <button
+                    onClick={() => setMatrixMode('teacher')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer border-0 ${
+                      matrixMode === 'teacher' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Teacher-Wise Matrix
+                  </button>
+                </div>
+              </div>
+
+              <span className="text-[11px] font-semibold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-xl">
+                Showing {activeDayTab} Schedule ({matrixMode === 'class' ? 'All Classes' : 'All Staff Members'})
+              </span>
+            </div>
+
+            {/* Matrix Table */}
+            {(() => {
+              const daySlots = (scheduleRaw || []).filter(s => (s.day || '').toLowerCase() === activeDayTab.toLowerCase());
+              const maxP = Math.max(...(scheduleRaw?.map(s => s.period_order) || [8]), 8);
+              const periodList = Array.from({ length: maxP }, (_, i) => i + 1);
+
+              if (matrixMode === 'class') {
+                const matrixClasses = Array.from(new Set([
+                  ...(schoolSettings?.classes || []),
+                  ...daySlots.map(s => s.class)
+                ])).filter(Boolean);
+
+                if (matrixClasses.length === 0) {
+                  return <div className="text-center py-10 text-slate-400 text-sm font-semibold">No classes defined in school settings.</div>;
+                }
+
+                return (
+                  <div className="table-responsive">
+                    <table className="legacy-table">
+                      <thead>
+                        <tr>
+                          <th>Class</th>
+                          {periodList.map(p => <th key={p}>Period {p}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matrixClasses.map(cls => {
+                          const normCls = (cls || '').trim().toLowerCase();
+                          return (
+                            <tr key={cls}>
+                              <td><strong>{cls}</strong></td>
+                              {periodList.map(p => {
+                                const slot = daySlots.find(s => (s.class || '').trim().toLowerCase() === normCls && s.period_order === p);
                                 return (
-                                   <td key={order} style={{ position: 'relative', minWidth: '120px', verticalAlign: 'top' }}>
-                                      {slot ? (
-                                         <div className="editable-cell group" style={{ display: 'flex', flexDirection: 'column' }}>
-                                            {isAdmin && (
-                                               <button onClick={() => openEditor(slot)} className="muted border-0 bg-transparent cursor-pointer p-0 absolute right-1 top-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Pencil size={12} /></button>
-                                            )}
-                                            <strong style={{ fontSize: '13px' }}>{slot.subject}</strong>
-                                            <span className="muted small" style={{ fontSize: '10px' }}>{slot.period_label || '--:--'}</span>
-                                            <span className="badge" style={{ marginTop: '4px', alignSelf: 'flex-start' }}>{isTeacher ? slot.class : slot.teacher_name}</span>
-                                         </div>
-                                      ) : (
-                                         <span className="muted opacity-20">-</span>
-                                      )}
-                                   </td>
+                                  <td key={p} style={{ position: 'relative', minWidth: '130px', verticalAlign: 'top' }}>
+                                    {slot ? (
+                                      <div className="editable-cell group" style={{ display: 'flex', flexDirection: 'column' }}>
+                                        {isAdmin && (
+                                          <button onClick={() => openEditor(slot)} className="muted border-0 bg-transparent cursor-pointer p-0 absolute right-1 top-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Pencil size={12} /></button>
+                                        )}
+                                        <strong style={{ fontSize: '13px', color: '#fff' }}>{slot.subject}</strong>
+                                        <span className="muted small" style={{ fontSize: '10px' }}>{slot.period_label || '--:--'}</span>
+                                        <span className="badge" style={{ marginTop: '4px', alignSelf: 'flex-start', background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                                          {slot.teacher_name}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="muted opacity-20">-</span>
+                                    )}
+                                  </td>
                                 );
-                             })}
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              } else {
+                // Teacher-Wise Matrix
+                const matrixTeachers = allTeachers || [];
+                if (matrixTeachers.length === 0) {
+                  return <div className="text-center py-10 text-slate-400 text-sm font-semibold">No teachers found in school system.</div>;
+                }
+
+                return (
+                  <div className="table-responsive">
+                    <table className="legacy-table">
+                      <thead>
+                        <tr>
+                          <th>Teacher</th>
+                          {periodList.map(p => <th key={p}>Period {p}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matrixTeachers.map(t => {
+                          const normTeacherName = (t.name || '').trim().toLowerCase();
+                          return (
+                            <tr key={t.id}>
+                              <td><strong>{t.name}</strong></td>
+                              {periodList.map(p => {
+                                const slot = daySlots.find(s => (
+                                  s.teacher === t.id ||
+                                  (s.teacher || '').trim().toLowerCase() === normTeacherName ||
+                                  (s.teacher_name || '').trim().toLowerCase() === normTeacherName
+                                ) && s.period_order === p);
+                              return (
+                                <td key={p} style={{ position: 'relative', minWidth: '130px', verticalAlign: 'top' }}>
+                                  {slot ? (
+                                    <div className="editable-cell group" style={{ display: 'flex', flexDirection: 'column' }}>
+                                      {isAdmin && (
+                                        <button onClick={() => openEditor(slot)} className="muted border-0 bg-transparent cursor-pointer p-0 absolute right-1 top-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Pencil size={12} /></button>
+                                      )}
+                                      <strong style={{ fontSize: '13px', color: '#fff' }}>{slot.subject}</strong>
+                                      <span className="muted small" style={{ fontSize: '10px' }}>{slot.period_label || '--:--'}</span>
+                                      <span className="badge" style={{ marginTop: '4px', alignSelf: 'flex-start', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                                        {slot.class}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="muted opacity-20">-</span>
+                                  )}
+                                </td>
+                              );
+                            })}
                           </tr>
-                       );
-                    })}
-                 </tbody>
-              </table>
-           </div>
+                        );
+                      })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              }
+            })()}
+          </div>
+        ) : (
+          /* ── SINGLE CLASS / TEACHER / SELF INDIVIDUAL TIMETABLE ── */
+          activeDaysWithData.length === 0 ? (
+             <div className="muted" style={{ padding: '40px 20px', textAlign: 'center' }}>
+                Please select a filter to view the timetable.
+             </div>
+          ) : (
+             <div className="table-responsive">
+                <table className="legacy-table">
+                   <thead>
+                      <tr>
+                         <th>Day</th>
+                         {Array.from({ length: Math.max(...(scheduleRaw?.map(s => s.period_order) || [8]), 8) }).map((_, i) => (
+                            <th key={i}>Period {i + 1}</th>
+                         ))}
+                      </tr>
+                   </thead>
+                   <tbody>
+                      {activeDaysWithData.map(day => {
+                         const daySlots = timeline[day];
+                         const maxP = Math.max(...(scheduleRaw?.map(s => s.period_order) || [8]), 8);
+                         return (
+                            <tr key={day}>
+                               <td><strong>{day}</strong></td>
+                               {Array.from({ length: maxP }).map((_, i) => {
+                                  const order = i + 1;
+                                  const slot = daySlots.find(s => s.period_order === order);
+                                  return (
+                                     <td key={order} style={{ position: 'relative', minWidth: '120px', verticalAlign: 'top' }}>
+                                        {slot ? (
+                                           <div className="editable-cell group" style={{ display: 'flex', flexDirection: 'column' }}>
+                                              {isAdmin && (
+                                                 <button onClick={() => openEditor(slot)} className="muted border-0 bg-transparent cursor-pointer p-0 absolute right-1 top-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Pencil size={12} /></button>
+                                              )}
+                                              <strong style={{ fontSize: '13px' }}>{slot.subject}</strong>
+                                              <span className="muted small" style={{ fontSize: '10px' }}>{slot.period_label || '--:--'}</span>
+                                              <span className="badge" style={{ marginTop: '4px', alignSelf: 'flex-start' }}>{isTeacher ? slot.class : slot.teacher_name}</span>
+                                           </div>
+                                        ) : (
+                                           <span className="muted opacity-20">-</span>
+                                        )}
+                                     </td>
+                                  );
+                               })}
+                            </tr>
+                         );
+                      })}
+                   </tbody>
+                </table>
+             </div>
+          )
         )}
 
       {editingSlot && (

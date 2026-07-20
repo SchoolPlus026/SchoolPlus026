@@ -8,7 +8,7 @@ import UserAvatar from '../../components/UserAvatar';
 import {
   Users, Search, UserPlus, Filter, Loader2, Phone, BookOpen,
   CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus, Plus, Trash2,
-  Upload, Download, CheckCircle2, AlertTriangle, FileSpreadsheet, Play, Check, AlertCircle
+  Upload, Download, CheckCircle2, AlertTriangle, FileSpreadsheet, Play, Check, AlertCircle, Layers
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Capacitor } from '@capacitor/core';
@@ -141,9 +141,12 @@ export default function UserManagement() {
     setPage(0);
   }, [activeTab, searchTerm, selectedClass]);
 
-  /* ── Create Class Modal State ── */
+  /* ── Create Class & Manage Sections Modal State ── */
   const [isCreateClassModalOpen, setIsCreateClassModalOpen] = useState(false);
   const [newClassInput, setNewClassInput] = useState('');
+  const [isManageSectionsModalOpen, setIsManageSectionsModalOpen] = useState(false);
+  const [sectionClassSelect, setSectionClassSelect] = useState('');
+  const [newSectionInput, setNewSectionInput] = useState('');
   const queryClient = useQueryClient();
 
   /* ── Password Reset State ── */
@@ -189,6 +192,7 @@ export default function UserManagement() {
       return [
         ...common.slice(0, 1),
         { key: 'userClass', label: 'Class *', required: true },
+        { key: 'section', label: 'Section / Sub-Class', required: false },
         { key: 'rollNumber', label: 'Roll Number', required: false },
         ...common.slice(1)
       ];
@@ -206,6 +210,7 @@ export default function UserManagement() {
     const synonyms = {
       name: ['name', 'full name', 'student name', 'name of student', 'teacher name', 'driver name', 'staff name', 'full_name', 'student_name'],
       userClass: ['class', 'grade', 'standard', 'class/section', 'class *', 'class/section *'],
+      section: ['section', 'sec', 'sub class', 'subclass', 'section/subclass', 'sec *'],
       email: ['email', 'email id', 'email address', 'email_id', 'mail'],
       username: ['username', 'user name', 'admission number', 'admission no', 'national id', 'student national id', 'pen'],
       rollNumber: ['roll number', 'roll no', 'roll_number', 'roll_no'],
@@ -352,6 +357,16 @@ export default function UserManagement() {
           hasError = true;
           errorReasons.push("Class is required");
         } else {
+          // If section/sub-class is provided separately in CSV (e.g. Class: 5, Section: A)
+          if (payload.section && payload.section.trim() && !payload.userClass.includes('-')) {
+            const candidateWithSec = `${payload.userClass.trim()} - ${payload.section.trim().toUpperCase()}`;
+            const candidateNorm = normalizeClassForMatching(candidateWithSec);
+            const matchedSecClass = classes.find(c => normalizeClassForMatching(c) === candidateNorm);
+            if (matchedSecClass) {
+              payload.userClass = matchedSecClass;
+            }
+          }
+
           // Smart fuzzy matching of classes (ignoring prefixes, suffixes, and spaces)
           const normExcel = normalizeClassForMatching(payload.userClass);
           const matchedClass = classes.find(c => normalizeClassForMatching(c) === normExcel);
@@ -1000,6 +1015,45 @@ export default function UserManagement() {
     setNewClassInput('');
   };
 
+  const handleSaveSection = async (e) => {
+    e.preventDefault();
+    if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+    if (!sectionClassSelect || !newSectionInput.trim()) {
+      alert('Please select a base class and enter a section name (e.g. A, B, C).');
+      return;
+    }
+    const cleanSection = newSectionInput.trim().toUpperCase();
+    const formattedSubClass = `${sectionClassSelect} - ${cleanSection}`;
+    
+    if (classes.includes(formattedSubClass)) {
+      alert(`Sub-Class ${formattedSubClass} already exists!`);
+      return;
+    }
+    
+    const updatedClasses = [...classes, formattedSubClass].sort((a, b) => {
+      const numA = parseInt(a, 10);
+      const numB = parseInt(b, 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      return a.localeCompare(b);
+    });
+    
+    const { error } = await supabase.from('school_settings').update({ classes: updatedClasses }).eq('school_id', schoolSettings.school_id);
+    if (error) return alert('Error saving section: ' + error.message);
+    setSchoolSettings({ ...schoolSettings, classes: updatedClasses });
+    alert(`Sub-Class ${formattedSubClass} created successfully!`);
+    setNewSectionInput('');
+  };
+
+  const handleDeleteSubClass = async (className) => {
+    if (!window.confirm(`Are you sure you want to remove ${className}?`)) return;
+    const updatedClasses = classes.filter(c => c !== className);
+    const { error } = await supabase.from('school_settings').update({ classes: updatedClasses }).eq('school_id', schoolSettings.school_id);
+    if (error) return alert('Error removing class: ' + error.message);
+    setSchoolSettings({ ...schoolSettings, classes: updatedClasses });
+  };
+
   return (
     <>
       <div className="space-y-6 animate-in fade-in duration-500">
@@ -1073,6 +1127,16 @@ export default function UserManagement() {
               className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-500/20 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 transition-all whitespace-nowrap active:scale-95"
             >
               <Plus size={20} /> Create Class
+            </button>
+            <button
+              onClick={() => {
+                if (isPending) { alert('Your application is currently under review. Data entry is disabled until your account is approved.'); return; }
+                if (classes.length > 0 && !sectionClassSelect) setSectionClassSelect(classes[0]);
+                setIsManageSectionsModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl shadow-lg shadow-teal-500/20 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 transition-all whitespace-nowrap active:scale-95"
+            >
+              <Layers size={20} /> Manage Sections
             </button>
             <button
               onClick={() => {
@@ -1706,6 +1770,74 @@ export default function UserManagement() {
               </div>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ── MANAGE SECTIONS / SUB-CLASSES MODAL ── */}
+      {isManageSectionsModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white border border-border rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in duration-200 relative">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center text-teal-600 shrink-0">
+                  <Layers size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800 tracking-tight text-base">Manage Class Sections</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Create Sub-Classes (e.g. 5TH - A, 5TH - B)</p>
+                </div>
+              </div>
+              <button onClick={() => setIsManageSectionsModalOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={18}/></button>
+            </div>
+
+            <form onSubmit={handleSaveSection} className="space-y-4 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] uppercase font-black text-slate-400 tracking-widest block mb-1">Base Class</label>
+                  <select
+                    value={sectionClassSelect}
+                    onChange={e => setSectionClassSelect(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  >
+                    {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-black text-slate-400 tracking-widest block mb-1">Section Tag</label>
+                  <input
+                    type="text"
+                    value={newSectionInput}
+                    onChange={e => setNewSectionInput(e.target.value)}
+                    placeholder="e.g. A, B, Rose..."
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-teal-400 uppercase"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={!newSectionInput.trim()}
+                className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs rounded-xl disabled:opacity-50 transition-all shadow-md shadow-teal-200 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Plus size={16} /> Add Sub-Class Section
+              </button>
+            </form>
+
+            <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+              <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Active School Classes & Sections ({classes.length})</h4>
+              <div className="flex flex-wrap gap-2">
+                {classes.map((cls) => (
+                  <div key={cls} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700">
+                    <span>{cls}</span>
+                    {cls.includes('-') && (
+                      <button onClick={() => handleDeleteSubClass(cls)} className="text-rose-400 hover:text-rose-600 cursor-pointer ml-1">
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

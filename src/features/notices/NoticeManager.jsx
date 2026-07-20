@@ -228,15 +228,17 @@ export default function NoticeManager() {
                 <div>
                   <label className="block text-[11px] font-bold tracking-widest text-slate-400 mb-2 uppercase">Send To Scope</label>
                   <select
-                    value={scope} onChange={e => {
-                      setScope(e.target.value);
-                      if (e.target.value === 'class' && !selectedClass && classList.length > 0) {
+                    value={scope}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setScope(val);
+                      if (val === 'class' && !selectedClass && classList.length > 0) {
                         setSelectedClass(classList[0]);
                       }
                     }}
-                    className="w-full bg-slate-900 border border-glass rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer shadow-inner"
+                    className="w-full bg-slate-900 border border-glass rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer shadow-inner"
                   >
-                    {role !== 'teacher' && <option value="all">Global (All Users)</option>}
+                    <option value="all">All (Everyone)</option>
                     <option value="students">{role === 'teacher' ? 'My Students Only' : 'All Students & Parents'}</option>
                     {role !== 'teacher' && <option value="teachers">Teachers Only</option>}
                     {role !== 'teacher' && <option value="class">Specific Class</option>}
