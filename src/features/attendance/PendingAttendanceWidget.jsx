@@ -214,9 +214,11 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
     try {
       const { error } = await supabase.from('app_notifications_queue').insert({
         school_id: schoolSettings.school_id,
+        user_id: m.teacher_id,
         recipient_id: m.teacher_id,
         title: '📋 Missing Attendance Log',
         body: `Please submit the daily attendance log for Class ${m.class_name}.`,
+        route: '/attendance',
         is_ephemeral: false,
         status: 'pending'
       });
@@ -239,9 +241,11 @@ export default function PendingAttendanceWidget({ forceShow = false }) {
     try {
       const reminders = validMissing.map(m => ({
         school_id: schoolSettings.school_id,
+        user_id: m.teacher_id,
         recipient_id: m.teacher_id,
         title: '📋 Missing Attendance Log',
         body: `Please submit the daily attendance log for Class ${m.class_name}.`,
+        route: '/attendance',
         is_ephemeral: false,
         status: 'pending'
       }));

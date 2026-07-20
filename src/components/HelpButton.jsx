@@ -314,10 +314,20 @@ export default function HelpButton() {
     });
   }, [localArticles, articles, role]);
 
-  // Extract active module name from URL path
+  // Extract active module name from URL path with alias normalization
   const segments = location.pathname.split('/').filter(Boolean);
   const currentModuleRaw = segments.length > 1 ? segments[1] : 'none';
-  const currentModule = currentModuleRaw.replace(/-/g, '_');
+  const currentModule = currentModuleRaw.replace(/-/g, '_').toLowerCase();
+
+  const isModuleMatch = (articleTarget, currentMod) => {
+    if (!articleTarget || !currentMod || currentMod === 'none') return false;
+    const targetClean = articleTarget.replace(/-/g, '_').toLowerCase();
+    const currentClean = currentMod.replace(/-/g, '_').toLowerCase();
+    if (targetClean === currentClean) return true;
+    if (targetClean === 'lost_found' && (currentClean === 'lost_and_found' || currentClean === 'lostandfound')) return true;
+    if (currentClean === 'lost_found' && (targetClean === 'lost_and_found' || targetClean === 'lostandfound')) return true;
+    return false;
+  };
 
   // Trigger onboarding on first visit to a module
   useEffect(() => {
@@ -328,7 +338,7 @@ export default function HelpButton() {
 
     if (!completed) {
       // Find matching items for the current module
-      const matches = combinedArticles.filter(a => a.target_module && a.target_module.replace(/-/g, '_') === currentModule);
+      const matches = combinedArticles.filter(a => isModuleMatch(a.target_module, currentModule));
       
       if (matches.length === 1) {
         setPlayingArticle(matches[0]);
@@ -346,7 +356,7 @@ export default function HelpButton() {
 
   const handleHelpClick = () => {
     if (currentModule && currentModule !== 'none') {
-      const matches = combinedArticles.filter(a => a.target_module && a.target_module.replace(/-/g, '_') === currentModule);
+      const matches = combinedArticles.filter(a => isModuleMatch(a.target_module, currentModule));
       if (matches.length === 1) {
         setPlayingArticle(matches[0]);
       } else if (matches.length > 1) {

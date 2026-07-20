@@ -35,7 +35,8 @@ export default function NoticeBoard() {
         .order('created_at', { ascending: false });
 
       if (role === 'student') {
-        query = query.in('scope', ['all', 'students']);
+        const studentClass = user?.class ? user.class.toString().trim() : null;
+        query = query.or(`scope.eq.all,scope.eq.students${studentClass ? `,scope.eq.class:${studentClass}` : ''}`);
       } else if (role === 'teacher') {
         query = query.in('scope', ['all', 'teachers']);
       }
@@ -87,12 +88,16 @@ export default function NoticeBoard() {
   }
 
   const getScopeIcon = (scope) => {
+    if (!scope) return <Megaphone size={14} />;
+    if (scope.startsWith('class:')) return <Users size={14} />;
     if (scope === 'students') return <Users size={14} />;
     if (scope === 'teachers') return <Briefcase size={14} />;
     return <Megaphone size={14} />;
   };
 
   const getScopeLabel = (scope) => {
+    if (!scope) return 'Global Broadcast';
+    if (scope.startsWith('class:')) return `Targeted: Class ${scope.replace('class:', '')}`;
     if (scope === 'students') return 'Targeted: Students & Parents';
     if (scope === 'teachers') return 'Targeted: Campus Staff';
     return 'Global Broadcast';

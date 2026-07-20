@@ -27,7 +27,16 @@ export default function NoticeManager() {
   const [title, setTitle]           = useState('');
   const [content, setContent]       = useState('');
   const [scope, setScope]           = useState(role === 'teacher' ? 'students' : 'all');
+  const [selectedClass, setSelectedClass] = useState('');
   const [isComposing, setIsComposing] = useState(false);
+
+  // Decode classes list for Specific Class scope selection
+  let activeClasses = schoolSettings?.classes || [];
+  if (typeof activeClasses === 'string') {
+    try { activeClasses = JSON.parse(activeClasses); }
+    catch { activeClasses = activeClasses.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, '')); }
+  }
+  const classList = Array.isArray(activeClasses) ? activeClasses.filter(Boolean) : [];
 
   // GDrive image upload state
   const [imageFile, setImageFile]     = useState(null);
@@ -100,6 +109,7 @@ export default function NoticeManager() {
   function resetForm() {
     setTitle(''); setContent('');
     setScope(role === 'teacher' ? 'students' : 'all');
+    setSelectedClass('');
     setImageFile(null); setUploadedUrl(null);
     setIsComposing(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -167,7 +177,8 @@ export default function NoticeManager() {
       }
     }
 
-    broadcastMutation.mutate({ title, content, scope, photoUrl });
+    const finalScope = scope === 'class' ? `class:${selectedClass || classList[0] || '1'}` : scope;
+    broadcastMutation.mutate({ title, content, scope: finalScope, photoUrl });
   };
 
   const isBusy = uploading || broadcastMutation.isPending;
@@ -213,16 +224,43 @@ export default function NoticeManager() {
                   placeholder="e.g. Critical Update: Emergency Closure Today"
                 />
               </div>
-              <div className="w-full sm:w-72 flex-shrink-0">
-                <label className="block text-[11px] font-bold tracking-widest text-slate-400 mb-2 uppercase">Send To Scope</label>
-                <select
-                  value={scope} onChange={e => setScope(e.target.value)}
-                  className="w-full bg-slate-900 border border-glass rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer shadow-inner"
-                >
-                  {role !== 'teacher' && <option value="all">Global (All Users)</option>}
-                  <option value="students">My Students Only</option>
-                  {role !== 'teacher' && <option value="teachers">Teachers Only</option>}
-                </select>
+              <div className="w-full sm:w-72 flex-shrink-0 space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold tracking-widest text-slate-400 mb-2 uppercase">Send To Scope</label>
+                  <select
+                    value={scope} onChange={e => {
+                      setScope(e.target.value);
+                      if (e.target.value === 'class' && !selectedClass && classList.length > 0) {
+                        setSelectedClass(classList[0]);
+                      }
+                    }}
+                    className="w-full bg-slate-900 border border-glass rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer shadow-inner"
+                  >
+                    {role !== 'teacher' && <option value="all">Global (All Users)</option>}
+                    <option value="students">{role === 'teacher' ? 'My Students Only' : 'All Students & Parents'}</option>
+                    {role !== 'teacher' && <option value="teachers">Teachers Only</option>}
+                    {role !== 'teacher' && <option value="class">Specific Class</option>}
+                  </select>
+                </div>
+
+                {scope === 'class' && (
+                  <div>
+                    <label className="block text-[11px] font-bold tracking-widest text-slate-400 mb-2 uppercase">Select Class</label>
+                    <select
+                      value={selectedClass || classList[0] || ''}
+                      onChange={e => setSelectedClass(e.target.value)}
+                      className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-4 py-3 text-sm text-emerald-300 focus:outline-none focus:border-emerald-400 transition-colors appearance-none cursor-pointer shadow-inner font-semibold"
+                    >
+                      {classList.length > 0 ? (
+                        classList.map((cls, i) => (
+                          <option key={i} value={cls}>Class {cls}</option>
+                        ))
+                      ) : (
+                        <option value="">No Classes Found</option>
+                      )}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 

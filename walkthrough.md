@@ -450,8 +450,42 @@ We completed a rigorous schema-level and config-level comparison between the Jap
 *   **`platform_admin` Preview Override:** Added full preview privileges (`userRole === 'platform_admin'`) so Super/Platform Admins can preview all uploaded tutorials regardless of role filters.
 *   **Legacy Data Fallback:** Added a safe array fallback `(Array.isArray(a.target_roles) && a.target_roles.length > 0) ? a.target_roles : ['admin', 'teacher', 'student', 'staff', 'driver']` so existing database rows with `null` or empty `target_roles` are never hidden from users.
 
-### F. Local Testing & Verification
-*   **Local Build Check:** Ran `npm run build` locally in the workspace. Vite compiled all chunks successfully with **zero errors**.
+---
+
+## 10. Module Connection Expansion & Route Alias Normalization
+
+### A. Zero Data Loss Policy
+*   **Existing Database Preserved:** Preserved 100% of existing categories (`kb_categories`) and articles (`kb_articles`). No database rows were modified or deleted.
+
+### B. Platform Admin Dropdown Options
+*   **Expanded Target Modules in [PlatformKnowledgeBaseManager.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/knowledge-base/PlatformKnowledgeBaseManager.jsx):**
+    *   Added all missing system modules: `emergency`, `calendar`, `my_attendance`, `achievers`, `staff_pending_duty`, `executive_briefing`, `profile`.
+    *   Updated option labels to provide bilingual, descriptive role-friendly titles (e.g. `Attendance / Class Attendance (हाज़िरी व क्लास अटेंडेंस)`, `My Attendance (मेरी उपस्थिति - Teacher/Student)`, `Manage Users / Manage Students (यूज़र व छात्र प्रबंधन)`).
+
+### C. Route Segment Normalization
+*   **Seamless Route Alias Matching:** Upgraded `HelpButton.jsx` and `KnowledgeBase.jsx` to map URL routes dynamically (e.g., `/teacher/attendance` -> `attendance`, `/teacher/my-attendance` -> `my_attendance`, `/teacher/lost-and-found` -> `lost_found`).
+*   **Auto-Trigger Alignment:** When a teacher navigates to `/teacher/attendance` ("CLASS ATTENDANCE") and clicks Help, the system automatically matches and opens the tutorial linked to `attendance`.
+
+---
+
+## 11. Notices Scope Expansion & Duty Radar FCM Push Alignment
+
+### A. Notices Module Scope & Class Selection
+*   **[NoticeManager.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/notices/NoticeManager.jsx):**
+    *   Renamed Admin scope option `"My Students Only"` to `"All Students & Parents"`.
+    *   Added strictly English scope option `"Specific Class"` (`scope: 'class'`).
+    *   Integrated dynamic Class Selection dropdown (`schoolSettings.classes`), allowing administrators to target specific classes (e.g. Class 1, Class 2).
+*   **[NoticeBoard.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/notices/NoticeBoard.jsx):**
+    *   Updated student query & filtering to match notices targeted to `all`, `students`, or `class:[student.class]`.
+    *   Updated badge labels to render `Targeted: Class [ClassName]` for class-specific notices.
+
+### B. Staff Pending Duty (Duty Radar) FCM Fix
+*   **[PendingAttendanceWidget.jsx](file:///C:/Users/Icon/Downloads/new%20school%20app/src/features/attendance/PendingAttendanceWidget.jsx):**
+    *   Updated `handleSendReminder` and `handleRemindAll` to insert `user_id: m.teacher_id` (fixing the column mismatch that caused notifications to be skipped).
+    *   Set `route: '/attendance'` and synced queue insertions with Supabase `trg_replicate_queue_to_bell` and Edge Function `process-notification-queue`.
+
+### C. Local Verification
+*   **Build Verification:** Ran `npm run build` locally in the workspace terminal. Verified 100% clean compilation with **0 errors**. No git push executed (local testing mode).
 
 
 

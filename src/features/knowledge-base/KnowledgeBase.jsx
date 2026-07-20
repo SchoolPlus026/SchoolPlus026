@@ -348,11 +348,20 @@ export default function KnowledgeBase() {
     });
   }, [localArticles, articles, userRole]);
 
+  const isModuleMatch = (articleTarget, currentMod) => {
+    if (!articleTarget || !currentMod || currentMod === 'none') return false;
+    const targetClean = articleTarget.replace(/-/g, '_').toLowerCase();
+    const currentClean = currentMod.replace(/-/g, '_').toLowerCase();
+    if (targetClean === currentClean) return true;
+    if (targetClean === 'lost_found' && (currentClean === 'lost_and_found' || currentClean === 'lostandfound')) return true;
+    if (currentClean === 'lost_found' && (targetClean === 'lost_and_found' || targetClean === 'lostandfound')) return true;
+    return false;
+  };
+
   // Auto-play or show options menu when target module anchor changes
   React.useEffect(() => {
     if (targetModuleAnchor && combinedArticles.length > 0 && !playingArticle && helpOptions.length === 0) {
-      const normalizedAnchor = targetModuleAnchor.replace(/-/g, '_');
-      const matches = combinedArticles.filter(a => a.target_module && a.target_module.replace(/-/g, '_') === normalizedAnchor);
+      const matches = combinedArticles.filter(a => isModuleMatch(a.target_module, targetModuleAnchor));
       
       if (matches.length === 1) {
         setPlayingArticle(matches[0]);
@@ -398,9 +407,9 @@ export default function KnowledgeBase() {
 
     let matchesModule = true;
     if (targetModuleAnchor && !playingArticle) {
-      matchesModule = a.target_module && a.target_module.replace(/-/g, '_') === targetModuleAnchor.replace(/-/g, '_');
+      matchesModule = isModuleMatch(a.target_module, targetModuleAnchor);
     } else if (selectedModule !== 'all') {
-      matchesModule = a.target_module && a.target_module.replace(/-/g, '_') === selectedModule;
+      matchesModule = isModuleMatch(a.target_module, selectedModule);
     }
 
     let matchesFormat = true;
@@ -435,8 +444,8 @@ export default function KnowledgeBase() {
         </div>
       </div>
 
-      {/* Search & Filters Controls */}
-      <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4">
+      {/* Filters Bar */}
+      <div className="flex flex-col md:flex-row items-center gap-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-800/80">
         {/* Search */}
         <div className="relative flex-1 w-full">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -450,7 +459,7 @@ export default function KnowledgeBase() {
         </div>
         
         {/* Module Filter */}
-        <div className="w-full md:w-48">
+        <div className="w-full md:w-56">
           <select
             value={selectedModule}
             onChange={e => {
@@ -460,14 +469,29 @@ export default function KnowledgeBase() {
             className="w-full bg-slate-950/40 border border-slate-700/50 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 outline-none cursor-pointer focus:border-indigo-500 transition-colors"
           >
             <option value="all">All Modules</option>
+            <option value="attendance">Attendance / Class Attendance</option>
+            <option value="my_attendance">My Attendance</option>
+            <option value="emergency">Emergency Alerts</option>
+            <option value="calendar">Calendar & Events</option>
+            <option value="users">Manage Users / Students</option>
+            <option value="achievers">Achievers Board</option>
+            <option value="staff_pending_duty">Duty Radar / Staff Duty</option>
+            <option value="executive_briefing">Executive Briefing</option>
+            <option value="profile">User Profile</option>
+            <option value="timetable">Timetable</option>
+            <option value="fees">Fees & Billing</option>
+            <option value="notices">Notices</option>
+            <option value="bus_alerts">Bus Tracker</option>
+            <option value="syllabus">Syllabus Tracker</option>
+            <option value="lost_found">Lost & Found</option>
+            <option value="mood_note">Mood Note</option>
             <option value="off_classes">Off-Classes</option>
             <option value="leaves">Leaves</option>
+            <option value="reports">Reports</option>
+            <option value="gallery">Gallery</option>
             <option value="complaint_box">Complaint Box</option>
-            <option value="emergency">Emergency Alerts</option>
-            <option value="billing">Billing & Plan</option>
-            <option value="syllabus">Syllabus Tracker</option>
-            <option value="bus_alerts">Bus Tracker</option>
-            <option value="lost_found">Lost & Found</option>
+            <option value="contact">Contact Support</option>
+            <option value="settings">Settings</option>
           </select>
         </div>
 
