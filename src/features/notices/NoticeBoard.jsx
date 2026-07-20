@@ -35,8 +35,14 @@ export default function NoticeBoard() {
         .order('created_at', { ascending: false });
 
       if (role === 'student') {
-        const studentClass = user?.class ? user.class.toString().trim() : null;
-        query = query.or(`scope.eq.all,scope.eq.students${studentClass ? `,scope.eq.class:${studentClass}` : ''}`);
+        const studentClass = user?.class ? user.class.toString().trim() : '';
+        const baseClass = studentClass.includes('-') ? studentClass.split('-')[0].trim() : studentClass;
+        
+        const orConditions = ['scope.eq.all', 'scope.eq.students'];
+        if (studentClass) orConditions.push(`scope.eq.class:${studentClass}`);
+        if (baseClass && baseClass !== studentClass) orConditions.push(`scope.eq.class:${baseClass}`);
+        
+        query = query.or(orConditions.join(','));
       } else if (role === 'teacher') {
         query = query.in('scope', ['all', 'teachers']);
       }
