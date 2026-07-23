@@ -446,7 +446,7 @@ export default function ManageSubscription() {
                   : (plans.length > 0 ? (plans[0].amount_paise / 100) : 0);
 
               const singlePlanObj = {
-                id: schoolSettings?.school_id || 'custom-assigned-plan',
+                id: plans.length > 0 ? plans[0].id : (schoolSettings?.school_id || 'custom-assigned-plan'),
                 name: `${schoolSettings?.name || 'School'} Subscription Plan`,
                 amount_paise: Math.round(assignedAmount * 100),
                 validity_days: (billingCycle === 'yearly' ? 365 : 28)

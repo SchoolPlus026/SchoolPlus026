@@ -60,16 +60,68 @@ serve(async (req) => {
        }
     }
 
-    // 2. Fetch plan securely from DB
-    const { data: plan, error: planError } = await supabaseAdmin
+    let amountPaise = 0;
+    let planName = 'Custom Subscription Plan';
+    let targetPlanId = plan_id;
+
+    // 2. Fetch plan securely from DB or compute custom school pricing
+    const { data: plan } = await supabaseAdmin
       .from('subscription_plans')
       .select('*')
       .eq('id', plan_id)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
-    if (planError || !plan) {
-      throw new Error('Invalid or inactive subscription plan');
+    if (plan) {
+      amountPaise = plan.amount_paise;
+      planName = plan.name;
+    } else {
+      // Fallback to custom assigned pricing for school
+      const { data: schoolSettings, error: schoolErr } = await supabaseAdmin
+        .from('school_settings')
+        .select('*')
+        .eq('school_id', school_id)
+        .single();
+
+      if (schoolErr || !schoolSettings) {
+        throw new Error('Invalid or inactive subscription plan');
+      }
+
+      // Fetch default active plan for foreign key reference in transaction ledger
+      const { data: defaultPlan } = await supabaseAdmin
+        .from('subscription_plans')
+        .select('id, amount_paise, name')
+        .eq('is_active', true)
+        .order('amount_paise', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (defaultPlan) {
+        targetPlanId = defaultPlan.id;
+      }
+
+      const customAmount = schoolSettings.custom_billing_amount;
+      const perUserRate = schoolSettings.per_user_rate || 0;
+      const contractedUsers = schoolSettings.contracted_user_count || 0;
+
+      let calcAmount = 0;
+      if (typeof customAmount === 'number' && customAmount > 0) {
+        calcAmount = customAmount;
+      } else if (schoolSettings.pricing_model === 'per_user' && perUserRate > 0 && contractedUsers > 0) {
+        calcAmount = perUserRate * contractedUsers;
+      } else if (defaultPlan) {
+        calcAmount = defaultPlan.amount_paise / 100;
+        planName = defaultPlan.name;
+      } else {
+        calcAmount = 1;
+      }
+
+      amountPaise = Math.round(calcAmount * 100);
+      planName = `${schoolSettings.name || 'School'} Subscription Plan`;
+    }
+
+    if (!amountPaise || amountPaise <= 0) {
+      throw new Error('Invalid subscription plan amount');
     }
 
     // 3. Create Razorpay Order
@@ -89,12 +141,12 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        amount: plan.amount_paise,
+        amount: amountPaise,
         currency: 'INR',
         receipt: `receipt_${school_id.substring(0, 8)}_${Date.now()}`,
         notes: {
           school_id: school_id,
-          plan_id: plan_id,
+          plan_id: targetPlanId,
           tenant_id: school_id // For standard SaaS tracing
         }
       }),
@@ -107,14 +159,17 @@ serve(async (req) => {
       throw new Error('Failed to create Razorpay order');
     }
 
+    const isValidUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    const finalPlanIdForDb = isValidUUID(targetPlanId) ? targetPlanId : null;
+
     // 4. Record Transaction as PENDING in our ledger
     const { error: txError } = await supabaseAdmin
       .from('subscription_transactions')
       .insert({
         school_id,
-        plan_id,
+        plan_id: finalPlanIdForDb,
         razorpay_order_id: orderData.id,
-        amount_paise: plan.amount_paise,
+        amount_paise: amountPaise,
         status: 'PENDING'
       });
 
@@ -125,7 +180,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       order_id: orderData.id,
-      amount: plan.amount_paise,
+      amount: amountPaise,
       currency: 'INR',
       key_id: keyId
     }), {
