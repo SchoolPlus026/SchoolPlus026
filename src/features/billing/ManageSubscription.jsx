@@ -140,6 +140,11 @@ export default function ManageSubscription() {
   const { schoolSettings } = useAppStore();
   const { planType, isTrial, isFree, isPremium, billingCycle, trialDaysLeft, subDaysLeft, subEnd, trialStart } = usePlan();
 
+  const pricingModel = schoolSettings?.pricing_model || 'fixed';
+  const perUserRate = schoolSettings?.per_user_rate || 0;
+  const contractedUserCount = schoolSettings?.contracted_user_count || 0;
+  const customBillingAmount = schoolSettings?.custom_billing_amount || 0;
+
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [processingPlanId, setProcessingPlanId] = useState(null);
@@ -354,9 +359,15 @@ export default function ManageSubscription() {
             </div>
           </div>
           <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--glass)', border: '1px solid var(--card-border)' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-faint)', fontWeight: 700, marginBottom: '4px' }}>BILLING</div>
-            <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>
-              {isTrial ? '28-Day Trial' : billingCycle ? (billingCycle === 'monthly' ? 'Monthly (28d)' : 'Yearly (365d)') : '—'}
+            <div style={{ fontSize: '10px', color: 'var(--text-faint)', fontWeight: 700, marginBottom: '4px' }}>PRICING MODEL</div>
+            <div style={{ fontSize: '14px', fontWeight: 800, color: '#38bdf8' }}>
+              {pricingModel === 'per_user' ? `Per-User (₹${perUserRate}/user)` : 'Fixed Plan'}
+            </div>
+          </div>
+          <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--glass)', border: '1px solid var(--card-border)' }}>
+            <div style={{ fontSize: '10px', color: 'var(--text-faint)', fontWeight: 700, marginBottom: '4px' }}>BILLING AMOUNT</div>
+            <div style={{ fontSize: '15px', fontWeight: 900, color: '#34d399' }}>
+              {customBillingAmount > 0 ? `₹${customBillingAmount.toLocaleString()}` : (pricingModel === 'per_user' ? `₹${(perUserRate * contractedUserCount).toLocaleString()}` : '—')}
             </div>
           </div>
           <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--glass)', border: '1px solid var(--card-border)' }}>
@@ -400,58 +411,81 @@ export default function ManageSubscription() {
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px' }}>
             <Loader2 size={24} style={{ color: '#818cf8', animation: 'spin 1s linear infinite' }} />
           </div>
-        ) : plans.length === 0 ? (
-          <div className="text-center py-8 text-muted">No active plans available at the moment.</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plans.map(plan => (
-              <div key={plan.id} style={{
-                borderRadius: '20px', padding: '24px',
-                background: 'linear-gradient(145deg,rgba(18,16,56,0.9),rgba(10,8,36,0.9))',
-                border: '1px solid rgba(99,102,241,0.3)',
-                display: 'flex', flexDirection: 'column',
-                transition: 'transform 0.2s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: '#f1f5f9' }}>{plan.name}</h4>
-                    <div style={{ fontSize: '13px', color: '#818cf8', marginTop: '4px', fontWeight: 600 }}>{plan.validity_days} Days Access</div>
-                  </div>
-                  <div style={{ padding: '8px', borderRadius: '12px', background: 'rgba(79,70,229,0.15)' }}>
-                    <Crown size={20} color="#818cf8" />
-                  </div>
-                </div>
-
-                <div style={{ fontSize: '32px', fontWeight: 900, color: 'white', marginBottom: '24px' }}>
-                  <span style={{ fontSize: '16px', color: '#64748b', marginRight: '4px' }}>₹</span>
-                  {(plan.amount_paise / 100).toFixed(0)}
-                </div>
-
-                <div style={{ marginTop: 'auto' }}>
-                  <button
-                    onClick={() => handleBuyPlan(plan)}
-                    disabled={processingPlanId === plan.id}
-                    style={{
-                      width: '100%', padding: '14px', borderRadius: '12px',
-                      background: 'linear-gradient(135deg,#4f46e5,#7c3aed)',
-                      border: 'none', cursor: processingPlanId === plan.id ? 'default' : 'pointer',
-                      color: 'white', fontSize: '14px', fontWeight: 800,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                      opacity: processingPlanId === plan.id ? 0.7 : 1,
-                    }}
-                  >
-                    {processingPlanId === plan.id
-                      ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Processing...</>
-                      : <><Zap size={16} /> Buy Now</>
-                    }
-                  </button>
+          <div style={{ maxWidth: '440px', margin: '0 auto' }}>
+          <div style={{
+            borderRadius: '24px', padding: '28px',
+            background: 'linear-gradient(145deg, rgba(30, 27, 75, 0.95), rgba(15, 12, 41, 0.95))',
+            border: '1px solid rgba(99, 102, 241, 0.35)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(99, 102, 241, 0.15)',
+            display: 'flex', flexDirection: 'column',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Assigned Subscription Plan
+                </span>
+                <h4 style={{ margin: '10px 0 0', fontSize: '20px', fontWeight: 900, color: '#f8fafc' }}>
+                  {isCurrentlyPremium ? 'Renew Subscription' : 'Upgrade Account'}
+                </h4>
+                <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px', fontWeight: 600 }}>
+                  {(billingCycle === 'yearly' ? 365 : 28)} Days Full Access
                 </div>
               </div>
-            ))}
+              <div style={{ padding: '12px', borderRadius: '16px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                <Crown size={24} color="#818cf8" />
+              </div>
+            </div>
+
+            {(() => {
+              const assignedAmount = customBillingAmount > 0
+                ? customBillingAmount
+                : (pricingModel === 'per_user' && perUserRate > 0 && contractedUserCount > 0)
+                  ? (perUserRate * contractedUserCount)
+                  : (plans.length > 0 ? (plans[0].amount_paise / 100) : 0);
+
+              const singlePlanObj = {
+                id: schoolSettings?.school_id || 'custom-assigned-plan',
+                name: `${schoolSettings?.name || 'School'} Subscription Plan`,
+                amount_paise: Math.round(assignedAmount * 100),
+                validity_days: (billingCycle === 'yearly' ? 365 : 28)
+              };
+
+              return (
+                <>
+                  <div style={{ fontSize: '36px', fontWeight: 900, color: '#38bdf8', marginBottom: '24px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                    <span style={{ fontSize: '20px', color: '#64748b' }}>₹</span>
+                    {assignedAmount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600, marginLeft: '6px' }}>
+                      / {billingCycle === 'yearly' ? 'Year' : 'Month'}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => handleBuyPlan(singlePlanObj)}
+                    disabled={processingPlanId === singlePlanObj.id || assignedAmount <= 0}
+                    style={{
+                      width: '100%', padding: '16px', borderRadius: '14px',
+                      background: assignedAmount > 0 ? 'linear-gradient(135deg, #4f46e5, #7c3aed)' : '#334155',
+                      border: 'none', cursor: assignedAmount > 0 ? 'pointer' : 'not-allowed',
+                      color: 'white', fontSize: '15px', fontWeight: 900,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                      boxShadow: assignedAmount > 0 ? '0 8px 20px rgba(79, 70, 229, 0.4)' : 'none',
+                      transition: 'all 0.2s', opacity: processingPlanId === singlePlanObj.id ? 0.7 : 1
+                    }}
+                  >
+                    {processingPlanId === singlePlanObj.id ? (
+                      <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Processing Payment...</>
+                    ) : (
+                      <><Zap size={18} /> Pay & Renew Subscription</>
+                    )}
+                  </button>
+                </>
+              );
+            })()}
           </div>
+        </div>
         )}
       </div>
 

@@ -98,6 +98,7 @@ import AchieversBoard from './features/achievers/AchieversBoard';
 // Subscription / Billing
 import ManageSubscription from './features/billing/ManageSubscription';
 import FeatureGuard from './components/FeatureGuard';
+import ModuleGuard from './components/ModuleGuard';
 export default function App() {
   const { user, role, platformSettings } = useAppStore();
   const navigate = useNavigate();
@@ -361,9 +362,13 @@ export default function App() {
             const isStudent = profile.role === 'student';
             
             let platSettings = store.platformSettings;
-            if (isFreeSchool && !platSettings) {
+            if (!platSettings) {
               const { data } = await supabase.from('platform_settings').select('*').single();
-              if (data) platSettings = data;
+              if (data) {
+                platSettings = data;
+                store.setPlatformSettings(data);
+                store.setPlatformSettingsLastFetched(Date.now());
+              }
             }
             
             if (isFreeSchool) {
@@ -1232,7 +1237,7 @@ export default function App() {
           <Route path="reports"       element={<FeatureGuard feature="reports"><Reports /></FeatureGuard>} />
           <Route path="contact"       element={<Contact />} />
           <Route path="complaint-box" element={<ComplaintBox />} />
-          <Route path="billing"       element={<ManageSubscription />} />
+          <Route path="billing"       element={<ModuleGuard moduleName="billing"><ManageSubscription /></ModuleGuard>} />
           <Route path="knowledge-base" element={<KnowledgeBase />} />
           <Route path="settings"      element={<AdminSettings />} />
           <Route path="profile"       element={<UserProfile />} />

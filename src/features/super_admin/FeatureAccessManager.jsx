@@ -23,6 +23,7 @@ const ALL_MODULES = [
   { id: 'emergency',     label: 'Emergency Alerts', emoji: '🚨', desc: 'Trigger global high-priority screen overrides.' },
   { id: 'duty_radar',    label: 'Staff Pending Duty', emoji: '📡', desc: 'Automated missing attendance tracking.' },
   { id: 'executive_briefing',label: 'Executive Briefing',emoji:'📋',desc: 'Automated daily summaries for Administration.' },
+  { id: 'billing',       label: 'Billing & Subscriptions', emoji: '💳', desc: 'School subscription billing and payment management.' },
 ];
 
 export default function FeatureAccessManager() {
@@ -30,11 +31,13 @@ export default function FeatureAccessManager() {
   
   // Global tier states
   const [globalLockedList, setGlobalLockedList] = useState([]);
+  const [globallyDisabledList, setGloballyDisabledList] = useState([]);
+  const [savingKillSwitch, setSavingKillSwitch] = useState(false);
   const [allowDemoEdit, setAllowDemoEdit] = useState(false);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
   const [savingGlobal, setSavingGlobal] = useState(false);
   const [bulkApplying, setBulkApplying] = useState(false);
-  
+
   // School override states
   const [schools, setSchools] = useState([]);
   const [loadingSchools, setLoadingSchools] = useState(false);
@@ -61,7 +64,9 @@ export default function FeatureAccessManager() {
       if (data) {
         // Suppress migration warnings if column is fetched (even if null/empty array)
         const locked = Array.isArray(data.free_tier_locked_modules) ? data.free_tier_locked_modules : [];
+        const globallyDisabled = Array.isArray(data.globally_disabled_modules) ? data.globally_disabled_modules : [];
         setGlobalLockedList(locked);
+        setGloballyDisabledList(globallyDisabled);
         setAllowDemoEdit(!!data.allow_demo_edit);
       }
     } catch (err) {
@@ -195,6 +200,35 @@ export default function FeatureAccessManager() {
       alert('Bulk apply failed: ' + err.message);
     } finally {
       setBulkApplying(false);
+    }
+  };
+
+  const handleKillSwitchToggle = (moduleId) => {
+    setGloballyDisabledList(prev =>
+      prev.includes(moduleId) ? prev.filter(id => id !== moduleId) : [...prev, moduleId]
+    );
+  };
+
+  const handleSaveKillSwitch = async () => {
+    setSavingKillSwitch(true);
+    try {
+      const { data: rows, error: selectErr } = await supabase.from('platform_settings').select('id');
+      if (selectErr) throw selectErr;
+      if (rows && rows.length > 0) {
+        const { error } = await supabase.from('platform_settings')
+          .update({ globally_disabled_modules: globallyDisabledList })
+          .eq('id', rows[0].id);
+        if (error) throw error;
+      }
+      
+      const currentPlat = useAppStore.getState().platformSettings || {};
+      useAppStore.getState().setPlatformSettings({ ...currentPlat, globally_disabled_modules: globallyDisabledList });
+
+      alert('Global Module Kill-Switch settings saved successfully across ALL schools!');
+    } catch (err) {
+      alert('Failed to save globally disabled modules: ' + err.message);
+    } finally {
+      setSavingKillSwitch(false);
     }
   };
 
@@ -334,6 +368,26 @@ export default function FeatureAccessManager() {
           }}
         >
           <Search size={14} /> School-Specific Override
+        </button>
+        <button
+          onClick={() => setSubTab('killswitch')}
+          style={{
+            padding: '12px 24px',
+            fontSize: '13px',
+            fontWeight: 800,
+            color: subTab === 'killswitch' ? '#ef4444' : 'var(--text-muted)',
+            background: subTab === 'killswitch' ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+            border: subTab === 'killswitch' ? '1px solid rgba(239, 68, 68, 0.3)' : 'none',
+            borderBottom: subTab === 'killswitch' ? '1px solid var(--card-bg)' : 'none',
+            borderRadius: '12px 12px 0 0',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s',
+          }}
+        >
+          <ShieldAlert size={14} /> Global Module Kill-Switch
         </button>
       </div>
 
@@ -518,6 +572,63 @@ export default function FeatureAccessManager() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* GLOBAL MODULE KILL-SWITCH TAB CONTENT */}
+      {subTab === 'killswitch' && (
+        <div className="space-y-6">
+          <div className="p-5 rounded-3xl border border-rose-500/30 bg-rose-500/5 relative overflow-hidden">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <h3 className="text-base font-black text-rose-400 uppercase tracking-wider flex items-center gap-2">
+                  <ShieldAlert size={18} /> Master System Kill-Switch
+                </h3>
+                <p className="text-xs text-slate-400 font-semibold mt-1">
+                  Globally disable any module (including Billing & Subscriptions) across ALL schools (Free, Premium, Trial, and newly created schools).
+                </p>
+              </div>
+              <button
+                onClick={handleSaveKillSwitch}
+                disabled={savingKillSwitch}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-rose-600/30 flex items-center gap-2 cursor-pointer border-0 disabled:opacity-50"
+              >
+                {savingKillSwitch ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                {savingKillSwitch ? 'Saving Changes...' : 'Save Global Kill-Switch'}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ALL_MODULES.map(m => {
+              const isKilled = globallyDisabledList.includes(m.id);
+              return (
+                <div
+                  key={m.id}
+                  onClick={() => handleKillSwitchToggle(m.id)}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer select-none flex items-start justify-between gap-3 ${
+                    isKilled
+                      ? 'bg-rose-950/40 border-rose-500/50 shadow-lg shadow-rose-900/20'
+                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{m.emoji}</span>
+                      <h4 className={`text-sm font-bold ${isKilled ? 'text-rose-300' : 'text-slate-200'}`}>{m.label}</h4>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-medium leading-relaxed">{m.desc}</p>
+                  </div>
+                  <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 ${
+                    isKilled ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  }`}>
+                    {isKilled ? <Lock size={12} /> : <Unlock size={12} />}
+                    {isKilled ? 'Globally Off' : 'Active'}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

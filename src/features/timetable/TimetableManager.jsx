@@ -25,6 +25,7 @@ export default function TimetableManager() {
   const [bulkFile, setBulkFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [bulkSummary, setBulkSummary] = useState(null);
+  const [overwriteClassSchedule, setOverwriteClassSchedule] = useState(false);
 
   // Classes now come from schoolSettings
   const classes = schoolSettings?.classes || [];
@@ -383,7 +384,7 @@ export default function TimetableManager() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Import schedule via Excel or CSV</p>
                 </div>
               </div>
-              <button onClick={() => { setIsBulkModalOpen(false); setBulkFile(null); setBulkSummary(null); }} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={18}/></button>
+              <button onClick={() => { setIsBulkModalOpen(false); setBulkFile(null); setBulkSummary(null); setOverwriteClassSchedule(false); }} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={18}/></button>
             </div>
 
             <div className="space-y-4">

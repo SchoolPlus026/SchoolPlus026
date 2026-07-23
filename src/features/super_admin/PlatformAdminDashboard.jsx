@@ -68,6 +68,10 @@ export default function PlatformAdminDashboard() {
   const [editCode, setEditCode] = useState('');
   const [editPlanType, setEditPlanType] = useState('free');
   const [editBillingCycle, setEditBillingCycle] = useState('monthly');
+  const [editPricingModel, setEditPricingModel] = useState('fixed');
+  const [editPerUserRate, setEditPerUserRate] = useState(0);
+  const [editContractedUserCount, setEditContractedUserCount] = useState(0);
+  const [editCustomBillingAmount, setEditCustomBillingAmount] = useState(0);
   const [editStudentEmailsAllowedOverride, setEditStudentEmailsAllowedOverride] = useState(null);
   const [editTeacherEmailsAllowedOverride, setEditTeacherEmailsAllowedOverride] = useState(null);
   const [editOptimizationEngineOverride, setEditOptimizationEngineOverride] = useState(null);
@@ -178,11 +182,15 @@ export default function PlatformAdminDashboard() {
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [newPlanName, setNewPlanName] = useState('');
+  const [newPlanTypeCategory, setNewPlanTypeCategory] = useState('fixed'); // 'fixed' | 'per_user'
+  const [newPerUserRate, setNewPerUserRate] = useState('');
   const [newPlanAmount, setNewPlanAmount] = useState('');
   const [newPlanValidity, setNewPlanValidity] = useState('');
   const [savingPlan, setSavingPlan] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [editPlanName, setEditPlanName] = useState('');
+  const [editPlanTypeCategory, setEditPlanTypeCategory] = useState('fixed');
+  const [editPerUserRateVal, setEditPerUserRateVal] = useState('');
   const [editPlanAmount, setEditPlanAmount] = useState('');
   const [editPlanValidity, setEditPlanValidity] = useState('');
   const [editPlanActive, setEditPlanActive] = useState(true);
@@ -445,6 +453,12 @@ export default function PlatformAdminDashboard() {
         plan_type: editPlanType,
         billing_cycle: editPlanType === 'premium' ? editBillingCycle : null,
         subscription_tier: editPlanType === 'premium' ? 'Premium' : editPlanType === 'trial' ? 'Trial' : 'Free',
+        pricing_model: editPricingModel,
+        per_user_rate: editPerUserRate,
+        contracted_user_count: editContractedUserCount,
+        custom_billing_amount: editPricingModel === 'per_user' 
+          ? (parseFloat(editPerUserRate || 0) * parseInt(editContractedUserCount || 0))
+          : parseFloat(editCustomBillingAmount || 0),
         student_emails_allowed_override: editStudentEmailsAllowedOverride === 'true' ? true : editStudentEmailsAllowedOverride === 'false' ? false : null,
         teacher_emails_allowed_override: editTeacherEmailsAllowedOverride === 'true' ? true : editTeacherEmailsAllowedOverride === 'false' ? false : null,
         optimization_engine_override: editOptimizationEngineOverride === 'null' ? null : editOptimizationEngineOverride,
@@ -495,18 +509,26 @@ export default function PlatformAdminDashboard() {
 
   const handleAddPlan = async (e) => {
     e.preventDefault();
-    if (!newPlanName || !newPlanAmount || !newPlanValidity) return;
+    if (!newPlanName || !newPlanValidity) return;
     setSavingPlan(true);
     try {
+      const isPerUser = newPlanTypeCategory === 'per_user';
+      const perUserRateNum = isPerUser ? parseFloat(newPerUserRate || 0) : 0;
+      const amountPaiseNum = isPerUser ? Math.round(perUserRateNum * 100) : Math.round(parseFloat(newPlanAmount || 0) * 100);
+
       const { error } = await supabase.from('subscription_plans').insert({
         name: newPlanName.trim(),
-        amount_paise: Math.round(parseFloat(newPlanAmount) * 100),
+        plan_type: newPlanTypeCategory,
+        per_user_rate: perUserRateNum,
+        amount_paise: amountPaiseNum,
         validity_days: parseInt(newPlanValidity, 10),
         is_active: true
       });
       if (error) throw error;
       setShowAddPlan(false);
       setNewPlanName('');
+      setNewPlanTypeCategory('fixed');
+      setNewPerUserRate('');
       setNewPlanAmount('');
       setNewPlanValidity('');
       fetchPlans();
@@ -522,9 +544,15 @@ export default function PlatformAdminDashboard() {
     if (!editingPlan) return;
     setSavingPlan(true);
     try {
+      const isPerUser = editPlanTypeCategory === 'per_user';
+      const perUserRateNum = isPerUser ? parseFloat(editPerUserRateVal || 0) : 0;
+      const amountPaiseNum = isPerUser ? Math.round(perUserRateNum * 100) : Math.round(parseFloat(editPlanAmount || 0) * 100);
+
       const { error } = await supabase.from('subscription_plans').update({
         name: editPlanName.trim(),
-        amount_paise: Math.round(parseFloat(editPlanAmount) * 100),
+        plan_type: editPlanTypeCategory,
+        per_user_rate: perUserRateNum,
+        amount_paise: amountPaiseNum,
         validity_days: parseInt(editPlanValidity, 10),
         is_active: editPlanActive
       }).eq('id', editingPlan.id);
@@ -1579,38 +1607,54 @@ export default function PlatformAdminDashboard() {
                 ) : plans.length === 0 ? (
                   <tr><td colSpan="5" className="text-center py-6 text-muted">No subscription plans found.</td></tr>
                 ) : (
-                  plans.map(plan => (
-                    <tr key={plan.id}>
-                      <td className="font-semibold text-white">{plan.name}</td>
-                      <td>₹{(plan.amount_paise / 100).toFixed(2)}</td>
-                      <td>{plan.validity_days} Days</td>
-                      <td>
-                        <span className={`badge ${plan.is_active ? 'badge-success' : 'badge-danger'}`}>
-                          {plan.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <button className="btn outline sm" onClick={() => {
-                            setEditingPlan(plan);
-                            setEditPlanName(plan.name);
-                            setEditPlanAmount((plan.amount_paise / 100).toString());
-                            setEditPlanValidity(plan.validity_days.toString());
-                            setEditPlanActive(plan.is_active);
-                          }}>
-                            Edit
-                          </button>
-                          <button 
-                            className="text-red-400 hover:text-red-300 transition-colors text-xs font-semibold" 
-                            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                            onClick={() => handleDeletePlan(plan)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  plans.map(plan => {
+                    const isPerUser = plan.plan_type === 'per_user';
+                    const rateDisplay = isPerUser
+                      ? `₹${parseFloat(plan.per_user_rate || (plan.amount_paise / 100)).toFixed(2)} / user`
+                      : `₹${(plan.amount_paise / 100).toFixed(2)}`;
+
+                    return (
+                      <tr key={plan.id}>
+                        <td className="font-semibold text-white">
+                          {plan.name}
+                          {isPerUser && (
+                            <span className="ml-2 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                              Per-User Rate
+                            </span>
+                          )}
+                        </td>
+                        <td className="font-bold text-emerald-400">{rateDisplay}</td>
+                        <td>{plan.validity_days} Days</td>
+                        <td>
+                          <span className={`badge ${plan.is_active ? 'badge-success' : 'badge-danger'}`}>
+                            {plan.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <button className="btn outline sm" onClick={() => {
+                              setEditingPlan(plan);
+                              setEditPlanName(plan.name);
+                              setEditPlanTypeCategory(plan.plan_type || 'fixed');
+                              setEditPerUserRateVal((plan.per_user_rate || (plan.amount_paise / 100)).toString());
+                              setEditPlanAmount((plan.amount_paise / 100).toString());
+                              setEditPlanValidity(plan.validity_days.toString());
+                              setEditPlanActive(plan.is_active);
+                            }}>
+                              Edit
+                            </button>
+                            <button 
+                              className="text-red-400 hover:text-red-300 transition-colors text-xs font-semibold" 
+                              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                              onClick={() => handleDeletePlan(plan)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -1750,6 +1794,10 @@ export default function PlatformAdminDashboard() {
                               setEditCode(s.school_code);
                               setEditPlanType(s.plan_type || 'free');
                               setEditBillingCycle(s.billing_cycle || 'monthly');
+                              setEditPricingModel(s.pricing_model || 'fixed');
+                              setEditPerUserRate(s.per_user_rate || 0);
+                              setEditContractedUserCount(s.contracted_user_count || 0);
+                              setEditCustomBillingAmount(s.custom_billing_amount || 0);
                               setEditStudentEmailsAllowedOverride(s.student_emails_allowed_override);
                               setEditTeacherEmailsAllowedOverride(s.teacher_emails_allowed_override);
                               setEditOptimizationEngineOverride(s.optimization_engine_override || 'null');
@@ -2619,6 +2667,73 @@ export default function PlatformAdminDashboard() {
                   </select>
                 </div>
               )}
+
+              {/* Flexible Subscription & Pricing Model */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: 'rgba(99, 102, 241, 0.08)', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                <span className="muted small font-bold uppercase tracking-wider" style={{ display: 'block', color: '#a5b4fc' }}>Flexible Subscription & Pricing Model</span>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <label className="muted small block" style={{ marginBottom: '4px' }}>Pricing Model</label>
+                    <select
+                      className="sp-input block w-full text-xs"
+                      value={editPricingModel}
+                      onChange={e => setEditPricingModel(e.target.value)}
+                    >
+                      <option value="fixed">Fixed Plan (Flat Rate)</option>
+                      <option value="per_user">Per-User Pricing (User Based)</option>
+                    </select>
+                  </div>
+
+                  {editPricingModel === 'per_user' ? (
+                    <div>
+                      <label className="muted small block" style={{ marginBottom: '4px' }}>Per-User Rate (₹ / User)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="sp-input block w-full text-xs"
+                        value={editPerUserRate}
+                        onChange={e => setEditPerUserRate(parseFloat(e.target.value) || 0)}
+                        placeholder="e.g. 20"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="muted small block" style={{ marginBottom: '4px' }}>Fixed Billing Amount (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="sp-input block w-full text-xs"
+                        value={editCustomBillingAmount}
+                        onChange={e => setEditCustomBillingAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="e.g. 5000"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {editPricingModel === 'per_user' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+                    <div>
+                      <label className="muted small block" style={{ marginBottom: '4px' }}>Contracted Users Count</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="sp-input block w-full text-xs"
+                        value={editContractedUserCount}
+                        onChange={e => setEditContractedUserCount(parseInt(e.target.value, 10) || 0)}
+                        placeholder="e.g. 500"
+                      />
+                    </div>
+                    <div>
+                      <label className="muted small block" style={{ marginBottom: '4px' }}>Total Calculated Bill</label>
+                      <div className="sp-input block w-full text-xs font-bold text-emerald-400 flex items-center bg-slate-900/80">
+                        ₹{(parseFloat(editPerUserRate || 0) * parseInt(editContractedUserCount || 0)).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               
               {/* Overrides for Free Plan */}
               {editPlanType === 'free' && (
@@ -2730,9 +2845,27 @@ export default function PlatformAdminDashboard() {
                 <input required type="text" className="sp-input block w-full" placeholder="e.g. Pro Annual" value={newPlanName} onChange={e => setNewPlanName(e.target.value)} />
               </div>
               <div>
-                <label className="muted small block" style={{ marginBottom: '6px' }}>Amount (₹)</label>
-                <input required type="number" min="1" step="0.01" className="sp-input block w-full" placeholder="e.g. 999.00" value={newPlanAmount} onChange={e => setNewPlanAmount(e.target.value)} />
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Plan Pricing Model</label>
+                <select
+                  className="sp-input block w-full"
+                  value={newPlanTypeCategory}
+                  onChange={e => setNewPlanTypeCategory(e.target.value)}
+                >
+                  <option value="fixed">Fixed Amount Plan (Flat Fee)</option>
+                  <option value="per_user">Per-User Pricing Plan (Per Student Rate)</option>
+                </select>
               </div>
+              {newPlanTypeCategory === 'per_user' ? (
+                <div>
+                  <label className="muted small block" style={{ marginBottom: '6px' }}>Per-User Rate (₹ / Student)</label>
+                  <input required type="number" min="0.01" step="0.01" className="sp-input block w-full" placeholder="e.g. 20.00" value={newPerUserRate} onChange={e => setNewPerUserRate(e.target.value)} />
+                </div>
+              ) : (
+                <div>
+                  <label className="muted small block" style={{ marginBottom: '6px' }}>Fixed Amount (₹)</label>
+                  <input required type="number" min="1" step="0.01" className="sp-input block w-full" placeholder="e.g. 999.00" value={newPlanAmount} onChange={e => setNewPlanAmount(e.target.value)} />
+                </div>
+              )}
               <div>
                 <label className="muted small block" style={{ marginBottom: '6px' }}>Validity (Days)</label>
                 <input required type="number" min="1" className="sp-input block w-full" placeholder="e.g. 365" value={newPlanValidity} onChange={e => setNewPlanValidity(e.target.value)} />
@@ -2760,9 +2893,27 @@ export default function PlatformAdminDashboard() {
                 <input required type="text" className="sp-input block w-full" value={editPlanName} onChange={e => setEditPlanName(e.target.value)} />
               </div>
               <div>
-                <label className="muted small block" style={{ marginBottom: '6px' }}>Amount (₹)</label>
-                <input required type="number" min="1" step="0.01" className="sp-input block w-full" value={editPlanAmount} onChange={e => setEditPlanAmount(e.target.value)} />
+                <label className="muted small block" style={{ marginBottom: '6px' }}>Plan Pricing Model</label>
+                <select
+                  className="sp-input block w-full"
+                  value={editPlanTypeCategory}
+                  onChange={e => setEditPlanTypeCategory(e.target.value)}
+                >
+                  <option value="fixed">Fixed Amount Plan (Flat Fee)</option>
+                  <option value="per_user">Per-User Pricing Plan (Per Student Rate)</option>
+                </select>
               </div>
+              {editPlanTypeCategory === 'per_user' ? (
+                <div>
+                  <label className="muted small block" style={{ marginBottom: '6px' }}>Per-User Rate (₹ / Student)</label>
+                  <input required type="number" min="0.01" step="0.01" className="sp-input block w-full" value={editPerUserRateVal} onChange={e => setEditPerUserRateVal(e.target.value)} />
+                </div>
+              ) : (
+                <div>
+                  <label className="muted small block" style={{ marginBottom: '6px' }}>Fixed Amount (₹)</label>
+                  <input required type="number" min="1" step="0.01" className="sp-input block w-full" value={editPlanAmount} onChange={e => setEditPlanAmount(e.target.value)} />
+                </div>
+              )}
               <div>
                 <label className="muted small block" style={{ marginBottom: '6px' }}>Validity (Days)</label>
                 <input required type="number" min="1" className="sp-input block w-full" value={editPlanValidity} onChange={e => setEditPlanValidity(e.target.value)} />
