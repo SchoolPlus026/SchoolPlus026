@@ -64,7 +64,13 @@ serve(async (req) => {
     let planName = 'Custom Subscription Plan';
     let targetPlanId = plan_id;
 
-    // 2. Fetch plan securely from DB or compute custom school pricing
+    // 2. Fetch school_settings and subscription_plans to compute exact pricing
+    const { data: schoolSettings } = await supabaseAdmin
+      .from('school_settings')
+      .select('*')
+      .eq('school_id', school_id)
+      .maybeSingle();
+
     const { data: plan } = await supabaseAdmin
       .from('subscription_plans')
       .select('*')
@@ -72,53 +78,46 @@ serve(async (req) => {
       .eq('is_active', true)
       .maybeSingle();
 
+    const { data: defaultPlan } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('id, amount_paise, name')
+      .eq('is_active', true)
+      .order('amount_paise', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
     if (plan) {
-      amountPaise = plan.amount_paise;
-      planName = plan.name;
-    } else {
-      // Fallback to custom assigned pricing for school
-      const { data: schoolSettings, error: schoolErr } = await supabaseAdmin
-        .from('school_settings')
-        .select('*')
-        .eq('school_id', school_id)
-        .single();
-
-      if (schoolErr || !schoolSettings) {
-        throw new Error('Invalid or inactive subscription plan');
-      }
-
-      // Fetch default active plan for foreign key reference in transaction ledger
-      const { data: defaultPlan } = await supabaseAdmin
-        .from('subscription_plans')
-        .select('id, amount_paise, name')
-        .eq('is_active', true)
-        .order('amount_paise', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (defaultPlan) {
-        targetPlanId = defaultPlan.id;
-      }
-
-      const customAmount = schoolSettings.custom_billing_amount;
-      const perUserRate = schoolSettings.per_user_rate || 0;
-      const contractedUsers = schoolSettings.contracted_user_count || 0;
-
-      let calcAmount = 0;
-      if (typeof customAmount === 'number' && customAmount > 0) {
-        calcAmount = customAmount;
-      } else if (schoolSettings.pricing_model === 'per_user' && perUserRate > 0 && contractedUsers > 0) {
-        calcAmount = perUserRate * contractedUsers;
-      } else if (defaultPlan) {
-        calcAmount = defaultPlan.amount_paise / 100;
-        planName = defaultPlan.name;
-      } else {
-        calcAmount = 1;
-      }
-
-      amountPaise = Math.round(calcAmount * 100);
-      planName = `${schoolSettings.name || 'School'} Subscription Plan`;
+      targetPlanId = plan.id;
+    } else if (defaultPlan) {
+      targetPlanId = defaultPlan.id;
     }
+
+    const customAmount = schoolSettings?.custom_billing_amount;
+    const perUserRate = schoolSettings?.per_user_rate || 0;
+    const contractedUsers = schoolSettings?.contracted_user_count || 0;
+
+    let calcAmount = 0;
+    if (typeof customAmount === 'number' && customAmount > 0) {
+      // Priority 1: Custom billing amount assigned by Platform Admin for this school
+      calcAmount = customAmount;
+      planName = `${schoolSettings?.name || 'School'} Subscription Plan`;
+    } else if (schoolSettings?.pricing_model === 'per_user' && perUserRate > 0 && contractedUsers > 0) {
+      // Priority 2: Per-user rate pricing model
+      calcAmount = perUserRate * contractedUsers;
+      planName = `${schoolSettings?.name || 'School'} Subscription Plan`;
+    } else if (plan) {
+      // Priority 3: Selected subscription plan
+      calcAmount = plan.amount_paise / 100;
+      planName = plan.name;
+    } else if (defaultPlan) {
+      // Priority 4: Default active plan
+      calcAmount = defaultPlan.amount_paise / 100;
+      planName = defaultPlan.name;
+    } else {
+      calcAmount = 1;
+    }
+
+    amountPaise = Math.round(calcAmount * 100);
 
     if (!amountPaise || amountPaise <= 0) {
       throw new Error('Invalid subscription plan amount');
