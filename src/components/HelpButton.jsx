@@ -226,10 +226,19 @@ function MediaModal({ article, onClose, role, navigate }) {
         {/* Description / Instructions */}
         {article.description && (
           <div className="p-5 border-t border-slate-800/80 bg-slate-950/20 max-h-[60vh] overflow-y-auto">
-            <h5 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Step-by-step Instructions:</h5>
-            <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
-              {article.description}
-            </p>
+            <h5 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Step-by-step Instructions:</h5>
+            {article.description.includes('<') && article.description.includes('>') ? (
+              <div 
+                className="text-sm text-slate-300 space-y-3 leading-relaxed [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_li]:text-slate-300 [&_strong]:text-white [&_strong]:font-bold [&_h4]:font-bold [&_h4]:text-xs [&_h4]:uppercase [&_h4]:tracking-wider [&_h4]:mb-2"
+                dangerouslySetInnerHTML={{ __html: article.description }} 
+              />
+            ) : (
+              <div className="space-y-3 text-sm text-slate-300 leading-relaxed">
+                {article.description.split('\n\n').map((paragraph, idx) => (
+                  <p key={idx} className="leading-relaxed mb-2">{paragraph}</p>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -248,13 +257,46 @@ export default function HelpButton() {
   const [activeOptionsList, setActiveOptionsList] = useState([]);
   const [isClosingOptions, setIsClosingOptions] = useState(false);
 
-  // Don't show on login/register/reset-password pages or inside the help module itself
+  // Fetch platform settings for Auth Help Controls via guaranteed school_settings gdrive_config
+  const { data: schoolSettingRow } = useQuery({
+    queryKey: ['platform_settings_auth_help_btn'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('school_settings').select('gdrive_config').limit(1).maybeSingle();
+      if (error) throw error;
+      return data || {};
+    }
+  });
+
+  const authHelpConfig = schoolSettingRow?.gdrive_config?.auth_help_config || {
+    login_help: true,
+    register_help: true,
+    reset_help: true
+  };
+
+  const isLoginPage = location.pathname === '/' || location.pathname === '/login';
+  const isRegisterPage = location.pathname === '/register' || location.pathname === '/register-verify';
+  const isResetPasswordPage = location.pathname === '/reset-password';
+  const isAuthPage = isLoginPage || isRegisterPage || isResetPasswordPage;
+
+  // Don't show on disabled auth pages or inside knowledge-base / platform-admin
   const isHiddenPage = useMemo(() => {
-    return !role || 
-      ['/login', '/register', '/reset-password'].includes(location.pathname) || 
-      location.pathname.includes('/knowledge-base') || 
-      location.pathname.includes('/platform-admin');
-  }, [role, location.pathname]);
+    if (location.pathname.includes('/knowledge-base') || location.pathname.includes('/platform-admin')) {
+      return true;
+    }
+    if (isLoginPage) {
+      const hasAnyOption = (authHelpConfig.login_help !== false) ||
+                           (authHelpConfig.register_help !== false) ||
+                           (authHelpConfig.reset_help !== false);
+      return !hasAnyOption;
+    }
+    if (isRegisterPage) {
+      return authHelpConfig.register_help === false;
+    }
+    if (isResetPasswordPage) {
+      return authHelpConfig.reset_help === false;
+    }
+    return !role;
+  }, [role, location.pathname, isLoginPage, isRegisterPage, isResetPasswordPage, authHelpConfig]);
 
   // Fetch db articles globally to filter client-side for immediate overlays
   const { data: articles = [] } = useQuery({
@@ -331,7 +373,7 @@ export default function HelpButton() {
 
   // Trigger onboarding on first visit to a module
   useEffect(() => {
-    if (isHiddenPage || currentModule === 'none' || combinedArticles.length === 0) return;
+    if (isHiddenPage || isAuthPage || currentModule === 'none' || combinedArticles.length === 0) return;
 
     const key = `onboarding_completed_${currentModule}`;
     const completed = localStorage.getItem(key);
@@ -350,11 +392,195 @@ export default function HelpButton() {
       // Save flag to avoid auto-popping on next page refreshes
       localStorage.setItem(key, 'true');
     }
-  }, [currentModule, combinedArticles, isHiddenPage]);
+  }, [currentModule, combinedArticles, isHiddenPage, isAuthPage]);
 
   if (isHiddenPage) return null;
 
   const handleHelpClick = () => {
+    if (isLoginPage) {
+      const optionsList = [];
+
+      // 1. Login Help Option
+      if (authHelpConfig.login_help !== false) {
+        const loginMatches = articles.filter(a => a.target_module === 'login_page:login' || a.target_module === 'login_page' || a.target_module === 'login');
+        const mainArticle = loginMatches[0] || {
+          id: 'auth_login_default',
+          title: '🔑 Login Help & Demo Access Guide',
+          description: `<div class="space-y-4">
+  <p><strong>Welcome to SchoolOS+!</strong> Follow these steps to log in to your account:</p>
+  
+  <ul class="list-disc pl-5 space-y-1 text-slate-300">
+    <li><strong>Step 1:</strong> Enter your 3-digit School Code assigned to your institution.</li>
+    <li><strong>Step 2:</strong> Enter your User ID / Username and Password.</li>
+  </ul>
+
+  <div class="p-3.5 bg-indigo-950/40 border border-indigo-500/30 rounded-xl space-y-2 my-3">
+    <h4 class="font-bold text-indigo-300 text-xs uppercase tracking-wider">🧪 DEMO TESTING CREDENTIALS</h4>
+    <p class="text-xs text-indigo-200 mb-2">You can explore the platform immediately using the demo credentials below:</p>
+    <ul class="list-disc pl-5 text-xs text-slate-200 space-y-1">
+      <li><strong>School Code:</strong> 100</li>
+      <li><strong>Admin Username:</strong> Admin100</li>
+      <li><strong>Teacher Username:</strong> Demo_teacher</li>
+      <li><strong>Student Username:</strong> Demo_student</li>
+      <li><strong>Driver Username:</strong> Demo_Driver</li>
+      <li><strong>Password (for all users):</strong> 123456</li>
+    </ul>
+  </div>
+
+  <div class="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2 my-3">
+    <h4 class="font-bold text-amber-400 text-xs uppercase tracking-wider">📌 IMPORTANT ACCOUNT NOTICE</h4>
+    <ul class="list-disc pl-5 text-xs text-slate-300 space-y-2">
+      <li><strong>Need your own institution account?</strong> Only School Principals, Directors, or Official Management can register a new school.</li>
+      <li><strong>Are you a Teacher, Student, Staff, or Driver?</strong> You do not need to register a school. Your personal login ID and password will be issued directly by your School Administration after setup.</li>
+      <li><strong>Verification & Security Policy:</strong> All new school registration requests undergo official verification by our Onboarding Team. Submissions with invalid or unverified details will be reviewed and declined to maintain platform security.</li>
+    </ul>
+  </div>
+</div>`,
+          video_type: 'text',
+          kb_categories: { name: 'Authentication' }
+        };
+        optionsList.push({
+          ...mainArticle,
+          title: mainArticle.title || '🔑 Login Help',
+          display_label: '🔑 Login Help'
+        });
+      }
+
+      // 2. Registration Help Option
+      if (authHelpConfig.register_help !== false) {
+        const regMatches = articles.filter(a => a.target_module === 'login_page:registration' || a.target_module === 'registration');
+        const mainArticle = regMatches[0] || {
+          id: 'auth_reg_default',
+          title: '📝 School Registration & Onboarding Guide',
+          description: `<div class="space-y-4">
+  <p><strong>Welcome to SchoolOS+ Institution Registration!</strong></p>
+
+  <div class="p-3.5 bg-indigo-950/40 border border-indigo-500/30 rounded-xl space-y-2 my-3">
+    <h4 class="font-bold text-indigo-300 text-xs uppercase tracking-wider">🏛️ ELIGIBILITY FOR SCHOOL REGISTRATION</h4>
+    <ul class="list-disc pl-5 text-xs text-slate-300 space-y-1.5">
+      <li><strong>Official Registration Only:</strong> School Registration is strictly intended for School Owners, Principals, Directors, and Authorized School Authorities.</li>
+      <li><strong>Teachers, Students, Staff & Drivers:</strong> Please do not register here. Your school administrator will issue your personal login credentials once your school workspace is set up.</li>
+    </ul>
+  </div>
+
+  <div class="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2 my-3">
+    <h4 class="font-bold text-emerald-400 text-xs uppercase tracking-wider">🔒 INSTITUTION VERIFICATION & SAFETY</h4>
+    <ul class="list-disc pl-5 text-xs text-slate-300 space-y-1.5">
+      <li><strong>Official Verification:</strong> Every registration request is verified by our Platform Onboarding Team to confirm institutional authorization.</li>
+      <li><strong>Workspace Protection:</strong> Genuine school submissions are onboarded promptly. Unverified, unauthorized, or incomplete registration requests will be declined to maintain network security and data privacy.</li>
+      <li><strong>Best Practice:</strong> Please ensure you enter valid school contact numbers and official administrator email addresses for fast-track verification.</li>
+    </ul>
+  </div>
+</div>`,
+          video_type: 'text',
+          kb_categories: { name: 'Registration' }
+        };
+        optionsList.push({
+          ...mainArticle,
+          title: mainArticle.title || '📝 Registration Help',
+          display_label: '📝 Registration Help'
+        });
+      }
+
+      // 3. Forget Details Help Option
+      if (authHelpConfig.reset_help !== false) {
+        const resetMatches = articles.filter(a => a.target_module === 'login_page:forget_details' || a.target_module === 'forget_details');
+        const mainArticle = resetMatches[0] || {
+          id: 'auth_reset_default',
+          title: '❓ Forget Details & Account Recovery Guide',
+          description: `<div class="space-y-4">
+  <p><strong>Need help recovering your account credentials?</strong></p>
+
+  <ul class="list-disc pl-5 text-xs text-slate-300 space-y-2">
+    <li><strong>Forget Username:</strong> Click "Forgot Username?" on the login screen to recover your login ID using your registered Mobile Number or 6-digit Recovery PIN.</li>
+    <li><strong>Forget Password:</strong> Click "Forgot Password?" to reset your password using your Recovery PIN or Fingerprint / Passkey.</li>
+    <li><strong>School Code Recovery:</strong> Click "Forgot School Code?" to look up your institution code using your registered school phone number.</li>
+    <li><strong>Institutional Support:</strong> Teachers, Students, Staff, and Drivers can also contact their School Administrator to reset credentials instantly.</li>
+  </ul>
+</div>`,
+          video_type: 'text',
+          kb_categories: { name: 'Password Recovery' }
+        };
+        optionsList.push({
+          ...mainArticle,
+          title: mainArticle.title || '❓ Forget Details Help',
+          display_label: '❓ Forget Details Help'
+        });
+      }
+
+      if (optionsList.length > 0) {
+        setActiveOptionsList(optionsList);
+        setHelpOptions(true);
+      }
+      return;
+    }
+
+    if (isRegisterPage) {
+      const regMatches = articles.filter(a => a.target_module === 'login_page:registration' || a.target_module === 'registration');
+      if (regMatches.length === 1) {
+        setPlayingArticle(regMatches[0]);
+      } else if (regMatches.length > 1) {
+        setActiveOptionsList(regMatches);
+        setHelpOptions(true);
+      } else {
+        setPlayingArticle({
+          id: 'auth_reg_default',
+          title: '📝 School Registration & Onboarding Guide',
+          description: `<div class="space-y-4">
+  <p><strong>Welcome to SchoolOS+ Institution Registration!</strong></p>
+
+  <div class="p-3.5 bg-indigo-950/40 border border-indigo-500/30 rounded-xl space-y-2 my-3">
+    <h4 class="font-bold text-indigo-300 text-xs uppercase tracking-wider">🏛️ ELIGIBILITY FOR SCHOOL REGISTRATION</h4>
+    <ul class="list-disc pl-5 text-xs text-slate-300 space-y-1.5">
+      <li><strong>Official Registration Only:</strong> School Registration is strictly intended for School Owners, Principals, Directors, and Authorized School Authorities.</li>
+      <li><strong>Teachers, Students, Staff & Drivers:</strong> Please do not register here. Your school administrator will issue your personal login credentials once your school workspace is set up.</li>
+    </ul>
+  </div>
+
+  <div class="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2 my-3">
+    <h4 class="font-bold text-emerald-400 text-xs uppercase tracking-wider">🔒 INSTITUTION VERIFICATION & SAFETY</h4>
+    <ul class="list-disc pl-5 text-xs text-slate-300 space-y-1.5">
+      <li><strong>Official Verification:</strong> Every registration request is verified by our Platform Onboarding Team to confirm institutional authorization.</li>
+      <li><strong>Workspace Protection:</strong> Genuine school submissions are onboarded promptly. Unverified, unauthorized, or incomplete registration requests will be declined to maintain network security and data privacy.</li>
+      <li><strong>Best Practice:</strong> Please ensure you enter valid school contact numbers and official administrator email addresses for fast-track verification.</li>
+    </ul>
+  </div>
+</div>`,
+          video_type: 'text',
+          kb_categories: { name: 'Registration' }
+        });
+      }
+      return;
+    }
+
+    if (isResetPasswordPage) {
+      const resetMatches = articles.filter(a => a.target_module === 'login_page:forget_details' || a.target_module === 'forget_details');
+      if (resetMatches.length === 1) {
+        setPlayingArticle(resetMatches[0]);
+      } else if (resetMatches.length > 1) {
+        setActiveOptionsList(resetMatches);
+        setHelpOptions(true);
+      } else {
+        setPlayingArticle({
+          id: 'auth_reset_default',
+          title: '❓ Forget Details & Account Recovery Guide',
+          description: `<div class="space-y-4">
+  <p><strong>Need help recovering your account credentials?</strong></p>
+
+  <ul class="list-disc pl-5 text-xs text-slate-300 space-y-2">
+    <li><strong>Forget Username:</strong> Click "Forgot Username?" on the login screen to recover your login ID using your registered Mobile Number or 6-digit Recovery PIN.</li>
+    <li><strong>Forget Password:</strong> Click "Forgot Password?" to reset your password using your Recovery PIN or Fingerprint / Passkey.</li>
+    <li><strong>School Code Recovery:</strong> Click "Forgot School Code?" to look up your institution code using your registered school phone number.</li>
+    <li><strong>Institutional Support:</strong> Teachers, Students, Staff, and Drivers can also contact their School Administrator to reset credentials instantly.</li>
+  </ul>
+</div>`,
+          video_type: 'text',
+          kb_categories: { name: 'Password Recovery' }
+        });
+      }
+      return;
+    }
+
     if (currentModule && currentModule !== 'none') {
       const matches = combinedArticles.filter(a => isModuleMatch(a.target_module, currentModule));
       if (matches.length === 1) {

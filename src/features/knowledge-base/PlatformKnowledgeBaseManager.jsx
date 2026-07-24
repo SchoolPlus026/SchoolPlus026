@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
-import { BookOpen, Plus, Trash2, Edit2, X, Play, Save, ChevronDown, ChevronUp, Youtube, HardDrive, Loader2 } from 'lucide-react';
+import { BookOpen, Plus, Trash2, Edit2, X, Play, Save, ChevronDown, ChevronUp, Youtube, HardDrive, Loader2, ShieldCheck } from 'lucide-react';
 import { uploadFileToGDriveDirect } from '../../utils/gdriveDirectUpload';
 
 function extractYouTubeThumbnail(url) {
@@ -51,12 +51,17 @@ function CategoryForm({ initial = {}, onSave, onCancel, saving }) {
 
 // ─── Article Form ───────────────────────────────────────────────────────────
 function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
+  const isLoginPageTarget = initial.target_module ? initial.target_module.startsWith('login_page') : false;
+  const initialMainTarget = isLoginPageTarget ? 'login_page' : (initial.target_module || 'none');
+  const initialSubTarget = isLoginPageTarget && initial.target_module.includes(':') ? initial.target_module.split(':')[1] : 'login';
+
   const [categoryId, setCategoryId]   = useState(initial.category_id || categories[0]?.id || '');
   const [title, setTitle]             = useState(initial.title || '');
   const [description, setDescription] = useState(initial.description || '');
   const [videoType, setVideoType]     = useState(initial.video_type || 'youtube');
   const [videoUrl, setVideoUrl]       = useState(initial.video_url || '');
-  const [targetModule, setTargetModule] = useState(initial.target_module || 'none');
+  const [mainTarget, setMainTarget]   = useState(initialMainTarget);
+  const [subTarget, setSubTarget]     = useState(initialSubTarget);
   const [targetRoles, setTargetRoles]   = useState((Array.isArray(initial.target_roles) && initial.target_roles.length > 0) ? initial.target_roles : ['admin', 'teacher', 'student', 'staff', 'driver']);
   const [sortOrder, setSortOrder]     = useState(initial.sort_order ?? 0);
   const [isPublished, setIsPublished] = useState(initial.is_published !== false);
@@ -100,6 +105,8 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
         });
       }
 
+      const computedTargetModule = mainTarget === 'none' ? null : (mainTarget === 'login_page' ? `login_page:${subTarget}` : mainTarget);
+
       if (uploadedUrls.length === 1) {
         setVideoUrl(uploadedUrls[0].url);
         if (!title) setTitle(uploadedUrls[0].name);
@@ -111,7 +118,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
           description: '',
           video_type: 'gdrive',
           video_url: item.url,
-          target_module: targetModule === 'none' ? null : targetModule,
+          target_module: computedTargetModule,
           is_published: false,
           sort_order: 0,
           target_roles: targetRoles
@@ -123,6 +130,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const computedTargetModule = mainTarget === 'none' ? null : (mainTarget === 'login_page' ? `login_page:${subTarget}` : mainTarget);
     onSave({ 
       category_id: categoryId, 
       title: title.trim(), 
@@ -130,7 +138,7 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
       video_type: videoType, 
       video_url: videoUrl.trim(), 
       thumbnail_url: ytThumb || null, 
-      target_module: targetModule === 'none' ? null : targetModule, 
+      target_module: computedTargetModule, 
       sort_order: Number(sortOrder), 
       is_published: isPublished,
       target_roles: targetRoles
@@ -171,34 +179,47 @@ function ArticleForm({ categories, initial = {}, onSave, onCancel, saving }) {
 
       <div>
         <label className="muted small block mb-1 font-semibold">Target Module Connection</label>
-        <select className="sp-input block w-full" value={targetModule} onChange={e => setTargetModule(e.target.value)}>
+        <select className="sp-input block w-full" value={mainTarget} onChange={e => setMainTarget(e.target.value)}>
           <option value="none">None (General Tutorial)</option>
-          <option value="attendance">Attendance / Class Attendance (हाज़िरी व क्लास अटेंडेंस)</option>
-          <option value="my_attendance">My Attendance (मेरी उपस्थिति - Teacher/Student)</option>
-          <option value="emergency">Emergency Alerts (इमर्जेंसी अलर्ट)</option>
-          <option value="calendar">Calendar & Events (कैलेंडर और कार्यक्रम)</option>
-          <option value="users">Manage Users / Manage Students (यूज़र व छात्र प्रबंधन)</option>
-          <option value="achievers">Achievers Board (उपलब्धि बोर्ड)</option>
-          <option value="staff_pending_duty">Duty Radar / Staff Duty (स्टाफ ड्यूटी)</option>
-          <option value="executive_briefing">Executive Briefing (कार्यकारी ब्रीफिंग)</option>
-          <option value="profile">User Profile (प्रोफ़ाइल)</option>
-          <option value="timetable">Timetable (समय सारणी)</option>
-          <option value="fees">Fees & Billing (फीस प्रबंधन)</option>
-          <option value="notices">Notices (सूचनाएं)</option>
+          <option value="login_page">🔑 Login Page / Auth Screens</option>
+          <option value="attendance">Attendance / Class Attendance</option>
+          <option value="my_attendance">My Attendance (Teacher/Student)</option>
+          <option value="emergency">Emergency Alerts</option>
+          <option value="calendar">Calendar & Events</option>
+          <option value="users">Manage Users / Manage Students</option>
+          <option value="achievers">Achievers Board</option>
+          <option value="staff_pending_duty">Duty Radar / Staff Duty</option>
+          <option value="executive_briefing">Executive Briefing</option>
+          <option value="profile">User Profile</option>
+          <option value="timetable">Timetable</option>
+          <option value="fees">Fees & Billing</option>
+          <option value="notices">Notices</option>
           <option value="bus_alerts">Bus Tracker / Live Bus Alerts</option>
-          <option value="syllabus">Syllabus Tracker (पाठ्यक्रम)</option>
-          <option value="lost_found">Lost & Found (खोया-पाया)</option>
-          <option value="mood_note">Mood Note (मूड नोट)</option>
+          <option value="syllabus">Syllabus Tracker</option>
+          <option value="lost_found">Lost & Found</option>
+          <option value="mood_note">Mood Note</option>
           <option value="off_classes">Off-Classes / Substitution</option>
-          <option value="leaves">Leaves (अवकाश)</option>
-          <option value="reports">Reports (रिपोर्ट्स)</option>
-          <option value="gallery">Gallery (गैलरी)</option>
-          <option value="complaint_box">Complaint Box (शिकायत पेटिका)</option>
-          <option value="contact">Contact Support (संपर्क)</option>
-          <option value="settings">Settings (सेटिंग्स)</option>
+          <option value="leaves">Leaves</option>
+          <option value="reports">Reports</option>
+          <option value="gallery">Gallery</option>
+          <option value="complaint_box">Complaint Box</option>
+          <option value="contact">Contact Support</option>
+          <option value="settings">Settings</option>
         </select>
         <p className="text-[10px] text-slate-500 mt-1">If a user clicks "Help" in this module, they will be auto-routed to this article.</p>
       </div>
+
+      {mainTarget === 'login_page' && (
+        <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl animate-in fade-in duration-300">
+          <label className="muted small block mb-1 font-bold text-indigo-300">Authentication Flow Target *</label>
+          <select className="sp-input block w-full" value={subTarget} onChange={e => setSubTarget(e.target.value)}>
+            <option value="login">Login Help</option>
+            <option value="registration">Registration Help</option>
+            <option value="forget_details">Forget Details Help</option>
+          </select>
+          <p className="text-[10px] text-indigo-300/80 mt-1">This tutorial will target the selected authentication step.</p>
+        </div>
+      )}
 
       <div>
         <label className="muted small block mb-1 font-semibold">Target Audience Roles *</label>
@@ -433,6 +454,57 @@ export default function PlatformKnowledgeBaseManager() {
     else refresh();
   };
 
+  const { data: schoolSettingRow } = useQuery({
+    queryKey: ['school_settings_auth_help'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('school_settings').select('school_id, gdrive_config').limit(1).maybeSingle();
+      if (error) throw error;
+      return data || {};
+    }
+  });
+
+  const authHelpConfig = schoolSettingRow?.gdrive_config?.auth_help_config || {
+    login_help: true,
+    register_help: true,
+    reset_help: true
+  };
+
+  const [savingAuthHelp, setSavingAuthHelp] = useState(false);
+
+  const handleSaveAuthHelpConfig = async (newConfig) => {
+    setSavingAuthHelp(true);
+    try {
+      const existingConfig = schoolSettingRow?.gdrive_config || {};
+      const updatedGdriveConfig = {
+        ...existingConfig,
+        auth_help_config: newConfig
+      };
+
+      const targetSchoolId = schoolSettingRow?.school_id;
+      let error;
+      if (targetSchoolId) {
+        const res = await supabase
+          .from('school_settings')
+          .update({ gdrive_config: updatedGdriveConfig })
+          .eq('school_id', targetSchoolId);
+        error = res.error;
+      } else {
+        const res = await supabase
+          .from('school_settings')
+          .update({ gdrive_config: updatedGdriveConfig });
+        error = res.error;
+      }
+
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ['school_settings_auth_help'] });
+      qc.invalidateQueries({ queryKey: ['platform_settings_auth_help_btn'] });
+    } catch (err) {
+      alert('Error updating auth help controls: ' + err.message);
+    } finally {
+      setSavingAuthHelp(false);
+    }
+  };
+
   return (
     <div className="card fade-in">
       {/* Section Header */}
@@ -447,6 +519,67 @@ export default function PlatformKnowledgeBaseManager() {
         <button className="btn accent" onClick={() => setShowAddCat(true)}>
           <Plus size={16} /> Add Category
         </button>
+      </div>
+
+      {/* Authentication Help Control Panel */}
+      <div className="p-4 my-4 bg-slate-100 dark:bg-slate-950/60 border border-indigo-500/20 dark:border-indigo-500/30 rounded-2xl shadow-sm">
+        <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-white/10">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="text-indigo-600 dark:text-indigo-400" size={18} />
+            <h5 className="font-bold text-slate-900 dark:text-white text-sm">Login & Auth Screen Help Controls</h5>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-500/20">
+            {savingAuthHelp ? 'Saving...' : 'Live Page Settings'}
+          </span>
+        </div>
+        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">Enable or disable floating help tutorials on public login, registration, and password recovery pages.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Login Help Toggle */}
+          <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
+            <div>
+              <div className="text-xs font-bold text-slate-900 dark:text-white">Login Screen Help</div>
+              <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Step 1 & Step 2 Login</div>
+            </div>
+            <input
+              type="checkbox"
+              disabled={savingAuthHelp}
+              checked={authHelpConfig.login_help !== false}
+              onChange={(e) => handleSaveAuthHelpConfig({ ...authHelpConfig, login_help: e.target.checked })}
+              style={{ width: 18, height: 18, accentColor: '#4f46e5', cursor: 'pointer' }}
+            />
+          </div>
+
+          {/* Registration Help Toggle */}
+          <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
+            <div>
+              <div className="text-xs font-bold text-slate-900 dark:text-white">Registration Help</div>
+              <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">School Signup Screen</div>
+            </div>
+            <input
+              type="checkbox"
+              disabled={savingAuthHelp}
+              checked={authHelpConfig.register_help !== false}
+              onChange={(e) => handleSaveAuthHelpConfig({ ...authHelpConfig, register_help: e.target.checked })}
+              style={{ width: 18, height: 18, accentColor: '#4f46e5', cursor: 'pointer' }}
+            />
+          </div>
+
+          {/* Forget Details Help Toggle */}
+          <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
+            <div>
+              <div className="text-xs font-bold text-slate-900 dark:text-white">Forget Details Help</div>
+              <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Password Reset Screen</div>
+            </div>
+            <input
+              type="checkbox"
+              disabled={savingAuthHelp}
+              checked={authHelpConfig.reset_help !== false}
+              onChange={(e) => handleSaveAuthHelpConfig({ ...authHelpConfig, reset_help: e.target.checked })}
+              style={{ width: 18, height: 18, accentColor: '#4f46e5', cursor: 'pointer' }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* ── Add/Edit Category Modals ── */}

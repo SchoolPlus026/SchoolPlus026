@@ -52,7 +52,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative overflow-x-hidden overflow-y-auto"
       style={{ background: 'radial-gradient(800px 400px at 30% 20%, rgba(124, 58, 237, 0.15), transparent), linear-gradient(180deg, #0b1020 0%, #061233 100%)' }}
     >
       <div className="w-full max-w-md relative z-10 sp-card shadow-2xl">

@@ -1206,7 +1206,7 @@ export default function App() {
       {user && <VersionChecker />}
       {user && <GlobalUploadToasts />}
       {user && <EmergencyOverlay />}
-      {user && <HelpButton />}
+      {(user || ['/login', '/register', '/register-verify', '/reset-password'].includes(location.pathname)) && <HelpButton />}
       {user && <SyncPasswordResetModal />}
       {user && <GlobalAvatarPreviewModal />}
       {user && location.pathname !== '/register-verify' && <GoogleRecoveryNudgeModal />}
