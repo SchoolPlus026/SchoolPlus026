@@ -8,6 +8,8 @@ import { createPortal } from 'react-dom';
 import ModuleGuard from '../../components/ModuleGuard';
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 import { decodeBusCSV } from '../../utils/csvCodec';
+import mqttClient from '../../utils/mqttClient';
+import { decryptPayload, hashTopic } from '../../utils/cryptoPayload';
 
 // Anonymous auth token never expires on the client — no refresh timer needed.
 
@@ -54,11 +56,27 @@ export default function LiveBusTracker() {
     };
   }, []);
 
-  // ─── Bus list ─────────────────────────────────────────────────────────────
+  // ─── Bus list (with 12-hour localStorage cache) ───────────────────────────
   const { data: buses = [], isLoading: busesLoading, error: busListError } = useQuery({
     queryKey: ['bus-list', schoolId],
     queryFn: async () => {
       console.log('[LiveBusTracker] fetching bus list for school:', schoolId);
+      
+      const cacheKey = `sp_bus_list_${schoolId}`;
+      const cacheTimeKey = `sp_bus_list_ts_${schoolId}`;
+
+      // Check 12-hour localStorage cache
+      try {
+        const cachedStr = localStorage.getItem(cacheKey);
+        const cachedTs  = localStorage.getItem(cacheTimeKey);
+        if (cachedStr && cachedTs && Date.now() - parseInt(cachedTs, 10) < 12 * 60 * 60 * 1000) {
+          console.log('[LiveBusTracker] Reusing 12-hour cached bus list from localStorage');
+          return JSON.parse(cachedStr);
+        }
+      } catch (e) {
+        console.warn('[LiveBusTracker] localStorage cache read error:', e.message);
+      }
+
       const { data, error } = await supabase
         .from('bus_assignments')
         .select('bus_number, route_name, driver_name')
@@ -66,10 +84,21 @@ export default function LiveBusTracker() {
         .eq('is_active', true)
         .order('bus_number', { ascending: true });
       if (error) throw error;
+
+      if (data && data.length > 0) {
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+          localStorage.setItem(cacheTimeKey, Date.now().toString());
+        } catch (e) {
+          console.warn('[LiveBusTracker] localStorage cache write error:', e.message);
+        }
+      }
+
       console.log('[LiveBusTracker] bus list:', data);
       return data || [];
     },
     enabled: !!schoolId,
+    staleTime: 12 * 60 * 60 * 1000,
     retry: 2,
   });
 
@@ -245,6 +274,73 @@ export default function LiveBusTracker() {
     };
   }, [selectedBus, schoolId, fetchTrackingData, role]);
 
+  // ─── MQTT Real-Time WebSocket Subscription ───────────────────────────────
+  useEffect(() => {
+    if (!selectedBus || !schoolId) return;
+
+    let activeTopic = null;
+    const secretKey = `${schoolId}_secret_key`;
+
+    const handleMqttMessage = async (encryptedPayload) => {
+      try {
+        const decryptedCsv = await decryptPayload(encryptedPayload, secretKey);
+        const val = decodeBusCSV(decryptedCsv);
+        if (val) {
+          console.log('[LiveBusTracker] Real-time MQTT telemetry received:', val);
+          setTrackingData(val);
+          setFbError(null);
+
+          lastFetchCache = {
+            schoolId,
+            busKey: toBusKey(selectedBus),
+            data: val,
+            timestamp: Date.now()
+          };
+        }
+      } catch (err) {
+        console.warn('[LiveBusTracker] MQTT payload decode error:', err.message);
+      }
+    };
+
+    let isSubscribed = false;
+
+    const subscribeToMqtt = () => {
+      if (!isSubscribed && activeTopic) {
+        console.log('[LiveBusTracker] Page active. Subscribing to MQTT topic:', activeTopic);
+        mqttClient.subscribe(activeTopic, handleMqttMessage);
+        isSubscribed = true;
+      }
+    };
+
+    const unsubscribeFromMqtt = () => {
+      if (isSubscribed && activeTopic) {
+        console.log('[LiveBusTracker] Page hidden/backgrounded. Auto-pausing MQTT topic:', activeTopic);
+        mqttClient.unsubscribe(activeTopic, handleMqttMessage);
+        isSubscribed = false;
+      }
+    };
+
+    hashTopic(schoolId, selectedBus).then((topic) => {
+      activeTopic = topic;
+      subscribeToMqtt();
+    });
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        subscribeToMqtt();
+      } else {
+        unsubscribeFromMqtt();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      unsubscribeFromMqtt();
+    };
+  }, [selectedBus, schoolId]);
+
   // ─── Helpers ─────────────────────────────────────────────────────────────
   const fmt = (ts) =>
     ts ? new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
@@ -365,7 +461,7 @@ export default function LiveBusTracker() {
             {/* Header + status badge */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontWeight: 800, fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Navigation size={16} color="#fbbf24" />
+                <Bus size={18} color="#fbbf24" />
                 Live Route · Bus {selectedBus}
               </h3>
               {isLive
@@ -380,7 +476,7 @@ export default function LiveBusTracker() {
             {isLive && (
               <div style={{ marginBottom: '14px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <MapPin size={11} /> Current Location
+                  <Bus size={13} color="#3b82f6" /> Current Location
                 </div>
                 <div style={{ fontWeight: 900, fontSize: '18px', color: 'var(--text-main)' }}>
                   {trackingData?.location_name || 'En Route…'}
@@ -409,7 +505,7 @@ export default function LiveBusTracker() {
               </div>
             )}
 
-            {/* Google Maps iframe — shows when driver has pushed lat/lng */}
+            {/* Detailed Google Maps iframe — shows when driver has pushed lat/lng */}
             {trackingData?.lat && trackingData?.lng ? (
               <>
                 <div style={{ position: 'relative' }}>

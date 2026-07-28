@@ -4,10 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X, Save, MapPin, Clock, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
-import { rtdb } from '../../config/firebaseClient';
-import { ref, onValue, off } from 'firebase/database';
+
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 import { decodeBusCSV } from '../../utils/csvCodec';
+import mqttClient from '../../utils/mqttClient';
+import { decryptPayload, hashTopic } from '../../utils/cryptoPayload';
 
 // ── Bus key helper (must match BusAlerts.jsx + LiveBusTracker.jsx) ─────────────
 function toBusKey(n) {
@@ -22,14 +23,32 @@ function BusLiveCard({ schoolId, busNumber, fbReady }) {
   const [mapFullscreen, setMapFullscreen] = useState(false);
 
   useEffect(() => {
-    if (!schoolId || !busNumber || !rtdb || !fbReady) return;
-    const path = `tracking/${schoolId}/${toBusKey(busNumber)}`;
-    const trackRef = ref(rtdb, path);
-    const unsub = onValue(trackRef, (snap) => {
-      setLive(snap.exists() ? decodeBusCSV(snap.val()) : null);
-    }, () => setLive(null));
-    return () => { unsub(); off(trackRef); };
-  }, [schoolId, busNumber, fbReady]);
+    if (!schoolId || !busNumber) return;
+
+    let activeTopic = null;
+    const secretKey = `${schoolId}_secret_key`;
+
+    const handleMqttMessage = async (encryptedPayload) => {
+      try {
+        const decryptedCsv = await decryptPayload(encryptedPayload, secretKey);
+        const val = decodeBusCSV(decryptedCsv);
+        if (val) {
+          setLive(val);
+        }
+      } catch (err) {
+        console.warn('[AdminBusMonitor] MQTT payload decode error:', err.message);
+      }
+    };
+
+    hashTopic(schoolId, busNumber).then((topic) => {
+      activeTopic = topic;
+      mqttClient.subscribe(topic, handleMqttMessage);
+    });
+
+    return () => {
+      if (activeTopic) mqttClient.unsubscribe(activeTopic, handleMqttMessage);
+    };
+  }, [schoolId, busNumber]);
 
   // Tick "X sec ago" counter based on the driver's last_updated_ts from Firebase
   useEffect(() => {

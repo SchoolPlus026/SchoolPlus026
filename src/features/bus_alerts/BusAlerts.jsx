@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
-import { rtdb } from '../../config/firebaseClient';
-import { ref, set } from 'firebase/database';
+
 import { useAppStore } from '../../store/useAppStore';
 import { Bus, Navigation, Loader2, Wifi, WifiOff, Clock, CheckCircle2, MapPinOff, Maximize2, Minimize2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import ModuleGuard from '../../components/ModuleGuard';
+import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 import { encodeBusCSV } from '../../utils/csvCodec';
+import mqttClient from '../../utils/mqttClient';
+import { encryptPayload, hashTopic } from '../../utils/cryptoPayload';
+import { resolveReverseGeocode } from '../../utils/reverseGeocode';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-const GEOCODE_INTERVAL_MS = 30000; // 30s push to Firebase (Nominatim safe rate)
+const GEOCODE_INTERVAL_MS = 10000; // 10s high-frequency real-time update interval
 const LS_KEY = 'sp_driver_tracking_active'; // localStorage persistence key
 
 // Haversine formula to compute distance in meters between two lat/lng coordinates
@@ -145,14 +148,17 @@ export default function BusAlerts() {
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (isActive && document.visibilityState === 'visible') {
-        try {
-          if ('wakeLock' in navigator) {
-            wakeLockRef.current = await navigator.wakeLock.request('screen');
-            console.log('[WakeLock] Screen Wake Lock re-acquired on visibility change.');
+        // Small delay: the page must be fully visible before WakeLock.request() succeeds
+        setTimeout(async () => {
+          try {
+            if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+              wakeLockRef.current = await navigator.wakeLock.request('screen');
+              console.log('[WakeLock] Screen Wake Lock re-acquired on visibility change.');
+            }
+          } catch (err) {
+            // Non-fatal — page may have become hidden again between the timeout and the request
           }
-        } catch (err) {
-          console.warn('[WakeLock] re-acquiring wake lock failed:', err.message);
-        }
+        }, 250);
       }
     };
 
@@ -167,26 +173,37 @@ export default function BusAlerts() {
 
   const startSilentAudio = () => {
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
       
-      const ctx = new AudioContext();
-      audioContextRef.current = ctx;
+      let ctx = audioContextRef.current;
+      if (!ctx || ctx.state === 'closed') {
+        ctx = new AudioContextClass();
+        audioContextRef.current = ctx;
+      }
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
 
       const bufferSize = ctx.sampleRate * 2; // 2 seconds
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
 
       const playLoop = () => {
-        if (!audioContextRef.current || audioContextRef.current.state === 'closed') return;
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContextRef.current.destination);
-        source.start(0);
+        if (!audioContextRef.current || audioContextRef.current.state !== 'running') return;
+        try {
+          const source = audioContextRef.current.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioContextRef.current.destination);
+          source.start(0);
+        } catch (_) {}
       };
 
       playLoop();
-      audioIntervalRef.current = setInterval(playLoop, 1500);
-      console.log('[SilentAudio] Web Audio context started.');
+      if (!audioIntervalRef.current) {
+        audioIntervalRef.current = setInterval(playLoop, 1500);
+      }
+      console.log('[SilentAudio] Web Audio context active.');
     } catch (e) {
       console.warn('[SilentAudio] Web Audio failed:', e.message);
     }
@@ -254,15 +271,13 @@ export default function BusAlerts() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
-  // ─── Firebase push ──────────────────────────────────────────────────────
-  const pushToFirebase = useCallback(async (payload) => {
-    if (!schoolId || !busKey || !rtdb) {
-      console.warn('[Firebase] push skipped — missing schoolId/busKey/rtdb', { schoolId, busKey, rtdb: !!rtdb });
+  // ─── MQTT + Firebase Broadcast ──────────────────────────────────────────
+  const pushLocationBroadcast = useCallback(async (payload) => {
+    if (!schoolId || !assignment?.bus_number) {
+      console.warn('[Broadcast] skipped — missing schoolId or bus_number');
       return;
     }
-    const path = `tracking/${schoolId}/${busKey}`;
-    
-    // Enrich payload with last known coordinates and metadata if not present to avoid wiping them on trip end
+
     const enrichedPayload = {
       lat: coordsRef.current?.lat || null,
       lng: coordsRef.current?.lng || null,
@@ -273,43 +288,23 @@ export default function BusAlerts() {
     };
 
     const csvString = encodeBusCSV(enrichedPayload);
-    console.log('[Firebase] pushing CSV to:', path, csvString);
+    const secretKey = `${schoolId}_secret_key`;
+
     try {
-      await set(ref(rtdb, path), csvString);
-      console.log('[Firebase] push OK');
+      // 1. MQTT WebSockets Broadcast (Primary - $0 Infinite Scalability)
+      const topic = await hashTopic(schoolId, assignment.bus_number);
+      const encryptedData = await encryptPayload(csvString, secretKey);
+      await mqttClient.publish(topic, encryptedData);
+      console.log('[MQTT] Broadcast sent to topic:', topic);
     } catch (e) {
-      console.error('[Firebase] push FAILED:', e.message);
+      console.error('[Broadcast] FAILED:', e.message);
     }
   }, [schoolId, busKey, assignment, user]);
 
-  // ─── Reverse geocode ────────────────────────────────────────────────────
-  const reverseGeocode = useCallback(async (lat, lng) => {
-    // Add a random delay (jitter) between 100ms and 500ms to prevent concurrent Nominatim calls
-    const jitter = Math.floor(Math.random() * 400) + 100;
-    await new Promise(resolve => setTimeout(resolve, jitter));
-
-    console.log(`[Geocode] requesting for ${lat}, ${lng} after ${jitter}ms jitter`);
-    try {
-      // zoom=18 = street/building level (max granularity for Nominatim)
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`,
-        { headers: { 'User-Agent': 'SchoolOS-BusSafeDrop/1.0 (schoolosplus@gmail.com)' } }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const name = parseAddress(data, lat, lng);
-      console.log('[Geocode] result:', name);
-      return name;
-    } catch (e) {
-      console.error('[Geocode] FAILED:', e.message);
-      return null;
-    }
-  }, []);
-
-  // ─── Geocode + push loop (called immediately + every 30s) ───────────────
+  // ─── Geocode + push loop (called immediately + every 10s) ───────────────
   const runGeocodeAndPush = useCallback(async () => {
     if (!coordsRef.current) {
-      console.warn('[Loop] skipped — no coords yet');
+      // Silently skip — coords not yet available (normal on first few ticks or web-only testing)
       return;
     }
     if (!isOnline) {
@@ -323,49 +318,44 @@ export default function BusAlerts() {
       const distanceMoved = getHaversineDistance(lastPushedCoordsRef.current, { lat, lng });
       const timeElapsed = Date.now() - lastPushTimeRef.current;
       if (distanceMoved < 20 && timeElapsed < 3 * 60 * 1000) {
-        console.log(`[GPS] Skipping Firebase push — bus is static. Moved: ${distanceMoved.toFixed(1)}m, Elapsed: ${Math.floor(timeElapsed / 1000)}s`);
+        console.log(`[GPS] Skipping broadcast — bus is static in traffic. Moved: ${distanceMoved.toFixed(1)}m, Elapsed: ${Math.floor(timeElapsed / 1000)}s`);
         return;
       }
     }
 
-    // 2. Distance-based geocoding (skip Nominatim request if moved <200m - increased threshold)
+    // 2. Address Resolution via BigDataCloud (Primary uncapped client API)
     let locationLabel = '';
     if (lastGeocodedCoordsRef.current) {
       const geocodeDistance = getHaversineDistance(lastGeocodedCoordsRef.current, { lat, lng });
-      if (geocodeDistance < 200 && cachedLocationNameRef.current) {
-        console.log(`[Geocode] Reusing cached address — distance moved since last geocode is ${geocodeDistance.toFixed(1)}m`);
+      if (geocodeDistance < 150 && cachedLocationNameRef.current) {
         locationLabel = cachedLocationNameRef.current;
       }
     }
 
     if (!locationLabel) {
-      const name = await reverseGeocode(lat, lng);
-      if (name) {
-        locationLabel = name;
+      locationLabel = await resolveReverseGeocode(lat, lng, cachedLocationNameRef.current);
+      if (locationLabel && !locationLabel.startsWith('En Route (')) {
         lastGeocodedCoordsRef.current = { lat, lng };
         cachedLocationNameRef.current = locationLabel;
-      } else {
-        // Fallback organically to cached location name or GPS coordinates to prevent UI freeze
-        locationLabel = cachedLocationNameRef.current || `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
       }
     }
 
     setLocationName(locationLabel);
     setDisplayCoords({ lat, lng }); // update map iframe
     setLastUpdated(new Date());
-    lastPushTimeRef.current = Date.now(); // record push time (background sync guard)
+    lastPushTimeRef.current = Date.now();
     lastPushedCoordsRef.current = { lat, lng };
 
-    await pushToFirebase({
+    await pushLocationBroadcast({
       location_name:   locationLabel,
       status:          'en_route',
       last_updated_ts: Date.now(),
-      lat,   // ← stored so parent can render the map
-      lng,   // ← stored so parent can render the map
+      lat,
+      lng,
       bus_number:      assignment?.bus_number || '',
       driver_name:     assignment?.driver_name || user?.email || '',
     });
-  }, [isOnline, reverseGeocode, pushToFirebase, assignment, user]);
+  }, [isOnline, pushLocationBroadcast, assignment, user]);
 
   // Keep a stable ref to runGeocodeAndPush so the native watchPosition callback
   // (captured at mount time) always calls the latest version without stale closures.
@@ -398,67 +388,87 @@ export default function BusAlerts() {
       return;
     }
 
-    // ── Step 1: Request permission via Capacitor plugin ──────────────────
-    console.log('[GPS] requesting permissions via Capacitor plugin...');
-    try {
-      const permResult = await Geolocation.requestPermissions({ permissions: ['location'] });
-      console.log('[GPS] permission result:', JSON.stringify(permResult));
+    // ── Step 1: Request permission via Capacitor plugin on native ──────────────
+    if (Capacitor.isNativePlatform()) {
+      console.log('[GPS] requesting permissions via Capacitor plugin...');
+      try {
+        const permResult = await Geolocation.requestPermissions({ permissions: ['location'] });
+        console.log('[GPS] permission result:', JSON.stringify(permResult));
 
-      const granted =
-        permResult.location === 'granted' ||
-        permResult.coarseLocation === 'granted';
+        const granted =
+          permResult.location === 'granted' ||
+          permResult.coarseLocation === 'granted';
 
-      if (!granted) {
-        console.error('[GPS] permission denied by user');
-        setHardwareErrorModal('permission_denied');
-        setGpsError(
-          'Location permission was denied. Please go to your device Settings → Apps → SchoolOS+ → Permissions → Location and set it to "Allow".'
-        );
-        setIsStarting(false);
-        return; // halt — isActive stays false
+        if (!granted) {
+          console.error('[GPS] permission denied by user');
+          setHardwareErrorModal('permission_denied');
+          setGpsError(
+            'Location permission was denied. Please go to your device Settings → Apps → SchoolOS+ → Permissions → Location and set it to "Allow".'
+          );
+          setIsStarting(false);
+          return; // halt — isActive stays false
+        }
+      } catch (permErr) {
+        console.warn('[GPS] requestPermissions error:', permErr.message);
       }
-    } catch (permErr) {
-      // On desktop browsers / HTTPS dev: requestPermissions may throw.
-      // We log it and continue — getCurrentPosition will trigger the browser dialog.
-      console.warn('[GPS] requestPermissions threw (may be browser context):', permErr.message);
+    } else {
+      console.log('[GPS] Web environment detected — using browser Geolocation API permissions.');
     }
 
-    // ── Step 2: Seed initial position immediately ─────────────────────────
+    // ── Step 2: Seed initial position with high-accuracy filter ─────────────
     console.log('[GPS] getting initial position...');
     try {
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 15000,
+        timeout: 20000,
+        maximumAge: 0,
       });
-      coordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      console.log('[GPS] initial position:', coordsRef.current);
+
+      const accuracy = pos.coords.accuracy || 0;
+      console.log(`[GPS] initial position received (lat: ${pos.coords.latitude}, lng: ${pos.coords.longitude}, accuracy: ${accuracy}m)`);
+
+      // Only reject coarse locations on native Android/iOS where a real GPS chip is available.
+      // On desktop/web, the browser IP geolocation is the only source — accept it.
+      if (Capacitor.isNativePlatform() && accuracy > 3000) {
+        console.warn(`[GPS] Initial position rejected — coarse IP geolocation detected (accuracy: ${accuracy}m). Waiting for satellite fix...`);
+      } else {
+        coordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      }
     } catch (posErr) {
       console.warn('[GPS] initial getCurrentPosition failed:', posErr.message);
-      // Non-fatal — watchPosition will supply coords
     }
 
-    // ── Step 3: Start continuous native position watch ────────────────────
+    // ── Step 3: Start continuous native position watch with accuracy filtering ─
     console.log('[GPS] starting watchPosition...');
     try {
       const id = await Geolocation.watchPosition(
-        { enableHighAccuracy: true, timeout: 15000 },
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 3000 },
         (position, err) => {
           if (err) {
-            console.error('[GPS] watchPosition callback error:', err.message);
-            setGpsError(`GPS Error: ${err.message}`);
+            console.warn('[GPS] watchPosition callback error:', err.message);
+            if (!coordsRef.current) {
+              setGpsError(`GPS Error: ${err.message}`);
+            }
             return;
           }
           if (position?.coords) {
-            const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
-            console.log('[GPS] position update:', coords);
-            coordsRef.current = coords;
+            const accuracy = position.coords.accuracy || 0;
+            const newCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
 
-            // Background-sync guard: setInterval is throttled/frozen by the OS when the
-            // app goes to background on Android. The native GPS watchPosition callback
-            // continues running. We use it as a fallback push trigger.
+            // On native (Android/iOS), reject coarse IP fallbacks — real GPS chip available.
+            // On web browsers, accept whatever accuracy the browser provides (no GPS chip).
+            if (Capacitor.isNativePlatform() && accuracy > 3000) {
+              console.warn(`[GPS] Position update rejected — coarse IP geolocation detected (accuracy: ${accuracy}m). Waiting for satellite fix...`);
+              return;
+            }
+
+            setGpsError(null);
+            console.log(`[GPS] position update accepted (lat: ${newCoords.lat}, lng: ${newCoords.lng}, accuracy: ${accuracy}m)`);
+            coordsRef.current = newCoords;
+
             const now = Date.now();
             if (now - lastPushTimeRef.current >= GEOCODE_INTERVAL_MS) {
-              lastPushTimeRef.current = now; // lock immediately — prevents double-push
+              lastPushTimeRef.current = now;
               runGeocodeAndPushRef.current?.();
             }
           }
@@ -535,9 +545,9 @@ export default function BusAlerts() {
     setLastUpdated(null);
     setGpsError(null);
 
-    // 4. Push trip_ended in the background
-    console.log('[Session] pushing trip_ended to Firebase...');
-    pushToFirebase({
+    // 4. Push trip_ended in the background via MQTT broadcast
+    console.log('[Session] pushing trip_ended broadcast...');
+    pushLocationBroadcast({
       location_name:   'Trip Ended',
       status:          'trip_ended',
       last_updated_ts: Date.now(),
@@ -546,7 +556,7 @@ export default function BusAlerts() {
     });
 
     console.log('[Session] tracking STOPPED');
-  }, [pushToFirebase, assignment, user]);
+  }, [pushLocationBroadcast, assignment, user]);
 
   const createSystemNotice = useCallback(async () => {
     if (!schoolSettings?.school_id) return;
@@ -598,7 +608,7 @@ export default function BusAlerts() {
         localStorage.removeItem(LS_KEY);
         localStorage.removeItem('sp_driver_tracking_start_ts');
         
-        pushToFirebase({
+        pushLocationBroadcast({
           location_name:   'Trip Ended (Timeout)',
           status:          'trip_ended',
           last_updated_ts: Date.now(),
@@ -890,7 +900,7 @@ export default function BusAlerts() {
         </div>
 
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-faint)', marginTop: '24px' }}>
-          Location updates every 30 seconds · Powered by OpenStreetMap
+          Location updates every 10 seconds · Real-time via MQTT
         </p>
       </div>
 
