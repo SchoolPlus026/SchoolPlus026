@@ -304,7 +304,15 @@ export default function BusAlerts() {
         last_updated_ts: Date.now()
       });
       const encryptedLwt = await encryptPayload(lwtPayload, secretKey);
+      
+      const needsLwtReconnect = !mqttClient.lwt || mqttClient.lwt.topic !== topic;
       mqttClient.setWill(topic, encryptedLwt, true);
+
+      if (needsLwtReconnect && mqttClient.isConnected) {
+        console.log('[MQTT] Reconnecting to register Will packet on broker...');
+        mqttClient.cleanup();
+        await mqttClient.connect();
+      }
 
       await mqttClient.publish(topic, encryptedData, true); // retain=true
       console.log('[MQTT] Retained broadcast sent to topic:', topic);

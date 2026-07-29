@@ -19,7 +19,7 @@
  * @returns {string}
  */
 export function encodeBusCSV({ lat, lng, status, last_updated_ts, location_name, bus_number, driver_name }) {
-  const statusCode = status === 'en_route' ? '1' : status === 'trip_ended' ? '2' : '0';
+  const statusCode = status === 'en_route' ? '1' : status === 'trip_ended' ? '2' : status === 'signal_lost' ? '3' : '0';
   
   // Replace commas with semicolons to avoid CSV split issues
   const safeLocation = (location_name || '').replace(/,/g, ';');
@@ -64,7 +64,7 @@ export function decodeBusCSV(val) {
   const bus_number    = parts[5] ? parts[5].replace(/;/g, ',') : '';
   const driver_name    = parts[6] ? parts[6].replace(/;/g, ',') : '';
 
-  const status = statusCode === '1' ? 'en_route' : statusCode === '2' ? 'trip_ended' : 'inactive';
+  const status = statusCode === '1' ? 'en_route' : statusCode === '2' ? 'trip_ended' : statusCode === '3' ? 'signal_lost' : 'inactive';
 
   return {
     lat,
