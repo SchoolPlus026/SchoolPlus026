@@ -16,7 +16,7 @@ function toBusKey(n) {
 
 // ── Per-bus live map card (subscribes to RTDB for a single bus) ─────────────
 // Renders a Google Maps iframe if the driver has pushed lat/lng.
-function BusLiveCard({ schoolId, busNumber, fbReady }) {
+function BusLiveCard({ schoolId, busNumber }) {
   const [live,   setLive]   = useState(null);
   const [secAgo, setSecAgo] = useState(null); // seconds since driver's last push
   const [mapFullscreen, setMapFullscreen] = useState(false);
@@ -58,11 +58,7 @@ function BusLiveCard({ schoolId, busNumber, fbReady }) {
     return () => clearInterval(ticker);
   }, [live?.last_updated_ts]);
 
-  if (!fbReady) return (
-    <div style={{ fontSize: '12px', color: 'var(--text-faint)', padding: '8px 0 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-      <Loader2 size={11} className="animate-spin" color="var(--text-muted)" /> Connecting to live tracking…
-    </div>
-  );
+
 
   if (!live) return (
     <div style={{ fontSize: '12px', color: 'var(--text-faint)', padding: '8px 0 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
