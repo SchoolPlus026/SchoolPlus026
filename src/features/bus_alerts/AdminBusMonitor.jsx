@@ -340,24 +340,6 @@ export default function AdminBusMonitor() {
       {/* ── TAB: MONITOR ───────────────────────────────────────────────────── */}
       {tab === 'monitor' && (
         <div>
-          {fbError && (
-            <div style={{
-              display: 'flex', alignItems: 'flex-start', gap: '12px',
-              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-              borderRadius: '14px', padding: '14px 16px', marginBottom: '16px',
-            }}>
-              <AlertCircle size={18} color="#ef4444" style={{ flexShrink: 0, marginTop: '1px' }} />
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, color: '#ef4444', fontSize: '13px', fontWeight: 600, lineHeight: 1.5 }}>
-                  {fbError}
-                </p>
-                <p style={{ margin: '4px 0 0', color: '#fca5a5', fontSize: '11px', lineHeight: 1.4 }}>
-                  Ensure that your Supabase instance has the FCM_SERVICE_ACCOUNT_KEY secret set and that the mint-firebase-token Edge Function is deployed.
-                </p>
-              </div>
-            </div>
-          )}
-
           {loadingAssign
             ? <div className="card" style={{ textAlign: 'center', padding: '32px' }}><Loader2 className="animate-spin mx-auto" size={28} color="#fbbf24" /></div>
             : assignments.length === 0
