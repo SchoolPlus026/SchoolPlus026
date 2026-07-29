@@ -5,7 +5,6 @@ import { supabase } from '../../config/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { Bus, Users, Plus, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, X, Save, MapPin, Clock, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 
-import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 import { decodeBusCSV } from '../../utils/csvCodec';
 import mqttClient from '../../utils/mqttClient';
 import { decryptPayload, hashTopic } from '../../utils/cryptoPayload';
@@ -179,25 +178,26 @@ export default function AdminBusMonitor() {
   const { schoolSettings } = useAppStore();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('monitor');
-  const [fbReady, setFbReady] = useState(false);
-  const [fbError, setFbError] = useState(null);
-
-  useEffect(() => {
-    async function authAdmin() {
-      try {
-        console.log('[AdminBusMonitor] Authenticating admin with Firebase...');
-        await ensureFirebaseAuthenticated();
-        setFbReady(true);
-        setFbError(null);
-      } catch (err) {
-        console.error('[AdminBusMonitor] Firebase auth failed:', err.message);
-        setFbError(`Live tracking connection failed: ${err.message}`);
-      }
+  const notifyConfigChange = async () => {
+    if (!schoolId) return;
+    try {
+      const versionId = 'v_' + Math.random().toString(36).substring(2, 9);
+      const rawString = `schoolos:${schoolId}:config`;
+      const encoder = new TextEncoder();
+      const data = encoder.encode(rawString);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hexHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      const configTopic = `schoolconfig/${hexHash.substring(0, 32)}`;
+      
+      await mqttClient.publish(configTopic, JSON.stringify({ type: 'bus_list_updated', version_id: versionId }), true);
+      localStorage.removeItem(`sp_bus_list_${schoolId}`);
+      localStorage.removeItem(`sp_bus_list_version_${schoolId}`);
+      console.log('[AdminBusMonitor] Broadcasted bus list update config version:', versionId);
+    } catch (e) {
+      console.warn('[AdminBusMonitor] Config update notification error:', e.message);
     }
-    if (schoolSettings?.school_id) {
-      authAdmin();
-    }
-  }, [schoolSettings?.school_id]);
+  };
 
   // ── Add form state ──────────────────────────────────────────────────────────
   const [form, setForm] = useState({ bus_number: '', route_name: '', driver_id: '' });
@@ -259,6 +259,8 @@ export default function AdminBusMonitor() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['bus-assignments-admin', schoolId]);
+      queryClient.invalidateQueries(['bus-list', schoolId]);
+      notifyConfigChange();
       setForm({ bus_number: '', route_name: '', driver_id: '' });
     },
     onError: (err) => setFormError(err.message),
@@ -280,6 +282,8 @@ export default function AdminBusMonitor() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['bus-assignments-admin', schoolId]);
+      queryClient.invalidateQueries(['bus-list', schoolId]);
+      notifyConfigChange();
       setEditingAssignment(null);
     },
     onError: (err) => setEditError(err.message),
@@ -291,7 +295,11 @@ export default function AdminBusMonitor() {
       const { error } = await supabase.from('bus_assignments').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries(['bus-assignments-admin', schoolId]),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['bus-assignments-admin', schoolId]);
+      queryClient.invalidateQueries(['bus-list', schoolId]);
+      notifyConfigChange();
+    },
   });
 
   const openEdit = (a) => {
@@ -377,8 +385,8 @@ export default function AdminBusMonitor() {
                           <span style={{ fontSize: '11px', fontWeight: 700, color: a.is_active ? '#10b981' : '#64748b' }}>{a.is_active ? 'Active' : 'Inactive'}</span>
                         </div>
                       </div>
-                      {/* ── Live map (reads from Firebase RTDB) ── */}
-                      <BusLiveCard schoolId={schoolId} busNumber={a.bus_number} fbReady={fbReady} />
+                      {/* ── Live map (reads from MQTT real-time stream) ── */}
+                      <BusLiveCard schoolId={schoolId} busNumber={a.bus_number} />
                     </div>
                   ))}
                 </div>

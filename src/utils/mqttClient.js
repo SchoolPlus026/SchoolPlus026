@@ -63,6 +63,18 @@ class MqttWebSocketClient {
     this.reconnectTimer = null;
     this.isExplicitDisconnect = false;
     this.publishQueue = [];
+    this.lwt = null; // { topic, payload, retain }
+  }
+
+  /**
+   * Set or update Last Will & Testament (LWT) for abrupt disconnects.
+   */
+  setWill(topic, payload, retain = true) {
+    this.lwt = topic ? { topic, payload, retain } : null;
+  }
+
+  clearWill() {
+    this.lwt = null;
   }
 
   /**
@@ -142,17 +154,44 @@ class MqttWebSocketClient {
   }
 
   /**
-   * Encode and send MQTT 3.1.1 CONNECT packet (0x10)
+   * Encode and send MQTT 3.1.1 CONNECT packet (0x10) with optional LWT
    */
   sendConnectPacket() {
     const encoder = new TextEncoder();
     const clientBytes = encoder.encode(this.clientId);
     
-    // Header: Protocol Name 'MQTT' (4 bytes), Level 4 (0x04), Clean Session (0x02), Keep Alive 60s (0x00 0x3C)
-    const varHeader = [0x00, 0x04, 0x4d, 0x51, 0x54, 0x54, 0x04, 0x02, 0x00, 0x3c];
+    // Connect Flags byte:
+    // Bit 1: Clean Session (1) -> 0x02
+    // Bit 2: Will Flag
+    // Bit 3-4: Will QoS (00)
+    // Bit 5: Will Retain
+    let connectFlags = 0x02;
+    let willTopicBytes = null;
+    let willPayloadBytes = null;
+
+    if (this.lwt && this.lwt.topic) {
+      connectFlags |= (1 << 2); // Will Flag = 1
+      if (this.lwt.retain) {
+        connectFlags |= (1 << 5); // Will Retain = 1
+      }
+      willTopicBytes = encoder.encode(this.lwt.topic);
+      const payloadStr = typeof this.lwt.payload === 'object' ? JSON.stringify(this.lwt.payload) : String(this.lwt.payload || '');
+      willPayloadBytes = encoder.encode(payloadStr);
+    }
+    
+    // Header: Protocol Name 'MQTT' (4 bytes), Level 4 (0x04), Connect Flags, Keep Alive 30s (0x00 0x1E)
+    const varHeader = [0x00, 0x04, 0x4d, 0x51, 0x54, 0x54, 0x04, connectFlags, 0x00, 0x1e];
     
     const clientLen = clientBytes.length;
-    const payload = [ (clientLen >> 8) & 0xff, clientLen & 0xff, ...clientBytes ];
+    let payload = [ (clientLen >> 8) & 0xff, clientLen & 0xff, ...clientBytes ];
+
+    // Append Will Topic and Will Message if Will Flag is set
+    if (willTopicBytes && willPayloadBytes) {
+      const wtLen = willTopicBytes.length;
+      const wpLen = willPayloadBytes.length;
+      payload.push((wtLen >> 8) & 0xff, wtLen & 0xff, ...willTopicBytes);
+      payload.push((wpLen >> 8) & 0xff, wpLen & 0xff, ...willPayloadBytes);
+    }
 
     const remainingLengthBytes = encodeVarLength(varHeader.length + payload.length);
     const packet = new Uint8Array([0x10, ...remainingLengthBytes, ...varHeader, ...payload]);
@@ -232,8 +271,11 @@ class MqttWebSocketClient {
 
   /**
    * Publish a payload string to an MQTT topic with spec-compliant variable length encoding.
+   * @param {string} topic
+   * @param {string|Object} payload
+   * @param {boolean} retain - If true, sets MQTT RETAIN flag (0x31)
    */
-  async publish(topic, payload) {
+  async publish(topic, payload, retain = false) {
     if (!this.isConnected) {
       this.connect().catch(() => {});
     }
@@ -247,7 +289,8 @@ class MqttWebSocketClient {
     const totalRemaining = varHeader.length + payloadBytes.length;
 
     const remainingLengthBytes = encodeVarLength(totalRemaining);
-    const packet = new Uint8Array([0x30, ...remainingLengthBytes, ...varHeader, ...payloadBytes]);
+    const fixedHeader = retain ? 0x31 : 0x30;
+    const packet = new Uint8Array([fixedHeader, ...remainingLengthBytes, ...varHeader, ...payloadBytes]);
     
     if (this.ws && this.ws.readyState === WebSocket.OPEN && this.isConnected) {
       this.ws.send(packet.buffer);

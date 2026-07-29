@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../config/supabaseClient';
-import { fbAuth } from '../../config/firebaseClient';
 import { useAppStore } from '../../store/useAppStore';
-import { Bus, MapPin, School, Clock, Loader2, RefreshCw, Navigation, WifiOff, Maximize2, Minimize2 } from 'lucide-react';
+import { Bus, MapPin, School, Clock, Loader2, RefreshCw, Navigation, WifiOff, Maximize2, Minimize2, AlertTriangle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import ModuleGuard from '../../components/ModuleGuard';
-import { ensureFirebaseAuthenticated } from '../../utils/firebaseAuth';
 import { decodeBusCSV } from '../../utils/csvCodec';
 import mqttClient from '../../utils/mqttClient';
 import { decryptPayload, hashTopic } from '../../utils/cryptoPayload';
-
-// Anonymous auth token never expires on the client — no refresh timer needed.
 
 // ─── MUST match toBusKey() in BusAlerts.jsx exactly ──────────────────────────
 function toBusKey(busNumber) {
@@ -27,20 +23,11 @@ let lastFetchCache = {
 };
 
 export default function LiveBusTracker() {
-  const { schoolSettings, role } = useAppStore();
+  const { schoolSettings } = useAppStore();
   const [selectedBus,   setSelectedBus]   = useState('');
   const [trackingData,  setTrackingData]  = useState(undefined); // undefined = not yet received
-  const [fbReady,       setFbReady]       = useState(false);
-  const [fbError,       setFbError]       = useState(null);
-  const [isConnecting,  setIsConnecting]  = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
-
-  // Local ticker states for zero-bandwidth countdown and offline status
-  const [countdown,     setCountdown]     = useState(30);
   const [isOffline,     setIsOffline]     = useState(!navigator.onLine);
-
-  const countdownTimerRef = useRef(null);
-  const pollTimerRef      = useRef(null);
 
   const schoolId = schoolSettings?.school_id;
 
@@ -51,26 +38,28 @@ export default function LiveBusTracker() {
     window.addEventListener('online',  handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
-      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('online',  handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // ─── Bus list (with 12-hour localStorage cache) ───────────────────────────
-  const { data: buses = [], isLoading: busesLoading, error: busListError } = useQuery({
+  // ─── Bus list (with version-id event-driven cache) ─────────────────────────
+  const { data: buses = [], isLoading: busesLoading, error: busListError, refetch: refetchBusList } = useQuery({
     queryKey: ['bus-list', schoolId],
     queryFn: async () => {
       console.log('[LiveBusTracker] fetching bus list for school:', schoolId);
       
       const cacheKey = `sp_bus_list_${schoolId}`;
-      const cacheTimeKey = `sp_bus_list_ts_${schoolId}`;
+      const versionKey = `sp_bus_list_version_${schoolId}`;
+      const serverVersion = localStorage.getItem('sp_bus_list_server_version') || '';
 
-      // Check 12-hour localStorage cache
+      // Check version-id cache
       try {
         const cachedStr = localStorage.getItem(cacheKey);
-        const cachedTs  = localStorage.getItem(cacheTimeKey);
-        if (cachedStr && cachedTs && Date.now() - parseInt(cachedTs, 10) < 12 * 60 * 60 * 1000) {
-          console.log('[LiveBusTracker] Reusing 12-hour cached bus list from localStorage');
+        const localVersion = localStorage.getItem(versionKey) || '';
+        
+        if (cachedStr && localVersion && serverVersion && localVersion === serverVersion) {
+          console.log('[LiveBusTracker] Reusing matching version-id cached bus list:', localVersion);
           return JSON.parse(cachedStr);
         }
       } catch (e) {
@@ -88,13 +77,15 @@ export default function LiveBusTracker() {
       if (data && data.length > 0) {
         try {
           localStorage.setItem(cacheKey, JSON.stringify(data));
-          localStorage.setItem(cacheTimeKey, Date.now().toString());
+          if (serverVersion) {
+            localStorage.setItem(versionKey, serverVersion);
+          }
         } catch (e) {
           console.warn('[LiveBusTracker] localStorage cache write error:', e.message);
         }
       }
 
-      console.log('[LiveBusTracker] bus list:', data);
+      console.log('[LiveBusTracker] bus list fetched:', data);
       return data || [];
     },
     enabled: !!schoolId,
@@ -102,193 +93,95 @@ export default function LiveBusTracker() {
     retry: 2,
   });
 
-  // ─── Firebase Custom Token Auth Bridge ───────────────────────────────────
-  const authFirebase = useCallback(async () => {
-    setIsConnecting(true);
-    setFbError(null);
-    try {
-      await ensureFirebaseAuthenticated();
-      setFbReady(true);
-    } catch (err) {
-      console.error('[LiveBusTracker] Firebase auth FAILED:', err.message);
-      setFbError(`Connection error: ${err.message}`);
-      setFbReady(false);
-    } finally {
-      setIsConnecting(false);
-    }
-  }, []);
+  // ─── Check server version vs local version on interaction ────────────────
+  const checkBusListVersionAndFetch = useCallback(() => {
+    if (!schoolId) return;
+    const serverVersion = localStorage.getItem('sp_bus_list_server_version') || '';
+    const localVersion  = localStorage.getItem(`sp_bus_list_version_${schoolId}`) || '';
 
+    if (serverVersion && serverVersion !== localVersion) {
+      console.log('[LiveBusTracker] Bus list version mismatch detected. Refetching from Supabase...');
+      refetchBusList();
+    }
+  }, [schoolId, refetchBusList]);
+
+  // Check version on mount and when returning from background
   useEffect(() => {
-    authFirebase();
-  }, [authFirebase]);
-
-  // ─── Fetch tracking data via REST fetch() ────────────────────────────────
-  const fetchTrackingData = useCallback(async () => {
-    if (!selectedBus || !schoolId) {
-      setTrackingData(undefined);
-      return;
-    }
-
-    try {
-      const busKey = toBusKey(selectedBus);
-      const rawDbUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL || '';
-      const databaseUrl = rawDbUrl.endsWith('/') ? rawDbUrl.slice(0, -1) : rawDbUrl;
-      
-      let idToken = '';
-      if (fbAuth?.currentUser) {
-        idToken = await fbAuth.currentUser.getIdToken();
-      }
-
-      const url = idToken 
-        ? `${databaseUrl}/tracking/${schoolId}/${busKey}.json?auth=${idToken}`
-        : `${databaseUrl}/tracking/${schoolId}/${busKey}.json`;
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP Error ${response.status}`);
-      }
-
-      const rawVal = await response.json();
-      const val = decodeBusCSV(rawVal);
-      console.log('[LiveBusTracker] REST data received and decoded:', val);
-
-      // Update the anti-spam cache
-      lastFetchCache = {
-        schoolId,
-        busKey,
-        data: val,
-        timestamp: Date.now()
-      };
-
-      setTrackingData(val); // null/undefined means route not started
-      setFbError(null);
-    } catch (err) {
-      console.error('[LiveBusTracker] REST fetch error:', err.message);
-      setFbError(`Live data error: ${err.message}`);
-    }
-  }, [selectedBus, schoolId]);
-
-  // ─── Polling and Ticker Control (Visibility-aware + Cache-safe) ───────────
-  useEffect(() => {
-    // Role-based polling: Admin/Headmaster gets faster refresh (15s), others get 30s
-    // Bandwidth note: Admin is 1-2 users max — doubling their polls adds <1 KB/hour, negligible
-    const pollIntervalMs = (role === 'admin') ? 15000 : 30000;
-    const pollIntervalS  = pollIntervalMs / 1000;
-
-    if (!selectedBus || !schoolId) {
-      setTrackingData(undefined);
-      setCountdown(pollIntervalS);
-      return;
-    }
-
-    const busKey = toBusKey(selectedBus);
-
-    const clearTimers = () => {
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-        countdownTimerRef.current = null;
-      }
-      if (pollTimerRef.current) {
-        clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-    };
-
-    const runTicker = (initialSeconds) => {
-      clearTimers();
-      
-      let secondsLeft = initialSeconds;
-      setCountdown(secondsLeft);
-
-      // Local ticker counting down seconds on the client
-      countdownTimerRef.current = setInterval(() => {
-        // Freeze countdown if device is offline or screen is in background
-        if (document.visibilityState !== 'visible' || !navigator.onLine) {
-          return;
-        }
-
-        secondsLeft -= 1;
-        
-        if (secondsLeft <= 0) {
-          fetchTrackingData();
-          
-          // Adaptive polling: 180s for idle routes, role-based interval for active
-          const isRouteActive = lastFetchCache.data?.status === 'en_route';
-          secondsLeft = isRouteActive ? pollIntervalS : 180;
-        }
-        
-        setCountdown(secondsLeft);
-      }, 1000);
-    };
-
-    // Anti-spam re-entry check: cache valid for one full poll interval
-    const cacheAge = Date.now() - lastFetchCache.timestamp;
-    const isCacheValid = 
-      lastFetchCache.schoolId === schoolId &&
-      lastFetchCache.busKey === busKey &&
-      cacheAge < pollIntervalMs;
-
-    if (isCacheValid) {
-      console.log('[LiveBusTracker] Reusing cached tracking details (anti-spam)');
-      setTrackingData(lastFetchCache.data);
-      
-      const elapsed = Math.floor(cacheAge / 1000);
-      const remaining = Math.max(1, pollIntervalS - elapsed);
-      runTicker(remaining);
-    } else {
-      console.log('[LiveBusTracker] Cache cold. Requesting fresh state...');
-      setTrackingData(undefined);
-      fetchTrackingData().then(() => {
-        const isRouteActive = lastFetchCache.data?.status === 'en_route';
-        runTicker(isRouteActive ? pollIntervalS : 180);
-      });
-    }
-
-    // Visibility event listener
-    const handleVisibility = () => {
+    checkBusListVersionAndFetch();
+    const handleVis = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[LiveBusTracker] Visited again. Evaluating fresh fetch...');
-        const age = Date.now() - lastFetchCache.timestamp;
-        const isActive = lastFetchCache.data?.status === 'en_route';
-        const refreshThreshold = isActive ? pollIntervalMs : 180000;
+        checkBusListVersionAndFetch();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVis);
+    return () => document.removeEventListener('visibilitychange', handleVis);
+  }, [checkBusListVersionAndFetch]);
 
-        if (age >= refreshThreshold) {
-          fetchTrackingData().then(() => {
-            runTicker(isActive ? pollIntervalS : 180);
-          });
-        } else {
-          const remaining = Math.max(1, Math.floor((refreshThreshold - age) / 1000));
-          runTicker(remaining);
+  // Listen to school config MQTT channel for real-time version_id broadcasts
+  useEffect(() => {
+    if (!schoolId) return;
+    let configTopic = null;
+
+    const handleConfigMessage = (payloadStr) => {
+      try {
+        const payload = JSON.parse(payloadStr);
+        if (payload?.type === 'bus_list_updated' && payload?.version_id) {
+          console.log('[LiveBusTracker] Received new config version:', payload.version_id);
+          localStorage.setItem('sp_bus_list_server_version', payload.version_id);
+          checkBusListVersionAndFetch();
         }
-      } else {
-        console.log('[LiveBusTracker] Page minimized/backgrounded. Suspending intervals.');
-        clearTimers();
+      } catch (e) {
+        console.warn('[LiveBusTracker] Config message parse error:', e.message);
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibility);
+    const setupConfigChannel = async () => {
+      const rawString = `schoolos:${schoolId}:config`;
+      const encoder = new TextEncoder();
+      const data = encoder.encode(rawString);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hexHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      configTopic = `schoolconfig/${hexHash.substring(0, 32)}`;
+
+      mqttClient.subscribe(configTopic, handleConfigMessage);
+    };
+
+    setupConfigChannel();
 
     return () => {
-      clearTimers();
-      document.removeEventListener('visibilitychange', handleVisibility);
+      if (configTopic) mqttClient.unsubscribe(configTopic, handleConfigMessage);
     };
-  }, [selectedBus, schoolId, fetchTrackingData, role]);
+  }, [schoolId, checkBusListVersionAndFetch]);
 
-  // ─── MQTT Real-Time WebSocket Subscription ───────────────────────────────
+  // ─── MQTT Real-Time WebSocket Subscription for Selected Bus ──────────────
   useEffect(() => {
-    if (!selectedBus || !schoolId) return;
+    if (!selectedBus || !schoolId) {
+      setTrackingData(undefined);
+      return;
+    }
 
     let activeTopic = null;
     const secretKey = `${schoolId}_secret_key`;
 
     const handleMqttMessage = async (encryptedPayload) => {
+      // Empty payload means broker retained message was cleared (route inactive)
+      if (!encryptedPayload) {
+        console.log('[LiveBusTracker] Retained topic cleared by broker');
+        setTrackingData(null);
+        return;
+      }
+
       try {
         const decryptedCsv = await decryptPayload(encryptedPayload, secretKey);
         const val = decodeBusCSV(decryptedCsv);
         if (val) {
           console.log('[LiveBusTracker] Real-time MQTT telemetry received:', val);
-          setTrackingData(val);
-          setFbError(null);
+          if (val.status === 'trip_ended') {
+            setTrackingData({ ...val, status: 'trip_ended' });
+          } else {
+            setTrackingData(val);
+          }
 
           lastFetchCache = {
             schoolId,
@@ -306,7 +199,7 @@ export default function LiveBusTracker() {
 
     const subscribeToMqtt = () => {
       if (!isSubscribed && activeTopic) {
-        console.log('[LiveBusTracker] Page active. Subscribing to MQTT topic:', activeTopic);
+        console.log('[LiveBusTracker] Subscribing to MQTT bus topic:', activeTopic);
         mqttClient.subscribe(activeTopic, handleMqttMessage);
         isSubscribed = true;
       }
@@ -314,7 +207,7 @@ export default function LiveBusTracker() {
 
     const unsubscribeFromMqtt = () => {
       if (isSubscribed && activeTopic) {
-        console.log('[LiveBusTracker] Page hidden/backgrounded. Auto-pausing MQTT topic:', activeTopic);
+        console.log('[LiveBusTracker] Unsubscribing from MQTT topic:', activeTopic);
         mqttClient.unsubscribe(activeTopic, handleMqttMessage);
         isSubscribed = false;
       }
@@ -352,18 +245,9 @@ export default function LiveBusTracker() {
     return `${m} min${m === 1 ? '' : 's'} ago`;
   };
 
-  // trackingData states:
-  //   undefined  → listener not yet attached or waiting for first value
-  //   null       → no data in RTDB (route not started)
-  //   { status: 'en_route', ... }   → live
-  //   { status: 'trip_ended', ... } → finished
-  const isLive      = trackingData?.status === 'en_route';
-  const isTripEnded = trackingData?.status === 'trip_ended';
-  // Show default "Currently at School" whenever Firebase auth failed OR
-  // the RTDB has no live data (null) OR trip has ended.
-  // We deliberately do NOT gate this on fbReady — the UI must ALWAYS
-  // render something useful when a bus is selected.
-  const showDefault = !isLive;
+  const isLive       = trackingData?.status === 'en_route';
+  const isTripEnded  = trackingData?.status === 'trip_ended';
+  const isSignalLost = trackingData?.status === 'signal_lost';
 
   return (
     <ModuleGuard moduleName="bus_alerts">
@@ -384,35 +268,6 @@ export default function LiveBusTracker() {
           </div>
         </div>
 
-        {/* ── Connection status ── */}
-        {isConnecting && (
-          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <Loader2 size={16} className="animate-spin" color="#818cf8" />
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Connecting to live tracking…</span>
-          </div>
-        )}
-        {fbError && !isConnecting && (
-          <div style={{
-            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-            borderRadius: '12px', padding: '12px 16px', marginBottom: '16px',
-            display: 'flex', alignItems: 'flex-start', gap: '10px',
-          }}>
-            <WifiOff size={16} color="#ef4444" style={{ flexShrink: 0, marginTop: '1px' }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '13px', color: '#ef4444', fontWeight: 600 }}>Live tracking unavailable</div>
-              <div style={{ fontSize: '11px', color: '#fca5a5', marginTop: '2px' }}>
-                {fbError?.includes('api-key-not-valid')
-                  ? 'Firebase API key is invalid. Check VITE_FIREBASE_API_KEY in GitHub Secrets (no trailing spaces).'
-                  : fbError}
-              </div>
-            </div>
-            <button onClick={authFirebase} title="Retry"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
-              <RefreshCw size={16} />
-            </button>
-          </div>
-        )}
-
         {/* ── Bus selector ── */}
         <div className="card" style={{ marginBottom: '24px' }}>
           <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>
@@ -430,6 +285,9 @@ export default function LiveBusTracker() {
             <select
               id="bus-select"
               value={selectedBus}
+              onClick={checkBusListVersionAndFetch}
+              onMouseDown={checkBusListVersionAndFetch}
+              onFocus={checkBusListVersionAndFetch}
               onChange={(e) => {
                 console.log('[LiveBusTracker] bus selected:', e.target.value);
                 setSelectedBus(e.target.value);
@@ -466,14 +324,30 @@ export default function LiveBusTracker() {
               </h3>
               {isLive
                 ? <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '20px', padding: '3px 10px' }}>🟢 LIVE</span>
-                : isTripEnded
-                  ? <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(100,116,139,0.1)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.25)', borderRadius: '20px', padding: '3px 10px' }}>✅ Done</span>
-                  : null
+                : isSignalLost
+                  ? <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '20px', padding: '3px 10px' }}>🟡 Signal Lost</span>
+                  : isTripEnded
+                    ? <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(100,116,139,0.1)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.25)', borderRadius: '20px', padding: '3px 10px' }}>✅ Done</span>
+                    : null
               }
             </div>
 
-            {/* Location name + timestamp — shown only when live */}
-            {isLive && (
+            {/* Signal Lost Warning Banner */}
+            {isSignalLost && (
+              <div style={{
+                background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+                borderRadius: '12px', padding: '12px 14px', marginBottom: '14px',
+                display: 'flex', alignItems: 'center', gap: '10px'
+              }}>
+                <AlertTriangle size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: '#fbbf24', fontWeight: 600 }}>
+                  Driver network signal lost. Waiting to reconnect… Showing last known location.
+                </span>
+              </div>
+            )}
+
+            {/* Location name + timestamp — shown when live or signal lost */}
+            {(isLive || isSignalLost) && (
               <div style={{ marginBottom: '14px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Bus size={13} color="#3b82f6" /> Current Location
@@ -489,19 +363,6 @@ export default function LiveBusTracker() {
                     </span>
                   </div>
                 ) : null}
-
-                {/* Client-side Zero-Bandwidth countdown indicator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', background: 'var(--input-bg)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--card-border)' }}>
-                  <RefreshCw size={10} className={isConnecting ? "animate-spin" : ""} color="var(--text-faint)" />
-                  <span style={{ fontSize: '11px', color: 'var(--text-faint)', fontWeight: 600 }}>
-                    {isOffline 
-                      ? 'Connection offline. Refresh paused.'
-                      : isConnecting 
-                        ? 'Fetching latest location…'
-                        : `Next dynamic refresh in ${countdown}s`
-                    }
-                  </span>
-                </div>
               </div>
             )}
 
@@ -514,7 +375,7 @@ export default function LiveBusTracker() {
                     src={`https://maps.google.com/maps?q=${trackingData.lat},${trackingData.lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
                     style={{
                       width: '100%', height: '350px', borderRadius: '14px',
-                      border: isLive ? '2px solid rgba(16,185,129,0.25)' : '2px solid var(--card-border)',
+                      border: isLive ? '2px solid rgba(16,185,129,0.25)' : isSignalLost ? '2px solid rgba(245,158,11,0.3)' : '2px solid var(--card-border)',
                       display: 'block',
                     }}
                     title="Bus Live Location"
@@ -587,24 +448,12 @@ export default function LiveBusTracker() {
                     {isTripEnded ? `Ended at ${fmt(trackingData?.last_updated_ts)}` : (schoolSettings?.name || 'School')}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '3px' }}>
-                    {isOffline ? 'Connection offline. Refresh paused.'
-                      : isConnecting ? 'Connecting to live tracking…'
-                      : fbError ? 'Live tracking unavailable'
-                      : fbReady 
-                        ? (isTripEnded 
-                            ? `Route completed. Checking again in ${countdown}s.` 
-                            : `Driver hasn't started the route yet. Checking again in ${countdown}s.`)
-                        : 'Waiting for location data…'}
+                    {isOffline ? 'Connection offline.'
+                      : isTripEnded 
+                        ? 'Route completed for today.'
+                        : 'Driver has not started the route yet.'}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Connecting indicator inside card */}
-            {isConnecting && !fbError && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
-                <Loader2 size={13} className="animate-spin" color="var(--text-faint)" />
-                <span style={{ fontSize: '12px', color: 'var(--text-faint)' }}>Connecting…</span>
               </div>
             )}
           </div>

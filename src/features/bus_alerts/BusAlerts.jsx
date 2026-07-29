@@ -116,6 +116,7 @@ export default function BusAlerts() {
 
   // Hardware/permission errors and background workarounds
   const [hardwareErrorModal, setHardwareErrorModal] = useState(null); // 'secure_context' | 'permission_denied' | null
+  const [showBatteryModal, setShowBatteryModal] = useState(false);
   const wakeLockRef = useRef(null);
   const audioContextRef = useRef(null);
   const audioIntervalRef = useRef(null);
@@ -291,11 +292,22 @@ export default function BusAlerts() {
     const secretKey = `${schoolId}_secret_key`;
 
     try {
-      // 1. MQTT WebSockets Broadcast (Primary - $0 Infinite Scalability)
+      // 1. MQTT WebSockets Broadcast with RETAIN=1 for late joiners
       const topic = await hashTopic(schoolId, assignment.bus_number);
       const encryptedData = await encryptPayload(csvString, secretKey);
-      await mqttClient.publish(topic, encryptedData);
-      console.log('[MQTT] Broadcast sent to topic:', topic);
+
+      // Set LWT (Last Will & Testament) for abrupt disconnects / crash / battery death
+      const lwtPayload = encodeBusCSV({
+        ...enrichedPayload,
+        status: 'signal_lost',
+        location_name: 'Driver Network Signal Lost',
+        last_updated_ts: Date.now()
+      });
+      const encryptedLwt = await encryptPayload(lwtPayload, secretKey);
+      mqttClient.setWill(topic, encryptedLwt, true);
+
+      await mqttClient.publish(topic, encryptedData, true); // retain=true
+      console.log('[MQTT] Retained broadcast sent to topic:', topic);
     } catch (e) {
       console.error('[Broadcast] FAILED:', e.message);
     }
@@ -313,12 +325,12 @@ export default function BusAlerts() {
     }
     const { lat, lng } = coordsRef.current;
 
-    // 1. Distance-based throttling (skip write if bus hasn't moved >20m and less than 3 minutes elapsed)
+    // 1. Distance-based throttling (skip write if bus hasn't moved >20m and less than 30s elapsed)
     if (lastPushedCoordsRef.current) {
       const distanceMoved = getHaversineDistance(lastPushedCoordsRef.current, { lat, lng });
       const timeElapsed = Date.now() - lastPushTimeRef.current;
-      if (distanceMoved < 20 && timeElapsed < 3 * 60 * 1000) {
-        console.log(`[GPS] Skipping broadcast — bus is static in traffic. Moved: ${distanceMoved.toFixed(1)}m, Elapsed: ${Math.floor(timeElapsed / 1000)}s`);
+      if (distanceMoved < 20 && timeElapsed < 30 * 1000) {
+        console.log(`[GPS] Skipping broadcast — bus static. Moved: ${distanceMoved.toFixed(1)}m, Elapsed: ${Math.floor(timeElapsed / 1000)}s`);
         return;
       }
     }
@@ -495,6 +507,11 @@ export default function BusAlerts() {
     setIsStarting(false);
     console.log('[Session] tracking STARTED — schoolId:', schoolId, 'busKey:', busKey);
 
+    // Check if battery optimization guidance modal should be shown
+    if (Capacitor.isNativePlatform() && !localStorage.getItem('sp_battery_opt_dismissed')) {
+      setShowBatteryModal(true);
+    }
+
     // Acquire Wake Lock & start Silent Audio Loop to prevent background suspension
     await requestWakeLock();
     startSilentAudio();
@@ -534,6 +551,9 @@ export default function BusAlerts() {
     lastGeocodedCoordsRef.current = null;
     cachedLocationNameRef.current = '';
 
+    // Clear LWT when user manually stops tracking
+    mqttClient.clearWill();
+
     // Release Wake Lock & stop Silent Audio Loop
     releaseWakeLock();
     stopSilentAudio();
@@ -545,7 +565,7 @@ export default function BusAlerts() {
     setLastUpdated(null);
     setGpsError(null);
 
-    // 4. Push trip_ended in the background via MQTT broadcast
+    // 4. Push trip_ended with RETAIN=1 so viewers receive status immediately
     console.log('[Session] pushing trip_ended broadcast...');
     pushLocationBroadcast({
       location_name:   'Trip Ended',
@@ -554,6 +574,17 @@ export default function BusAlerts() {
       bus_number:      assignment?.bus_number || '',
       driver_name:     assignment?.driver_name || user?.email || '',
     });
+
+    // 5. Clear the retained message after a 2s delay so topic resets for clean next start
+    if (schoolId && assignment?.bus_number) {
+      setTimeout(async () => {
+        try {
+          const topic = await hashTopic(schoolId, assignment.bus_number);
+          await mqttClient.publish(topic, '', true);
+          console.log('[MQTT] Cleared retained trip state on broker');
+        } catch (e) {}
+      }, 2000);
+    }
 
     console.log('[Session] tracking STOPPED');
   }, [pushLocationBroadcast, assignment, user]);
@@ -945,6 +976,56 @@ export default function BusAlerts() {
               }}
             >
               Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showBatteryModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: 'rgba(5, 5, 10, 0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+        }}>
+          <div style={{
+            width: '100%', maxWidth: '420px',
+            background: 'linear-gradient(135deg, #0f172a, #1e293b)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: '24px', padding: '28px',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '50%',
+                background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 12px'
+              }}>
+                <Clock size={28} color="#fbbf24" />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#f8fafc', margin: '0 0 8px' }}>
+                Enable Reliable Background Tracking
+              </h3>
+              <p style={{ fontSize: '13px', color: '#cbd5e1', margin: 0, lineHeight: 1.5 }}>
+                For accurate live location tracking, please disable battery optimization for this app in your device settings.
+              </p>
+            </div>
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px 14px', borderRadius: '12px', marginBottom: '20px', fontSize: '12px', color: '#94a3b8', lineHeight: 1.5 }}>
+              <strong style={{ color: '#fbbf24' }}>Recommended Setting:</strong><br />
+              Settings → Battery → Battery Optimization → SchoolOS+ → <strong>Don't Optimize / Unrestricted</strong>
+            </div>
+            <button 
+              onClick={() => {
+                localStorage.setItem('sp_battery_opt_dismissed', 'true');
+                setShowBatteryModal(false);
+              }} 
+              style={{
+                width: '100%', padding: '14px', borderRadius: '12px',
+                background: '#10b981', border: 'none',
+                color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer'
+              }}
+            >
+              Got It, Continue
             </button>
           </div>
         </div>
