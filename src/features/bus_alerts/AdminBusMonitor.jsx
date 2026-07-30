@@ -28,6 +28,10 @@ function BusLiveCard({ schoolId, busNumber }) {
     const secretKey = `${schoolId}_secret_key`;
 
     const handleMqttMessage = async (encryptedPayload) => {
+      if (!encryptedPayload) {
+        setLive(null);
+        return;
+      }
       try {
         const decryptedCsv = await decryptPayload(encryptedPayload, secretKey);
         const val = decodeBusCSV(decryptedCsv);

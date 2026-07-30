@@ -637,32 +637,90 @@ export default function BusAlerts() {
     return () => clearInterval(checkInterval);
   }, [isActive, stopTracking, createSystemNotice]);
 
-  // ─── Auto-resume on mount if session was active ──────────────────────────
+  // ─── Auto-resume and Broker State Sync on Mount ──────────────────────────
   useEffect(() => {
-    if (assignment && localStorage.getItem(LS_KEY) === 'true' && !isActive) {
+    if (!assignment || !schoolId || isActive) return;
+
+    let isSubscribed = true;
+    let busTopic = null;
+    const secretKey = `${schoolId}_secret_key`;
+
+    const syncWithBrokerRetainedState = async () => {
+      // 1. Check local storage session first
+      const hasLocalActive = localStorage.getItem(LS_KEY) === 'true';
       const startTs = Number(localStorage.getItem('sp_driver_tracking_start_ts') || '0');
       const elapsed = Date.now() - startTs;
-      if (startTs > 0 && elapsed >= 2 * 60 * 60 * 1000) {
-        console.log('[Session] persisted session has expired (>2 hours). Cleaning up...');
+
+      if (hasLocalActive && startTs > 0 && elapsed < 2 * 60 * 60 * 1000) {
+        console.log('[Session Sync] Restoring active tracking session from local storage...');
+        startTracking();
+        return;
+      }
+
+      // If local session expired, clean up local keys
+      if (hasLocalActive && elapsed >= 2 * 60 * 60 * 1000) {
+        console.log('[Session Sync] Local tracking session expired (>2 hrs). Cleaning local keys...');
         localStorage.removeItem(LS_KEY);
         localStorage.removeItem('sp_driver_tracking_start_ts');
-        
-        pushLocationBroadcast({
-          location_name:   'Trip Ended (Timeout)',
-          status:          'trip_ended',
-          last_updated_ts: Date.now(),
-          bus_number:      assignment?.bus_number || '',
-          driver_name:     assignment?.driver_name || user?.email || '',
-        });
-
-        createSystemNotice();
-      } else {
-        console.log('[Session] restoring persisted tracking session...');
-        startTracking();
       }
-    }
+
+      // 2. Query broker retained message truth to prevent state mismatch
+      try {
+        busTopic = await hashTopic(schoolId, assignment.bus_number);
+
+        let handleRetainedCheck = null;
+        handleRetainedCheck = async (encryptedPayload) => {
+          if (!isSubscribed) return;
+
+          // Unsubscribe immediately after receiving the initial retained message tick
+          if (busTopic && handleRetainedCheck) {
+            mqttClient.unsubscribe(busTopic, handleRetainedCheck);
+          }
+
+          if (!encryptedPayload) {
+            console.log('[Session Sync] Broker topic is clean. No action needed.');
+            return;
+          }
+
+          try {
+            const decryptedCsv = await decryptPayload(encryptedPayload, secretKey);
+            const val = decodeBusCSV(decryptedCsv);
+            if (!val) return;
+
+            console.log('[Session Sync] Broker retained message received:', val);
+
+            const isBrokerSessionActive = val.status === 'en_route' || val.status === 'signal_lost';
+            const msgAge = Date.now() - (val.last_updated_ts || 0);
+            const isRecent = msgAge < 2 * 60 * 60 * 1000; // less than 2 hours old
+
+            if (isBrokerSessionActive && isRecent) {
+              console.log('[Session Sync] Broker has active/signal_lost session (<2h old). Auto-resuming tracking for driver!');
+              localStorage.setItem(LS_KEY, 'true');
+              localStorage.setItem('sp_driver_tracking_start_ts', (val.last_updated_ts || Date.now()).toString());
+              startTracking();
+            } else if (isBrokerSessionActive && !isRecent) {
+              console.log('[Session Sync] Broker has expired retained session (>2h old). Wiping broker retained message...');
+              await mqttClient.publish(busTopic, '', true);
+            }
+          } catch (err) {
+            console.warn('[Session Sync] Payload decrypt/decode error:', err.message);
+          }
+        };
+
+        console.log('[Session Sync] Inspecting broker retained state on topic:', busTopic);
+        mqttClient.subscribe(busTopic, handleRetainedCheck);
+      } catch (err) {
+        console.warn('[Session Sync] Topic hash error:', err.message);
+      }
+    };
+
+    syncWithBrokerRetainedState();
+
+    return () => {
+      isSubscribed = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignment]);
+  }, [assignment, schoolId]);
 
   // ─── Cleanup on unmount ──────────────────────────────────────────────────
   useEffect(() => {
