@@ -1047,12 +1047,20 @@ export default function UserManagement() {
   };
 
   const handleDeleteSubClass = async (className) => {
+    // Block class/section deletion for Demo School 100
+    const code = String(schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
+      setShowDemoModal(true);
+      return;
+    }
     if (!window.confirm(`Are you sure you want to remove ${className}?`)) return;
     const updatedClasses = classes.filter(c => c !== className);
     const { error } = await supabase.from('school_settings').update({ classes: updatedClasses }).eq('school_id', schoolSettings.school_id);
     if (error) return alert('Error removing class: ' + error.message);
     setSchoolSettings({ ...schoolSettings, classes: updatedClasses });
   };
+
 
   return (
     <>

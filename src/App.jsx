@@ -1406,6 +1406,14 @@ function SyncPasswordResetModal() {
       return;
     }
 
+    const code = String(useAppStore.getState().schoolSettings?.school_code || '').trim();
+    const platformSettings = useAppStore.getState().platformSettings;
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (isDemoAndDisabled) {
+      setError('🔒 Demo Account Protection: Password updates are disabled for sandbox demo accounts.');
+      return;
+    }
+
     setLoading(true);
     try {
       const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword });

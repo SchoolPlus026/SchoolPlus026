@@ -248,6 +248,7 @@ export default function Login() {
 
   // Demo Login states
   const [demoLoginEnabled, setDemoLoginEnabled] = useState(true);
+  const [allowDemoEdit, setAllowDemoEdit] = useState(false); // platform toggle: allow editing demo school
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [demoLoggingRole, setDemoLoggingRole] = useState(null);
 
@@ -258,11 +259,12 @@ export default function Login() {
   // On mount: reset session & check platform settings
   useEffect(() => {
     setSchoolSettings(null);
-    supabase.from('platform_settings').select('app_name, logo_url, demo_login_enabled').single()
+    supabase.from('platform_settings').select('app_name, logo_url, demo_login_enabled, allow_demo_edit').single()
       .then(({ data }) => {
         if (data) {
           setGlobalApp({ name: data.app_name || 'SchoolOS+', logo: data.logo_url });
           setDemoLoginEnabled(data.demo_login_enabled !== false);
+          setAllowDemoEdit(data.allow_demo_edit === true);
         }
       }).catch(console.error);
   }, [setSchoolSettings]);
@@ -803,6 +805,13 @@ export default function Login() {
 
   const handleEmailPasswordReset = async (e) => {
     e.preventDefault();
+    const code = String(schoolCode || schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !allowDemoEdit;
+    if (isDemoAndDisabled) {
+      setError('🔒 Demo Account Protection: Password reset is disabled for sandbox demo accounts.');
+      return;
+    }
+
     if (!username.trim()) {
       setError('Please enter your username or email address.');
       return;
@@ -972,6 +981,14 @@ export default function Login() {
       }
       const isPasswordRec = step === 62;
       if (isPasswordRec) {
+        // Block password change via Q&A for Demo School 100
+        const code = String(schoolCode || schoolSettings?.school_code || '').trim();
+        const isDemoAndDisabled = code === '100' && !allowDemoEdit;
+        if (isDemoAndDisabled) {
+          setLoading(false);
+          setError('🔒 Demo Account Protection: Password reset is disabled for sandbox demo accounts.');
+          return;
+        }
         if (newRecoveryPassword !== confirmRecoveryPassword) throw new Error('Passwords do not match');
         if (newRecoveryPassword.length < 6) throw new Error('Password must be at least 6 characters');
       }
@@ -1006,6 +1023,12 @@ export default function Login() {
   // ─────────────────────────────────────────────────────────────────────────
   const handlePinRecoverPassword = async (e) => {
     e.preventDefault();
+    const code = String(schoolCode || schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !allowDemoEdit;
+    if (isDemoAndDisabled) {
+      setError('🔒 Demo Account Protection: Password reset is disabled for sandbox demo accounts.');
+      return;
+    }
     if (pinNewPassword !== pinConfirmPassword) { setError('Passwords do not match.'); return; }
     if (pinNewPassword.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setLoading(true);
@@ -1033,6 +1056,12 @@ export default function Login() {
   // STEP 1 of 2-step flow: Verify identity details first (dry-run)
   const handleVerifyPinDetails = async (e) => {
     e.preventDefault();
+    const code = String(schoolCode || schoolSettings?.school_code || '').trim();
+    const isDemoAndDisabled = code === '100' && !allowDemoEdit;
+    if (isDemoAndDisabled) {
+      setError('🔒 Demo Account Protection: Password reset is disabled for sandbox demo accounts.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {

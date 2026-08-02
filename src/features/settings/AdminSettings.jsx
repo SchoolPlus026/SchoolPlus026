@@ -678,7 +678,8 @@ export default function AdminSettings() {
     const file = e.target.files?.[0];
     if (!file) return;
     const code = String(schoolSettings?.school_code || '').trim();
-    if (code === '100' || code === '120' || code === '777') {
+    const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
+    if (code === '120' || code === '777' || isDemoAndDisabled) {
       setShowDemoLockModal(true);
       if (e.target) e.target.value = '';
       return;

@@ -94,14 +94,8 @@ export default function UserProfile() {
     const code = String(schoolSettings?.school_code || '').trim();
     const isDemoAndDisabled = code === '100' && !platformSettings?.allow_demo_edit;
     if (isDemoAndDisabled) {
-      const cleanUsername = editUsername.trim().toLowerCase();
-      const cleanEmail = editEmail.trim().toLowerCase();
-      const origUsername = (profile?.username || '').toLowerCase();
-      const origEmail = (profile?.email || '').toLowerCase();
-      if (cleanUsername !== origUsername || cleanEmail !== origEmail) {
-        setShowDemoModal(true);
-        return;
-      }
+      setShowDemoModal(true);
+      return;
     }
     if (!editEmail.trim() || !editEmail.includes('@')) {
       alert('Please enter a valid email address.');

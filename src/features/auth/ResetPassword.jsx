@@ -36,6 +36,18 @@ export default function ResetPassword() {
     setLoading(true);
     setError('');
     try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        const { data: userProfile } = await supabase.from('users').select('school_id').eq('id', currentUser.id).maybeSingle();
+        if (userProfile?.school_id) {
+          const { data: sch } = await supabase.from('school_settings').select('school_code').eq('school_id', userProfile.school_id).maybeSingle();
+          const { data: plat } = await supabase.from('platform_settings').select('allow_demo_edit').maybeSingle();
+          if (sch?.school_code === '100' && !plat?.allow_demo_edit) {
+            throw new Error('🔒 Demo Account Protection: Password reset is disabled for sandbox demo accounts.');
+          }
+        }
+      }
+
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       
