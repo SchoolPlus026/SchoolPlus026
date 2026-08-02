@@ -246,18 +246,98 @@ export default function Login() {
   const [colleagueNewPassword, setColleagueNewPassword] = useState('');
   const [colleagueConfirmPassword, setColleagueConfirmPassword] = useState('');
 
+  // Demo Login states
+  const [demoLoginEnabled, setDemoLoginEnabled] = useState(true);
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const [demoLoggingRole, setDemoLoggingRole] = useState(null);
+
   const [globalApp, setGlobalApp] = useState({ name: 'SchoolOS+', logo: null });
   const { setUserAndRole, setSchoolSettings, schoolSettings } = useAppStore();
   const navigate = useNavigate();
 
-  // On mount: reset session
+  // On mount: reset session & check platform settings
   useEffect(() => {
     setSchoolSettings(null);
-    supabase.from('platform_settings').select('app_name, logo_url').single()
+    supabase.from('platform_settings').select('app_name, logo_url, demo_login_enabled').single()
       .then(({ data }) => {
-        if (data) setGlobalApp({ name: data.app_name || 'SchoolOS+', logo: data.logo_url });
+        if (data) {
+          setGlobalApp({ name: data.app_name || 'SchoolOS+', logo: data.logo_url });
+          setDemoLoginEnabled(data.demo_login_enabled !== false);
+        }
       }).catch(console.error);
   }, [setSchoolSettings]);
+
+  const handleDemoLogin = async (roleKey) => {
+    setLoading(true);
+    setDemoLoggingRole(roleKey);
+    setError('');
+    try {
+      const { data: demoSchool, error: schoolErr } = await supabase
+        .from('school_settings')
+        .select('*')
+        .eq('school_code', '100')
+        .maybeSingle();
+
+      if (schoolErr || !demoSchool) {
+        throw new Error('Demo school workspace (School Code 100) not found.');
+      }
+      setSchoolSettings(demoSchool);
+
+      const demoUsernames = {
+        admin: 'Admin100',
+        teacher: 'Demo_teacher',
+        student: 'Demo_student',
+        driver: 'Demo_Driver'
+      };
+      const targetUsername = demoUsernames[roleKey];
+      if (!targetUsername) throw new Error('Invalid demo role selected.');
+
+      const { data: loginEmail, error: lookupError } = await supabase
+        .rpc('get_email_by_username', {
+          p_username: targetUsername,
+          p_school_id: demoSchool.school_id
+        });
+
+      if (lookupError || !loginEmail) {
+        throw new Error(`Demo account for username "${targetUsername}" not found.`);
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: '123456'
+      });
+
+      if (authError) throw new Error(`Demo login authentication failed: ${authError.message}`);
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        await supabase.auth.signOut();
+        throw new Error('Could not load profile for demo user.');
+      }
+
+      const enrichedUser = {
+        ...authData.user,
+        class: profile.class || null,
+        avatar_url: profile.avatar_url || null,
+        avatar_file_id: profile.avatar_file_id || null,
+        hide_avatar_from_class: !!profile.hide_avatar_from_class
+      };
+
+      setUserAndRole(enrichedUser, profile.role);
+      setShowDemoModal(false);
+      navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
+    } catch (err) {
+      setError(err.message || 'Demo login failed.');
+    } finally {
+      setLoading(false);
+      setDemoLoggingRole(null);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -1478,6 +1558,19 @@ export default function Login() {
                 Register Your School
               </button>
             </div>
+
+            {demoLoginEnabled && (
+              <div className="mt-5 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setShowDemoModal(true)}
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg hover:shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  <span className="text-base">⚡</span> Demo Login (One-Click)
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -2238,6 +2331,76 @@ export default function Login() {
       <div className="relative z-10 text-center mt-8 space-y-3">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SchoolOS+ Multi-Tenant Platform</p>
       </div>
+
+      {/* ── Demo Role Selection Modal ─────────────────────────────── */}
+      {showDemoModal && (
+        <div 
+          onClick={() => setShowDemoModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl relative"
+          >
+            <button
+              onClick={() => setShowDemoModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors"
+              title="Close"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white shadow-lg">
+                <span className="text-xl">⚡</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight">Select Demo Role</h3>
+                <p className="text-xs text-slate-400 font-medium">One-click auto-login into Sandbox School 100</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 mt-5">
+              {[
+                { key: 'admin', label: 'Admin', username: 'Admin100', icon: '👑', desc: 'Full administration & settings', color: 'from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30 hover:border-amber-400' },
+                { key: 'teacher', label: 'Teacher', username: 'Demo_teacher', icon: '👨‍🏫', desc: 'Attendance, marks & homework', color: 'from-blue-500/10 via-blue-500/5 to-transparent border-blue-500/30 hover:border-blue-400' },
+                { key: 'student', label: 'Student', username: 'Demo_student', icon: '🎓', desc: 'Timetable, notices & results', color: 'from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-500/30 hover:border-emerald-400' },
+                { key: 'driver', label: 'Driver', username: 'Demo_Driver', icon: '🚌', desc: 'Bus tracking & live routes', color: 'from-purple-500/10 via-purple-500/5 to-transparent border-purple-500/30 hover:border-purple-400' },
+              ].map((role) => (
+                <button
+                  key={role.key}
+                  type="button"
+                  onClick={() => handleDemoLogin(role.key)}
+                  disabled={loading}
+                  className={`w-full p-4 rounded-2xl border bg-gradient-to-r ${role.color} hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-between text-left disabled:opacity-50 group`}
+                >
+                  <div className="flex items-center gap-3.5">
+                    <span className="text-2xl">{role.icon}</span>
+                    <div>
+                      <div className="font-black text-sm text-white tracking-wide flex items-center gap-2">
+                        {role.label}
+                        <span className="text-[10px] text-slate-400 font-normal">({role.username})</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-semibold">{role.desc}</div>
+                    </div>
+                  </div>
+                  {loading && demoLoggingRole === role.key ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                  ) : (
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-xl bg-slate-800 text-slate-200 group-hover:bg-indigo-600 group-hover:text-white border border-slate-700 transition-all flex items-center gap-1">
+                      Login <ChevronRight size={12} />
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-[10px] text-slate-400 text-center mt-4 font-medium">
+              School Code: <strong className="text-slate-300">100</strong> • Sandbox Demo Environment
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

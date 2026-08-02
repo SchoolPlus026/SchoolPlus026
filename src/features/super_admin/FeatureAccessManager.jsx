@@ -34,6 +34,7 @@ export default function FeatureAccessManager() {
   const [globallyDisabledList, setGloballyDisabledList] = useState([]);
   const [savingKillSwitch, setSavingKillSwitch] = useState(false);
   const [allowDemoEdit, setAllowDemoEdit] = useState(false);
+  const [demoLoginEnabled, setDemoLoginEnabled] = useState(true);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
   const [savingGlobal, setSavingGlobal] = useState(false);
   const [bulkApplying, setBulkApplying] = useState(false);
@@ -68,6 +69,7 @@ export default function FeatureAccessManager() {
         setGlobalLockedList(locked);
         setGloballyDisabledList(globallyDisabled);
         setAllowDemoEdit(!!data.allow_demo_edit);
+        setDemoLoginEnabled(data.demo_login_enabled !== false);
       }
     } catch (err) {
       console.warn('Failed to fetch platform global locks:', err.message);
@@ -133,14 +135,15 @@ export default function FeatureAccessManager() {
         const { error } = await supabase.from('platform_settings')
           .update({ 
             free_tier_locked_modules: globalLockedList,
-            allow_demo_edit: allowDemoEdit
+            allow_demo_edit: allowDemoEdit,
+            demo_login_enabled: demoLoginEnabled
           })
           .eq('id', rows[0].id);
         if (error) throw error;
 
         // Sync to Zustand store
         const currentPlat = useAppStore.getState().platformSettings || {};
-        useAppStore.getState().setPlatformSettings({ ...currentPlat, allow_demo_edit: allowDemoEdit });
+        useAppStore.getState().setPlatformSettings({ ...currentPlat, allow_demo_edit: allowDemoEdit, demo_login_enabled: demoLoginEnabled });
 
         alert('Global Free Tier default locks and settings saved successfully!');
       } else {
@@ -148,13 +151,14 @@ export default function FeatureAccessManager() {
         const { error } = await supabase.from('platform_settings')
           .insert({ 
             free_tier_locked_modules: globalLockedList,
-            allow_demo_edit: allowDemoEdit
+            allow_demo_edit: allowDemoEdit,
+            demo_login_enabled: demoLoginEnabled
           });
         if (error) throw error;
 
         // Sync to Zustand store
         const currentPlat = useAppStore.getState().platformSettings || {};
-        useAppStore.getState().setPlatformSettings({ ...currentPlat, allow_demo_edit: allowDemoEdit });
+        useAppStore.getState().setPlatformSettings({ ...currentPlat, allow_demo_edit: allowDemoEdit, demo_login_enabled: demoLoginEnabled });
 
         alert('Global Free Tier default locks and settings saved successfully!');
       }
@@ -428,6 +432,49 @@ export default function FeatureAccessManager() {
                     } catch (err) {
                       alert('Failed to save demo protection setting: ' + err.message);
                       setAllowDemoEdit(!checked);
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Standalone Demo Login Toggle Card */}
+          <div className="card p-5 rounded-3xl relative overflow-hidden" style={{ borderLeft: '4px solid #6366f1', background: 'rgba(99, 102, 241, 0.05)', padding: '20px', borderRadius: '24px', position: 'relative' }}>
+            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            <div className="flex items-center justify-between gap-4 flex-wrap relative z-10" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+              <div className="flex items-start gap-3" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl" style={{ padding: '8px', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Unlock size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-200 uppercase tracking-wider" style={{ fontSize: '13px', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Main Login Screen Demo Access Switch</h4>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5" style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Toggle whether the one-click 'Demo Login' button is visible to everyone on the initial login screen.</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer select-none" style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', userSelect: 'none' }}>
+                <span className="text-xs font-black text-indigo-300 uppercase tracking-wider" style={{ fontSize: '12px', fontWeight: 800, color: '#818cf8' }}>{demoLoginEnabled ? "ON (Visible on Login)" : "OFF (Hidden)"}</span>
+                <input
+                  type="checkbox"
+                  checked={demoLoginEnabled}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    setDemoLoginEnabled(checked);
+                    try {
+                      const { error } = await supabase
+                        .from('platform_settings')
+                        .update({ demo_login_enabled: checked })
+                        .neq('id', '00000000-0000-0000-0000-000000000000');
+                      if (error) throw error;
+                      
+                      const currentPlat = useAppStore.getState().platformSettings || {};
+                      useAppStore.getState().setPlatformSettings({ ...currentPlat, demo_login_enabled: checked });
+                      alert(`Demo login feature on login screen set to: ${checked ? 'ENABLED (Visible)' : 'DISABLED (Hidden)'}`);
+                    } catch (err) {
+                      alert('Failed to save demo login setting: ' + err.message);
+                      setDemoLoginEnabled(!checked);
                     }
                   }}
                   className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
