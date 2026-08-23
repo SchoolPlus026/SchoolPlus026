@@ -15,7 +15,7 @@ import { sortModules } from '../../utils/dashboardSorter';
 // They have a restricted view — only the modules the Admin has enabled
 // and that are relevant to a non-teaching, non-driving employee.
 const MODULES = [
-  { name: 'My Profile',     path: '/staff/profile',        icon: <User size={26} />,           colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
+  { name: 'My Profile',     path: '/staff/profile',        icon: <User size={26} />,           colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'default'         },
   { name: 'Users',          path: '/staff/users',          icon: <Users size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
   { name: 'Attendance',     path: '/staff/attendance',     icon: <ClipboardList size={26} />,  colorHex: '#818cf8', bgRgb: '129,140,248',  moduleId: 'attendance'    },
   { name: 'Fees',           path: '/staff/fees',           icon: <DollarSign size={26} />,     colorHex: '#34d399', bgRgb: '52,211,153',   moduleId: 'fees'          },

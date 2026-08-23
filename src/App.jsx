@@ -290,7 +290,7 @@ export default function App() {
         console.log('[SyncSession] querying users table for profile...');
         const { data: profile, error: profileError } = await supabase
           .from('users')
-          .select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class')
+          .select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class, accessible_modules')
           .eq('id', session.user.id)
           .single();
         console.log('[SyncSession] users query complete. profile:', profile, 'error:', profileError);
@@ -340,7 +340,8 @@ export default function App() {
           class: profile.class || null,
           avatar_url: profile.avatar_url || null,
           avatar_file_id: profile.avatar_file_id || null,
-          hide_avatar_from_class: !!profile.hide_avatar_from_class
+          hide_avatar_from_class: !!profile.hide_avatar_from_class,
+          accessible_modules: profile.accessible_modules || []
         };
 
         // Platform Admin has no school — skip school settings lookup
@@ -1311,7 +1312,7 @@ export default function App() {
         <Route path="/staff" element={<NotificationProvider><StaffLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard"     element={<StaffDashboard />} />
-          <Route path="profile"       element={<ModuleGuard moduleName="users"><UserProfile /></ModuleGuard>} />
+          <Route path="profile"       element={<UserProfile />} />
           <Route path="users"         element={<ModuleGuard moduleName="users"><UserManagement /></ModuleGuard>} />
           <Route path="attendance"    element={<ModuleGuard moduleName="attendance"><MarkAttendance /></ModuleGuard>} />
           <Route path="fees"          element={<ModuleGuard moduleName="fees"><FeatureGuard feature="fees"><AdminFeeManager /></FeatureGuard></ModuleGuard>} />

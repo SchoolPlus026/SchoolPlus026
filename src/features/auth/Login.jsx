@@ -313,7 +313,7 @@ export default function Login() {
 
       const { data: profile, error: profileError } = await supabase
         .from('users')
-        .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class')
+        .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class, accessible_modules')
         .eq('id', authData.user.id)
         .single();
 
@@ -327,7 +327,8 @@ export default function Login() {
         class: profile.class || null,
         avatar_url: profile.avatar_url || null,
         avatar_file_id: profile.avatar_file_id || null,
-        hide_avatar_from_class: !!profile.hide_avatar_from_class
+        hide_avatar_from_class: !!profile.hide_avatar_from_class,
+        accessible_modules: profile.accessible_modules || []
       };
 
       setUserAndRole(enrichedUser, profile.role);
@@ -584,7 +585,7 @@ export default function Login() {
 
       const { data: profile, error: profileError } = await supabase
         .from('users')
-        .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class')
+        .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class, accessible_modules')
         .eq('id', authData.user.id)
         .single();
 
@@ -609,7 +610,8 @@ export default function Login() {
         class: profile.class || null,
         avatar_url: profile.avatar_url || null,
         avatar_file_id: profile.avatar_file_id || null,
-        hide_avatar_from_class: !!profile.hide_avatar_from_class
+        hide_avatar_from_class: !!profile.hide_avatar_from_class,
+        accessible_modules: profile.accessible_modules || []
       };
       setUserAndRole(enrichedUser, profile.role);
       navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
@@ -1221,7 +1223,7 @@ export default function Login() {
     // Fetch user profile
     const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class')
+      .select('role, school_id, name, class, avatar_url, avatar_file_id, hide_avatar_from_class, accessible_modules')
       .eq('id', authData.user.id)
       .single();
 
@@ -1256,8 +1258,9 @@ export default function Login() {
       class: profile.class || null,
       avatar_url: profile.avatar_url || null,
       avatar_file_id: profile.avatar_file_id || null,
-      hide_avatar_from_class: !!profile.hide_avatar_from_class
-    };
+      hide_avatar_from_class: !!profile.hide_avatar_from_class,
+        accessible_modules: profile.accessible_modules || []
+      };
     setUserAndRole(enrichedUser, profile.role);
     navigate(profile.role === 'platform_admin' ? '/platform-admin' : `/${profile.role}`, { replace: true });
   };
@@ -1341,15 +1344,16 @@ export default function Login() {
       setSuccess('Password updated! Taking you to your dashboard...');
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase.from('users').select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('users').select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class, accessible_modules').eq('id', user.id).single();
         if (profile) {
           const enrichedUser = { 
             ...user, 
             class: profile.class || null,
             avatar_url: profile.avatar_url || null,
             avatar_file_id: profile.avatar_file_id || null,
-            hide_avatar_from_class: !!profile.hide_avatar_from_class
-          };
+            hide_avatar_from_class: !!profile.hide_avatar_from_class,
+        accessible_modules: profile.accessible_modules || []
+      };
           setUserAndRole(enrichedUser, profile.role);
           navigate(`/${profile.role}`, { replace: true });
         }
@@ -1389,13 +1393,14 @@ export default function Login() {
         token_hash: verifyData.token_hash, type: 'magiclink'
       });
       if (authError) throw authError;
-      const { data: profile } = await supabase.from('users').select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class').eq('id', authData.user.id).single();
+      const { data: profile } = await supabase.from('users').select('role, school_id, class, avatar_url, avatar_file_id, hide_avatar_from_class, accessible_modules').eq('id', authData.user.id).single();
       const enrichedUser = { 
         ...authData.user, 
         class: profile?.class || null,
         avatar_url: profile?.avatar_url || null,
         avatar_file_id: profile?.avatar_file_id || null,
-        hide_avatar_from_class: !!profile?.hide_avatar_from_class
+        hide_avatar_from_class: !!profile?.hide_avatar_from_class,
+        accessible_modules: profile?.accessible_modules || []
       };
       setUserAndRole(enrichedUser, profile.role);
       navigate(`/${profile.role}`, { replace: true });
