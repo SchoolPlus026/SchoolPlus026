@@ -1310,16 +1310,29 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRoles={['staff']} />}>
         <Route path="/staff" element={<NotificationProvider><StaffLayout /></NotificationProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard"    element={<StaffDashboard />} />
-          <Route path="profile"      element={<UserProfile />} />
-          <Route path="notices"      element={<NoticeBoard />} />
-          <Route path="calendar"     element={<CalendarEvents />} />
-          <Route path="leaves"       element={<LeavesManager />} />
-          <Route path="gallery"      element={<GalleryManager />} />
-          <Route path="contact"      element={<Contact />} />
-          <Route path="knowledge-base" element={<KnowledgeBase />} />
-          <Route path="complaint-box" element={<ComplaintBox />} />
-          <Route path="settings"     element={<SharedSettings />} />
+          <Route path="dashboard"     element={<StaffDashboard />} />
+          <Route path="profile"       element={<ModuleGuard moduleName="users"><UserProfile /></ModuleGuard>} />
+          <Route path="users"         element={<ModuleGuard moduleName="users"><UserManagement /></ModuleGuard>} />
+          <Route path="attendance"    element={<ModuleGuard moduleName="attendance"><MarkAttendance /></ModuleGuard>} />
+          <Route path="fees"          element={<ModuleGuard moduleName="fees"><FeatureGuard feature="fees"><AdminFeeManager /></FeatureGuard></ModuleGuard>} />
+          <Route path="calendar"      element={<ModuleGuard moduleName="calendar"><CalendarEvents /></ModuleGuard>} />
+          <Route path="notices"       element={<ModuleGuard moduleName="notices"><NoticeManager /></ModuleGuard>} />
+          <Route path="gallery"       element={<ModuleGuard moduleName="gallery"><GalleryManager /></ModuleGuard>} />
+          <Route path="timetable"     element={<ModuleGuard moduleName="timetable"><FeatureGuard feature="timetable"><TimetableManager /></FeatureGuard></ModuleGuard>} />
+          <Route path="off-classes"   element={<ModuleGuard moduleName="off_classes"><OffClasses /></ModuleGuard>} />
+          <Route path="leaves"        element={<ModuleGuard moduleName="leaves"><FeatureGuard feature="leaves"><LeavesManager /></FeatureGuard></ModuleGuard>} />
+          <Route path="reports"       element={<ModuleGuard moduleName="reports"><FeatureGuard feature="reports"><Reports /></FeatureGuard></ModuleGuard>} />
+          <Route path="contact"       element={<Contact />} />
+          <Route path="complaint-box" element={<ModuleGuard moduleName="complaint_box"><ComplaintBox /></ModuleGuard>} />
+          <Route path="knowledge-base" element={<ModuleGuard moduleName="knowledge_base"><KnowledgeBase /></ModuleGuard>} />
+          <Route path="settings"      element={<SharedSettings />} />
+          <Route path="bus-alerts"    element={<ModuleGuard moduleName="bus_alerts"><AdminBusMonitor /></ModuleGuard>} />
+          <Route path="syllabus"      element={<ModuleGuard moduleName="syllabus"><SyllabusTracker /></ModuleGuard>} />
+          <Route path="lost-and-found" element={<ModuleGuard moduleName="lost_found"><FeatureGuard feature="lost_found"><LostAndFound /></FeatureGuard></ModuleGuard>} />
+          <Route path="emergency"     element={<ModuleGuard moduleName="emergency"><FeatureGuard feature="emergency"><EmergencyManager /></FeatureGuard></ModuleGuard>} />
+          <Route path="achievers"     element={<AchieversBoard />} />
+          <Route path="executive-briefing" element={<ModuleGuard moduleName="executive_briefing"><FeatureGuard feature="executive_briefing"><ExecutiveBriefingPage /></FeatureGuard></ModuleGuard>} />
+          <Route path="staff-pending-duty" element={<ModuleGuard moduleName="duty_radar"><FeatureGuard feature="duty_radar"><StaffPendingDutyPage /></FeatureGuard></ModuleGuard>} />
         </Route>
       </Route>
 

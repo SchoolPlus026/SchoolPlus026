@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  User, Bell, CalendarHeart, Image, Calendar,
-  BookOpen, MessageSquare, Settings, AlertTriangle, Search, X
+  LayoutGrid, User, Users, ClipboardList, DollarSign, Calendar, Bell, Image,
+  Clock, CalendarX, CalendarHeart, LineChart, MessageSquare, Bus, Book, Search,
+  AlertTriangle, CreditCard, BookOpen, Target, Radar, Trophy, Settings, X
 } from 'lucide-react';
 import DashboardHero from '../../components/DashboardHero';
 import { useAppStore } from '../../store/useAppStore';
@@ -14,17 +15,27 @@ import { sortModules } from '../../utils/dashboardSorter';
 // They have a restricted view — only the modules the Admin has enabled
 // and that are relevant to a non-teaching, non-driving employee.
 const MODULES = [
-  { name: 'My Profile',    path: '/staff/profile',       icon: <User size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
-  { name: 'Calendar',      path: '/staff/calendar',      icon: <Calendar size={26} />,      colorHex: '#2dd4bf', bgRgb: '45,212,191',   moduleId: 'calendar'      },
-  { name: 'Notices',       path: '/staff/notices',       icon: <Bell size={26} />,          colorHex: '#fbbf24', bgRgb: '251,191,36',   moduleId: 'notices'       },
-  { name: 'Leaves',        path: '/staff/leaves',        icon: <CalendarHeart size={26} />, colorHex: '#fb7185', bgRgb: '251,113,133',  moduleId: 'leaves'        },
-  { name: 'Gallery',       path: '/staff/gallery',       icon: <Image size={26} />,         colorHex: '#f472b6', bgRgb: '244,114,182',  moduleId: 'gallery'       },
-
-  { name: 'Help',path: '/staff/knowledge-base',icon: <BookOpen size={26} />,      colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'knowledge_base'},
-  { name: 'Complaint Box', path: '/staff/complaint-box', icon: <MessageSquare size={26} />, colorHex: '#f43f5e', bgRgb: '244,63,94',    moduleId: 'complaint_box' },
-  // Contact module removed — relocated to Settings > Contact Us
-  { name: 'Emergency Alerts',path: '/staff/emergency',   icon: <AlertTriangle size={26} />, colorHex: '#ef4444', bgRgb: '239,68,68',    moduleId: 'emergency'     },
-  { name: 'Settings',      path: '/staff/settings',      icon: <Settings size={26} />,      colorHex: '#94a3b8', bgRgb: '148,163,184',  moduleId: 'default'      },
+  { name: 'My Profile',     path: '/staff/profile',        icon: <User size={26} />,           colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
+  { name: 'Users',          path: '/staff/users',          icon: <Users size={26} />,          colorHex: '#60a5fa', bgRgb: '96,165,250',   moduleId: 'users'         },
+  { name: 'Attendance',     path: '/staff/attendance',     icon: <ClipboardList size={26} />,  colorHex: '#818cf8', bgRgb: '129,140,248',  moduleId: 'attendance'    },
+  { name: 'Fees',           path: '/staff/fees',           icon: <DollarSign size={26} />,     colorHex: '#34d399', bgRgb: '52,211,153',   moduleId: 'fees'          },
+  { name: 'Calendar',       path: '/staff/calendar',       icon: <Calendar size={26} />,       colorHex: '#2dd4bf', bgRgb: '45,212,191',   moduleId: 'calendar'      },
+  { name: 'Notices',        path: '/staff/notices',        icon: <Bell size={26} />,           colorHex: '#fbbf24', bgRgb: '251,191,36',   moduleId: 'notices'       },
+  { name: 'Gallery',        path: '/staff/gallery',        icon: <Image size={26} />,          colorHex: '#f472b6', bgRgb: '244,114,182',  moduleId: 'gallery'       },
+  { name: 'Timetable',      path: '/staff/timetable',      icon: <Clock size={26} />,          colorHex: '#c084fc', bgRgb: '192,132,252',  moduleId: 'timetable'     },
+  { name: 'Off Classes',    path: '/staff/off-classes',    icon: <CalendarX size={26} />,      colorHex: '#fb923c', bgRgb: '251,146,60',   moduleId: 'off_classes'   },
+  { name: 'Leaves',         path: '/staff/leaves',         icon: <CalendarHeart size={26} />,  colorHex: '#fb7185', bgRgb: '251,113,133',  moduleId: 'leaves'        },
+  { name: 'Reports',        path: '/staff/reports',        icon: <LineChart size={26} />,      colorHex: '#22d3ee', bgRgb: '34,211,238',   moduleId: 'reports'       },
+  { name: 'Complaint Box',  path: '/staff/complaint-box',  icon: <MessageSquare size={26} />,  colorHex: '#f43f5e', bgRgb: '244,63,94',    moduleId: 'complaint_box' },
+  { name: 'Bus Tracker',     path: '/staff/bus-alerts',     icon: <Bus size={26} />,            colorHex: '#fbbf24', bgRgb: '251,191,36',   moduleId: 'bus_alerts'    },
+  { name: 'Syllabus Tracker',path: '/staff/syllabus',      icon: <Book size={26} />,           colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'syllabus'      },
+  { name: 'Lost & Found',   path: '/staff/lost-and-found', icon: <Search size={26} />,         colorHex: '#10b981', bgRgb: '16,185,129',   moduleId: 'lost_found'    },
+  { name: 'Emergency Alerts',path: '/staff/emergency',     icon: <AlertTriangle size={26} />,  colorHex: '#ef4444', bgRgb: '239,68,68',    moduleId: 'emergency'     },
+  { name: 'Help', path: '/staff/knowledge-base', icon: <BookOpen size={26} />,       colorHex: '#38bdf8', bgRgb: '56,189,248',   moduleId: 'knowledge_base'},
+  { name: 'Executive Briefing', path: '/staff/executive-briefing',  icon: <Target size={26} />,         colorHex: '#818cf8', bgRgb: '129,140,248',  moduleId: 'executive_briefing'},
+  { name: 'Staff Pending Duty', path: '/staff/staff-pending-duty',  icon: <Radar size={26} />,          colorHex: '#fb7185', bgRgb: '251,113,133',  moduleId: 'duty_radar'},
+  { name: 'Achievers Board', path: '/staff/achievers', icon: <Trophy size={26} />, colorHex: '#F59E0B', bgRgb: '245,158,11', moduleId: 'default'},
+  { name: 'Settings',       path: '/staff/settings',       icon: <Settings size={26} />,       colorHex: '#94a3b8', bgRgb: '148,163,184',  moduleId: 'settings'      },
 ];
 
 export default function StaffDashboard() {

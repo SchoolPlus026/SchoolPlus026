@@ -8,10 +8,11 @@ import UserAvatar from '../../components/UserAvatar';
 import {
   Users, Search, UserPlus, Filter, Loader2, Phone, BookOpen,
   CreditCard, X, Save, Calendar, Droplet, MapPin, GraduationCap, BadgeInfo, Lock, Bus, Plus, Trash2,
-  Upload, Download, CheckCircle2, AlertTriangle, FileSpreadsheet, Play, Check, AlertCircle, Layers
+  Upload, Download, CheckCircle2, AlertTriangle, FileSpreadsheet, Play, Check, AlertCircle, Layers, Briefcase
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Capacitor } from '@capacitor/core';
+import { ALL_MODULES, getModuleName } from '../../utils/moduleRegistry';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
@@ -171,6 +172,7 @@ export default function UserManagement() {
     email: '', username: '', name: '', password: '', contact: '',
     userClass: '', dob: '', bloodGroup: '', address: '',
     designation: '', qualification: '', rollNumber: '',
+    accessible_modules: []
   });
   // Bus allocation for new driver (only visible when activeTab === 'driver')
   const [busAlloc, setBusAlloc] = useState({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
@@ -836,6 +838,7 @@ export default function UserManagement() {
           p_designation: f.designation || null,
           p_qualification: f.qualification || null,
           p_roll_number: f.rollNumber || null,
+          p_accessible_modules: f.accessible_modules || [],
         });
         if (error) throw error;
 
@@ -904,7 +907,7 @@ export default function UserManagement() {
         alert('User created successfully!');
       }
 
-      setAddForm({ email: '', username: '', name: '', password: '', contact: '', userClass: '', dob: '', bloodGroup: '', address: '', designation: '', qualification: '', rollNumber: '' });
+      setAddForm({ email: '', username: '', name: '', password: '', contact: '', userClass: '', dob: '', bloodGroup: '', address: '', designation: '', qualification: '', rollNumber: '', accessible_modules: [] });
       setBusAlloc({ mode: 'existing', existingBusId: '', newBusNumber: '', newRouteName: '' });
     },
     onError: (err) => alert('Error: ' + err.message),
@@ -926,6 +929,7 @@ export default function UserManagement() {
         p_qualification: editForm.qualification || null,
         p_designation: editForm.designation || null,
         p_roll_number: editForm.roll_number || null,
+        p_accessible_modules: editForm.accessible_modules || [],
       });
       if (error) throw error;
     },
@@ -1072,6 +1076,7 @@ export default function UserManagement() {
           {[
             ['teacher', 'Teachers', BookOpen],
             ['student', 'Students', Users],
+            ['staff', 'Non-Teaching Staff', Briefcase],
             ['driver', 'Drivers', Bus],
             ['requests', 'New Student Requests', Users]
           ].map(([tab, label, Icon]) => {
@@ -1417,7 +1422,31 @@ export default function UserManagement() {
                 <EField label="Qualification" field="qualification" editForm={editForm} setEditForm={setEditForm} />
               )}
               {activeTab === 'staff' && (
-                <EField label="Designation" field="designation" editForm={editForm} setEditForm={setEditForm} />
+                <div className="space-y-4">
+                  <EField label="Designation" field="designation" editForm={editForm} setEditForm={setEditForm} />
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-2">Accessible Modules</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(schoolSettings?.modules_active || []).map(mId => {
+                        const isChecked = editForm.accessible_modules?.includes(mId);
+                        const mName = getModuleName(mId);
+                        return (
+                          <label key={mId} className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                            <input type="checkbox" checked={isChecked || false} onChange={(e) => {
+                              setEditForm(f => {
+                                const newMods = e.target.checked 
+                                  ? [...(f.accessible_modules||[]), mId]
+                                  : (f.accessible_modules||[]).filter(id => id !== mId);
+                                return { ...f, accessible_modules: newMods };
+                              });
+                            }} className="rounded text-primary focus:ring-primary" />
+                            <span className="truncate">{mName}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               )}
 
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">System Information</p>
@@ -1575,10 +1604,54 @@ export default function UserManagement() {
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary" />
                     </div>
                     {activeTab === 'staff' && (
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Designation</label>
-                        <input type="text" value={addForm.designation} onChange={e => setAddForm(f => ({ ...f, designation: e.target.value }))} placeholder="e.g. Clerk, Librarian"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary" />
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-1.5">Designation</label>
+                          <select 
+                            value={addForm.designation} 
+                            onChange={e => {
+                              const newDesig = e.target.value;
+                              const updates = { designation: newDesig };
+                              if (newDesig === 'Accountant') updates.accessible_modules = ['fees', 'reports', 'billing'];
+                              else if (newDesig === 'Clerk') updates.accessible_modules = ['users', 'attendance', 'notices', 'calendar'];
+                              else if (newDesig === 'Receptionist') updates.accessible_modules = ['users', 'complaint_box', 'notices', 'calendar'];
+                              setAddForm(f => ({ ...f, ...updates }));
+                            }}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary mb-2"
+                          >
+                            <option value="">-- Select Designation --</option>
+                            <option value="Clerk">Clerk</option>
+                            <option value="Accountant">Accountant</option>
+                            <option value="Receptionist">Receptionist</option>
+                            <option value="Other">Other (Custom)</option>
+                          </select>
+                          {addForm.designation === 'Other' && (
+                            <input type="text" onChange={e => setAddForm(f => ({ ...f, designation: e.target.value }))} placeholder="e.g. Librarian, IT Admin"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 leading-normal focus:outline-none focus:ring-2 focus:ring-primary" />
+                          )}
+                        </div>
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block mb-2">Accessible Modules</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {(schoolSettings?.modules_active || []).map(mId => {
+                              const isChecked = addForm.accessible_modules?.includes(mId);
+                              const mName = getModuleName(mId);
+                              return (
+                                <label key={mId} className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                                  <input type="checkbox" checked={isChecked || false} onChange={(e) => {
+                                    setAddForm(f => {
+                                      const newMods = e.target.checked 
+                                        ? [...(f.accessible_modules||[]), mId]
+                                        : (f.accessible_modules||[]).filter(id => id !== mId);
+                                      return { ...f, accessible_modules: newMods };
+                                    });
+                                  }} className="rounded text-primary focus:ring-primary" />
+                                  <span className="truncate">{mName}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

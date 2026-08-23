@@ -8,7 +8,7 @@ import { useAppStore } from '../store/useAppStore';
  * inline=false → Full page route guard (renders lock screen when disabled).
  */
 export default function ModuleGuard({ moduleName, children, inline = false, alwaysVisible = false }) {
-  const { schoolSettings, role, platformSettings } = useAppStore();
+  const { schoolSettings, role, platformSettings, user } = useAppStore();
   const activeModules = schoolSettings?.modules_active || [];
   const lockedModules = schoolSettings?.locked_modules || [];
   const globallyDisabledModules = Array.isArray(platformSettings?.globally_disabled_modules)
@@ -47,7 +47,15 @@ export default function ModuleGuard({ moduleName, children, inline = false, alwa
     ? true 
     : (activeModules.length === 0 || activeModules.includes(moduleName));
 
-  const isEnabled = isModuleActiveInSchool && !isLockedForSchool;
+  let isEnabled = isModuleActiveInSchool && !isLockedForSchool;
+
+  // ── 3rd Priority: User-Level Permissions (Staff) ────────────────
+  if (isEnabled && role === 'staff' && moduleName !== 'default' && moduleName !== 'settings') {
+    const accessibleModules = user?.accessible_modules || [];
+    if (!accessibleModules.includes(moduleName)) {
+      isEnabled = false;
+    }
+  }
 
   if (inline) {
     return isEnabled ? children : null;
